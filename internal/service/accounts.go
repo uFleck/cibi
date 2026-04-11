@@ -58,3 +58,30 @@ func (s *AccountsService) DeleteAccount(id uuid.UUID) error {
 	}
 	return nil
 }
+
+// GetByID returns a single account by ID.
+// Returns sql.ErrNoRows (wrapped) when the account does not exist.
+func (s *AccountsService) GetByID(id uuid.UUID) (sqlite.Account, error) {
+	acc, err := s.accRepo.GetByID(id)
+	if err != nil {
+		return acc, fmt.Errorf("service.GetByID: %w", err)
+	}
+	return acc, nil
+}
+
+// UpdateAccount patches mutable fields on an account.
+// Pass nil for fields that should not change.
+// name: nil = no change; balance: nil = no change.
+func (s *AccountsService) UpdateAccount(id uuid.UUID, name *string, balance *int64) error {
+	if name != nil {
+		if err := s.accRepo.UpdateName(id, *name); err != nil {
+			return fmt.Errorf("service.UpdateAccount: name: %w", err)
+		}
+	}
+	if balance != nil {
+		if err := s.accRepo.UpdateBalance(id, *balance, nil); err != nil {
+			return fmt.Errorf("service.UpdateAccount: balance: %w", err)
+		}
+	}
+	return nil
+}
