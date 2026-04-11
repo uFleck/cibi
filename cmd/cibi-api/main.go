@@ -1,37 +1,21 @@
 package main
 
 import (
-	"fmt"
+	"log"
 
-	"github.com/labstack/echo/v4"
-	"github.com/ufleck/cibi/db"
-	"github.com/ufleck/cibi/handlers"
-	"github.com/ufleck/cibi/repos"
-	"github.com/ufleck/cibi/services"
+	"github.com/ufleck/cibi/internal/app"
+	"github.com/ufleck/cibi/internal/config"
 )
 
 func main() {
-	err := db.Init()
+	cfg := config.LoadConfig()
+
+	application, err := app.New(cfg)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatalf("Failed to initialize app: %v", err)
 	}
 
-	accountsRepo := repos.SqliteAccRepo{}
-	txnsRepo := repos.NewSqliteTxnsRepo(&accountsRepo)
-	txnsSrvc := services.NewTransactionsSrvc(&txnsRepo, &accountsRepo)
-	accSrvc := services.NewAccountsSrvc(&accountsRepo, &txnsRepo, txnsSrvc)
-
-	e := echo.New()
-
-	accHandler := handlers.AccountsHandler{
-		AccSrvc: &accSrvc,
+	if err := application.Start(); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
 	}
-	txnsHandler := handlers.TransactionsHandler{
-		TxnsSrvc: txnsSrvc,
-	}
-
-	handlers.SetupRoutes(e, &accHandler, &txnsHandler)
-
-	e.Logger.Fatal(e.Start(":42069"))
 }
