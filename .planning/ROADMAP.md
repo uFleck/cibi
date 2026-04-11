@@ -82,13 +82,14 @@
 
 **Success Criteria** (what must be TRUE):
   1. `cibi check 75` prints a verdict (YES/NO), purchasing power, buffer remaining, and risk level within 100ms — no HTTP server running required
-  2. `cibi tx add --recurring --frequency monthly --anchor 2024-03-01 --amount 850 --description "Rent"` creates a recurring transaction and subsequent `cibi tx list` shows it with the correct next occurrence date
+  2. `cibi tx add --recurring --frequency monthly --anchor 2024-03-01 --amount -850.00 --description "Rent"` creates a recurring transaction and subsequent `cibi tx list` shows it with the correct next occurrence date
   3. `cibi account list` shows all accounts with balances formatted as decimal currency (not raw cents); `cibi account set-default <id>` changes which account the engine queries
   4. `cibi --config /path/to/config.yaml check 50` loads the specified config file and uses its safety buffer and database path values
 
-**Plans**: TBD
+**Plans**: 1 plan (4 tasks, Wave 1)
 
-**UI hint**: yes
+Plans:
+- [x] 03-PLAN.md — AccountsService + App wiring + CLI (root, account, tx, check commands)
 
 ---
 
@@ -153,7 +154,7 @@
 |-------|----------------|--------|-----------|
 | 1. Foundation | 0/? | Not started | - |
 | 2. Domain + Engine | 0/? | Not started | - |
-| 3. CLI | 0/? | Not started | - |
+| 3. CLI | 1/1 | Complete | 2026-04-11 |
 | 4. API Layer | 0/? | Not started | - |
 | 5. Web Dashboard | 0/? | Not started | - |
 | 6. MCP Server | 0/? | Not started | - |
