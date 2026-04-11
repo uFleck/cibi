@@ -1,4 +1,4 @@
-module github.com/ufleck/cibi-api
+module github.com/ufleck/cibi
 
 go 1.22.0
 

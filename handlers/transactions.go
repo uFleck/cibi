@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/ufleck/cibi-api/services"
-	"github.com/ufleck/cibi-api/types"
+	"github.com/ufleck/cibi/services"
+	"github.com/ufleck/cibi/types"
 )
 
 type TransactionsHandler struct {
