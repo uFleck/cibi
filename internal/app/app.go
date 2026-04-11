@@ -1,18 +1,17 @@
 package app
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
 	"github.com/labstack/echo/v4"
 	"github.com/ufleck/cibi/db"
-	"github.com/ufleck/cibi/handlers"
 	"github.com/ufleck/cibi/internal/config"
+	"github.com/ufleck/cibi/internal/handler"
 	"github.com/ufleck/cibi/internal/migrations"
 	reposqlite "github.com/ufleck/cibi/internal/repo/sqlite"
 	"github.com/ufleck/cibi/internal/service"
-	"github.com/ufleck/cibi/repos"
-	"github.com/ufleck/cibi/services"
 )
 
 // App is the fully wired application graph.
@@ -20,12 +19,6 @@ type App struct {
 	cfg         config.Config
 	db          *sql.DB
 	Echo        *echo.Echo
-
-	// Legacy handlers (Echo routing — not modified in Phase 2).
-	AccHandler  *handlers.AccountsHandler
-	TxnsHandler *handlers.TransactionsHandler
-
-	// Phase 2: internal service layer (used by CLI in Phase 3).
 	AccountsSvc *service.AccountsService
 	TxnsSvc     *service.TransactionsService
 	EngineSvc   *service.EngineService
@@ -42,20 +35,7 @@ func New(cfg config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	// --- Legacy wiring (repos/, services/, handlers/) ---
-	accRepo := repos.NewSqliteAccRepo(database)
-	txnsRepo := repos.NewSqliteTxnsRepo(accRepo, database)
-
-	txnsSrvc := services.NewTransactionsSrvc(txnsRepo, accRepo)
-	accSrvc := services.NewAccountsSrvc(accRepo, txnsRepo, txnsSrvc)
-
-	accHandler := handlers.AccountsHandler{AccSrvc: &accSrvc}
-	txnsHandler := handlers.TransactionsHandler{TxnsSrvc: txnsSrvc}
-
-	e := echo.New()
-	handlers.SetupRoutes(e, &accHandler, &txnsHandler)
-
-	// --- Phase 2: internal repo + service wiring ---
+	// Internal repo + service wiring.
 	iAccRepo := reposqlite.NewSqliteAccountsRepo(database)
 	iTxnsRepo := reposqlite.NewSqliteTxnsRepo(database)
 	iPsRepo := reposqlite.NewSqlitePayScheduleRepo(database)
@@ -65,12 +45,16 @@ func New(cfg config.Config) (*App, error) {
 	txnsSvc := service.NewTransactionsService(iTxnsRepo, iAccRepo)
 	engineSvc := service.NewEngineService(iAccRepo, iTxnsRepo, iPsRepo, iBufRepo)
 
+	e := echo.New()
+	e.HTTPErrorHandler = handler.CustomHTTPErrorHandler
+	e.Validator = handler.NewCustomValidator()
+
+	handler.SetupRoutes(e, accountsSvc, txnsSvc, engineSvc)
+
 	return &App{
 		cfg:         cfg,
 		db:          database,
 		Echo:        e,
-		AccHandler:  &accHandler,
-		TxnsHandler: &txnsHandler,
 		AccountsSvc: accountsSvc,
 		TxnsSvc:     txnsSvc,
 		EngineSvc:   engineSvc,
@@ -80,4 +64,9 @@ func New(cfg config.Config) (*App, error) {
 // Start starts the Echo HTTP server.
 func (a *App) Start() error {
 	return a.Echo.Start(a.cfg.ServerPort)
+}
+
+// Shutdown gracefully stops the Echo server with the provided context timeout.
+func (a *App) Shutdown(ctx context.Context) error {
+	return a.Echo.Shutdown(ctx)
 }

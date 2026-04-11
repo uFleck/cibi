@@ -16,11 +16,12 @@ import (
 
 // mockAccountsService satisfies the AccountsServiceIface for handler tests.
 type mockAccountsService struct {
-	listFn    func() ([]sqlite.Account, error)
-	createFn  func(a sqlite.Account) error
-	getByIDFn func(id uuid.UUID) (sqlite.Account, error)
-	updateFn  func(id uuid.UUID, name *string, balance *int64) error
-	deleteFn  func(id uuid.UUID) error
+	listFn       func() ([]sqlite.Account, error)
+	createFn     func(a sqlite.Account) error
+	getDefaultFn func() (sqlite.Account, error)
+	getByIDFn    func(id uuid.UUID) (sqlite.Account, error)
+	updateFn     func(id uuid.UUID, name *string, balance *int64) error
+	deleteFn     func(id uuid.UUID) error
 }
 
 func (m *mockAccountsService) ListAccounts() ([]sqlite.Account, error) {
@@ -33,6 +34,13 @@ func (m *mockAccountsService) ListAccounts() ([]sqlite.Account, error) {
 func (m *mockAccountsService) CreateAccount(a sqlite.Account) error {
 	if m.createFn != nil {
 		return m.createFn(a)
+	}
+	panic("not implemented")
+}
+
+func (m *mockAccountsService) GetDefault() (sqlite.Account, error) {
+	if m.getDefaultFn != nil {
+		return m.getDefaultFn()
 	}
 	panic("not implemented")
 }
@@ -60,10 +68,11 @@ func (m *mockAccountsService) DeleteAccount(id uuid.UUID) error {
 
 // mockTransactionsService satisfies the TransactionsServiceIface for handler tests.
 type mockTransactionsService struct {
-	listFn   func(accountID uuid.UUID) ([]sqlite.Transaction, error)
-	createFn func(t sqlite.Transaction) error
-	updateFn func(id uuid.UUID, upd sqlite.UpdateTransaction) error
-	deleteFn func(id uuid.UUID) error
+	listFn      func(accountID uuid.UUID) ([]sqlite.Transaction, error)
+	createFn    func(t sqlite.Transaction) error
+	getByIDFn   func(id uuid.UUID) (sqlite.Transaction, error)
+	updateFn    func(id uuid.UUID, upd sqlite.UpdateTransaction) error
+	deleteFn    func(id uuid.UUID) error
 }
 
 func (m *mockTransactionsService) ListTransactions(accountID uuid.UUID) ([]sqlite.Transaction, error) {
@@ -76,6 +85,13 @@ func (m *mockTransactionsService) ListTransactions(accountID uuid.UUID) ([]sqlit
 func (m *mockTransactionsService) CreateTransaction(t sqlite.Transaction) error {
 	if m.createFn != nil {
 		return m.createFn(t)
+	}
+	panic("not implemented")
+}
+
+func (m *mockTransactionsService) GetTransaction(id uuid.UUID) (sqlite.Transaction, error) {
+	if m.getByIDFn != nil {
+		return m.getByIDFn(id)
 	}
 	panic("not implemented")
 }
