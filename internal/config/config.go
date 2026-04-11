@@ -18,7 +18,7 @@ func LoadConfig() Config {
 
 	viper.SetDefault("DatabasePath", "./db/cibi.db")
 	viper.SetDefault("ServerPort", ":42069")
-	viper.SetDefault("SafetyBuffer", 0)
+	viper.SetDefault("SafetyBuffer", 1000)
 
 	var config Config
 	if err := viper.Unmarshal(&config); err != nil {
