@@ -177,7 +177,7 @@ func (r *SqliteAccountsRepo) DeleteByID(id uuid.UUID) error {
 	if err != nil {
 		return fmt.Errorf("accounts.DeleteByID: begin: %w", err)
 	}
-	if _, err = tx.Exec(`DELETE FROM Transaction WHERE account_id = ?`, id.String()); err != nil {
+	if _, err = tx.Exec(`DELETE FROM "Transaction" WHERE account_id = ?`, id.String()); err != nil {
 		tx.Rollback()
 		return fmt.Errorf("accounts.DeleteByID: delete txns: %w", err)
 	}
