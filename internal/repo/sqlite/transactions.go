@@ -76,7 +76,7 @@ func (r *SqliteTxnsRepo) Insert(t Transaction) error {
 	}
 
 	_, err := r.db.Exec(
-		`INSERT INTO Transaction
+		`INSERT INTO "Transaction"
 		(id, account_id, amount, description, category, timestamp, is_recurring, frequency, anchor_date, next_occurrence)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		t.ID.String(),
@@ -100,7 +100,7 @@ func (r *SqliteTxnsRepo) GetByAccount(accountID uuid.UUID) ([]Transaction, error
 	rows, err := r.db.Query(
 		`SELECT id, account_id, amount, description, category, timestamp,
 		        is_recurring, frequency, anchor_date, next_occurrence
-		 FROM Transaction WHERE account_id = ?`,
+		 FROM "Transaction" WHERE account_id = ?`,
 		accountID.String(),
 	)
 	if err != nil {
@@ -123,7 +123,7 @@ func (r *SqliteTxnsRepo) GetByID(id uuid.UUID) (Transaction, error) {
 	row := r.db.QueryRow(
 		`SELECT id, account_id, amount, description, category, timestamp,
 		        is_recurring, frequency, anchor_date, next_occurrence
-		 FROM Transaction WHERE id = ?`,
+		 FROM "Transaction" WHERE id = ?`,
 		id.String(),
 	)
 	t, err := scanTransactionRow(row)
@@ -135,23 +135,23 @@ func (r *SqliteTxnsRepo) GetByID(id uuid.UUID) (Transaction, error) {
 
 func (r *SqliteTxnsRepo) Update(id uuid.UUID, upd UpdateTransaction) error {
 	if upd.Description != nil {
-		if _, err := r.db.Exec(`UPDATE Transaction SET description = ? WHERE id = ?`, *upd.Description, id.String()); err != nil {
+		if _, err := r.db.Exec(`UPDATE "Transaction" SET description = ? WHERE id = ?`, *upd.Description, id.String()); err != nil {
 			return fmt.Errorf("transactions.Update description: %w", err)
 		}
 	}
 	if upd.Category != nil {
-		if _, err := r.db.Exec(`UPDATE Transaction SET category = ? WHERE id = ?`, *upd.Category, id.String()); err != nil {
+		if _, err := r.db.Exec(`UPDATE "Transaction" SET category = ? WHERE id = ?`, *upd.Category, id.String()); err != nil {
 			return fmt.Errorf("transactions.Update category: %w", err)
 		}
 	}
 	if upd.Amount != nil {
-		if _, err := r.db.Exec(`UPDATE Transaction SET amount = ? WHERE id = ?`, *upd.Amount, id.String()); err != nil {
+		if _, err := r.db.Exec(`UPDATE "Transaction" SET amount = ? WHERE id = ?`, *upd.Amount, id.String()); err != nil {
 			return fmt.Errorf("transactions.Update amount: %w", err)
 		}
 	}
 	if upd.NextOccurrence != nil {
 		nextStr := upd.NextOccurrence.UTC().Format(time.RFC3339)
-		if _, err := r.db.Exec(`UPDATE Transaction SET next_occurrence = ? WHERE id = ?`, nextStr, id.String()); err != nil {
+		if _, err := r.db.Exec(`UPDATE "Transaction" SET next_occurrence = ? WHERE id = ?`, nextStr, id.String()); err != nil {
 			return fmt.Errorf("transactions.Update next_occurrence: %w", err)
 		}
 	}
@@ -159,7 +159,7 @@ func (r *SqliteTxnsRepo) Update(id uuid.UUID, upd UpdateTransaction) error {
 }
 
 func (r *SqliteTxnsRepo) DeleteByID(id uuid.UUID) error {
-	_, err := r.db.Exec(`DELETE FROM Transaction WHERE id = ?`, id.String())
+	_, err := r.db.Exec(`DELETE FROM "Transaction" WHERE id = ?`, id.String())
 	if err != nil {
 		return fmt.Errorf("transactions.DeleteByID: %w", err)
 	}
@@ -172,9 +172,9 @@ func (r *SqliteTxnsRepo) AdvanceNextOccurrence(id uuid.UUID, next time.Time, tx 
 	nextStr := next.UTC().Format(time.RFC3339)
 	var err error
 	if tx != nil {
-		_, err = tx.Exec(`UPDATE Transaction SET next_occurrence = ? WHERE id = ?`, nextStr, id.String())
+		_, err = tx.Exec(`UPDATE "Transaction" SET next_occurrence = ? WHERE id = ?`, nextStr, id.String())
 	} else {
-		_, err = r.db.Exec(`UPDATE Transaction SET next_occurrence = ? WHERE id = ?`, nextStr, id.String())
+		_, err = r.db.Exec(`UPDATE "Transaction" SET next_occurrence = ? WHERE id = ?`, nextStr, id.String())
 	}
 	if err != nil {
 		return fmt.Errorf("transactions.AdvanceNextOccurrence: %w", err)
@@ -192,7 +192,7 @@ func (r *SqliteTxnsRepo) SumUpcomingObligations(accountID uuid.UUID, after, onOr
 	var sum int64
 	err := r.db.QueryRow(
 		`SELECT COALESCE(SUM(amount), 0)
-		 FROM Transaction
+		 FROM "Transaction"
 		 WHERE account_id = ?
 		   AND is_recurring = 1
 		   AND next_occurrence > ?

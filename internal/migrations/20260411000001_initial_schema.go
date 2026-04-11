@@ -20,7 +20,7 @@ func upInitialSchema(ctx context.Context, tx *sql.Tx) error {
 			currency TEXT,
 			is_default BOOLEAN
 		);`,
-		`CREATE TABLE IF NOT EXISTS Transaction (
+		`CREATE TABLE IF NOT EXISTS "Transaction" (
 			id TEXT PRIMARY KEY,
 			account_id TEXT REFERENCES Account(id),
 			amount INTEGER,
