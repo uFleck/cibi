@@ -4,41 +4,18 @@ import (
 	"database/sql"
 	"fmt"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
-var Conn *sql.DB
-
-func Init() error {
-	var err error
-
-	Conn, err = sql.Open("sqlite3", "./db/cibi-api.db")
+func Init(dbPath string) (*sql.DB, error) {
+	dsn := fmt.Sprintf("%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(ON)", dbPath)
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
-		return fmt.Errorf("Error when opening database: %w", err)
+		return nil, fmt.Errorf("error when opening database: %w", err)
 	}
 
-	_, err = Conn.Exec(`CREATE TABLE IF NOT EXISTS accounts (
-		id VARCHAR primary key,
-		name TEXT,
-		balance DECIMAL,
-		is_default INTEGER);`)
-	if err != nil {
-		return fmt.Errorf("Error when creating accounts table: %w ", err)
-	}
+	db.SetMaxOpenConns(1)
 
-	_, err = Conn.Exec(`CREATE TABLE IF NOT EXISTS transactions (
-		id VARCHAR primary key,
-		account_id VARCHAR,
-		name TEXT,
-		description TEXT,
-		value DECIMAL,
-		evaluates_at TIMESTAMP,
-		evaluated_at TIMESTAMP,
-		evaluated BOOLEAN,
-		foreign key (account_id) references accounts(account_id));`)
-	if err != nil {
-		return fmt.Errorf("Error when creating transactions table: %w", err)
-	}
-
-	return nil
+	return db, nil
 }
+
