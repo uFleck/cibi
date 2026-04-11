@@ -106,7 +106,12 @@ Plans:
   2. `GET /accounts`, `POST /accounts`, `GET /transactions`, `POST /transactions`, `PATCH /transactions/:id`, `DELETE /transactions/:id` all return correct JSON responses with consistent error shape on bad input
   3. The API starts and stops cleanly (graceful shutdown on SIGTERM); a malformed request body returns a structured JSON error, not a 500
 
-**Plans**: TBD
+**Plans**: 3 plans (Wave 1 → Wave 2 → Wave 3)
+
+Plans:
+- [ ] 04-01-PLAN.md — Service gap (GetByID, UpdateAccount) + internal/handler/ scaffold + Wave 0 test stubs
+- [ ] 04-02-PLAN.md — All route handlers (accounts, transactions, check) + app.go rewire + legacy package deletion + openapi.yaml
+- [ ] 04-03-PLAN.md — Graceful shutdown in cmd/cibi-api/main.go + phase gate verification
 
 ---
 
@@ -155,6 +160,6 @@ Plans:
 | 1. Foundation | 0/? | Not started | - |
 | 2. Domain + Engine | 0/? | Not started | - |
 | 3. CLI | 1/1 | Complete | 2026-04-11 |
-| 4. API Layer | 0/? | Not started | - |
+| 4. API Layer | 0/3 | Not started | - |
 | 5. Web Dashboard | 0/? | Not started | - |
 | 6. MCP Server | 0/? | Not started | - |
