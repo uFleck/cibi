@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/ufleck/cibi-api/data"
-	"github.com/ufleck/cibi-api/db"
+	"github.com/ufleck/cibi/data"
+	"github.com/ufleck/cibi/db"
 )
 
 type TransactionsRepo interface {
