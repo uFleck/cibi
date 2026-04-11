@@ -109,9 +109,9 @@ Plans:
 **Plans**: 3 plans (Wave 1 → Wave 2 → Wave 3)
 
 Plans:
-- [ ] 04-01-PLAN.md — Service gap (GetByID, UpdateAccount) + internal/handler/ scaffold + Wave 0 test stubs
-- [ ] 04-02-PLAN.md — All route handlers (accounts, transactions, check) + app.go rewire + legacy package deletion + openapi.yaml
-- [ ] 04-03-PLAN.md — Graceful shutdown in cmd/cibi-api/main.go + phase gate verification
+- [x] 04-01-PLAN.md — Service gap (GetByID, UpdateAccount) + internal/handler/ scaffold + Wave 0 test stubs
+- [x] 04-02-PLAN.md — All route handlers (accounts, transactions, check) + app.go rewire + legacy package deletion + openapi.yaml
+- [x] 04-03-PLAN.md — Graceful shutdown in cmd/cibi-api/main.go + phase gate verification
 
 ---
 
