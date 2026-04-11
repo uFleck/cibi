@@ -1,13 +1,13 @@
 package repos
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/ufleck/cibi/data"
-	"github.com/ufleck/cibi/db"
 )
 
 type TransactionsRepo interface {
@@ -18,16 +18,18 @@ type TransactionsRepo interface {
 
 type SqliteTxnsRepo struct {
 	accsRepo AccountsRepo
+	db       *sql.DB
 }
 
-func NewSqliteTxnsRepo(accsRepo AccountsRepo) SqliteTxnsRepo {
-	return SqliteTxnsRepo{
+func NewSqliteTxnsRepo(accsRepo AccountsRepo, db *sql.DB) *SqliteTxnsRepo {
+	return &SqliteTxnsRepo{
 		accsRepo: accsRepo,
+		db:       db,
 	}
 }
 
 func (repo *SqliteTxnsRepo) Insert(t data.Transaction, acc data.Account) error {
-	tx, err := db.Conn.Begin()
+	tx, err := repo.db.Begin()
 	if err != nil {
 		return err
 	}
@@ -63,7 +65,7 @@ func (repo *SqliteTxnsRepo) Insert(t data.Transaction, acc data.Account) error {
 }
 
 func (repo *SqliteTxnsRepo) GetAccTxns(accountId uuid.UUID) (data.Transactions, error) {
-	rows, err := db.Conn.Query("select id, name, description, value, evaluates_at, evaluated_at, evaluated from transactions where account_id = ?", accountId)
+	rows, err := repo.db.Query("select id, name, description, value, evaluates_at, evaluated_at, evaluated from transactions where account_id = ?", accountId)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +121,7 @@ func (repo *SqliteTxnsRepo) Update(tId uuid.UUID, newt UpdateTransaction) error 
 
 	query.WriteString(" where id = " + tId.String())
 
-	_, err := db.Conn.Exec(query.String())
+	_, err := repo.db.Exec(query.String())
 	if err != nil {
 		return fmt.Errorf("Could not update transaction %v: %w", tId, err)
 	}

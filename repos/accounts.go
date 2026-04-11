@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ufleck/cibi/data"
-	"github.com/ufleck/cibi/db"
 )
 
 type AccountsRepo interface {
@@ -21,10 +20,16 @@ type AccountsRepo interface {
 	DeleteById(accId uuid.UUID) error
 }
 
-type SqliteAccRepo struct{}
+type SqliteAccRepo struct{
+	db *sql.DB
+}
+
+func NewSqliteAccRepo(db *sql.DB) *SqliteAccRepo {
+	return &SqliteAccRepo{db: db}
+}
 
 func (repo *SqliteAccRepo) Insert(a data.Account) error {
-	tx, err := db.Conn.Begin()
+	tx, err := repo.db.Begin()
 	if err != nil {
 		return err
 	}
@@ -52,7 +57,7 @@ func (repo *SqliteAccRepo) UnsetDefaults(tx *sql.Tx) error {
 	if tx != nil {
 		_, err = tx.Exec("update accounts set is_default = 0 where is_default = 1")
 	} else {
-		_, err = db.Conn.Exec("update accounts set is_default = 0 where is_default = 1")
+		_, err = repo.db.Exec("update accounts set is_default = 0 where is_default = 1")
 	}
 
 	if err != nil {
@@ -65,7 +70,7 @@ func (repo *SqliteAccRepo) UnsetDefaults(tx *sql.Tx) error {
 func (repo *SqliteAccRepo) GetAll() (data.Accounts, error) {
 	var accounts data.Accounts
 
-	rows, err := db.Conn.Query("select * from accounts")
+	rows, err := repo.db.Query("select * from accounts")
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +91,7 @@ func (repo *SqliteAccRepo) GetAll() (data.Accounts, error) {
 
 func (repo *SqliteAccRepo) GetDefault() (data.Account, error) {
 	var account data.Account
-	err := db.Conn.QueryRow("select * from accounts where is_default = 1").Scan(&account.Id, &account.Name, &account.Balance, &account.IsDefault)
+	err := repo.db.QueryRow("select * from accounts where is_default = 1").Scan(&account.Id, &account.Name, &account.Balance, &account.IsDefault)
 
 	if err != nil {
 		return account, err
@@ -96,7 +101,7 @@ func (repo *SqliteAccRepo) GetDefault() (data.Account, error) {
 
 func (repo *SqliteAccRepo) GetById(id uuid.UUID) (data.Account, error) {
 	var account data.Account
-	err := db.Conn.QueryRow("select * from accounts where id = ?", id).Scan(&account.Id, &account.Name, &account.Balance, &account.IsDefault)
+	err := repo.db.QueryRow("select * from accounts where id = ?", id).Scan(&account.Id, &account.Name, &account.Balance, &account.IsDefault)
 
 	if err != nil {
 		return account, err
@@ -110,7 +115,7 @@ func (repo *SqliteAccRepo) UpdateBalance(accountId uuid.UUID, balance float64, t
 	if tx != nil {
 		_, err = tx.Exec("update accounts set balance = ? where id = ?", balance, accountId)
 	} else {
-		_, err = db.Conn.Exec("update accounts set balance = ? where id = ?", balance, accountId)
+		_, err = repo.db.Exec("update accounts set balance = ? where id = ?", balance, accountId)
 	}
 
 	if err != nil {
@@ -121,7 +126,7 @@ func (repo *SqliteAccRepo) UpdateBalance(accountId uuid.UUID, balance float64, t
 }
 
 func (repo *SqliteAccRepo) UpdateName(accId uuid.UUID, newname string) error {
-	_, err := db.Conn.Exec("update accounts set name = ? where id = ?", newname, accId)
+	_, err := repo.db.Exec("update accounts set name = ? where id = ?", newname, accId)
 	if err != nil {
 		return err
 	}
@@ -130,7 +135,7 @@ func (repo *SqliteAccRepo) UpdateName(accId uuid.UUID, newname string) error {
 }
 
 func (repo *SqliteAccRepo) UpdateIsDefault(accId uuid.UUID, isDefault bool) error {
-	tx, err := db.Conn.Begin()
+	tx, err := repo.db.Begin()
 	if err != nil {
 		return err
 	}
@@ -155,7 +160,7 @@ func (repo *SqliteAccRepo) UpdateIsDefault(accId uuid.UUID, isDefault bool) erro
 }
 
 func (repo *SqliteAccRepo) DeleteById(accId uuid.UUID) error {
-	tx, err := db.Conn.Begin()
+	tx, err := repo.db.Begin()
 	if err != nil {
 		return err
 	}
