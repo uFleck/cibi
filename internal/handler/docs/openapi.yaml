@@ -1,0 +1,261 @@
+openapi: "3.0.3"
+info:
+  title: CIBI API
+  version: "1.0.0"
+  description: Can I Buy It? — personal finance decision API
+paths:
+  /accounts:
+    get:
+      summary: List all accounts
+      responses:
+        "200":
+          description: Array of account objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Account"
+    post:
+      summary: Create an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountRequest"
+      responses:
+        "201":
+          description: Created account
+        "400":
+          $ref: "#/components/responses/Error"
+  /accounts/default:
+    get:
+      summary: Get the default account
+      responses:
+        "200":
+          description: Default account
+        "404":
+          $ref: "#/components/responses/Error"
+  /accounts/{id}:
+    get:
+      summary: Get account by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Account object
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      summary: Update account fields
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchAccountRequest"
+      responses:
+        "200":
+          description: Updated account
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      summary: Delete an account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/Error"
+  /transactions:
+    get:
+      summary: List transactions for an account
+      parameters:
+        - name: account_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Array of transactions
+        "400":
+          $ref: "#/components/responses/Error"
+    post:
+      summary: Create a transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransactionRequest"
+      responses:
+        "201":
+          description: Created transaction
+        "400":
+          $ref: "#/components/responses/Error"
+  /transactions/{id}:
+    patch:
+      summary: Update a transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Updated transaction
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      summary: Delete a transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+  /check:
+    post:
+      summary: Check if a purchase is affordable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckRequest"
+      responses:
+        "200":
+          description: Engine decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+  /docs:
+    get:
+      summary: This OpenAPI specification
+      responses:
+        "200":
+          description: YAML document
+components:
+  schemas:
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        current_balance:
+          type: number
+          format: float
+          description: Balance in dollars
+        currency:
+          type: string
+        is_default:
+          type: boolean
+    CreateAccountRequest:
+      type: object
+      required: [name, currency]
+      properties:
+        name:
+          type: string
+        current_balance:
+          type: number
+          format: float
+        currency:
+          type: string
+        is_default:
+          type: boolean
+    PatchAccountRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        current_balance:
+          type: number
+          format: float
+    CreateTransactionRequest:
+      type: object
+      required: [account_id, amount, description]
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: float
+          description: Positive = credit, negative = debit (dollars)
+        description:
+          type: string
+        category:
+          type: string
+        is_recurring:
+          type: boolean
+        frequency:
+          type: string
+          enum: [weekly, bi-weekly, monthly, yearly]
+        anchor_date:
+          type: string
+          format: date-time
+    CheckRequest:
+      type: object
+      required: [amount]
+      properties:
+        amount:
+          type: number
+          format: float
+          minimum: 0.01
+          description: Purchase amount in dollars
+    CheckResponse:
+      type: object
+      properties:
+        can_buy:
+          type: boolean
+        purchasing_power:
+          type: number
+          format: float
+        buffer_remaining:
+          type: number
+          format: float
+        risk_level:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, BLOCKED]
+  responses:
+    Error:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
