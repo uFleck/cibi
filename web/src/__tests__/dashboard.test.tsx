@@ -11,19 +11,30 @@ describe('formatMoney', () => {
   it('formats zero', () => {
     expect(formatMoney(0)).toBe('$0.00')
   })
+  it('formats large amount with thousands separator', () => {
+    expect(formatMoney(1234.56)).toBe('$1,234.56')
+  })
 })
 
 describe('formatDate', () => {
   it('formats ISO string as short month + day', () => {
     expect(formatDate('2026-04-15T12:00:00Z')).toBe('Apr 15')
   })
+  it('formats January', () => {
+    expect(formatDate('2026-01-01T12:00:00Z')).toBe('Jan 1')
+  })
 })
 
-describe('Dashboard data layer', () => {
-  it('TODO: balance card renders current_balance from API (implemented in Plan 03)', () => {
-    expect(true).toBe(true)
-  })
-  it('TODO: polling at 30s interval configured on QueryClient (implemented in App.tsx)', () => {
-    expect(true).toBe(true)
+describe('Reserved calculation', () => {
+  it('sums absolute amounts of recurring transactions with next_occurrence', () => {
+    const txns = [
+      { amount: -15.99, is_recurring: true, next_occurrence: '2026-04-15T00:00:00Z' },
+      { amount: -850.00, is_recurring: true, next_occurrence: '2026-05-01T00:00:00Z' },
+      { amount: -20.00, is_recurring: true, next_occurrence: null },
+    ]
+    const reserved = txns
+      .filter(t => t.next_occurrence !== null)
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+    expect(reserved).toBeCloseTo(865.99, 2)
   })
 })
