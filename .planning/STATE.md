@@ -21,8 +21,8 @@ Phase: 05 (web-dashboard) — COMPLETE
 Next: Docker containerization (ad-hoc) + Phase 06 (MCP Server)
 
 - **Phase:** 5
-- **Status:** Verified + approved by user
-- **Stopped at:** Dockerfile + docker-compose.yml created
+- **Status:** Verified + approved by user (Plan 05-05 complete)
+- **Last completed:** 05-05-PLAN.md — Full account & transaction CRUD dashboard
 
 ## Decisions
 
