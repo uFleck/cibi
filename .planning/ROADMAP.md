@@ -1,7 +1,7 @@
 # CIBI — Roadmap
 
 **Project:** CIBI (Can I Buy It?)
-**Last updated:** 2026-04-11
+**Last updated:** 2026-04-12
 **Granularity:** Coarse
 
 ---
@@ -129,9 +129,13 @@ Plans:
   3. Balance data refreshes automatically in the background (TanStack Query polling) without a full page reload
   4. The UI renders correctly on both mobile and desktop viewports (Tailwind responsive classes)
 
-**Plans**: TBD
+**Plans**: 4 plans (Wave 1 parallel → Wave 2 → Wave 3 checkpoint)
 
-**UI hint**: yes
+Plans:
+- [ ] 05-01-PLAN.md — Go: /api/ route prefix + go:embed web/dist + static middleware in main.go
+- [ ] 05-02-PLAN.md — React: Vite scaffold + all deps + shadcn init + data layer (api.ts, format.ts, router.ts, App.tsx) + Wave 0 tests
+- [ ] 05-03-PLAN.md — UI components: StatCards + CheckWidget (Motion verdict) + ObligationsList + Dashboard wiring
+- [ ] 05-04-PLAN.md — Human verify checkpoint: live browser confirmation of all dashboard behavior
 
 ---
 
@@ -161,5 +165,5 @@ Plans:
 | 2. Domain + Engine | 3/3 | Complete | 2026-04-12 |
 | 3. CLI | 1/1 | Complete | 2026-04-11 |
 | 4. API Layer | 0/3 | Not started | - |
-| 5. Web Dashboard | 0/? | Not started | - |
+| 5. Web Dashboard | 0/4 | Not started | - |
 | 6. MCP Server | 0/? | Not started | - |
