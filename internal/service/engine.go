@@ -1,6 +1,8 @@
 package service
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -8,6 +10,9 @@ import (
 	"github.com/ufleck/cibi/internal/engine"
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 )
+
+// ErrPayScheduleRequired is returned when the user has not configured their pay schedule.
+var ErrPayScheduleRequired = errors.New("PAY_SCHEDULE_REQUIRED")
 
 // EngineResult holds the output of the CanIBuyIt decision.
 type EngineResult struct {
@@ -44,11 +49,13 @@ func NewEngineService(
 // their current balance, upcoming obligations until next payday, and safety buffer.
 //
 // Formula (ENGINE-03):
-//   purchasing_power = current_balance - sum(upcoming_obligations) - min_threshold
-//   can_buy = purchasing_power >= item_price
+//
+//	purchasing_power = current_balance - sum(upcoming_obligations) - min_threshold
+//	can_buy = purchasing_power >= item_price
 //
 // Upcoming obligations: recurring transactions where
-//   next_occurrence > now AND next_occurrence <= next_payday  (D-02)
+//
+//	next_occurrence > now AND next_occurrence <= next_payday  (D-02)
 //
 // Must complete in under 100ms.
 func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineResult, error) {
@@ -61,6 +68,9 @@ func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineR
 	// Step 2: Load PaySchedule for this account.
 	ps, err := s.psRepo.GetByAccountID(accountID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: get pay schedule: %w", ErrPayScheduleRequired)
+		}
 		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: get pay schedule: %w", err)
 	}
 
@@ -123,10 +133,11 @@ func (s *EngineService) CanIBuyItDefault(itemPrice int64) (EngineResult, error) 
 // classifyRisk determines the RiskLevel based on buffer_remaining vs min_threshold.
 //
 // Tiers (ENGINE-04 — thresholds are agent's discretion):
-//   BLOCKED: can't afford it
-//   HIGH:    remaining < 25% of min_threshold
-//   MEDIUM:  remaining < 50% of min_threshold
-//   LOW:     remaining >= 50% of min_threshold (or min_threshold == 0)
+//
+//	BLOCKED: can't afford it
+//	HIGH:    remaining < 25% of min_threshold
+//	MEDIUM:  remaining < 50% of min_threshold
+//	LOW:     remaining >= 50% of min_threshold (or min_threshold == 0)
 func classifyRisk(canBuy bool, bufferRemaining, minThreshold int64) string {
 	if !canBuy {
 		return "BLOCKED"

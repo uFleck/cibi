@@ -37,17 +37,17 @@
 
 ### Phase 1: Foundation
 
-**Goal**: The codebase is restructured into a clean, testable monorepo with no global state, pure-Go SQLite, versioned migrations, and a wired App struct — ready to receive domain logic
+**Goal**: Clean monorepo. No global state, pure-Go SQLite, migrations, wired App. Ready for domain logic.
 
-**Depends on**: Nothing (first phase)
+**Depends on**: Nothing
 
 **Requirements**: ARCH-01, ARCH-02, ARCH-03, ARCH-04, ARCH-05, ARCH-06, SCHEMA-01, SCHEMA-02, SCHEMA-03, SCHEMA-04, SCHEMA-05, TXN-03
 
-**Success Criteria** (what must be TRUE):
-  1. `CGO_ENABLED=0 go build ./...` succeeds — no C compiler required, pure-Go SQLite driver in place
-  2. `internal/app.New(cfg)` returns a fully wired App with all repos and services injected; no package-level global DB variable exists anywhere in the codebase
-  3. Running the binary for the first time on a fresh machine creates the SQLite file and applies all goose migrations automatically; schema matches the defined entities (Account, Transaction, PaySchedule, SafetyBuffer)
-  4. Money columns in the schema are declared as `INTEGER`; timestamp columns store RFC3339 UTC strings; `PRAGMA foreign_keys` returns 1 at runtime
+**Success Criteria**:
+  1. `CGO_ENABLED=0 go build ./...` succeeds — pure-Go SQLite driver
+  2. `internal/app.New(cfg)` returns wired App; no global DB variable
+  3. Binary on fresh machine creates SQLite file, applies migrations; schema matches entities
+  4. Money = `INTEGER`; timestamps = RFC3339 UTC; `PRAGMA foreign_keys` = 1
 
 **Plans**: TBD
 
@@ -55,18 +55,18 @@
 
 ### Phase 2: Domain + Engine
 
-**Goal**: The recurring transaction engine correctly calculates upcoming obligations, and the Decision Engine produces an accurate "Can I Buy It?" answer in under 100ms
+**Goal**: Engine calculates obligations. Decision Engine answers "Can I Buy It?" in <100ms.
 
 **Depends on**: Phase 1
 
 **Requirements**: ENGINE-01, ENGINE-02, ENGINE-03, ENGINE-04, TXN-01, TXN-02
 
-**Success Criteria** (what must be TRUE):
-  1. A recurring transaction anchored to January 31 produces a February occurrence of February 28 (not March 2 or 3) — `AddMonthClamped` prevents month-end overflow
-  2. `Engine.CanIBuyIt(amount)` returns `CanBuy: true` when balance minus upcoming obligations minus safety buffer exceeds the item price; returns `CanBuy: false` and `RiskLevel: BLOCKED` when it does not
-  3. Only transactions with `next_occurrence` strictly between now and next payday are included in the obligation sum — a transaction due after the next payday is correctly excluded
-  4. After a recurring transaction is debited, `next_occurrence` advances exactly one period; re-running the engine does not double-count the same obligation
-  5. `NextPayday` for a bi-weekly schedule always returns the next date in the correct alternating sequence derived from the anchor date
+**Success Criteria**:
+  1. Jan 31 anchor → Feb 28 occurrence (not Mar 2/3). `AddMonthClamped` prevents overflow.
+  2. `Engine.CanIBuyIt(amount)`: balance - obligations - buffer vs. price. Returns `CanBuy`/`RiskLevel`.
+  3. Only obligations between now and next payday included. Post-payday excluded.
+  4. Debited recurring txn advances one period. No double-count on re-run.
+  5. `NextPayday` for bi-weekly returns correct alternating date from anchor.
 
 **Plans**: TBD
 
@@ -74,17 +74,17 @@
 
 ### Phase 3: CLI
 
-**Goal**: Every domain operation is accessible from the terminal; `cibi check <amount>` delivers the verdict instantly without a running server
+**Goal**: All domain ops accessible from terminal. `cibi check <amount>` delivers verdict instantly (no server).
 
 **Depends on**: Phase 2
 
 **Requirements**: CLI-01, CLI-02, CLI-03, CLI-04
 
-**Success Criteria** (what must be TRUE):
-  1. `cibi check 75` prints a verdict (YES/NO), purchasing power, buffer remaining, and risk level within 100ms — no HTTP server running required
-  2. `cibi tx add --recurring --frequency monthly --anchor 2024-03-01 --amount -850.00 --description "Rent"` creates a recurring transaction and subsequent `cibi tx list` shows it with the correct next occurrence date
-  3. `cibi account list` shows all accounts with balances formatted as decimal currency (not raw cents); `cibi account set-default <id>` changes which account the engine queries
-  4. `cibi --config /path/to/config.yaml check 50` loads the specified config file and uses its safety buffer and database path values
+**Success Criteria**:
+  1. `cibi check 75` prints verdict, purchasing power, buffer, risk within 100ms (no server).
+  2. `cibi tx add --recurring --frequency monthly --anchor 2024-03-01 --amount -850.00 --description "Rent"` creates recurring txn. `cibi tx list` shows correct next occurrence.
+  3. `cibi account list` shows balances (decimal currency). `cibi account set-default <id>` changes active account.
+  4. `cibi --config /path/to/config.yaml check 50` loads config, uses safety buffer and DB path.
 
 **Plans**: 1 plan (4 tasks, Wave 1)
 
@@ -95,16 +95,16 @@ Plans:
 
 ### Phase 4: API Layer
 
-**Goal**: All domain operations are available as JSON endpoints over HTTP; the API is the access point for web and Tailscale clients
+**Goal**: All domain ops available as JSON/HTTP. API = gateway for web + Tailscale.
 
 **Depends on**: Phase 3
 
 **Requirements**: API-01, API-02, API-03
 
-**Success Criteria** (what must be TRUE):
-  1. `POST /check` with `{"amount": 75.00}` returns the same `EngineResult` as `cibi check 75` — identical logic, different transport
-  2. `GET /accounts`, `POST /accounts`, `GET /transactions`, `POST /transactions`, `PATCH /transactions/:id`, `DELETE /transactions/:id` all return correct JSON responses with consistent error shape on bad input
-  3. The API starts and stops cleanly (graceful shutdown on SIGTERM); a malformed request body returns a structured JSON error, not a 500
+**Success Criteria**:
+  1. `POST /check` with `{"amount": 75.00}` returns same `EngineResult` as CLI.
+  2. `GET/POST /accounts`, `/transactions`, `PATCH/DELETE /transactions/:id` return correct JSON + consistent error shape.
+  3. API starts/stops cleanly (graceful SIGTERM). Malformed body = structured JSON error.
 
 **Plans**: 3 plans (Wave 1 → Wave 2 → Wave 3)
 
@@ -117,41 +117,45 @@ Plans:
 
 ### Phase 5: Web Dashboard
 
-**Goal**: Users can see their financial position at a glance and get an animated verdict on any purchase from a browser
+**Goal**: See financial position at glance. Animated verdict on purchases in browser. Full CRUD feature parity with API and CLI.
 
 **Depends on**: Phase 4
 
-**Requirements**: WEB-01, WEB-02, WEB-03, WEB-04
+**Requirements**: WEB-01, WEB-02, WEB-03, WEB-04, WEB-05
 
-**Success Criteria** (what must be TRUE):
-  1. The dashboard loads in a browser and shows current balance, reserved funds (sum of upcoming obligations), liquid amount, and a list of upcoming recurring transactions — all pulled live from the API
-  2. Entering an amount in the "Can I Buy It?" input and submitting produces an animated verdict card (Motion `motion/react`) showing YES in green or NO in red with the risk level
-  3. Balance data refreshes automatically in the background (TanStack Query polling) without a full page reload
-  4. The UI renders correctly on both mobile and desktop viewports (Tailwind responsive classes)
+**Success Criteria**:
+  1. Dashboard loads, shows balance, reserved funds (upcoming obligations), liquid, recurring txn list (live from API).
+  2. "Can I Buy It?" input + submit = animated verdict card (Motion). YES=green, NO=red + risk level.
+  3. Balance refreshes background (TanStack Query polling), no full reload.
+  4. UI renders mobile (375px) + desktop (1280px) (Tailwind responsive).
+  5. Accounts page: create, read, update, delete, set default — matches API endpoints.
+  6. Transactions page: create, read, update, delete — matches API endpoints.
+  7. Account selector in header — switch active account context; dashboard recalculates.
 
-**Plans**: 4 plans (Wave 1 parallel → Wave 2 → Wave 3 checkpoint)
+**Plans**: 5 plans (Wave 1 parallel → Wave 2 → Wave 3 → Wave 4 checkpoint)
 
 Plans:
-- [ ] 05-01-PLAN.md — Go: /api/ route prefix + go:embed web/dist + static middleware in main.go
-- [ ] 05-02-PLAN.md — React: Vite scaffold + all deps + shadcn init + data layer (api.ts, format.ts, router.ts, App.tsx) + Wave 0 tests
-- [ ] 05-03-PLAN.md — UI components: StatCards + CheckWidget (Motion verdict) + ObligationsList + Dashboard wiring
-- [ ] 05-04-PLAN.md — Human verify checkpoint: live browser confirmation of all dashboard behavior
+- [x] 05-01-PLAN.md — Go: /api/ route prefix + go:embed web/dist + static middleware in main.go
+- [x] 05-02-PLAN.md — React: Vite scaffold + all deps + shadcn init + data layer (api.ts, format.ts, router.ts, App.tsx) + Wave 0 tests
+- [x] 05-03-PLAN.md — UI components: StatCards + CheckWidget (Motion verdict) + ObligationsList + Dashboard wiring
+- [x] 05-04-PLAN.md — Human verify checkpoint: live browser confirmation of all dashboard behavior
+- [ ] 05-05-PLAN.md — Full CRUD: AccountsPage + TransactionsPage + AccountSelector + feature parity
 
 ---
 
 ### Phase 6: MCP Server
 
-**Goal**: Claude can query CIBI's financial state and check purchase feasibility through natural conversation using the official MCP Go SDK
+**Goal**: Claude queries CIBI financial state + purchase feasibility via MCP Go SDK.
 
 **Depends on**: Phase 2
 
 **Requirements**: MCP-01, MCP-02, MCP-03
 
-**Success Criteria** (what must be TRUE):
-  1. Claude Desktop connects to the CIBI MCP server via stdio transport; calling `get_financial_status` returns current balance, reserved funds, liquid amount, and next payday date as structured text
-  2. `check_purchase_feasibility(75.00)` returns the same decision as `cibi check 75` — same service layer, same result
-  3. `log_transaction(45.50, "Groceries")` creates a one-off transaction in the database and the response confirms the updated account balance
-  4. The MCP server binary starts cleanly with `cmd/mcp/main.go`; it uses `app.New(cfg)` — no HTTP call is made to the API server
+**Success Criteria**:
+  1. Claude Desktop connects via stdio. `get_financial_status` returns balance, reserved, liquid, next payday.
+  2. `check_purchase_feasibility(75.00)` returns same decision as CLI (same service layer).
+  3. `log_transaction(45.50, "Groceries")` creates one-off txn, confirms updated balance.
+  4. MCP server starts cleanly with `cmd/mcp/main.go` via `app.New(cfg)`. No HTTP to API.
 
 **Plans**: TBD
 

@@ -16,12 +16,13 @@ import (
 
 // App is the fully wired application graph.
 type App struct {
-	cfg         config.Config
-	db          *sql.DB
-	Echo        *echo.Echo
-	AccountsSvc *service.AccountsService
-	TxnsSvc     *service.TransactionsService
-	EngineSvc   *service.EngineService
+	cfg            config.Config
+	db             *sql.DB
+	Echo           *echo.Echo
+	AccountsSvc    *service.AccountsService
+	TxnsSvc        *service.TransactionsService
+	EngineSvc      *service.EngineService
+	PayScheduleSvc *service.PayScheduleService
 }
 
 // New creates and wires the entire application graph.
@@ -44,20 +45,22 @@ func New(cfg config.Config) (*App, error) {
 	accountsSvc := service.NewAccountsService(iAccRepo)
 	txnsSvc := service.NewTransactionsService(iTxnsRepo, iAccRepo)
 	engineSvc := service.NewEngineService(iAccRepo, iTxnsRepo, iPsRepo, iBufRepo)
+	payScheduleSvc := service.NewPayScheduleService(iPsRepo, iAccRepo)
 
 	e := echo.New()
 	e.HTTPErrorHandler = handler.CustomHTTPErrorHandler
 	e.Validator = handler.NewCustomValidator()
 
-	handler.SetupRoutes(e, accountsSvc, txnsSvc, engineSvc)
+	handler.SetupRoutes(e, accountsSvc, txnsSvc, engineSvc, payScheduleSvc)
 
 	return &App{
-		cfg:         cfg,
-		db:          database,
-		Echo:        e,
-		AccountsSvc: accountsSvc,
-		TxnsSvc:     txnsSvc,
-		EngineSvc:   engineSvc,
+		cfg:            cfg,
+		db:             database,
+		Echo:           e,
+		AccountsSvc:    accountsSvc,
+		TxnsSvc:        txnsSvc,
+		EngineSvc:      engineSvc,
+		PayScheduleSvc: payScheduleSvc,
 	}, nil
 }
 

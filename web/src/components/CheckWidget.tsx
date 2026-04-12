@@ -2,10 +2,8 @@ import { useState } from 'react'
 import { motion } from 'motion/react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { formatMoney } from '@/lib/format'
 import { postCheck, type CheckResponse } from '@/lib/api'
 
@@ -32,9 +30,14 @@ export function CheckWidget() {
       const res = await postCheck(parsed)
       setResult(res)
       setState('verdict')
-    } catch {
+    } catch (err) {
+      const error = err as Error & { code?: string }
+      if (error.code === 'PAY_SCHEDULE_REQUIRED') {
+        toast.error('Set up your pay schedule in Settings first.')
+      } else {
+        toast.error('Something went wrong. Try again.')
+      }
       setState('idle')
-      toast.error('Something went wrong running the check. Try again.')
     }
   }
 
@@ -45,103 +48,106 @@ export function CheckWidget() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold">Can I Buy It?</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {state !== 'verdict' ? (
-          <div className="flex gap-3 items-center">
-            <div className="relative flex-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground select-none">
-                $
-              </span>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-                disabled={state === 'loading'}
-                className="pl-7"
-              />
-            </div>
-            <Button
-              onClick={handleCheck}
+    <div className="rounded-xl border border-border/60 bg-card px-5 py-5 flex flex-col gap-4">
+      <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+        Can I Buy It?
+      </p>
+
+      {state !== 'verdict' ? (
+        <div className="flex gap-2 items-stretch">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground select-none text-sm">
+              $
+            </span>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCheck()}
               disabled={state === 'loading'}
-              className="min-h-[44px]"
-            >
-              {state === 'loading' ? (
-                <Loader2 className="animate-spin" size={16} />
-              ) : (
-                'CHECK'
-              )}
-            </Button>
+              className="pl-7 h-11 bg-muted/50 border-border/60 text-base focus-visible:ring-primary/50"
+            />
           </div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <motion.div
-              initial={{
-                scale: 0.8,
-                opacity: 0,
-                backgroundColor: result!.can_buy
-                  ? 'oklch(0.65 0.17 142)'
-                  : 'oklch(0.60 0.22 25)',
+          <Button
+            onClick={handleCheck}
+            disabled={state === 'loading'}
+            className="h-11 px-6 font-semibold tracking-wide cursor-pointer"
+          >
+            {state === 'loading' ? (
+              <Loader2 className="animate-spin" size={15} />
+            ) : (
+              'CHECK'
+            )}
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <motion.div
+            initial={{ scale: 0.90, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+            className="rounded-lg p-5 flex flex-col gap-3 border"
+            style={{
+              background: result!.can_buy
+                ? 'var(--color-verdict-yes-tint)'
+                : 'var(--color-verdict-no-tint)',
+              borderColor: result!.can_buy
+                ? 'oklch(0.72 0.19 142 / 0.35)'
+                : 'oklch(0.65 0.22 25 / 0.35)',
+              boxShadow: result!.can_buy
+                ? '0 0 32px oklch(0.72 0.19 142 / 0.25)'
+                : '0 0 32px oklch(0.65 0.22 25 / 0.25)',
+            }}
+          >
+            <p
+              className="text-4xl font-bold tracking-tight leading-none"
+              style={{
+                color: result!.can_buy
+                  ? 'var(--color-verdict-yes)'
+                  : 'var(--color-verdict-no)',
               }}
-              animate={{
-                scale: 1.0,
-                opacity: 1,
-                backgroundColor: result!.can_buy
-                  ? 'oklch(0.97 0.04 142)'
-                  : 'oklch(0.97 0.04 25)',
-              }}
-              transition={{ duration: 0.4, ease: 'easeOut' }}
-              className="rounded-xl p-6 flex flex-col gap-3"
             >
-              <p
-                className="text-[28px] font-semibold leading-tight"
-                style={{
-                  color: result!.can_buy
-                    ? 'var(--color-verdict-yes)'
-                    : 'var(--color-verdict-no)',
-                }}
-              >
-                {result!.can_buy ? 'YES' : 'NO'}
-              </p>
-              <p className="text-base">
+              {result!.can_buy ? 'YES' : 'NO'}
+            </p>
+
+            <div className="flex flex-col gap-1.5 text-sm text-foreground/80">
+              <p>
                 Purchasing power:{' '}
-                <span className="font-medium">
+                <span className="font-medium tabular-nums text-foreground">
                   {formatMoney(result!.purchasing_power)}
                 </span>
               </p>
-              <p className="text-base">
+              <p>
                 Buffer remaining:{' '}
-                <span className="font-medium">
+                <span className="font-medium tabular-nums text-foreground">
                   {formatMoney(result!.buffer_remaining)}
                 </span>
               </p>
-              <Badge
-                style={{
-                  backgroundColor: RISK_COLORS[result!.risk_level],
-                  color: '#fff',
-                  width: 'fit-content',
-                }}
-              >
-                {result!.risk_level}
-              </Badge>
-            </motion.div>
+            </div>
 
-            <Button
-              variant="outline"
-              onClick={handleReset}
-              className="w-full min-h-[44px]"
+            <span
+              className="text-[10px] font-semibold uppercase tracking-widest px-2 py-1 rounded-md w-fit"
+              style={{
+                color: RISK_COLORS[result!.risk_level],
+                background: `${RISK_COLORS[result!.risk_level]}1a`,
+              }}
             >
-              Check another
-            </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              {result!.risk_level} RISK
+            </span>
+          </motion.div>
+
+          <Button
+            variant="outline"
+            onClick={handleReset}
+            className="w-full h-11 border-border/60 text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            Check another
+          </Button>
+        </div>
+      )}
+    </div>
   )
 }
