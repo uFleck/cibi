@@ -11,7 +11,7 @@ import (
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 )
 
-// TestListTransactions verifies GET /transactions?account_id=<uuid> returns 200.
+// TestListTransactions verifies GET /api/transactions?account_id=<uuid> returns 200.
 func TestListTransactions(t *testing.T) {
 	accountID := uuid.New()
 	txnID := uuid.New()
@@ -32,7 +32,7 @@ func TestListTransactions(t *testing.T) {
 		},
 	}
 	h := &TransactionsHandler{svc: mock}
-	rec, c := makeRequest(http.MethodGet, "/transactions?account_id="+accountID.String(), "")
+	rec, c := makeRequest(http.MethodGet, "/api/transactions?account_id="+accountID.String(), "")
 	if err := h.List(c); err != nil {
 		t.Fatalf("List returned error: %v", err)
 	}
@@ -52,14 +52,14 @@ func TestListTransactions(t *testing.T) {
 	}
 }
 
-// TestListTransactions_MissingAccountID verifies GET /transactions without account_id
+// TestListTransactions_MissingAccountID verifies GET /api/transactions without account_id
 // returns 400.
 func TestListTransactions_MissingAccountID(t *testing.T) {
 	mock := &mockTransactionsService{}
 	h := &TransactionsHandler{svc: mock}
 	rec := serveRequest(func(c echo.Context) error {
 		return h.List(c)
-	}, http.MethodGet, "/transactions", "")
+	}, http.MethodGet, "/api/transactions", "")
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", rec.Code)
@@ -73,7 +73,7 @@ func TestListTransactions_MissingAccountID(t *testing.T) {
 	}
 }
 
-// TestCreateTransaction verifies POST /transactions with valid body returns 201.
+// TestCreateTransaction verifies POST /api/transactions with valid body returns 201.
 func TestCreateTransaction(t *testing.T) {
 	accountID := uuid.New()
 	mock := &mockTransactionsService{
@@ -83,7 +83,7 @@ func TestCreateTransaction(t *testing.T) {
 	}
 	h := &TransactionsHandler{svc: mock}
 	body := `{"account_id":"` + accountID.String() + `","amount":-15.50,"description":"Lunch","category":"Food"}`
-	rec, c := makeRequest(http.MethodPost, "/transactions", body)
+	rec, c := makeRequest(http.MethodPost, "/api/transactions", body)
 	if err := h.Create(c); err != nil {
 		t.Fatalf("Create returned error: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestCreateTransaction(t *testing.T) {
 	}
 }
 
-// TestUpdateTransaction verifies PATCH /transactions/:id returns 200.
+// TestUpdateTransaction verifies PATCH /api/transactions/:id returns 200.
 func TestUpdateTransaction(t *testing.T) {
 	id := uuid.New()
 	accountID := uuid.New()
@@ -126,7 +126,7 @@ func TestUpdateTransaction(t *testing.T) {
 	}
 	h := &TransactionsHandler{svc: mock}
 	body := `{"description":"Updated Lunch"}`
-	rec, c := makeRequest(http.MethodPatch, "/transactions/"+id.String(), body)
+	rec, c := makeRequest(http.MethodPatch, "/api/transactions/"+id.String(), body)
 	c.SetParamNames("id")
 	c.SetParamValues(id.String())
 	if err := h.Update(c); err != nil {
@@ -144,7 +144,7 @@ func TestUpdateTransaction(t *testing.T) {
 	}
 }
 
-// TestDeleteTransaction verifies DELETE /transactions/:id returns 204.
+// TestDeleteTransaction verifies DELETE /api/transactions/:id returns 204.
 func TestDeleteTransaction(t *testing.T) {
 	id := uuid.New()
 	mock := &mockTransactionsService{
@@ -153,7 +153,7 @@ func TestDeleteTransaction(t *testing.T) {
 		},
 	}
 	h := &TransactionsHandler{svc: mock}
-	rec, c := makeRequest(http.MethodDelete, "/transactions/"+id.String(), "")
+	rec, c := makeRequest(http.MethodDelete, "/api/transactions/"+id.String(), "")
 	c.SetParamNames("id")
 	c.SetParamValues(id.String())
 	if err := h.Delete(c); err != nil {

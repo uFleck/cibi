@@ -9,7 +9,7 @@ import (
 	"github.com/ufleck/cibi/internal/service"
 )
 
-// TestCheck verifies POST /check with {"amount": 75.00} returns 200 +
+// TestCheck verifies POST /api/check with {"amount": 75.00} returns 200 +
 // {"can_buy":true,"purchasing_power":50.00,"buffer_remaining":25.00,"risk_level":"LOW"}.
 func TestCheck(t *testing.T) {
 	mock := &mockEngineService{
@@ -25,7 +25,7 @@ func TestCheck(t *testing.T) {
 	h := &CheckHandler{svc: mock}
 	rec := serveRequest(func(c echo.Context) error {
 		return h.Check(c)
-	}, http.MethodPost, "/check", `{"amount":75.00}`)
+	}, http.MethodPost, "/api/check", `{"amount":75.00}`)
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
@@ -48,14 +48,14 @@ func TestCheck(t *testing.T) {
 	}
 }
 
-// TestCheck_NegativeAmount verifies POST /check with {"amount": -5.00} returns 400
+// TestCheck_NegativeAmount verifies POST /api/check with {"amount": -5.00} returns 400
 // with {"error":"..."}.
 func TestCheck_NegativeAmount(t *testing.T) {
 	mock := &mockEngineService{}
 	h := &CheckHandler{svc: mock}
 	rec := serveRequest(func(c echo.Context) error {
 		return h.Check(c)
-	}, http.MethodPost, "/check", `{"amount":-5.00}`)
+	}, http.MethodPost, "/api/check", `{"amount":-5.00}`)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d; body: %s", rec.Code, rec.Body.String())
@@ -69,14 +69,14 @@ func TestCheck_NegativeAmount(t *testing.T) {
 	}
 }
 
-// TestCheck_MalformedBody verifies POST /check with malformed JSON returns 400
+// TestCheck_MalformedBody verifies POST /api/check with malformed JSON returns 400
 // with {"error":"..."}.
 func TestCheck_MalformedBody(t *testing.T) {
 	mock := &mockEngineService{}
 	h := &CheckHandler{svc: mock}
 	rec := serveRequest(func(c echo.Context) error {
 		return h.Check(c)
-	}, http.MethodPost, "/check", `{bad`)
+	}, http.MethodPost, "/api/check", `{bad`)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d; body: %s", rec.Code, rec.Body.String())

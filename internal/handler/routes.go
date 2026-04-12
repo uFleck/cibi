@@ -18,7 +18,9 @@ func SetupRoutes(e *echo.Echo, accSvc *service.AccountsService, txnsSvc *service
 	th := NewTransactionsHandler(txnsSvc)
 	ch := NewCheckHandler(engineSvc)
 
-	acc := e.Group("/accounts")
+	api := e.Group("/api")
+
+	acc := api.Group("/accounts")
 	acc.GET("", ah.List)
 	acc.POST("", ah.Create)
 	acc.GET("/default", ah.GetDefault) // legacy shortcut; kept per <specifics>
@@ -26,15 +28,15 @@ func SetupRoutes(e *echo.Echo, accSvc *service.AccountsService, txnsSvc *service
 	acc.PATCH("/:id", ah.Update)
 	acc.DELETE("/:id", ah.Delete)
 
-	txn := e.Group("/transactions")
+	txn := api.Group("/transactions")
 	txn.GET("", th.List)
 	txn.POST("", th.Create)
 	txn.PATCH("/:id", th.Update)
 	txn.DELETE("/:id", th.Delete)
 
-	e.POST("/check", ch.Check)
+	api.POST("/check", ch.Check)
 
-	e.GET("/docs", func(c echo.Context) error {
+	api.GET("/docs", func(c echo.Context) error {
 		return c.Blob(http.StatusOK, "application/yaml", openAPIYAML)
 	})
 }

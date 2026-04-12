@@ -12,7 +12,7 @@ import (
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 )
 
-// TestListAccounts verifies GET /accounts returns 200 + JSON array.
+// TestListAccounts verifies GET /api/accounts returns 200 + JSON array.
 func TestListAccounts(t *testing.T) {
 	id1 := uuid.New()
 	mock := &mockAccountsService{
@@ -23,7 +23,7 @@ func TestListAccounts(t *testing.T) {
 		},
 	}
 	h := &AccountsHandler{svc: mock}
-	rec, c := makeRequest(http.MethodGet, "/accounts", "")
+	rec, c := makeRequest(http.MethodGet, "/api/accounts", "")
 	if err := h.List(c); err != nil {
 		t.Fatalf("List returned error: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestListAccounts(t *testing.T) {
 	}
 }
 
-// TestCreateAccount verifies POST /accounts with valid body returns 201.
+// TestCreateAccount verifies POST /api/accounts with valid body returns 201.
 func TestCreateAccount(t *testing.T) {
 	mock := &mockAccountsService{
 		createFn: func(a sqlite.Account) error {
@@ -54,7 +54,7 @@ func TestCreateAccount(t *testing.T) {
 	}
 	h := &AccountsHandler{svc: mock}
 	body := `{"name":"Savings","current_balance":500.00,"currency":"USD","is_default":false}`
-	rec, c := makeRequest(http.MethodPost, "/accounts", body)
+	rec, c := makeRequest(http.MethodPost, "/api/accounts", body)
 	if err := h.Create(c); err != nil {
 		t.Fatalf("Create returned error: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestCreateAccount(t *testing.T) {
 	}
 }
 
-// TestGetAccountByID verifies GET /accounts/:id returns 200 for a known ID.
+// TestGetAccountByID verifies GET /api/accounts/:id returns 200 for a known ID.
 func TestGetAccountByID(t *testing.T) {
 	id := uuid.New()
 	mock := &mockAccountsService{
@@ -85,7 +85,7 @@ func TestGetAccountByID(t *testing.T) {
 		},
 	}
 	h := &AccountsHandler{svc: mock}
-	rec, c := makeRequest(http.MethodGet, "/accounts/"+id.String(), "")
+	rec, c := makeRequest(http.MethodGet, "/api/accounts/"+id.String(), "")
 	c.SetParamNames("id")
 	c.SetParamValues(id.String())
 	if err := h.GetByID(c); err != nil {
@@ -103,7 +103,7 @@ func TestGetAccountByID(t *testing.T) {
 	}
 }
 
-// TestGetAccountByID_NotFound verifies GET /accounts/:id with an unknown ID returns 404
+// TestGetAccountByID_NotFound verifies GET /api/accounts/:id with an unknown ID returns 404
 // with body {"error":"account not found"}.
 func TestGetAccountByID_NotFound(t *testing.T) {
 	id := uuid.New()
@@ -117,7 +117,7 @@ func TestGetAccountByID_NotFound(t *testing.T) {
 		c.SetParamNames("id")
 		c.SetParamValues(id.String())
 		return h.GetByID(c)
-	}, http.MethodGet, "/accounts/"+id.String(), "")
+	}, http.MethodGet, "/api/accounts/"+id.String(), "")
 
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("expected 404, got %d", rec.Code)
@@ -131,7 +131,7 @@ func TestGetAccountByID_NotFound(t *testing.T) {
 	}
 }
 
-// TestUpdateAccount verifies PATCH /accounts/:id with valid body returns 200.
+// TestUpdateAccount verifies PATCH /api/accounts/:id with valid body returns 200.
 func TestUpdateAccount(t *testing.T) {
 	id := uuid.New()
 	newName := "Updated"
@@ -145,7 +145,7 @@ func TestUpdateAccount(t *testing.T) {
 	}
 	h := &AccountsHandler{svc: mock}
 	body := `{"name":"Updated"}`
-	rec, c := makeRequest(http.MethodPatch, "/accounts/"+id.String(), body)
+	rec, c := makeRequest(http.MethodPatch, "/api/accounts/"+id.String(), body)
 	c.SetParamNames("id")
 	c.SetParamValues(id.String())
 	if err := h.Update(c); err != nil {
@@ -163,7 +163,7 @@ func TestUpdateAccount(t *testing.T) {
 	}
 }
 
-// TestDeleteAccount verifies DELETE /accounts/:id returns 204.
+// TestDeleteAccount verifies DELETE /api/accounts/:id returns 204.
 func TestDeleteAccount(t *testing.T) {
 	id := uuid.New()
 	mock := &mockAccountsService{
@@ -172,7 +172,7 @@ func TestDeleteAccount(t *testing.T) {
 		},
 	}
 	h := &AccountsHandler{svc: mock}
-	rec, c := makeRequest(http.MethodDelete, "/accounts/"+id.String(), "")
+	rec, c := makeRequest(http.MethodDelete, "/api/accounts/"+id.String(), "")
 	c.SetParamNames("id")
 	c.SetParamValues(id.String())
 	if err := h.Delete(c); err != nil {
