@@ -13,10 +13,11 @@ var openAPIYAML []byte
 
 // SetupRoutes registers all application routes on the provided Echo instance.
 // Called from internal/app/app.go after echo.New().
-func SetupRoutes(e *echo.Echo, accSvc *service.AccountsService, txnsSvc *service.TransactionsService, engineSvc *service.EngineService) {
+func SetupRoutes(e *echo.Echo, accSvc *service.AccountsService, txnsSvc *service.TransactionsService, engineSvc *service.EngineService, psSvc *service.PayScheduleService) {
 	ah := NewAccountsHandler(accSvc)
 	th := NewTransactionsHandler(txnsSvc)
 	ch := NewCheckHandler(engineSvc)
+	psh := NewPayScheduleHandler(psSvc)
 
 	api := e.Group("/api")
 
@@ -35,6 +36,9 @@ func SetupRoutes(e *echo.Echo, accSvc *service.AccountsService, txnsSvc *service
 	txn.DELETE("/:id", th.Delete)
 
 	api.POST("/check", ch.Check)
+
+	ps := api.Group("/pay-schedule")
+	ps.POST("", psh.CreateOrUpdate)
 
 	api.GET("/docs", func(c echo.Context) error {
 		return c.Blob(http.StatusOK, "application/yaml", openAPIYAML)

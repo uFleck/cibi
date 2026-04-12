@@ -1,0 +1,35 @@
+{
+  "phase": "1",
+  "phase_name": "Foundation",
+  "timestamp": "2026-04-11T00:00:00Z",
+  "areas_completed": ["Existing code migration", "sqlx introduction depth"],
+  "areas_remaining": ["cmd/ binary scope", "Schema continuity"],
+  "decisions": {
+    "Existing code migration": [
+      {
+        "question": "How should existing code (handlers/, services/, repos/, data/, types/) migrate to internal/?",
+        "answer": "Move everything to internal/ now",
+        "options_presented": ["Move everything to internal/ now", "Create skeleton only, keep existing code", "Move internal/ packages, stub the rest"]
+      },
+      {
+        "question": "Should naming conventions change or stay the same?",
+        "answer": "Rename to idiomatic Go internal names",
+        "options_presented": ["Keep existing names where sensible", "Rename to idiomatic Go internal names", "You decide"]
+      }
+    ],
+    "sqlx introduction depth": [
+      {
+        "question": "How deep should sqlx adoption go in Phase 1?",
+        "answer": "Full sqlx migration — rewrite all queries",
+        "options_presented": ["Wire sqlx type only, keep manual scans", "Full sqlx migration — rewrite all queries", "You decide"]
+      },
+      {
+        "question": "Should Phase 1 introduce sqlx at all, or stick with database/sql?",
+        "answer": "Yes, introduce sqlx as specified in ARCH-02",
+        "options_presented": ["Yes, introduce sqlx as specified in ARCH-02", "Use *sql.DB and update ARCH-02", "You decide"]
+      }
+    ]
+  },
+  "deferred_ideas": [],
+  "canonical_refs": [".planning/REQUIREMENTS.md", ".planning/ROADMAP.md", "CIBI_SPEC.md"]
+}

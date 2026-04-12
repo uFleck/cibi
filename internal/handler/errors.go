@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
@@ -30,6 +31,7 @@ func NewCustomValidator() *CustomValidator {
 func CustomHTTPErrorHandler(err error, c echo.Context) {
 	code := http.StatusInternalServerError
 	msg := "internal server error"
+	errCode := ""
 
 	var he *echo.HTTPError
 	if errors.As(err, &he) {
@@ -39,6 +41,17 @@ func CustomHTTPErrorHandler(err error, c echo.Context) {
 		}
 	}
 
+	// Extract error code from wrapped error messages (e.g., "PAY_SCHEDULE_REQUIRED")
+	errMsg := err.Error()
+	if idx := strings.Index(errMsg, "PAY_SCHEDULE_REQUIRED"); idx != -1 {
+		errCode = "PAY_SCHEDULE_REQUIRED"
+		msg = "You need to set up your pay schedule before using Can I Buy It. Use POST /api/pay-schedule to configure."
+	}
+
 	// Suppress error if response already committed (client disconnected).
-	_ = c.JSON(code, map[string]string{"error": msg})
+	if errCode != "" {
+		_ = c.JSON(code, map[string]string{"error": msg, "code": errCode})
+	} else {
+		_ = c.JSON(code, map[string]string{"error": msg})
+	}
 }

@@ -2,11 +2,11 @@
 
 ## What This Is
 
-CIBI is a personal, hyper-local financial decision engine for a household of two. It answers one question instantly: *"If I buy this right now, will I be okay until my next paycheck?"* It does this by calculating purchasing power as current balance minus upcoming recurring obligations minus a safety buffer — no cloud, no tracking, just a fast and honest answer.
+CIBI: Personal financial decision engine. Answers instantly: *"If I buy this now, am I okay until next paycheck?"* Calculates purchasing power = balance - recurring obligations - safety buffer. No cloud. Local only.
 
 ## Core Value
 
-The "Can I Buy It?" query must always return a correct answer — if a recurring transaction exists, it must be accounted for, no exceptions.
+"Can I Buy It?" must always be correct. If a recurring transaction exists, it's accounted for. No exceptions.
 
 ## Requirements
 
@@ -38,19 +38,18 @@ The "Can I Buy It?" query must always return a correct answer — if a recurring
 
 ## Context
 
-- Existing Go codebase (`github.com/ufleck/cibi-api`) has the foundational layers built: Echo, SQLite via go-sqlite3, repository interfaces, domain models for Account and Transaction
-- Repo currently named `cibi-api` but should become `cibi` — internal restructure planned for Phase 1
-- Web dashboard (React + Vite + Framer Motion) is Milestone 2; CLI is the primary interface for Milestone 1
-- MCP server (Go, using `github.com/mark3labs/mcp-go`) is Milestone 3 — wraps the same domain/service layer
-- Accessible via Tailscale from any device; no auth needed (personal use only)
+- Go codebase (`github.com/ufleck/cibi-api`): Echo, SQLite, repo interfaces, Account/Transaction models
+- Repo `cibi-api` → `cibi` (Phase 1 restructure)
+- M1: CLI primary. M2: React + Vite + Framer Motion dashboard. M3: Go MCP server (`mark3labs/mcp-go`)
+- Tailscale accessible, no auth (personal use)
 
 ## Constraints
 
-- **Privacy:** Zero cloud dependency — all data stays local; SQLite file never leaves the machine
-- **DB:** Must remain swappable — domain/service layers never import SQLite directly; only repository interfaces are used
-- **Interfaces:** All interfaces (CLI, Web, MCP) must route through the API layer — Decision Engine logic is centralized, never duplicated
-- **Performance:** "Can I Buy It?" query must return in under 100ms
-- **Stack:** Go for all backend/CLI/MCP; React + Vite + Framer Motion for web dashboard
+- **Privacy**: Zero cloud. Local only. SQLite never leaves machine.
+- **DB**: Swappable via repo interfaces. No direct SQLite imports in domain/service.
+- **Interfaces**: CLI, Web, MCP route through API. Decision Engine centralized.
+- **Performance**: "Can I Buy It?" <100ms.
+- **Stack**: Go (backend/CLI/MCP). React + Vite + Framer Motion (web).
 
 ## Key Decisions
 

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -98,13 +99,76 @@ var accountDeleteCmd = &cobra.Command{
 	},
 }
 
+var accountPayScheduleCmd = &cobra.Command{
+	Use:   "set-pay-schedule",
+	Short: "Set pay schedule for an account",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		accountID, _ := cmd.Flags().GetString("account-id")
+		frequency, _ := cmd.Flags().GetString("frequency")
+		anchorDateStr, _ := cmd.Flags().GetString("anchor-date")
+		dayOfMonth, _ := cmd.Flags().GetInt("day-of-month")
+		dayOfMonth2, _ := cmd.Flags().GetInt("day-of-month-2")
+
+		var accID uuid.UUID
+		var err error
+
+		if accountID == "" {
+			// Use default account
+			acc, err := application.AccountsSvc.GetDefault()
+			if err != nil {
+				return fmt.Errorf("no account_id provided and no default account found: %w", err)
+			}
+			accID = acc.ID
+		} else {
+			accID, err = uuid.Parse(accountID)
+			if err != nil {
+				return fmt.Errorf("invalid account_id: %w", err)
+			}
+		}
+
+		if frequency == "" {
+			return fmt.Errorf("--frequency is required (weekly, biweekly, monthly)")
+		}
+		if anchorDateStr == "" {
+			return fmt.Errorf("--anchor-date is required (YYYY-MM-DD)")
+		}
+
+		anchorDate, err := time.Parse("2006-01-02", anchorDateStr)
+		if err != nil {
+			return fmt.Errorf("invalid anchor-date format: %w", err)
+		}
+
+		var dom1, dom2 *int
+		if dayOfMonth > 0 {
+			dom1 = &dayOfMonth
+		}
+		if dayOfMonth2 > 0 {
+			dom2 = &dayOfMonth2
+		}
+
+		psSvc := application.PayScheduleSvc
+		if err := psSvc.SetPaySchedule(accID, frequency, anchorDate, dom1, dom2, nil); err != nil {
+			return fmt.Errorf("failed to set pay schedule: %w", err)
+		}
+
+		fmt.Printf("Pay schedule set for account %s\n", accID.String())
+		return nil
+	},
+}
+
 func init() {
 	accountAddCmd.Flags().String("name", "", "account name (required)")
 	accountAddCmd.Flags().Int64("balance", 0, "initial balance in cents (e.g., 150000 = $1500.00)")
 	accountAddCmd.Flags().String("currency", "USD", "currency code")
 	accountAddCmd.Flags().Bool("default", false, "set as default account")
 
-	accountCmd.AddCommand(accountListCmd, accountAddCmd, accountSetDefaultCmd, accountDeleteCmd)
+	accountPayScheduleCmd.Flags().String("account-id", "", "account ID (uses default if not provided)")
+	accountPayScheduleCmd.Flags().String("frequency", "", "pay frequency: weekly, biweekly, monthly (required)")
+	accountPayScheduleCmd.Flags().String("anchor-date", "", "first pay date: YYYY-MM-DD (required)")
+	accountPayScheduleCmd.Flags().Int("day-of-month", 0, "day of month for monthly (1-31)")
+	accountPayScheduleCmd.Flags().Int("day-of-month-2", 0, "second day for biweekly (1-31)")
+
+	accountCmd.AddCommand(accountListCmd, accountAddCmd, accountSetDefaultCmd, accountDeleteCmd, accountPayScheduleCmd)
 	rootCmd.AddCommand(accountCmd)
 
 	_ = os.Stderr
