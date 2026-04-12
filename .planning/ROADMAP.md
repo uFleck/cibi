@@ -158,7 +158,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 0/? | Not started | - |
-| 2. Domain + Engine | 0/? | Not started | - |
+| 2. Domain + Engine | 3/3 | Complete | 2026-04-12 |
 | 3. CLI | 1/1 | Complete | 2026-04-11 |
 | 4. API Layer | 0/3 | Not started | - |
 | 5. Web Dashboard | 0/? | Not started | - |
