@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/ufleck/cibi/internal/app"
 	"github.com/ufleck/cibi/internal/config"
 )
@@ -21,6 +23,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize app: %v", err)
 	}
+
+	// Serve the built React SPA from the embedded web/dist directory.
+	// HTML5: true forwards unknown paths to index.html for client-side routing.
+	// MUST be registered after SetupRoutes (already called inside app.New).
+	distFS, err := WebDistFS()
+	if err != nil {
+		log.Fatalf("Failed to sub web/dist: %v", err)
+	}
+	application.Echo.Use(middleware.StaticWithConfig(middleware.StaticConfig{
+		HTML5:      true,
+		Root:       ".",
+		Filesystem: http.FS(distFS),
+	}))
 
 	// Start server in background goroutine.
 	go func() {
@@ -43,4 +58,21 @@ func main() {
 		log.Fatalf("Server shutdown failed: %v", err)
 	}
 	log.Println("Server stopped cleanly.")
+}
+
+// WebDistFS returns the filesystem for the built React SPA.
+// It tries to load from web/dist, falling back to a minimal empty filesystem
+// if the directory doesn't exist (e.g., during API-only testing).
+func WebDistFS() (fs.FS, error) {
+	distPath := "web/dist"
+
+	// Check if dist directory exists
+	if _, err := os.Stat(distPath); err == nil {
+		// Directory exists, use it
+		return os.DirFS(distPath), nil
+	}
+
+	// Directory doesn't exist, return an empty filesystem
+	// This allows the API server to run without the web assets during testing
+	return os.DirFS("."), nil
 }
