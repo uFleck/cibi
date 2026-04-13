@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, Edit2, Trash2, Check } from 'lucide-react'
+import { Plus, Edit2, Trash2, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -130,50 +130,16 @@ export function AccountsPage() {
 
   if (isError) {
     return (
-      <div className="min-h-dvh bg-background">
-        <header className="border-b border-border/50 sticky top-0 z-10 backdrop-blur-sm bg-background/80">
-          <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
-            <a
-              href="/"
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors duration-150"
-              aria-label="Back to dashboard"
-            >
-              <ArrowLeft size={14} />
-              <span>Dashboard</span>
-            </a>
-            <span className="text-sm font-semibold tracking-[0.18em] text-foreground">
-              CIBI
-            </span>
-          </div>
-        </header>
-        <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-          <div className="text-center text-destructive">
-            Failed to load accounts. Please try again.
-          </div>
-        </main>
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+        <div className="text-center text-destructive">
+          Failed to load accounts. Please try again.
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-dvh bg-background">
-      <header className="border-b border-border/50 sticky top-0 z-10 backdrop-blur-sm bg-background/80">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
-          <a
-            href="/"
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors duration-150"
-            aria-label="Back to dashboard"
-          >
-            <ArrowLeft size={14} />
-            <span>Dashboard</span>
-          </a>
-          <span className="text-sm font-semibold tracking-[0.18em] text-foreground">
-            CIBI
-          </span>
-        </div>
-      </header>
-
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Accounts</h1>
           <Button onClick={handleCreateClick} size="sm">
@@ -304,8 +270,7 @@ export function AccountsPage() {
           </Card>
         )}
 
-        <div className="h-8" />
-      </main>
+      <div className="h-8" />
     </div>
   )
 }

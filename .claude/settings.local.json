@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Skill(update-config)"
+      "Skill(update-config)",
+      "Skill(gsd-plan-phase)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(go build:*)",
+      "Bash(docker compose:*)"
     ]
   }
 }

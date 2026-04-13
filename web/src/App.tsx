@@ -1,8 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { RouterProvider } from '@tanstack/react-router'
+import { RouterProvider, Outlet } from '@tanstack/react-router'
 import { Toaster } from '@/components/ui/sonner'
 import { createContext, useState } from 'react'
 import { router } from './router'
+import { Sidebar } from '@/components/Sidebar'
+import { MobileHeader } from '@/components/MobileHeader'
+import { MobileDrawer } from '@/components/MobileDrawer'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,6 +24,21 @@ export const AccountContext = createContext<{
   selectedAccountId: null,
   setSelectedAccountId: () => {},
 })
+
+export function RootLayout() {
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
+
+  return (
+    <div className="flex h-dvh bg-background">
+      <Sidebar />
+      <MobileHeader onMenuClick={() => setMobileDrawerOpen(true)} />
+      {mobileDrawerOpen && <MobileDrawer onClose={() => setMobileDrawerOpen(false)} />}
+      <main className="flex-1 overflow-auto pt-14 lg:pt-0">
+        <Outlet />
+      </main>
+    </div>
+  )
+}
 
 export default function App() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)

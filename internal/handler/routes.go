@@ -17,7 +17,7 @@ func SetupRoutes(e *echo.Echo, accSvc *service.AccountsService, txnsSvc *service
 	ah := NewAccountsHandler(accSvc)
 	th := NewTransactionsHandler(txnsSvc)
 	ch := NewCheckHandler(engineSvc)
-	psh := NewPayScheduleHandler(psSvc)
+	psh := NewPayScheduleHandler(psSvc, ah.svc)
 
 	api := e.Group("/api")
 
@@ -26,6 +26,7 @@ func SetupRoutes(e *echo.Echo, accSvc *service.AccountsService, txnsSvc *service
 	acc.POST("", ah.Create)
 	acc.GET("/default", ah.GetDefault) // legacy shortcut; kept per <specifics>
 	acc.GET("/:id", ah.GetByID)
+	acc.POST("/:id/set-default", ah.SetDefault)
 	acc.PATCH("/:id", ah.Update)
 	acc.DELETE("/:id", ah.Delete)
 

@@ -19,6 +19,7 @@ type AccountsServiceIface interface {
 	CreateAccount(a sqlite.Account) error
 	GetDefault() (sqlite.Account, error)
 	GetByID(id uuid.UUID) (sqlite.Account, error)
+	SetDefault(id uuid.UUID) error
 	UpdateAccount(id uuid.UUID, name *string, balance *int64) error
 	DeleteAccount(id uuid.UUID) error
 }
@@ -163,6 +164,21 @@ func (h *AccountsHandler) Update(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.JSON(http.StatusOK, accountToResponse(acc))
+}
+
+// SetDefault handles POST /accounts/:id/set-default — marks an account as default.
+func (h *AccountsHandler) SetDefault(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid account id")
+	}
+	if err := h.svc.SetDefault(id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "account not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.NoContent(http.StatusNoContent)
 }
 
 // Delete handles DELETE /accounts/:id — removes an account.

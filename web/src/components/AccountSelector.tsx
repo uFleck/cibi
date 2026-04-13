@@ -4,9 +4,10 @@ import { fetchAccounts } from '@/lib/api'
 interface AccountSelectorProps {
   selectedAccountId: string | null
   onSelectAccount: (accountId: string) => void
+  fullWidth?: boolean
 }
 
-export function AccountSelector({ selectedAccountId, onSelectAccount }: AccountSelectorProps) {
+export function AccountSelector({ selectedAccountId, onSelectAccount, fullWidth }: AccountSelectorProps) {
   const { data: accounts = [] } = useQuery({
     queryKey: ['accounts'],
     queryFn: fetchAccounts,
@@ -23,7 +24,7 @@ export function AccountSelector({ selectedAccountId, onSelectAccount }: AccountS
     <select
       value={displayId || ''}
       onChange={e => onSelectAccount(e.target.value)}
-      className="h-7 px-2 py-0.5 text-xs rounded-lg border border-input bg-background text-foreground cursor-pointer"
+      className={`h-7 px-2 py-0.5 text-xs rounded-lg border border-input bg-background text-foreground cursor-pointer${fullWidth ? ' w-full' : ''}`}
       title="Switch account"
     >
       {accounts.map(account => (

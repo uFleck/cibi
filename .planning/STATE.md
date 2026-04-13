@@ -39,6 +39,12 @@ Next: Docker containerization (ad-hoc) + Phase 06 (MCP Server)
 | 01    | 01-01 | ~10m     | 4     | 6     |
 | 03    | 03    | ~5m      | 4     | 8     |
 
+## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 7 added: ability to have N payment schedule for N accounts (user receives 3k day 10 and 2k day 20)
+
 ## Last Session
 
 - **Timestamp:** 2026-04-11T22:35:37Z
