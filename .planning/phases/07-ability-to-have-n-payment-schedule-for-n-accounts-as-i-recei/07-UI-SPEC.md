@@ -57,16 +57,16 @@ All sizes use Geist Variable. Source: `web/src/index.css` @theme + existing page
 | Role | Size | Weight | Line Height | Tailwind class |
 |------|------|--------|-------------|----------------|
 | Body | 14px | 400 regular | 1.5 | `text-sm` |
-| Label | 12px | 500 medium | 1.4 | `text-xs font-medium` |
+| Label | 12px | 600 semibold | 1.4 | `text-xs font-semibold` |
 | Heading | 20px | 600 semibold | 1.3 | `text-xl font-semibold` |
-| Display (verdict) | 36px | 700 bold | 1.0 | `text-4xl font-bold` |
+| Display (verdict) | 36px | 600 semibold | 1.0 | `text-4xl font-semibold` |
 
 Rules:
 - All page section headings: 20px / semibold — matches `<h1 className="text-xl font-semibold">` in TransactionsPage
-- Form labels: 12px / medium — matches `text-xs font-medium` in TransactionsPage
+- Form labels: 12px / semibold — `text-xs font-semibold`
 - Metadata / secondary text: 12px / 400 / `text-muted-foreground`
-- Verdict display (WAIT): 36px / bold — matches YES/NO in CheckWidget
-- Schedule amount in list row: 14px / medium — `text-sm font-medium`
+- Verdict display (WAIT): 36px / semibold — matches YES/NO in CheckWidget
+- Schedule amount in list row: 14px / semibold — `text-sm font-semibold`
 
 ---
 
@@ -95,7 +95,7 @@ WAIT verdict glow: `0 0 32px oklch(0.78 0.17 85 / 0.25)` (inline boxShadow, same
 
 Accent reserved for:
 - "Add schedule" primary button
-- Form submit button (Create / Update)
+- Form submit button (Create Schedule / Update Schedule)
 - No other elements
 
 Muted foreground (`--muted-foreground`) used for:
@@ -110,6 +110,8 @@ Muted foreground (`--muted-foreground`) used for:
 ### Surface 1 — Settings Page (`web/src/pages/settings.tsx`)
 
 Layout: `max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4` — identical to TransactionsPage and AccountsPage container. Do not deviate.
+
+Primary visual anchor: the per-account pay schedule list. Secondary anchor: the 'Add Schedule' CTA in the page header.
 
 #### Section: Account context
 
@@ -126,14 +128,14 @@ Layout: `max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4` — identical 
 - Each schedule rendered as a `<Card>` with `<CardContent className="py-4">`
 - Row layout: 3-column grid on sm+, stacked on mobile — `grid grid-cols-1 sm:grid-cols-3 gap-4 items-center`
 - Column 1 (label + frequency):
-  - Primary text: label if set, otherwise frequency — `font-medium`
+  - Primary text: label if set, otherwise frequency — `font-semibold`
   - Secondary: frequency + anchor date — `text-xs text-muted-foreground`
   - Semi-monthly: show both day_of_month and day_of_month_2 in secondary text
 - Column 2 (amount):
-  - `font-medium tabular-nums text-right` — formatted as `+$X,XXX.00` in green (`text-green-600` — matches transaction amount display)
+  - `font-semibold tabular-nums text-right` — formatted as `+$X,XXX.00` in green (`text-green-600` — matches transaction amount display)
 - Column 3 (actions):
-  - Edit button: `<Button variant="ghost" size="sm">` with `<Edit2 size={14} />`
-  - Delete button: `<Button variant="ghost" size="sm">` with `<Trash2 size={14} />`
+  - Edit button: `<Button variant="ghost" size="sm" aria-label="Edit schedule">` with `<Edit2 size={14} />`
+  - Delete button: `<Button variant="ghost" size="sm" aria-label="Delete schedule">` with `<Trash2 size={14} />`
   - Right-aligned: `flex gap-2 justify-end`
 
 #### Section: Add schedule CTA
@@ -157,9 +159,9 @@ Layout: `max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4` — identical 
   | Day of month | `<Input type="number" min="1" max="31">` | Conditional | Shown only when frequency = monthly or semi-monthly |
   | Day of month 2 | `<Input type="number" min="1" max="31">` | Conditional | Shown only when frequency = semi-monthly |
 
-- Form field label style: `<label className="block text-xs font-medium mb-2">`
-- Frequency select style: `className="w-full h-8 px-2.5 py-1 rounded-lg border border-input bg-transparent text-base md:text-sm"` — matches TransactionsPage
-- Form action buttons: `<div className="flex gap-2 pt-4">` with primary submit + outline Cancel
+- Form field label style: `<label className="block text-xs font-semibold mb-2">`
+- Frequency select style: `className="w-full h-8 px-2 py-1 rounded-lg border border-input bg-transparent text-base md:text-sm"` — matches TransactionsPage
+- Form action buttons: `<div className="flex gap-2 pt-4">` with primary submit + outline Discard
 
 #### Loading skeleton
 
@@ -187,12 +189,12 @@ borderColor: 'oklch(0.78 0.17 85 / 0.35)'
 boxShadow: '0 0 32px oklch(0.78 0.17 85 / 0.25)'
 ```
 
-Display text (36px bold):
+Display text (36px semibold):
 ```
 color: 'var(--color-verdict-wait)'
 ```
 
-Verdict word displayed: `"WAIT"` — all caps, same `text-4xl font-bold tracking-tight leading-none` as YES/NO
+Verdict word displayed: `"WAIT"` — all caps, same `text-4xl font-semibold tracking-tight leading-none` as YES/NO
 
 Sub-text line (14px, `text-foreground/80`):
 ```
@@ -219,7 +221,7 @@ Purchasing power and buffer remaining lines: show normally (same as YES/NO).
 | Add schedule | "Add Schedule" button click | No | `toast.success('Schedule added')` + invalidate `['pay-schedules', accountId]` | `toast.error('Failed to add schedule')` |
 | Edit schedule | Edit icon button click | No | Form pre-filled; submit → `toast.success('Schedule updated')` + invalidate | `toast.error('Failed to update schedule')` |
 | Delete schedule | Trash icon button → `window.confirm(...)` | No | `toast.success('Schedule deleted')` + invalidate | `toast.error('Failed to delete schedule')` |
-| Cancel form | "Cancel" button or Escape | — | Form closes, list unchanged | — |
+| Discard form | "Discard" button or Escape | — | Form closes, list unchanged | — |
 
 Query key pattern: `['pay-schedules', accountId]` — invalidated after every mutation.
 
@@ -242,8 +244,8 @@ Account context: read from `AccountContext` (same as TransactionsPage) — `cons
 | Primary CTA | "Add Schedule" |
 | Form heading (create) | "New Schedule" |
 | Form heading (edit) | "Edit Schedule" |
-| Form submit (create) | "Create" |
-| Form submit (edit) | "Update" |
+| Form submit (create) | "Create Schedule" |
+| Form submit (edit) | "Update Schedule" |
 | Empty state heading | "No pay schedules yet" |
 | Empty state body | "Add a schedule to tell CIBI when you get paid." |
 | WAIT verdict display word | "WAIT" |
@@ -259,7 +261,7 @@ Account context: read from `AccountContext` (same as TransactionsPage) — `cons
 | Field placeholder: amount | "0.00" |
 | Field placeholder: anchor date | (browser date picker — no placeholder needed) |
 | Loading state | 3× pulse skeleton rows (no text) |
-| Error state | `<div className="text-center text-destructive">Failed to load schedules.</div>` |
+| Error state | `<div className="text-center text-destructive">Failed to load schedules. Refresh to try again.</div>` with `<button onClick={() => refetch()}>Refresh</button>` below |
 
 ---
 
@@ -280,7 +282,7 @@ Reuse (no new shadcn installs needed):
 
 | Component | Path | Usage |
 |-----------|------|-------|
-| `Button` | `@/components/ui/button` | Add Schedule CTA, form submit, edit/delete icons, Cancel |
+| `Button` | `@/components/ui/button` | Add Schedule CTA, form submit, edit/delete icons, Discard |
 | `Card`, `CardContent`, `CardHeader`, `CardTitle` | `@/components/ui/card` | Schedule rows, inline form |
 | `Input` | `@/components/ui/input` | All form text/number/date fields |
 | `AccountSelector` | `@/components/AccountSelector` | Account context switcher in page header |
