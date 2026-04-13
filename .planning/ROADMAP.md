@@ -159,15 +159,20 @@ Plans:
 
 **Plans**: TBD
 
-### Phase 7: ability to have N payment schedule for N accounts, as I receive 3k day 10 and 2k day 20
+### Phase 7: N Payment Schedules per Account
 
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 6
-**Plans:** 0 plans
+**Goal**: Each account can have N pay schedules (e.g., $3k on day 10 and $2k on day 20). Engine projects purchasing power using per-schedule obligation windows; returns WAIT verdict when user can afford after next payday. Settings page provides full CRUD for pay schedules.
+
+**Requirements**: SCHEMA-03, ENGINE-02, ENGINE-03, ENGINE-04, API-01
+
+**Depends on**: Phase 6
+
+**Plans**: 3 plans (Wave 1 → Wave 2 → Wave 3)
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 7 to break down)
+- [ ] 07-01-PLAN.md — Migration (amount column) + repo CRUD refactor + service refactor + engine multi-schedule loop + WAIT verdict
+- [ ] 07-02-PLAN.md — Handler full CRUD (List/Create/Update/Delete) + routes update + frequency enum fix + check response WAIT fields
+- [ ] 07-03-PLAN.md — React: api.ts CRUD functions + Settings page + CheckWidget WAIT amber card + CSS tokens
 
 ---
 
@@ -181,3 +186,4 @@ Plans:
 | 4. API Layer | 0/3 | Not started | - |
 | 5. Web Dashboard | 0/4 | Not started | - |
 | 6. MCP Server | 0/? | Not started | - |
+| 7. N Payment Schedules | 0/3 | Not started | - |
