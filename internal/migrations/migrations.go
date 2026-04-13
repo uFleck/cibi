@@ -13,7 +13,8 @@ var embedMigrations embed.FS
 
 func Run(db *sql.DB) error {
 	goose.SetBaseFS(embedMigrations)
-	
+	goose.SetLogger(goose.NopLogger())
+
 	if err := goose.SetDialect("sqlite3"); err != nil {
 		return err
 	}
