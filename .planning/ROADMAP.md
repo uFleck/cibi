@@ -159,6 +159,16 @@ Plans:
 
 **Plans**: TBD
 
+### Phase 7: ability to have N payment schedule for N accounts, as I receive 3k day 10 and 2k day 20
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 6
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 7 to break down)
+
 ---
 
 ## Progress Table

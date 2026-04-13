@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useContext } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, Edit2, Trash2 } from 'lucide-react'
+import { Plus, Edit2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -13,6 +13,7 @@ import {
   deleteTransaction,
   type TransactionResponse,
 } from '@/lib/api'
+import { AccountContext } from '@/App'
 
 interface FormData {
   account_id: string
@@ -26,7 +27,7 @@ interface FormData {
 
 export function TransactionsPage() {
   const queryClient = useQueryClient()
-  const [selectedAccountId] = useState<string>('')
+  const { selectedAccountId } = useContext(AccountContext)
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState<FormData>({
@@ -181,50 +182,16 @@ export function TransactionsPage() {
 
   if (isError || accountsLoading) {
     return (
-      <div className="min-h-dvh bg-background">
-        <header className="border-b border-border/50 sticky top-0 z-10 backdrop-blur-sm bg-background/80">
-          <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
-            <a
-              href="/"
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors duration-150"
-              aria-label="Back to dashboard"
-            >
-              <ArrowLeft size={14} />
-              <span>Dashboard</span>
-            </a>
-            <span className="text-sm font-semibold tracking-[0.18em] text-foreground">
-              CIBI
-            </span>
-          </div>
-        </header>
-        <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-          <div className="text-center text-destructive">
-            {isError ? 'Failed to load transactions.' : 'Loading accounts...'}
-          </div>
-        </main>
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+        <div className="text-center text-destructive">
+          {isError ? 'Failed to load transactions.' : 'Loading accounts...'}
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-dvh bg-background">
-      <header className="border-b border-border/50 sticky top-0 z-10 backdrop-blur-sm bg-background/80">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
-          <a
-            href="/"
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors duration-150"
-            aria-label="Back to dashboard"
-          >
-            <ArrowLeft size={14} />
-            <span>Dashboard</span>
-          </a>
-          <span className="text-sm font-semibold tracking-[0.18em] text-foreground">
-            CIBI
-          </span>
-        </div>
-      </header>
-
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-semibold">Transactions</h1>
@@ -408,8 +375,7 @@ export function TransactionsPage() {
           </Card>
         )}
 
-        <div className="h-8" />
-      </main>
+      <div className="h-8" />
     </div>
   )
 }

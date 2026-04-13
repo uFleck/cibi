@@ -1,5 +1,5 @@
 # Build stage: compile Go + build React
-FROM golang:1.23-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /build
 
@@ -11,10 +11,11 @@ COPY . .
 
 # Build React SPA
 RUN apk add --no-cache nodejs npm && \
-    cd web && npm install && npm run build && cd ..
+    cd web && npm install && npm run build && cd .. && \
+    rm -rf cmd/cibi-api/web/dist && cp -r web/dist cmd/cibi-api/web/dist
 
 # Build Go binary (CGO_ENABLED=0 for pure Go, scratch-compatible)
-RUN CGO_ENABLED=1 go build -ldflags="-s -w" -o cibi-api ./cmd/cibi-api
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o cibi-api ./cmd/cibi-api
 
 # Runtime stage: minimal image
 FROM alpine:latest

@@ -22,12 +22,13 @@ var _ PayScheduleServiceIface = (*service.PayScheduleService)(nil)
 
 // PayScheduleHandler handles HTTP requests for /pay-schedule routes.
 type PayScheduleHandler struct {
-	svc *service.PayScheduleService
+	svc    *service.PayScheduleService
+	accSvc AccountsServiceIface
 }
 
-// NewPayScheduleHandler creates a PayScheduleHandler wired to the given service.
-func NewPayScheduleHandler(svc *service.PayScheduleService) *PayScheduleHandler {
-	return &PayScheduleHandler{svc: svc}
+// NewPayScheduleHandler creates a PayScheduleHandler wired to the given services.
+func NewPayScheduleHandler(svc *service.PayScheduleService, accSvc AccountsServiceIface) *PayScheduleHandler {
+	return &PayScheduleHandler{svc: svc, accSvc: accSvc}
 }
 
 // Request / response types.
@@ -74,17 +75,20 @@ func (h *PayScheduleHandler) CreateOrUpdate(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	// Parse account ID — use default if not provided.
+	// Parse account ID — fall back to default account if not provided.
 	var accountID uuid.UUID
 	var err error
 	if req.AccountID == "" {
-		// Get default account via handler (need access to accounts service)
-		// For now, require account_id in request.
-		return echo.NewHTTPError(http.StatusBadRequest, "account_id is required")
-	}
-	accountID, err = uuid.Parse(req.AccountID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid account_id")
+		acc, accErr := h.accSvc.GetDefault()
+		if accErr != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "account_id is required and no default account exists")
+		}
+		accountID = acc.ID
+	} else {
+		accountID, err = uuid.Parse(req.AccountID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid account_id")
+		}
 	}
 
 	// Parse anchor date.

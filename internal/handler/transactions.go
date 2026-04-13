@@ -134,7 +134,7 @@ func (h *TransactionsHandler) Create(c echo.Context) error {
 		IsRecurring: req.IsRecurring,
 		Frequency:   req.Frequency,
 	}
-	if req.AnchorDate != nil {
+	if req.AnchorDate != nil && *req.AnchorDate != "" {
 		parsed, err := time.Parse(time.RFC3339, *req.AnchorDate)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid anchor_date: must be RFC3339")

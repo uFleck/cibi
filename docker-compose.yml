@@ -2,11 +2,12 @@ version: '3.8'
 
 services:
   cibi-api:
+    image: ufleck/cibi:latest
     build: .
     ports:
       - "42069:42069"
     volumes:
-      - cibi-data:/data
+      - ./data:/data
     environment:
       CIBI_DATABASEPATH: /data/cibi.db
       CIBI_SERVERPORT: :42069
@@ -18,7 +19,3 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
-
-volumes:
-  cibi-data:
-    driver: local
