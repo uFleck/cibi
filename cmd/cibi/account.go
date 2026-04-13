@@ -67,10 +67,10 @@ var accountAddCmd = &cobra.Command{
 
 var accountSetDefaultCmd = &cobra.Command{
 	Use:   "set-default <id>",
-	Short: "Set an account as default",
+	Short: "Set an account as default (supports partial ID)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		id, err := uuid.Parse(args[0])
+		id, err := resolveAccountID(args[0])
 		if err != nil {
 			return fmt.Errorf("invalid account ID: %w", err)
 		}
@@ -84,10 +84,10 @@ var accountSetDefaultCmd = &cobra.Command{
 
 var accountDeleteCmd = &cobra.Command{
 	Use:   "delete <id>",
-	Short: "Delete an account and its transactions",
+	Short: "Delete an account and its transactions (supports partial ID)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		id, err := uuid.Parse(args[0])
+		id, err := resolveAccountID(args[0])
 		if err != nil {
 			return fmt.Errorf("invalid account ID: %w", err)
 		}
