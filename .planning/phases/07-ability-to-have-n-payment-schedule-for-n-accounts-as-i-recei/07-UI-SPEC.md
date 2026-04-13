@@ -206,7 +206,7 @@ Risk badge for WAIT: use the new risk level string `"WAIT"`. Add to `RISK_COLORS
 ```ts
 WAIT: 'var(--color-verdict-wait)',
 ```
-Badge label: `"WAIT RISK"` — same `text-[10px] font-semibold uppercase tracking-widest px-2 py-1 rounded-md w-fit` pattern.
+Badge label: `"WAIT RISK"` — same `text-xs font-semibold uppercase tracking-widest px-2 py-1 rounded-md w-fit` pattern.
 
 Purchasing power and buffer remaining lines: show normally (same as YES/NO).
 
