@@ -14,8 +14,9 @@ RUN apk add --no-cache nodejs npm && \
     cd web && npm install && npm run build && cd .. && \
     rm -rf cmd/cibi-api/web/dist && cp -r web/dist cmd/cibi-api/web/dist
 
-# Build Go binary (CGO_ENABLED=0 for pure Go, scratch-compatible)
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o cibi-api ./cmd/cibi-api
+# Build Go binaries (CGO_ENABLED=0 for pure Go, scratch-compatible)
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o cibi-api ./cmd/cibi-api && \
+    CGO_ENABLED=0 go build -ldflags="-s -w" -o cibi ./cmd/cibi
 
 # Runtime stage: minimal image
 FROM alpine:latest
@@ -24,8 +25,9 @@ RUN apk add --no-cache ca-certificates tzdata sqlite-libs
 
 WORKDIR /app
 
-# Copy binary from builder
+# Copy binaries from builder
 COPY --from=builder /build/cibi-api /app/cibi-api
+COPY --from=builder /build/cibi /app/cibi
 
 # Create data directory for SQLite volume mount
 RUN mkdir -p /data
