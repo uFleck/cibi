@@ -125,10 +125,27 @@ var txAddCmd = &cobra.Command{
 
 var txUpdateCmd = &cobra.Command{
 	Use:   "update <id>",
-	Short: "Update a transaction",
+	Short: "Update a transaction (supports partial ID)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		id, err := uuid.Parse(args[0])
+		accountStr, _ := cmd.Flags().GetString("account")
+
+		var accountID uuid.UUID
+		if accountStr != "" {
+			id, err := resolveAccountID(accountStr)
+			if err != nil {
+				return fmt.Errorf("invalid account ID: %w", err)
+			}
+			accountID = id
+		} else {
+			acc, err := application.AccountsSvc.GetDefault()
+			if err != nil {
+				return fmt.Errorf("failed to get default account (use --account to specify): %w", err)
+			}
+			accountID = acc.ID
+		}
+
+		id, err := resolveTransactionID(args[0], accountID)
 		if err != nil {
 			return fmt.Errorf("invalid transaction ID: %w", err)
 		}
@@ -158,10 +175,27 @@ var txUpdateCmd = &cobra.Command{
 
 var txDeleteCmd = &cobra.Command{
 	Use:   "delete <id>",
-	Short: "Delete a transaction",
+	Short: "Delete a transaction (supports partial ID)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		id, err := uuid.Parse(args[0])
+		accountStr, _ := cmd.Flags().GetString("account")
+
+		var accountID uuid.UUID
+		if accountStr != "" {
+			id, err := resolveAccountID(accountStr)
+			if err != nil {
+				return fmt.Errorf("invalid account ID: %w", err)
+			}
+			accountID = id
+		} else {
+			acc, err := application.AccountsSvc.GetDefault()
+			if err != nil {
+				return fmt.Errorf("failed to get default account (use --account to specify): %w", err)
+			}
+			accountID = acc.ID
+		}
+
+		id, err := resolveTransactionID(args[0], accountID)
 		if err != nil {
 			return fmt.Errorf("invalid transaction ID: %w", err)
 		}
