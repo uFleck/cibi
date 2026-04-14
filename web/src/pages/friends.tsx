@@ -122,6 +122,18 @@ function FriendCard({ friend }: { friend: FriendResponse }) {
 
   function handleAddDebt(e: React.FormEvent) {
     e.preventDefault()
+    const amount = parseFloat(debtForm.amount)
+    if (isNaN(amount)) {
+      toast.error('Please enter a valid amount')
+      return
+    }
+    if (debtForm.is_installment) {
+      const totalInstallments = parseInt(debtForm.total_installments, 10)
+      if (isNaN(totalInstallments) || totalInstallments <= 0) {
+        toast.error('Please enter a valid number of installments')
+        return
+      }
+    }
     addDebtMutation.mutate()
   }
 
@@ -540,6 +552,16 @@ export function FriendsPage() {
     onError: () => toast.error('Failed to create group event'),
   })
 
+  function handleCreateEvent(e: React.FormEvent) {
+    e.preventDefault()
+    const totalAmount = parseFloat(eventForm.total_amount)
+    if (isNaN(totalAmount)) {
+      toast.error('Please enter a valid total amount')
+      return
+    }
+    createEventMutation.mutate()
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
       {/* Friends & Debts */}
@@ -637,10 +659,7 @@ export function FriendsPage() {
             </CardHeader>
             <CardContent>
               <form
-                onSubmit={e => {
-                  e.preventDefault()
-                  createEventMutation.mutate()
-                }}
+                onSubmit={handleCreateEvent}
                 className="flex flex-col gap-4"
               >
                 <div>
