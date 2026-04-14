@@ -39,10 +39,7 @@ func SetupRoutes(e *echo.Echo, accSvc *service.AccountsService, txnsSvc *service
 	api.POST("/check", ch.Check)
 
 	ps := api.Group("/pay-schedule")
-	ps.GET("", psh.List)
-	ps.POST("", psh.Create)
-	ps.PATCH("/:id", psh.Update)
-	ps.DELETE("/:id", psh.Delete)
+	ps.POST("", psh.CreateOrUpdate)
 
 	api.GET("/docs", func(c echo.Context) error {
 		return c.Blob(http.StatusOK, "application/yaml", openAPIYAML)

@@ -38,29 +38,26 @@ func main() {
 	}
 
 	// Check if pay schedule already exists
-	schedules, err := psRepo.ListByAccountID(acc.ID)
-	if err != nil {
-		log.Fatalf("failed to check existing pay schedules: %v", err)
-	}
-	if len(schedules) > 0 {
+	_, err = psRepo.GetByAccountID(acc.ID)
+	if err == nil {
 		log.Printf("Pay schedule already exists for account %s", acc.ID)
 		return
 	}
 
-	// Create default semi-monthly pay schedule (1st and 15th)
+	// Create default biweekly pay schedule
+	dom1 := 1
 	dom2 := 15
-	_, err = psSvc.CreatePaySchedule(
+	err = psSvc.SetPaySchedule(
 		acc.ID,
-		"semi-monthly",
+		"biweekly",
 		time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
-		nil,
+		&dom1,
 		&dom2,
 		nil,
-		0,
 	)
 	if err != nil {
-		log.Fatalf("failed to create pay schedule: %v", err)
+		log.Fatalf("failed to set pay schedule: %v", err)
 	}
 
-	fmt.Printf("Created default semi-monthly pay schedule for account %s\n", acc.ID)
+	fmt.Printf("Created default biweekly pay schedule for account %s\n", acc.ID)
 }

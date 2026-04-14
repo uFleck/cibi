@@ -16,13 +16,12 @@ import (
 
 // mockAccountsService satisfies the AccountsServiceIface for handler tests.
 type mockAccountsService struct {
-	listFn         func() ([]sqlite.Account, error)
-	createFn       func(a sqlite.Account) error
-	getDefaultFn   func() (sqlite.Account, error)
-	getByIDFn      func(id uuid.UUID) (sqlite.Account, error)
-	updateFn       func(id uuid.UUID, name *string, balance *int64) error
-	deleteFn       func(id uuid.UUID) error
-	setDefaultFn   func(id uuid.UUID) error
+	listFn       func() ([]sqlite.Account, error)
+	createFn     func(a sqlite.Account) error
+	getDefaultFn func() (sqlite.Account, error)
+	getByIDFn    func(id uuid.UUID) (sqlite.Account, error)
+	updateFn     func(id uuid.UUID, name *string, balance *int64) error
+	deleteFn     func(id uuid.UUID) error
 }
 
 func (m *mockAccountsService) ListAccounts() ([]sqlite.Account, error) {
@@ -63,13 +62,6 @@ func (m *mockAccountsService) UpdateAccount(id uuid.UUID, name *string, balance 
 func (m *mockAccountsService) DeleteAccount(id uuid.UUID) error {
 	if m.deleteFn != nil {
 		return m.deleteFn(id)
-	}
-	panic("not implemented")
-}
-
-func (m *mockAccountsService) SetDefault(id uuid.UUID) error {
-	if m.setDefaultFn != nil {
-		return m.setDefaultFn(id)
 	}
 	panic("not implemented")
 }
