@@ -13,7 +13,13 @@
       "Read(//opt/**)",
       "Bash(command -v uv)",
       "Bash(command -v conda)",
-      "Bash(node -e \"const pkg = require\\(''./package.json''\\); console.log\\(JSON.stringify\\(Object.keys\\(pkg.dependencies\\), null, 2\\)\\)\")"
+      "Bash(node -e \"const pkg = require\\(''./package.json''\\); console.log\\(JSON.stringify\\(Object.keys\\(pkg.dependencies\\), null, 2\\)\\)\")",
+      "Bash(grep -v \"$\\(pwd\\)$\")",
+      "Bash(git show:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(go test:*)",
+      "Bash(git push:*)"
     ]
   }
 }
