@@ -1,7 +1,9 @@
-import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
+import { createRootRoute, createRoute, createRouter, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useEffect, useContext } from 'react'
+import { Plus } from 'lucide-react'
+import { Skeleton } from 'boneyard-js/react'
 import { StatCards } from '@/components/StatCards'
 import { CheckWidget } from '@/components/CheckWidget'
 import { ObligationsList } from '@/components/ObligationsList'
@@ -10,12 +12,15 @@ import { AccountsPage } from '@/pages/accounts'
 import { TransactionsPage } from '@/pages/transactions'
 import { fetchDefaultAccount, fetchAccounts, fetchTransactions } from '@/lib/api'
 import { AccountContext, RootLayout } from '@/App'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 
 function Dashboard() {
   const { selectedAccountId, setSelectedAccountId } = useContext(AccountContext)
 
   const {
     data: allAccounts = [],
+    isLoading: accountsLoading,
   } = useQuery({
     queryKey: ['accounts'],
     queryFn: fetchAccounts,
@@ -60,19 +65,38 @@ function Dashboard() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
-      {account ? (
-        <StatCards account={account} recurringTxns={transactions} />
+      {!accountsLoading && allAccounts.length === 0 ? (
+        <Card>
+          <CardContent className="text-center py-12">
+            <p className="text-muted-foreground mb-4">Create your first account to get started</p>
+            <Link to="/accounts">
+              <Button size="sm">
+                <Plus size={16} />
+                Create Account
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {[0, 1, 2].map(i => (
-            <div key={i} className="h-[88px] rounded-xl bg-card/60 animate-pulse border border-border/40" />
-          ))}
-        </div>
+        <Skeleton
+          name="stat-cards"
+          loading={!account}
+          fallback={
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="status" aria-label="Loading dashboard">
+              {[0, 1, 2].map(i => (
+                <div key={i} className="h-[88px] rounded-xl bg-card/60 animate-pulse border border-border/40" />
+              ))}
+              <span className="sr-only">Loading...</span>
+            </div>
+          }
+        >
+          {account ? <StatCards account={account} recurringTxns={transactions} /> : null}
+        </Skeleton>
       )}
 
       <CheckWidget />
 
-      <ObligationsList transactions={transactions} />
+      <ObligationsList transactions={transactions} currency={account?.currency} />
 
       <div className="h-8" />
     </div>
