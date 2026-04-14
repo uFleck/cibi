@@ -1,7 +1,6 @@
 package service
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -16,10 +15,12 @@ var ErrPayScheduleRequired = errors.New("PAY_SCHEDULE_REQUIRED")
 
 // EngineResult holds the output of the CanIBuyIt decision.
 type EngineResult struct {
-	CanBuy          bool
-	PurchasingPower int64  // cents; balance - obligations - safety_buffer
-	BufferRemaining int64  // cents; purchasing_power - item_price (may be negative)
-	RiskLevel       string // "LOW" | "MEDIUM" | "HIGH" | "BLOCKED"
+	CanBuy                bool
+	PurchasingPower       int64      // cents; balance - obligations - safety_buffer
+	BufferRemaining       int64      // cents; purchasing_power - item_price (may be negative)
+	RiskLevel             string     // "LOW" | "MEDIUM" | "HIGH" | "BLOCKED" | "WAIT"
+	WillAffordAfterPayday bool       // true when WAIT verdict applies
+	WaitUntil             *time.Time // non-nil only when RiskLevel == "WAIT"
 }
 
 // EngineService implements the CanIBuyIt decision engine.
@@ -55,8 +56,9 @@ func NewEngineService(
 //
 // Upcoming obligations: recurring transactions where
 //
-//	next_occurrence > now AND next_occurrence <= next_payday  (D-02)
+//	next_occurrence > now AND next_occurrence <= earliest_next_payday  (D-02)
 //
+// The union window approach uses the earliest next payday across all schedules.
 // Must complete in under 100ms.
 func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineResult, error) {
 	// Step 1: Load account.
@@ -65,34 +67,38 @@ func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineR
 		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: get account: %w", err)
 	}
 
-	// Step 2: Load PaySchedule for this account.
-	ps, err := s.psRepo.GetByAccountID(accountID)
+	// Step 2: Load ALL pay schedules for this account.
+	schedules, err := s.psRepo.ListByAccountID(accountID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: get pay schedule: %w", ErrPayScheduleRequired)
-		}
-		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: get pay schedule: %w", err)
+		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: list pay schedules: %w", err)
+	}
+	if len(schedules) == 0 {
+		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: %w", ErrPayScheduleRequired)
 	}
 
-	// Step 3: Compute next payday strictly after now (UTC).
+	// Step 3: Find earliest next payday across all schedules (union window approach).
 	now := time.Now().UTC()
-	engineSchedule := engine.PaySchedule{
-		Frequency:   ps.Frequency,
-		AnchorDate:  ps.AnchorDate,
-		DayOfMonth2: ps.DayOfMonth2,
+	var earliestPayday time.Time
+	var earliestSchedule sqlite.PaySchedule
+	for i, ps := range schedules {
+		ep := engine.PaySchedule{
+			Frequency:   ps.Frequency,
+			AnchorDate:  ps.AnchorDate,
+			DayOfMonth2: ps.DayOfMonth2,
+		}
+		np := engine.NextPayday(ep, now)
+		if i == 0 || np.Before(earliestPayday) {
+			earliestPayday = np
+			earliestSchedule = ps
+		}
 	}
-	nextPayday := engine.NextPayday(engineSchedule, now)
 
-	// Step 4: Sum upcoming obligations (next_occurrence > now AND <= next_payday).
-	obligations, err := s.txnsRepo.SumUpcomingObligations(accountID, now, nextPayday)
+	// Step 4: Sum upcoming obligations (next_occurrence > now AND <= earliestPayday).
+	obligations, err := s.txnsRepo.SumUpcomingObligations(accountID, now, earliestPayday)
 	if err != nil {
 		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: sum obligations: %w", err)
 	}
-	// Obligations are stored as negative amounts (debits). Sum is negative.
-	// We subtract obligations as an absolute value: purchasing_power = balance - abs(obligations).
-	// However, to keep it symmetric with SUM(amount) where debits are negative cents,
-	// we add the (negative) sum, which reduces the balance.
-	// If the repo stores debits as negative: obligations < 0.
+	// Obligations are stored as negative amounts (debits). Sum is negative or zero.
 	// purchasing_power = balance + obligations (obligations <= 0) - threshold
 	// Example: balance=50000, obligations=-20000, threshold=10000 → pp=20000
 
@@ -103,22 +109,41 @@ func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineR
 	}
 
 	// Step 6: Calculate purchasing power.
-	// obligations is the SUM(amount) — debits should be negative cents.
 	purchasingPower := acc.CurrentBalance + obligations - buf.MinThreshold
 
 	// Step 7: Determine can_buy and buffer_remaining.
 	canBuy := purchasingPower >= itemPrice
 	bufferRemaining := purchasingPower - itemPrice
 
-	// Step 8: Classify risk.
-	riskLevel := classifyRisk(canBuy, bufferRemaining, buf.MinThreshold)
+	// Step 8: Classify risk — handle BLOCKED and WAIT inline; delegate LOW/MEDIUM/HIGH to classifyRisk.
+	if canBuy {
+		return EngineResult{
+			CanBuy:          true,
+			PurchasingPower: purchasingPower,
+			BufferRemaining: bufferRemaining,
+			RiskLevel:       classifyRisk(bufferRemaining, buf.MinThreshold),
+		}, nil
+	}
 
-	return EngineResult{
-		CanBuy:          canBuy,
-		PurchasingPower: purchasingPower,
-		BufferRemaining: bufferRemaining,
-		RiskLevel:       riskLevel,
-	}, nil
+	// Cannot buy — check WAIT: will the user afford it after the earliest payday?
+	projectedBalance := acc.CurrentBalance + earliestSchedule.Amount
+	// obligations is already summed for the [now, earliestPayday] window (same window).
+	projectedPurchasingPower := projectedBalance + obligations - buf.MinThreshold
+	willAfford := projectedPurchasingPower >= itemPrice
+
+	result := EngineResult{
+		CanBuy:                false,
+		PurchasingPower:       purchasingPower,
+		BufferRemaining:       bufferRemaining,
+		RiskLevel:             "BLOCKED",
+		WillAffordAfterPayday: willAfford,
+		WaitUntil:             nil,
+	}
+	if willAfford {
+		result.RiskLevel = "WAIT"
+		result.WaitUntil = &earliestPayday
+	}
+	return result, nil
 }
 
 // CanIBuyItDefault runs CanIBuyIt against the account marked is_default = 1.
@@ -134,16 +159,11 @@ func (s *EngineService) CanIBuyItDefault(itemPrice int64) (EngineResult, error) 
 //
 // Tiers (ENGINE-04 — thresholds are agent's discretion):
 //
-//	BLOCKED: can't afford it
 //	HIGH:    remaining < 25% of min_threshold
 //	MEDIUM:  remaining < 50% of min_threshold
 //	LOW:     remaining >= 50% of min_threshold (or min_threshold == 0)
-func classifyRisk(canBuy bool, bufferRemaining, minThreshold int64) string {
-	if !canBuy {
-		return "BLOCKED"
-	}
+func classifyRisk(bufferRemaining, minThreshold int64) string {
 	if minThreshold == 0 {
-		// No buffer defined — any positive purchasing_power is LOW.
 		return "LOW"
 	}
 	if bufferRemaining < minThreshold/4 {

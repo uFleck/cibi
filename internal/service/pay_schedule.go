@@ -1,8 +1,6 @@
 package service
 
 import (
-	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 
@@ -24,8 +22,19 @@ func NewPayScheduleService(psRepo sqlite.PayScheduleRepo, accRepo sqlite.Account
 	}
 }
 
-// SetPaySchedule creates or updates a pay schedule for an account.
-func (s *PayScheduleService) SetPaySchedule(accountID uuid.UUID, frequency string, anchorDate time.Time, dayOfMonth, dayOfMonth2 *int, label *string) error {
+// CreatePaySchedule validates account exists, generates UUID, and inserts a new pay schedule.
+func (s *PayScheduleService) CreatePaySchedule(
+	accountID uuid.UUID,
+	frequency string,
+	anchorDate time.Time,
+	dayOfMonth, dayOfMonth2 *int,
+	label *string,
+	amount int64,
+) (sqlite.PaySchedule, error) {
+	if _, err := s.accRepo.GetByID(accountID); err != nil {
+		return sqlite.PaySchedule{}, fmt.Errorf("service.CreatePaySchedule: account not found: %w", err)
+	}
+
 	ps := sqlite.PaySchedule{
 		ID:          uuid.New(),
 		AccountID:   accountID,
@@ -33,35 +42,50 @@ func (s *PayScheduleService) SetPaySchedule(accountID uuid.UUID, frequency strin
 		AnchorDate:  anchorDate.UTC(),
 		DayOfMonth2: dayOfMonth2,
 		Label:       label,
+		Amount:      amount,
 	}
 
-	// Check if a pay schedule already exists for this account.
-	_, err := s.psRepo.GetByAccountID(accountID)
+	if err := s.psRepo.Insert(ps); err != nil {
+		return sqlite.PaySchedule{}, fmt.Errorf("service.CreatePaySchedule: insert: %w", err)
+	}
+	return ps, nil
+}
+
+// ListPaySchedules returns all schedules for an account (empty slice if none).
+func (s *PayScheduleService) ListPaySchedules(accountID uuid.UUID) ([]sqlite.PaySchedule, error) {
+	schedules, err := s.psRepo.ListByAccountID(accountID)
 	if err != nil {
-		// If not found (sql.ErrNoRows), create new; otherwise return error.
-		if !errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("service.SetPaySchedule: check existing: %w", err)
-		}
-		// No existing schedule — insert new.
-		if err := s.psRepo.Insert(ps); err != nil {
-			return fmt.Errorf("service.SetPaySchedule: insert: %w", err)
-		}
-		return nil
+		return nil, fmt.Errorf("service.ListPaySchedules: %w", err)
 	}
+	return schedules, nil
+}
 
-	// Existing schedule found — update it.
-	ps.AccountID = accountID // ensure correct account
-	if err := s.psRepo.UpdateByAccountID(accountID, ps); err != nil {
-		return fmt.Errorf("service.SetPaySchedule: update: %w", err)
+// UpdatePaySchedule updates an existing schedule by its own UUID.
+func (s *PayScheduleService) UpdatePaySchedule(
+	id uuid.UUID,
+	frequency string,
+	anchorDate time.Time,
+	dayOfMonth, dayOfMonth2 *int,
+	label *string,
+	amount int64,
+) error {
+	ps := sqlite.PaySchedule{
+		Frequency:   frequency,
+		AnchorDate:  anchorDate.UTC(),
+		DayOfMonth2: dayOfMonth2,
+		Label:       label,
+		Amount:      amount,
+	}
+	if err := s.psRepo.UpdateByID(id, ps); err != nil {
+		return fmt.Errorf("service.UpdatePaySchedule: %w", err)
 	}
 	return nil
 }
 
-// GetPaySchedule returns the pay schedule for an account.
-func (s *PayScheduleService) GetPaySchedule(accountID uuid.UUID) (sqlite.PaySchedule, error) {
-	ps, err := s.psRepo.GetByAccountID(accountID)
-	if err != nil {
-		return ps, fmt.Errorf("service.GetPaySchedule: %w", err)
+// DeletePaySchedule deletes a schedule by its own UUID.
+func (s *PayScheduleService) DeletePaySchedule(id uuid.UUID) error {
+	if err := s.psRepo.DeleteByID(id); err != nil {
+		return fmt.Errorf("service.DeletePaySchedule: %w", err)
 	}
-	return ps, nil
+	return nil
 }
