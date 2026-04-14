@@ -9,11 +9,12 @@ import { postCheck, type CheckResponse } from '@/lib/api'
 
 type WidgetState = 'idle' | 'loading' | 'verdict'
 
-const RISK_COLORS: Record<CheckResponse['risk_level'], string> = {
+const RISK_COLORS: Record<string, string> = {
   LOW: 'var(--color-risk-low)',
   MEDIUM: 'var(--color-risk-medium)',
   HIGH: 'var(--color-risk-high)',
   BLOCKED: 'var(--color-risk-blocked)',
+  WAIT: 'var(--color-verdict-wait)',
 }
 
 export function CheckWidget() {
@@ -85,59 +86,83 @@ export function CheckWidget() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          <motion.div
-            initial={{ scale: 0.90, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-            className="rounded-lg p-5 flex flex-col gap-3 border"
-            style={{
-              background: result!.can_buy
-                ? 'var(--color-verdict-yes-tint)'
-                : 'var(--color-verdict-no-tint)',
-              borderColor: result!.can_buy
-                ? 'oklch(0.72 0.19 142 / 0.35)'
-                : 'oklch(0.65 0.22 25 / 0.35)',
-              boxShadow: result!.can_buy
-                ? '0 0 32px oklch(0.72 0.19 142 / 0.25)'
-                : '0 0 32px oklch(0.65 0.22 25 / 0.25)',
-            }}
-          >
-            <p
-              className="text-4xl font-bold tracking-tight leading-none"
-              style={{
-                color: result!.can_buy
-                  ? 'var(--color-verdict-yes)'
-                  : 'var(--color-verdict-no)',
-              }}
-            >
-              {result!.can_buy ? 'YES' : 'NO'}
-            </p>
+          {(() => {
+            const isWait = !result!.can_buy && result!.will_afford_after_payday
+            return (
+              <motion.div
+                initial={{ scale: 0.90, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+                className="rounded-lg p-5 flex flex-col gap-3 border"
+                style={{
+                  background: result!.can_buy
+                    ? 'var(--color-verdict-yes-tint)'
+                    : isWait
+                    ? 'var(--color-verdict-wait-tint)'
+                    : 'var(--color-verdict-no-tint)',
+                  borderColor: result!.can_buy
+                    ? 'oklch(0.72 0.19 142 / 0.35)'
+                    : isWait
+                    ? 'oklch(0.78 0.17 85 / 0.35)'
+                    : 'oklch(0.65 0.22 25 / 0.35)',
+                  boxShadow: result!.can_buy
+                    ? '0 0 32px oklch(0.72 0.19 142 / 0.25)'
+                    : isWait
+                    ? '0 0 32px oklch(0.78 0.17 85 / 0.25)'
+                    : '0 0 32px oklch(0.65 0.22 25 / 0.25)',
+                }}
+              >
+                <p
+                  className="text-4xl font-semibold tracking-tight leading-none"
+                  style={{
+                    color: result!.can_buy
+                      ? 'var(--color-verdict-yes)'
+                      : isWait
+                      ? 'var(--color-verdict-wait)'
+                      : 'var(--color-verdict-no)',
+                  }}
+                >
+                  {result!.can_buy ? 'YES' : isWait ? 'WAIT' : 'NO'}
+                </p>
 
-            <div className="flex flex-col gap-1.5 text-sm text-foreground/80">
-              <p>
-                Purchasing power:{' '}
-                <span className="font-medium tabular-nums text-foreground">
-                  {formatMoney(result!.purchasing_power)}
-                </span>
-              </p>
-              <p>
-                Buffer remaining:{' '}
-                <span className="font-medium tabular-nums text-foreground">
-                  {formatMoney(result!.buffer_remaining)}
-                </span>
-              </p>
-            </div>
+                <div className="flex flex-col gap-1.5 text-sm text-foreground/80">
+                  <p>
+                    Purchasing power:{' '}
+                    <span className="font-medium tabular-nums text-foreground">
+                      {formatMoney(result!.purchasing_power)}
+                    </span>
+                  </p>
+                  <p>
+                    Buffer remaining:{' '}
+                    <span className="font-medium tabular-nums text-foreground">
+                      {formatMoney(result!.buffer_remaining)}
+                    </span>
+                  </p>
+                  {isWait && result!.wait_until && (
+                    <p className="text-sm text-foreground/80">
+                      Not yet — you'll have enough after{' '}
+                      <span className="font-medium">
+                        {new Date(result!.wait_until).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </span>
+                    </p>
+                  )}
+                </div>
 
-            <span
-              className="text-[10px] font-semibold uppercase tracking-widest px-2 py-1 rounded-md w-fit"
-              style={{
-                color: RISK_COLORS[result!.risk_level],
-                background: `${RISK_COLORS[result!.risk_level]}1a`,
-              }}
-            >
-              {result!.risk_level} RISK
-            </span>
-          </motion.div>
+                <span
+                  className="text-[10px] font-semibold uppercase tracking-widest px-2 py-1 rounded-md w-fit"
+                  style={{
+                    color: RISK_COLORS[result!.risk_level],
+                    background: `${RISK_COLORS[result!.risk_level]}1a`,
+                  }}
+                >
+                  {result!.risk_level} RISK
+                </span>
+              </motion.div>
+            )
+          })()}
 
           <Button
             variant="outline"
