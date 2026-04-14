@@ -126,6 +126,10 @@ func (h *PeerDebtHandler) Create(c echo.Context) error {
 	if err := c.Validate(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
+	if req.IsInstallment && (req.TotalInstallments == nil || *req.TotalInstallments <= 0) {
+		return echo.NewHTTPError(http.StatusBadRequest,
+			"total_installments must be a positive integer when is_installment is true")
+	}
 	friendID, err := uuid.Parse(req.FriendID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid friend_id")
