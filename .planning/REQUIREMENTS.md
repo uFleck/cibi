@@ -82,6 +82,17 @@
 | MCP-02 | Tool: `get_financial_status()` — returns current balance, reserved funds, liquid amount, next payday date, and safety buffer threshold as structured text | v2 | Must |
 | MCP-03 | Tools: `check_purchase_feasibility(amount float64)` returns full `EngineResult` (can buy, purchasing power, buffer remaining, risk level); `log_transaction(amount float64, description string)` records a one-off transaction and returns updated balance | v2 | Must |
 
+### PEER — Friend Ledger (Milestone 2)
+
+| ID | Requirement | Version | Priority |
+|----|-------------|---------|----------|
+| PEER-01 | `Friend` entity: `id` (UUID), `name` (TEXT), `public_token` (TEXT unique, URL-safe slug), `notes` (TEXT nullable); token used to generate read-only public links via Tailscale | v2 | Must |
+| PEER-02 | `PeerDebt` entity: `id` (UUID), `friend_id` (FK), `amount` (INTEGER cents, positive = friend owes user, negative = user owes friend), `description` (TEXT), `date` (TEXT UTC RFC3339), `is_installment` (BOOLEAN), `total_installments` (INTEGER nullable), `paid_installments` (INTEGER default 0), `frequency` (TEXT enum: `monthly`, nullable), `anchor_date` (TEXT UTC nullable), `is_confirmed` (BOOLEAN default false, only user can set) | v2 | Must |
+| PEER-03 | `GroupEvent` entity: `id` (UUID), `title` (TEXT), `date` (TEXT UTC RFC3339), `total_amount` (INTEGER cents), `public_token` (TEXT unique, URL-safe slug), `notes` (TEXT nullable); associated `GroupEventParticipant`: `event_id` (FK), `friend_id` (FK nullable — null = assigned to user), `share_amount` (INTEGER cents), `is_confirmed` (BOOLEAN default false) | v2 | Must |
+| PEER-04 | Public read-only endpoints (no auth): `GET /public/friend/:token` returns friend name, net balance, transaction history; `GET /public/group/:token` returns event title, date, participant shares and confirmation status | v2 | Must |
+| PEER-05 | Dashboard overview section: total owed to user (sum of positive peer debts), total user owes (sum of negative peer debts), net balance; rendered as a summary widget linking to the Friends tab | v2 | Must |
+| PEER-06 | Friends management page (dedicated tab): CRUD for friends; list of all peer debts per friend with confirmation toggle; create/manage group events with per-participant share amounts (default equal split, manual override per person); generate/copy public links | v2 | Must |
+
 ---
 
 ## Traceability
