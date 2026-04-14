@@ -1,7 +1,7 @@
 # CIBI — Roadmap
 
 **Project:** CIBI (Can I Buy It?)
-**Last updated:** 2026-04-14
+**Last updated:** 2026-04-12
 **Granularity:** Coarse
 
 ---
@@ -143,31 +143,6 @@ Plans:
 
 ---
 
-### Phase 8: Friend Ledger
-
-**Goal**: Track money owed between the user and friends — both direct debts (with optional monthly installments) and group event splits. Dashboard overview widget + dedicated Friends tab. Per-friend and per-event public read-only pages accessible via Tailscale-friendly token URLs.
-
-**Depends on**: Phase 5
-
-**Requirements**: PEER-01, PEER-02, PEER-03, PEER-04, PEER-05, PEER-06
-
-**Success Criteria**:
-  1. Create a friend, record a debt (I owe / they owe me), confirm payment — all from the Friends tab.
-  2. Create a group event, set unequal shares (wife = $0, rest split equally), view per-person amounts.
-  3. `/public/friend/:token` returns correct net balance + history; unauthenticated request succeeds.
-  4. `/public/group/:token` shows event participants and their shares; unauthenticated request succeeds.
-  5. Dashboard overview widget shows totals (owed to me, I owe, net); matches sum of PeerDebt records.
-  6. Monthly installment debt: after N confirmations, debt shows as fully paid.
-
-**Plans**: 3 plans (Wave 1 → Wave 2 → Wave 3)
-
-Plans:
-- [ ] 08-01-PLAN.md — Goose migration (4 tables + partial unique index) + repo layer (friend, peer_debt, group_event) + service layer + app.go wiring
-- [ ] 08-02-PLAN.md — Handler layer (friend, peer_debt, group_event, public) + routes.go update + app.go SetupRoutes call update
-- [ ] 08-03-PLAN.md — React: api.ts extensions + FriendLedgerWidget + FriendsPage + public pages + router wiring + sidebar nav
-
----
-
 ### Phase 6: MCP Server
 
 **Goal**: Claude queries CIBI financial state + purchase feasibility via MCP Go SDK.
@@ -212,4 +187,3 @@ Plans:
 | 5. Web Dashboard | 0/4 | Not started | - |
 | 6. MCP Server | 0/? | Not started | - |
 | 7. N Payment Schedules | 0/3 | Not started | - |
-| 8. Friend Ledger | 0/3 | Not started | - |
