@@ -72,22 +72,15 @@ export function PayScheduleForm() {
           <FieldLabel>Frequency</FieldLabel>
           <div className="flex gap-2">
             {FREQUENCIES.map(f => (
-              <button
+              <Button
                 key={f.value}
                 type="button"
+                variant={frequency === f.value ? 'default' : 'outline'}
                 onClick={() => setFrequency(f.value)}
-                className="flex-1 h-10 rounded-lg text-sm font-medium transition-colors duration-150 cursor-pointer"
-                style={{
-                  background: frequency === f.value
-                    ? 'var(--primary)'
-                    : 'var(--muted)',
-                  color: frequency === f.value
-                    ? 'var(--primary-foreground)'
-                    : 'var(--muted-foreground)',
-                }}
+                className="flex-1 h-10"
               >
                 {f.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

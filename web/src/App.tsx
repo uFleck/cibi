@@ -32,7 +32,7 @@ export function RootLayout() {
     <div className="flex h-dvh bg-background">
       <Sidebar />
       <MobileHeader onMenuClick={() => setMobileDrawerOpen(true)} />
-      {mobileDrawerOpen && <MobileDrawer onClose={() => setMobileDrawerOpen(false)} />}
+      <MobileDrawer open={mobileDrawerOpen} onClose={() => setMobileDrawerOpen(false)} />
       <main className="flex-1 overflow-auto pt-14 lg:pt-0">
         <Outlet />
       </main>
