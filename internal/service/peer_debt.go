@@ -61,27 +61,13 @@ func (s *PeerDebtService) DeleteDebt(id uuid.UUID) error {
 	return nil
 }
 
-// ConfirmInstallment confirms or increments an installment payment.
+// ConfirmInstallment confirms or increments an installment payment atomically.
 // - Installment debt: increments paid_installments by 1, capped at total_installments.
 // - Non-installment debt: sets is_confirmed = true.
+// The update is performed in a single SQL statement to avoid lost-update races.
 func (s *PeerDebtService) ConfirmInstallment(id uuid.UUID) error {
-	d, err := s.repo.GetByID(id)
-	if err != nil {
-		return fmt.Errorf("service.ConfirmInstallment: get: %w", err)
-	}
-	if d.IsInstallment {
-		newPaid := d.PaidInstallments + 1
-		if d.TotalInstallments != nil && newPaid > *d.TotalInstallments {
-			newPaid = *d.TotalInstallments
-		}
-		if err := s.repo.Update(id, nil, nil, nil, &newPaid); err != nil {
-			return fmt.Errorf("service.ConfirmInstallment: update paid: %w", err)
-		}
-	} else {
-		confirmed := true
-		if err := s.repo.Update(id, nil, nil, &confirmed, nil); err != nil {
-			return fmt.Errorf("service.ConfirmInstallment: update confirmed: %w", err)
-		}
+	if err := s.repo.ConfirmInstallment(id); err != nil {
+		return fmt.Errorf("service.ConfirmInstallment: %w", err)
 	}
 	return nil
 }
