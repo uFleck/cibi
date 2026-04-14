@@ -1,10 +1,11 @@
 import { Link, useLocation } from '@tanstack/react-router'
-import { LayoutDashboard, Users, FileText, Settings } from 'lucide-react'
+import { LayoutDashboard, Users, FileText, Settings, HandCoins } from 'lucide-react'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/accounts', label: 'Accounts', icon: Users },
   { to: '/transactions', label: 'Transactions', icon: FileText },
+  { to: '/friends', label: 'Friends', icon: HandCoins },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
