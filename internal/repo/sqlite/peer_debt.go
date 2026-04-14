@@ -180,27 +180,59 @@ func (r *SqlitePeerDebtRepo) GetByID(id uuid.UUID) (PeerDebt, error) {
 }
 
 func (r *SqlitePeerDebtRepo) Update(id uuid.UUID, amount *int64, description *string, isConfirmed *bool, paidInstallments *int64) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("peer_debt.Update: begin: %w", err)
+	}
+	defer tx.Rollback()
+	// Track whether at least one field was updated and the row exists.
+	rowChecked := false
 	if amount != nil {
-		if _, err := r.db.Exec(`UPDATE PeerDebt SET amount = ? WHERE id = ?`, *amount, id.String()); err != nil {
+		res, err := tx.Exec(`UPDATE PeerDebt SET amount = ? WHERE id = ?`, *amount, id.String())
+		if err != nil {
 			return fmt.Errorf("peer_debt.Update: amount: %w", err)
 		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return fmt.Errorf("peer_debt.Update: %w", sql.ErrNoRows)
+		}
+		rowChecked = true
 	}
 	if description != nil {
-		if _, err := r.db.Exec(`UPDATE PeerDebt SET description = ? WHERE id = ?`, *description, id.String()); err != nil {
+		res, err := tx.Exec(`UPDATE PeerDebt SET description = ? WHERE id = ?`, *description, id.String())
+		if err != nil {
 			return fmt.Errorf("peer_debt.Update: description: %w", err)
+		}
+		if !rowChecked {
+			if n, _ := res.RowsAffected(); n == 0 {
+				return fmt.Errorf("peer_debt.Update: %w", sql.ErrNoRows)
+			}
+			rowChecked = true
 		}
 	}
 	if isConfirmed != nil {
-		if _, err := r.db.Exec(`UPDATE PeerDebt SET is_confirmed = ? WHERE id = ?`, *isConfirmed, id.String()); err != nil {
+		res, err := tx.Exec(`UPDATE PeerDebt SET is_confirmed = ? WHERE id = ?`, *isConfirmed, id.String())
+		if err != nil {
 			return fmt.Errorf("peer_debt.Update: is_confirmed: %w", err)
+		}
+		if !rowChecked {
+			if n, _ := res.RowsAffected(); n == 0 {
+				return fmt.Errorf("peer_debt.Update: %w", sql.ErrNoRows)
+			}
+			rowChecked = true
 		}
 	}
 	if paidInstallments != nil {
-		if _, err := r.db.Exec(`UPDATE PeerDebt SET paid_installments = ? WHERE id = ?`, *paidInstallments, id.String()); err != nil {
+		res, err := tx.Exec(`UPDATE PeerDebt SET paid_installments = ? WHERE id = ?`, *paidInstallments, id.String())
+		if err != nil {
 			return fmt.Errorf("peer_debt.Update: paid_installments: %w", err)
 		}
+		if !rowChecked {
+			if n, _ := res.RowsAffected(); n == 0 {
+				return fmt.Errorf("peer_debt.Update: %w", sql.ErrNoRows)
+			}
+		}
 	}
-	return nil
+	return tx.Commit()
 }
 
 func (r *SqlitePeerDebtRepo) DeleteByID(id uuid.UUID) error {

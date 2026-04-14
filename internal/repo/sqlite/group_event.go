@@ -134,27 +134,58 @@ func (r *SqliteGroupEventRepo) GetByToken(token string) (GroupEvent, error) {
 }
 
 func (r *SqliteGroupEventRepo) Update(id uuid.UUID, title *string, date *string, totalAmount *int64, notes *string) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("group_event.Update: begin: %w", err)
+	}
+	defer tx.Rollback()
+	rowChecked := false
 	if title != nil {
-		if _, err := r.db.Exec(`UPDATE GroupEvent SET title = ? WHERE id = ?`, *title, id.String()); err != nil {
+		res, err := tx.Exec(`UPDATE GroupEvent SET title = ? WHERE id = ?`, *title, id.String())
+		if err != nil {
 			return fmt.Errorf("group_event.Update: title: %w", err)
 		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return fmt.Errorf("group_event.Update: %w", sql.ErrNoRows)
+		}
+		rowChecked = true
 	}
 	if date != nil {
-		if _, err := r.db.Exec(`UPDATE GroupEvent SET date = ? WHERE id = ?`, *date, id.String()); err != nil {
+		res, err := tx.Exec(`UPDATE GroupEvent SET date = ? WHERE id = ?`, *date, id.String())
+		if err != nil {
 			return fmt.Errorf("group_event.Update: date: %w", err)
+		}
+		if !rowChecked {
+			if n, _ := res.RowsAffected(); n == 0 {
+				return fmt.Errorf("group_event.Update: %w", sql.ErrNoRows)
+			}
+			rowChecked = true
 		}
 	}
 	if totalAmount != nil {
-		if _, err := r.db.Exec(`UPDATE GroupEvent SET total_amount = ? WHERE id = ?`, *totalAmount, id.String()); err != nil {
+		res, err := tx.Exec(`UPDATE GroupEvent SET total_amount = ? WHERE id = ?`, *totalAmount, id.String())
+		if err != nil {
 			return fmt.Errorf("group_event.Update: total_amount: %w", err)
+		}
+		if !rowChecked {
+			if n, _ := res.RowsAffected(); n == 0 {
+				return fmt.Errorf("group_event.Update: %w", sql.ErrNoRows)
+			}
+			rowChecked = true
 		}
 	}
 	if notes != nil {
-		if _, err := r.db.Exec(`UPDATE GroupEvent SET notes = ? WHERE id = ?`, *notes, id.String()); err != nil {
+		res, err := tx.Exec(`UPDATE GroupEvent SET notes = ? WHERE id = ?`, *notes, id.String())
+		if err != nil {
 			return fmt.Errorf("group_event.Update: notes: %w", err)
 		}
+		if !rowChecked {
+			if n, _ := res.RowsAffected(); n == 0 {
+				return fmt.Errorf("group_event.Update: %w", sql.ErrNoRows)
+			}
+		}
 	}
-	return nil
+	return tx.Commit()
 }
 
 func (r *SqliteGroupEventRepo) DeleteByID(id uuid.UUID) error {

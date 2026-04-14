@@ -121,17 +121,26 @@ func (r *SqliteFriendRepo) GetByToken(token string) (Friend, error) {
 }
 
 func (r *SqliteFriendRepo) Update(id uuid.UUID, name *string, notes *string) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("friend.Update: begin: %w", err)
+	}
+	defer tx.Rollback()
 	if name != nil {
-		if _, err := r.db.Exec(`UPDATE Friend SET name = ? WHERE id = ?`, *name, id.String()); err != nil {
+		res, err := tx.Exec(`UPDATE Friend SET name = ? WHERE id = ?`, *name, id.String())
+		if err != nil {
 			return fmt.Errorf("friend.Update: name: %w", err)
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return fmt.Errorf("friend.Update: %w", sql.ErrNoRows)
 		}
 	}
 	if notes != nil {
-		if _, err := r.db.Exec(`UPDATE Friend SET notes = ? WHERE id = ?`, *notes, id.String()); err != nil {
+		if _, err := tx.Exec(`UPDATE Friend SET notes = ? WHERE id = ?`, *notes, id.String()); err != nil {
 			return fmt.Errorf("friend.Update: notes: %w", err)
 		}
 	}
-	return nil
+	return tx.Commit()
 }
 
 func (r *SqliteFriendRepo) DeleteByID(id uuid.UUID) error {
