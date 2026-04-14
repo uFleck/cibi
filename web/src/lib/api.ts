@@ -190,3 +190,227 @@ export function deleteTransaction(id: string): Promise<void> {
     method: 'DELETE',
   })
 }
+
+// ─── Friend Ledger Types ───────────────────────────────────────────────────
+
+export interface FriendResponse {
+  id: string
+  name: string
+  public_token: string
+  notes: string | null
+}
+
+export interface FriendSummaryResponse {
+  total_owed_to_user: number
+  total_user_owes: number
+  net: number
+}
+
+export interface PeerDebtResponse {
+  id: string
+  friend_id: string
+  amount: number
+  description: string
+  date: string
+  is_installment: boolean
+  total_installments: number | null
+  paid_installments: number
+  frequency: string | null
+  anchor_date: string | null
+  is_confirmed: boolean
+}
+
+export interface ParticipantResponse {
+  friend_id: string | null
+  share_amount: number
+  is_confirmed: boolean
+}
+
+export interface GroupEventResponse {
+  id: string
+  title: string
+  date: string
+  total_amount: number
+  public_token: string
+  notes: string | null
+  participants?: ParticipantResponse[]
+}
+
+export interface PublicFriendResponse {
+  name: string
+  balance: { friend_owes_user: number; user_owes_friend: number; net: number }
+  debts: PeerDebtResponse[]
+}
+
+export interface PublicGroupResponse {
+  title: string
+  date: string
+  total_amount: number
+  notes: string | null
+  participants: ParticipantResponse[]
+}
+
+export interface CreateFriendRequest {
+  name: string
+  notes?: string
+}
+
+export interface PatchFriendRequest {
+  name?: string
+  notes?: string
+}
+
+export interface CreatePeerDebtRequest {
+  friend_id: string
+  amount: number
+  description: string
+  date: string
+  is_installment?: boolean
+  total_installments?: number
+  frequency?: string
+}
+
+export interface PatchPeerDebtRequest {
+  amount?: number
+  description?: string
+  date?: string
+  is_installment?: boolean
+  total_installments?: number
+  frequency?: string
+  is_confirmed?: boolean
+}
+
+export interface CreateGroupEventRequest {
+  title: string
+  date: string
+  total_amount: number
+  notes?: string
+}
+
+export interface PatchGroupEventRequest {
+  title?: string
+  date?: string
+  total_amount?: number
+  notes?: string
+}
+
+export interface SetParticipantsRequest {
+  participants: Array<{ friend_id: string | null; share_amount: number; is_confirmed?: boolean }>
+}
+
+// ─── Friend Ledger API Functions ──────────────────────────────────────────
+
+// Friends
+export function listFriends(): Promise<FriendResponse[]> {
+  return apiFetch<FriendResponse[]>('/api/friends')
+}
+
+export function createFriend(data: CreateFriendRequest): Promise<FriendResponse> {
+  return apiFetch<FriendResponse>('/api/friends', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export function updateFriend(id: string, data: PatchFriendRequest): Promise<void> {
+  return apiFetch<void>(`/api/friends/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteFriend(id: string): Promise<void> {
+  return apiFetch<void>(`/api/friends/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+export function fetchFriendSummary(): Promise<FriendSummaryResponse> {
+  return apiFetch<FriendSummaryResponse>('/api/friends/summary')
+}
+
+// Peer Debts
+export function listPeerDebts(friendId?: string): Promise<PeerDebtResponse[]> {
+  const path = friendId ? `/api/peer-debts?friend_id=${friendId}` : '/api/peer-debts'
+  return apiFetch<PeerDebtResponse[]>(path)
+}
+
+export function createPeerDebt(data: CreatePeerDebtRequest): Promise<PeerDebtResponse> {
+  return apiFetch<PeerDebtResponse>('/api/peer-debts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export function updatePeerDebt(id: string, data: PatchPeerDebtRequest): Promise<void> {
+  return apiFetch<void>(`/api/peer-debts/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export function deletePeerDebt(id: string): Promise<void> {
+  return apiFetch<void>(`/api/peer-debts/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+export function confirmDebt(id: string): Promise<void> {
+  return apiFetch<void>(`/api/peer-debts/${id}/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  })
+}
+
+// Group Events
+export function listGroupEvents(): Promise<GroupEventResponse[]> {
+  return apiFetch<GroupEventResponse[]>('/api/group-events')
+}
+
+export function createGroupEvent(data: CreateGroupEventRequest): Promise<GroupEventResponse> {
+  return apiFetch<GroupEventResponse>('/api/group-events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export function getGroupEvent(id: string): Promise<GroupEventResponse> {
+  return apiFetch<GroupEventResponse>(`/api/group-events/${id}`)
+}
+
+export function updateGroupEvent(id: string, data: PatchGroupEventRequest): Promise<void> {
+  return apiFetch<void>(`/api/group-events/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export function deleteGroupEvent(id: string): Promise<void> {
+  return apiFetch<void>(`/api/group-events/${id}`, {
+    method: 'DELETE',
+  })
+}
+
+export function setParticipants(eventId: string, data: SetParticipantsRequest): Promise<void> {
+  return apiFetch<void>(`/api/group-events/${eventId}/participants`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+// Public (no auth required)
+export function fetchPublicFriend(token: string): Promise<PublicFriendResponse> {
+  return apiFetch<PublicFriendResponse>(`/public/friend/${token}`)
+}
+
+export function fetchPublicGroup(token: string): Promise<PublicGroupResponse> {
+  return apiFetch<PublicGroupResponse>(`/public/group/${token}`)
+}
