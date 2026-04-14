@@ -32,26 +32,26 @@ function StatCard({ label, value, icon, valueStyle }: StatCardProps) {
 
 export function StatCards({ account, recurringTxns }: StatCardsProps) {
   const reserved = recurringTxns
-    .filter(t => t.next_occurrence !== null)
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0)
-  const liquid = account.current_balance - reserved
+    .filter(t => t.is_recurring && t.next_occurrence !== null)
+    .reduce((sum, t) => sum + Math.abs(t.amount / 100), 0)
+  const liquid = account.current_balance / 100 - reserved
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       <StatCard
         label="Balance"
-        value={formatMoney(account.current_balance)}
+        value={formatMoney(account.current_balance / 100, account.currency)}
         icon={<Wallet size={14} />}
       />
       <StatCard
         label="Reserved"
-        value={formatMoney(reserved)}
+        value={formatMoney(reserved, account.currency)}
         icon={<ShieldCheck size={14} />}
         valueStyle={{ color: 'var(--color-risk-medium)' }}
       />
       <StatCard
         label="Liquid"
-        value={formatMoney(liquid)}
+        value={formatMoney(liquid, account.currency)}
         icon={<Zap size={14} />}
         valueStyle={{
           color: liquid <= 0

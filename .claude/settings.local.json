@@ -6,7 +6,14 @@
       "Bash(npx tsc:*)",
       "Bash(npm run:*)",
       "Bash(go build:*)",
-      "Bash(docker compose:*)"
+      "Bash(docker compose:*)",
+      "Read(//home/fleck/.claude/plugins/cache/caveman/caveman/63e797cd753b/caveman-compress/**)",
+      "Bash(python3 -m scripts /home/fleck/Projects/cibi/UX_UI_REPORT.md)",
+      "Read(//usr/local/bin/**)",
+      "Read(//opt/**)",
+      "Bash(command -v uv)",
+      "Bash(command -v conda)",
+      "Bash(node -e \"const pkg = require\\(''./package.json''\\); console.log\\(JSON.stringify\\(Object.keys\\(pkg.dependencies\\), null, 2\\)\\)\")"
     ]
   }
 }
