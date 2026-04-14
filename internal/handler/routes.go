@@ -38,9 +38,9 @@ func SetupRoutes(e *echo.Echo, accSvc *service.AccountsService, txnsSvc *service
 
 	api.POST("/check", ch.Check)
 
-	ps := api.Group("/pay-schedules")
-	ps.POST("", psh.Create)
+	ps := api.Group("/pay-schedule")
 	ps.GET("", psh.List)
+	ps.POST("", psh.Create)
 	ps.PATCH("/:id", psh.Update)
 	ps.DELETE("/:id", psh.Delete)
 

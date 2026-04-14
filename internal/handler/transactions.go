@@ -43,7 +43,7 @@ type CreateTransactionRequest struct {
 	Description string  `json:"description" validate:"required"`
 	Category    string  `json:"category"`
 	IsRecurring bool    `json:"is_recurring"`
-	Frequency   *string `json:"frequency"`   // required if is_recurring
+	Frequency   *string `json:"frequency"   validate:"omitempty,oneof=weekly bi-weekly semi-monthly monthly"` // required if is_recurring
 	AnchorDate  *string `json:"anchor_date"` // RFC3339; required if is_recurring
 }
 
