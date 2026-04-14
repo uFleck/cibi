@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"database/sql"
-	"errors"
 	"net/http"
 	"time"
 
@@ -14,15 +12,17 @@ import (
 
 // PayScheduleServiceIface defines the service contract used by PayScheduleHandler.
 type PayScheduleServiceIface interface {
-	SetPaySchedule(accountID uuid.UUID, frequency string, anchorDate time.Time, dayOfMonth, dayOfMonth2 *int, label *string) error
-	GetPaySchedule(accountID uuid.UUID) (sqlite.PaySchedule, error)
+	CreatePaySchedule(accountID uuid.UUID, frequency string, anchorDate time.Time, dayOfMonth, dayOfMonth2 *int, label *string, amount int64) (sqlite.PaySchedule, error)
+	ListPaySchedules(accountID uuid.UUID) ([]sqlite.PaySchedule, error)
+	UpdatePaySchedule(id uuid.UUID, frequency string, anchorDate time.Time, dayOfMonth, dayOfMonth2 *int, label *string, amount int64) error
+	DeletePaySchedule(id uuid.UUID) error
 }
 
 var _ PayScheduleServiceIface = (*service.PayScheduleService)(nil)
 
 // PayScheduleHandler handles HTTP requests for /pay-schedule routes.
 type PayScheduleHandler struct {
-	svc    *service.PayScheduleService
+	svc    PayScheduleServiceIface
 	accSvc AccountsServiceIface
 }
 
@@ -33,20 +33,31 @@ func NewPayScheduleHandler(svc *service.PayScheduleService, accSvc AccountsServi
 
 // Request / response types.
 
-type SetPayScheduleRequest struct {
-	AccountID   string  `json:"account_id"`
-	Frequency   string  `json:"frequency" validate:"required,oneof=weekly biweekly monthly"`
-	AnchorDate  string  `json:"anchor_date" validate:"required"` // YYYY-MM-DD
-	DayOfMonth  *int    `json:"day_of_month"`                    // 1-31
-	DayOfMonth2 *int    `json:"day_of_month_2"`                  // for biweekly: 2nd day
+type CreatePayScheduleRequest struct {
+	AccountID   string  `json:"account_id"    validate:"required"`
+	Frequency   string  `json:"frequency"     validate:"required,oneof=weekly bi-weekly semi-monthly monthly"`
+	AnchorDate  string  `json:"anchor_date"   validate:"required"` // YYYY-MM-DD
+	DayOfMonth  *int    `json:"day_of_month"`
+	DayOfMonth2 *int    `json:"day_of_month_2"`
 	Label       *string `json:"label"`
+	Amount      int64   `json:"amount" validate:"min=0"` // cents
+}
+
+type PatchPayScheduleRequest struct {
+	Frequency   string  `json:"frequency"     validate:"required,oneof=weekly bi-weekly semi-monthly monthly"`
+	AnchorDate  string  `json:"anchor_date"   validate:"required"` // YYYY-MM-DD
+	DayOfMonth  *int    `json:"day_of_month"`
+	DayOfMonth2 *int    `json:"day_of_month_2"`
+	Label       *string `json:"label"`
+	Amount      int64   `json:"amount" validate:"min=0"` // cents
 }
 
 type PayScheduleResponse struct {
 	ID          string  `json:"id"`
 	AccountID   string  `json:"account_id"`
 	Frequency   string  `json:"frequency"`
-	AnchorDate  string  `json:"anchor_date"`
+	AnchorDate  string  `json:"anchor_date"` // YYYY-MM-DD
+	Amount      int64   `json:"amount"`      // cents
 	DayOfMonth  *int    `json:"day_of_month"`
 	DayOfMonth2 *int    `json:"day_of_month_2"`
 	Label       *string `json:"label"`
@@ -59,65 +70,90 @@ func payScheduleToResponse(ps sqlite.PaySchedule) PayScheduleResponse {
 		AccountID:   ps.AccountID.String(),
 		Frequency:   ps.Frequency,
 		AnchorDate:  ps.AnchorDate.Format("2006-01-02"),
-		DayOfMonth:  ps.DayOfMonth2, // Primary day stored here
-		DayOfMonth2: nil,            // Secondary day only used in DB
+		Amount:      ps.Amount,
+		DayOfMonth2: ps.DayOfMonth2,
 		Label:       ps.Label,
 	}
 }
 
-// CreateOrUpdate handles POST /pay-schedule — creates or updates a pay schedule.
-func (h *PayScheduleHandler) CreateOrUpdate(c echo.Context) error {
-	var req SetPayScheduleRequest
+// List handles GET /api/pay-schedule?account_id=:id
+func (h *PayScheduleHandler) List(c echo.Context) error {
+	accountIDStr := c.QueryParam("account_id")
+	if accountIDStr == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "account_id query param required")
+	}
+	accountID, err := uuid.Parse(accountIDStr)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid account_id")
+	}
+	schedules, err := h.svc.ListPaySchedules(accountID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	resp := make([]PayScheduleResponse, len(schedules))
+	for i, ps := range schedules {
+		resp[i] = payScheduleToResponse(ps)
+	}
+	return c.JSON(http.StatusOK, resp)
+}
+
+// Create handles POST /api/pay-schedule
+func (h *PayScheduleHandler) Create(c echo.Context) error {
+	var req CreatePayScheduleRequest
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 	if err := c.Validate(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-
-	// Parse account ID — fall back to default account if not provided.
-	var accountID uuid.UUID
-	var err error
-	if req.AccountID == "" {
-		acc, accErr := h.accSvc.GetDefault()
-		if accErr != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "account_id is required and no default account exists")
-		}
-		accountID = acc.ID
-	} else {
-		accountID, err = uuid.Parse(req.AccountID)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "invalid account_id")
-		}
+	accountID, err := uuid.Parse(req.AccountID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid account_id")
 	}
-
-	// Parse anchor date.
 	anchorDate, err := time.Parse("2006-01-02", req.AnchorDate)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid anchor_date format, use YYYY-MM-DD")
 	}
-
-	// Validate frequency and day of month.
-	if req.Frequency == "monthly" && req.DayOfMonth == nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "day_of_month required for monthly frequency")
-	}
-	if req.Frequency == "biweekly" && (req.DayOfMonth == nil || req.DayOfMonth2 == nil) {
-		return echo.NewHTTPError(http.StatusBadRequest, "day_of_month and day_of_month_2 required for biweekly frequency")
-	}
-
-	// Call service to create or update.
-	if err := h.svc.SetPaySchedule(accountID, req.Frequency, anchorDate, req.DayOfMonth, req.DayOfMonth2, req.Label); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	// Fetch the created/updated schedule to return.
-	ps, err := h.svc.GetPaySchedule(accountID)
+	ps, err := h.svc.CreatePaySchedule(accountID, req.Frequency, anchorDate,
+		req.DayOfMonth, req.DayOfMonth2, req.Label, req.Amount)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return echo.NewHTTPError(http.StatusNotFound, "pay schedule not found after creation")
-		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+	return c.JSON(http.StatusCreated, payScheduleToResponse(ps))
+}
 
-	return c.JSON(http.StatusOK, payScheduleToResponse(ps))
+// Update handles PATCH /api/pay-schedule/:id
+func (h *PayScheduleHandler) Update(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid schedule id")
+	}
+	var req PatchPayScheduleRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := c.Validate(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	anchorDate, err := time.Parse("2006-01-02", req.AnchorDate)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid anchor_date format, use YYYY-MM-DD")
+	}
+	if err := h.svc.UpdatePaySchedule(id, req.Frequency, anchorDate,
+		req.DayOfMonth, req.DayOfMonth2, req.Label, req.Amount); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+// Delete handles DELETE /api/pay-schedule/:id
+func (h *PayScheduleHandler) Delete(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid schedule id")
+	}
+	if err := h.svc.DeletePaySchedule(id); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.NoContent(http.StatusNoContent)
 }
