@@ -60,7 +60,7 @@ func New(cfg config.Config) (*App, error) {
 	e.HTTPErrorHandler = handler.CustomHTTPErrorHandler
 	e.Validator = handler.NewCustomValidator()
 
-	handler.SetupRoutes(e, accountsSvc, txnsSvc, engineSvc, payScheduleSvc)
+	handler.SetupRoutes(e, accountsSvc, txnsSvc, engineSvc, payScheduleSvc, friendSvc, peerDebtSvc, groupEventSvc)
 
 	return &App{
 		cfg:            cfg,
