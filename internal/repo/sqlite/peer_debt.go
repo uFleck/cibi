@@ -3,6 +3,7 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+	"math"
 
 	"github.com/google/uuid"
 )
@@ -283,14 +284,18 @@ func (r *SqlitePeerDebtRepo) SumUpcomingPeerObligations() (int64, error) {
 		return 0, fmt.Errorf("peer_debt.SumUpcomingPeerObligations: lump sum: %w", err)
 	}
 
-	// Active installment debts — one payment per active debt
-	var installmentSum int64
+	// Active installment debts — one payment per active debt (cast to REAL to avoid integer division)
+	var installmentSum float64
 	if err := r.db.QueryRow(
-		`SELECT COALESCE(SUM(amount / total_installments), 0) FROM PeerDebt
-		 WHERE amount < 0 AND is_installment = 1 AND paid_installments < total_installments`,
+		`SELECT COALESCE(SUM(CAST(amount AS REAL) / total_installments), 0) FROM PeerDebt
+		 WHERE amount < 0
+		   AND is_installment = 1
+		   AND total_installments IS NOT NULL
+		   AND total_installments > 0
+		   AND paid_installments < total_installments`,
 	).Scan(&installmentSum); err != nil {
 		return 0, fmt.Errorf("peer_debt.SumUpcomingPeerObligations: installment sum: %w", err)
 	}
 
-	return lumpSum + installmentSum, nil
+	return lumpSum + int64(math.Round(installmentSum)), nil
 }
