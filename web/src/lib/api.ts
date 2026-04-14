@@ -23,26 +23,30 @@ export interface CheckResponse {
   can_buy: boolean
   purchasing_power: number
   buffer_remaining: number
-  risk_level: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED'
-}
-
-export interface PayScheduleRequest {
-  account_id?: string
-  frequency: 'weekly' | 'biweekly' | 'monthly'
-  anchor_date: string
-  day_of_month?: number
-  day_of_month_2?: number
-  label?: string
+  risk_level: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED' | 'WAIT'
+  will_afford_after_payday: boolean
+  wait_until: string | null
 }
 
 export interface PayScheduleResponse {
   id: string
   account_id: string
-  frequency: string
+  frequency: 'weekly' | 'bi-weekly' | 'semi-monthly' | 'monthly'
   anchor_date: string
+  amount: number
   day_of_month: number | null
   day_of_month_2: number | null
   label: string | null
+}
+
+export interface CreatePayScheduleRequest {
+  account_id: string
+  frequency: 'weekly' | 'bi-weekly' | 'semi-monthly' | 'monthly'
+  anchor_date: string
+  amount: number
+  day_of_month?: number
+  day_of_month_2?: number
+  label?: string
 }
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
@@ -77,11 +81,29 @@ export function postCheck(amount: number): Promise<CheckResponse> {
   })
 }
 
-export function setPaySchedule(schedule: PayScheduleRequest): Promise<PayScheduleResponse> {
+export function listPaySchedules(accountId: string): Promise<PayScheduleResponse[]> {
+  return apiFetch<PayScheduleResponse[]>(`/api/pay-schedule?account_id=${accountId}`)
+}
+
+export function createPaySchedule(data: CreatePayScheduleRequest): Promise<PayScheduleResponse> {
   return apiFetch<PayScheduleResponse>('/api/pay-schedule', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(schedule),
+    body: JSON.stringify(data),
+  })
+}
+
+export function updatePaySchedule(id: string, data: Partial<CreatePayScheduleRequest>): Promise<void> {
+  return apiFetch<void>(`/api/pay-schedule/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export function deletePaySchedule(id: string): Promise<void> {
+  return apiFetch<void>(`/api/pay-schedule/${id}`, {
+    method: 'DELETE',
   })
 }
 

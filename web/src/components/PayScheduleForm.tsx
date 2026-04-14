@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { setPaySchedule, type PayScheduleRequest } from '@/lib/api'
+import { createPaySchedule, type CreatePayScheduleRequest } from '@/lib/api'
 
-type Frequency = 'weekly' | 'biweekly' | 'monthly'
+type Frequency = 'weekly' | 'bi-weekly' | 'monthly'
 
 const FREQUENCIES: { value: Frequency; label: string }[] = [
   { value: 'weekly', label: 'Weekly' },
-  { value: 'biweekly', label: 'Biweekly' },
+  { value: 'bi-weekly', label: 'Bi-weekly' },
   { value: 'monthly', label: 'Monthly' },
 ]
 
@@ -21,7 +21,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 export function PayScheduleForm() {
-  const [frequency, setFrequency] = useState<Frequency>('biweekly')
+  const [frequency, setFrequency] = useState<Frequency>('bi-weekly')
   const [anchorDate, setAnchorDate] = useState('')
   const [dayOfMonth, setDayOfMonth] = useState('')
   const [dayOfMonth2, setDayOfMonth2] = useState('')
@@ -38,20 +38,22 @@ export function PayScheduleForm() {
       toast.error('Please enter the day of the month')
       return
     }
-    if (frequency === 'biweekly' && (!dayOfMonth || !dayOfMonth2)) {
+    if (frequency === 'bi-weekly' && (!dayOfMonth || !dayOfMonth2)) {
       toast.error('Please enter both pay days')
       return
     }
 
     setSaving(true)
     try {
-      const schedule: PayScheduleRequest = {
+      const schedule: CreatePayScheduleRequest = {
+        account_id: '',
         frequency,
         anchor_date: anchorDate,
+        amount: 0,
         day_of_month: dayOfMonth ? parseInt(dayOfMonth, 10) : undefined,
         day_of_month_2: dayOfMonth2 ? parseInt(dayOfMonth2, 10) : undefined,
       }
-      await setPaySchedule(schedule)
+      await createPaySchedule(schedule)
       toast.success('Pay schedule saved!')
     } catch (err) {
       const error = err as Error
@@ -110,7 +112,7 @@ export function PayScheduleForm() {
           </div>
         )}
 
-        {frequency === 'biweekly' && (
+        {frequency === 'bi-weekly' && (
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
               <FieldLabel>First Day</FieldLabel>
