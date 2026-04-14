@@ -5,6 +5,7 @@ import type { AccountResponse, TransactionResponse } from '@/lib/api'
 interface StatCardsProps {
   account: AccountResponse
   recurringTxns: TransactionResponse[]
+  nextPayday: string | null
 }
 
 interface StatCardProps {
@@ -30,17 +31,18 @@ function StatCard({ label, value, icon, valueStyle }: StatCardProps) {
   )
 }
 
-export function StatCards({ account, recurringTxns }: StatCardsProps) {
+export function StatCards({ account, recurringTxns, nextPayday }: StatCardsProps) {
   const reserved = recurringTxns
-    .filter(t => t.is_recurring && t.next_occurrence !== null)
-    .reduce((sum, t) => sum + Math.abs(t.amount / 100), 0)
-  const liquid = account.current_balance / 100 - reserved
+    .filter(t => t.is_recurring && t.next_occurrence !== null &&
+      (nextPayday === null || t.next_occurrence!.slice(0, 10) <= nextPayday))
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+  const liquid = account.current_balance - reserved
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       <StatCard
         label="Balance"
-        value={formatMoney(account.current_balance / 100, account.currency)}
+        value={formatMoney(account.current_balance, account.currency)}
         icon={<Wallet size={14} />}
       />
       <StatCard

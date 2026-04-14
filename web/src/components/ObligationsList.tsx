@@ -4,16 +4,18 @@ import type { TransactionResponse } from '@/lib/api'
 interface ObligationsListProps {
   transactions: TransactionResponse[]
   currency?: string
+  nextPayday: string | null
 }
 
-export function ObligationsList({ transactions, currency = 'USD' }: ObligationsListProps) {
+export function ObligationsList({ transactions, currency = 'BRL', nextPayday }: ObligationsListProps) {
   const obligations = transactions
-    .filter(t => t.is_recurring && t.next_occurrence !== null)
+    .filter(t => t.is_recurring && t.next_occurrence !== null &&
+      (nextPayday === null || t.next_occurrence!.slice(0, 10) <= nextPayday))
     .sort((a, b) =>
       new Date(a.next_occurrence!).getTime() - new Date(b.next_occurrence!).getTime()
     )
 
-  const total = obligations.reduce((sum, t) => sum + Math.abs(t.amount / 100), 0)
+  const total = obligations.reduce((sum, t) => sum + Math.abs(t.amount), 0)
 
   return (
     <div className="rounded-xl border border-border/60 bg-card flex flex-col">
@@ -39,7 +41,7 @@ export function ObligationsList({ transactions, currency = 'USD' }: ObligationsL
                 className="text-sm tabular-nums font-medium"
                 style={{ color: t.amount < 0 ? 'var(--color-verdict-no)' : undefined }}
               >
-                {formatMoney(t.amount / 100, currency)}
+                {formatMoney(t.amount, currency)}
               </span>
               <span className="text-xs text-muted-foreground w-14 text-right tabular-nums">
                 {formatDate(t.next_occurrence!)}

@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { formatMoney } from '@/lib/format'
+import { formatMoney, formatDate } from '@/lib/format'
 import { postCheck, type CheckResponse } from '@/lib/api'
 
 type WidgetState = 'idle' | 'loading' | 'verdict'
@@ -142,10 +142,7 @@ export function CheckWidget() {
                     <p className="text-sm text-foreground/80">
                       Not yet — you'll have enough after{' '}
                       <span className="font-medium">
-                        {new Date(result!.wait_until).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                        })}
+                        {formatDate(result!.wait_until)}
                       </span>
                     </p>
                   )}

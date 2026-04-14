@@ -33,7 +33,8 @@ export interface PayScheduleResponse {
   account_id: string
   frequency: 'weekly' | 'bi-weekly' | 'semi-monthly' | 'monthly'
   anchor_date: string
-  amount: number
+  next_payday: string
+  amount: number       // dollars
   day_of_month: number | null
   day_of_month_2: number | null
   label: string | null

@@ -7,10 +7,11 @@ import { Skeleton } from 'boneyard-js/react'
 import { StatCards } from '@/components/StatCards'
 import { CheckWidget } from '@/components/CheckWidget'
 import { ObligationsList } from '@/components/ObligationsList'
+import { PayScheduleList } from '@/components/PayScheduleList'
 import { Settings } from '@/pages/settings'
 import { AccountsPage } from '@/pages/accounts'
 import { TransactionsPage } from '@/pages/transactions'
-import { fetchDefaultAccount, fetchAccounts, fetchTransactions } from '@/lib/api'
+import { fetchDefaultAccount, fetchAccounts, fetchTransactions, listPaySchedules } from '@/lib/api'
 import { AccountContext, RootLayout } from '@/App'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -49,6 +50,21 @@ function Dashboard() {
     queryFn: () => fetchTransactions(account!.id),
     enabled: !!account?.id,
   })
+
+  const {
+    data: paySchedules = [],
+  } = useQuery({
+    queryKey: ['pay-schedules', account?.id],
+    queryFn: () => listPaySchedules(account!.id),
+    enabled: !!account?.id,
+  })
+
+  const nextPayday = paySchedules.length > 0
+    ? paySchedules.reduce((earliest, ps) =>
+        ps.next_payday < earliest ? ps.next_payday : earliest,
+        paySchedules[0].next_payday
+      )
+    : null
 
   useEffect(() => {
     if (accountError || txnsError) {
@@ -90,13 +106,15 @@ function Dashboard() {
             </div>
           }
         >
-          {account ? <StatCards account={account} recurringTxns={transactions} /> : null}
+          {account ? <StatCards account={account} recurringTxns={transactions} nextPayday={nextPayday} /> : null}
         </Skeleton>
       )}
 
       <CheckWidget />
 
-      <ObligationsList transactions={transactions} currency={account?.currency} />
+      <ObligationsList transactions={transactions} currency={account?.currency} nextPayday={nextPayday} />
+
+      <PayScheduleList schedules={paySchedules} currency={account?.currency} />
 
       <div className="h-8" />
     </div>

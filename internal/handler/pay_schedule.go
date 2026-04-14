@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"math"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/ufleck/cibi/internal/engine"
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 	"github.com/ufleck/cibi/internal/service"
 )
@@ -34,43 +36,51 @@ func NewPayScheduleHandler(svc *service.PayScheduleService, accSvc AccountsServi
 // Request / response types.
 
 type CreatePayScheduleRequest struct {
-	AccountID   string  `json:"account_id"    validate:"required"`
-	Frequency   string  `json:"frequency"     validate:"required,oneof=weekly bi-weekly semi-monthly monthly"`
-	AnchorDate  string  `json:"anchor_date"   validate:"required"` // YYYY-MM-DD
-	DayOfMonth  *int    `json:"day_of_month"`
-	DayOfMonth2 *int    `json:"day_of_month_2"`
-	Label       *string `json:"label"`
-	Amount      int64   `json:"amount" validate:"min=0"` // cents
+	AccountID   string   `json:"account_id"    validate:"required"`
+	Frequency   string   `json:"frequency"     validate:"required,oneof=weekly bi-weekly semi-monthly monthly"`
+	AnchorDate  string   `json:"anchor_date"   validate:"required"` // YYYY-MM-DD
+	DayOfMonth  *int     `json:"day_of_month"`
+	DayOfMonth2 *int     `json:"day_of_month_2"`
+	Label       *string  `json:"label"`
+	Amount      float64  `json:"amount" validate:"min=0"` // dollars
 }
 
 type PatchPayScheduleRequest struct {
-	Frequency   string  `json:"frequency"     validate:"required,oneof=weekly bi-weekly semi-monthly monthly"`
-	AnchorDate  string  `json:"anchor_date"   validate:"required"` // YYYY-MM-DD
-	DayOfMonth  *int    `json:"day_of_month"`
-	DayOfMonth2 *int    `json:"day_of_month_2"`
-	Label       *string `json:"label"`
-	Amount      int64   `json:"amount" validate:"min=0"` // cents
+	Frequency   string   `json:"frequency"     validate:"required,oneof=weekly bi-weekly semi-monthly monthly"`
+	AnchorDate  string   `json:"anchor_date"   validate:"required"` // YYYY-MM-DD
+	DayOfMonth  *int     `json:"day_of_month"`
+	DayOfMonth2 *int     `json:"day_of_month_2"`
+	Label       *string  `json:"label"`
+	Amount      float64  `json:"amount" validate:"min=0"` // dollars
 }
 
 type PayScheduleResponse struct {
-	ID          string  `json:"id"`
-	AccountID   string  `json:"account_id"`
-	Frequency   string  `json:"frequency"`
-	AnchorDate  string  `json:"anchor_date"` // YYYY-MM-DD
-	Amount      int64   `json:"amount"`      // cents
-	DayOfMonth  *int    `json:"day_of_month"`
-	DayOfMonth2 *int    `json:"day_of_month_2"`
-	Label       *string `json:"label"`
+	ID          string   `json:"id"`
+	AccountID   string   `json:"account_id"`
+	Frequency   string   `json:"frequency"`
+	AnchorDate  string   `json:"anchor_date"` // YYYY-MM-DD
+	NextPayday  string   `json:"next_payday"` // YYYY-MM-DD; next occurrence after today
+	Amount      float64  `json:"amount"`      // dollars
+	DayOfMonth  *int     `json:"day_of_month"`
+	DayOfMonth2 *int     `json:"day_of_month_2"`
+	Label       *string  `json:"label"`
 }
 
 // payScheduleToResponse converts a sqlite.PaySchedule to PayScheduleResponse.
 func payScheduleToResponse(ps sqlite.PaySchedule) PayScheduleResponse {
+	ep := engine.PaySchedule{
+		Frequency:   ps.Frequency,
+		AnchorDate:  ps.AnchorDate,
+		DayOfMonth2: ps.DayOfMonth2,
+	}
+	nextPayday := engine.NextPayday(ep, time.Now().UTC())
 	return PayScheduleResponse{
 		ID:          ps.ID.String(),
 		AccountID:   ps.AccountID.String(),
 		Frequency:   ps.Frequency,
 		AnchorDate:  ps.AnchorDate.Format("2006-01-02"),
-		Amount:      ps.Amount,
+		NextPayday:  nextPayday.Format("2006-01-02"),
+		Amount:      float64(ps.Amount) / 100.0,
 		DayOfMonth2: ps.DayOfMonth2,
 		Label:       ps.Label,
 	}
@@ -115,7 +125,7 @@ func (h *PayScheduleHandler) Create(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid anchor_date format, use YYYY-MM-DD")
 	}
 	ps, err := h.svc.CreatePaySchedule(accountID, req.Frequency, anchorDate,
-		req.DayOfMonth, req.DayOfMonth2, req.Label, req.Amount)
+		req.DayOfMonth, req.DayOfMonth2, req.Label, int64(math.Round(req.Amount*100)))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -140,7 +150,7 @@ func (h *PayScheduleHandler) Update(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid anchor_date format, use YYYY-MM-DD")
 	}
 	if err := h.svc.UpdatePaySchedule(id, req.Frequency, anchorDate,
-		req.DayOfMonth, req.DayOfMonth2, req.Label, req.Amount); err != nil {
+		req.DayOfMonth, req.DayOfMonth2, req.Label, int64(math.Round(req.Amount*100))); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.NoContent(http.StatusNoContent)
