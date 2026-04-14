@@ -49,6 +49,9 @@ type PeerDebtRepo interface {
 	GetBalanceByFriend(friendID uuid.UUID) (PeerDebtBalance, error)
 	GetGlobalBalance() (GlobalPeerBalance, error)
 	SumUpcomingPeerObligations() (int64, error)
+	// ConfirmInstallment atomically increments paid_installments (capped at total_installments)
+	// for installment debts, or sets is_confirmed=1 for non-installment debts.
+	ConfirmInstallment(id uuid.UUID) error
 }
 
 // SqlitePeerDebtRepo implements PeerDebtRepo against modernc SQLite.
@@ -272,6 +275,27 @@ func (r *SqlitePeerDebtRepo) GetGlobalBalance() (GlobalPeerBalance, error) {
 	}
 	b.Net = b.TotalOwedToUser - b.TotalUserOwes
 	return b, nil
+}
+
+// ConfirmInstallment atomically confirms a debt record.
+// For installment debts: increments paid_installments by 1, capped at total_installments.
+// For non-installment debts: sets is_confirmed = 1.
+// Uses a single atomic SQL statement — no read-modify-write race.
+func (r *SqlitePeerDebtRepo) ConfirmInstallment(id uuid.UUID) error {
+	res, err := r.db.Exec(`
+		UPDATE PeerDebt SET
+		    paid_installments = CASE WHEN is_installment = 1
+		        THEN MIN(paid_installments + 1, COALESCE(total_installments, paid_installments + 1))
+		        ELSE paid_installments END,
+		    is_confirmed = CASE WHEN is_installment = 0 THEN 1 ELSE is_confirmed END
+		WHERE id = ?`, id.String())
+	if err != nil {
+		return fmt.Errorf("peer_debt.ConfirmInstallment: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("peer_debt.ConfirmInstallment: %w", sql.ErrNoRows)
+	}
+	return nil
 }
 
 func (r *SqlitePeerDebtRepo) SumUpcomingPeerObligations() (int64, error) {
