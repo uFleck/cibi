@@ -23,6 +23,9 @@ type App struct {
 	TxnsSvc        *service.TransactionsService
 	EngineSvc      *service.EngineService
 	PayScheduleSvc *service.PayScheduleService
+	FriendSvc      *service.FriendService
+	PeerDebtSvc    *service.PeerDebtService
+	GroupEventSvc  *service.GroupEventService
 }
 
 // New creates and wires the entire application graph.
@@ -41,11 +44,17 @@ func New(cfg config.Config) (*App, error) {
 	iTxnsRepo := reposqlite.NewSqliteTxnsRepo(database)
 	iPsRepo := reposqlite.NewSqlitePayScheduleRepo(database)
 	iBufRepo := reposqlite.NewSqliteSafetyBufferRepo(database)
+	iFriendRepo := reposqlite.NewSqliteFriendRepo(database)
+	iPeerDebtRepo := reposqlite.NewSqlitePeerDebtRepo(database)
+	iGroupEvtRepo := reposqlite.NewSqliteGroupEventRepo(database)
 
 	accountsSvc := service.NewAccountsService(iAccRepo)
 	txnsSvc := service.NewTransactionsService(iTxnsRepo, iAccRepo)
-	engineSvc := service.NewEngineService(iAccRepo, iTxnsRepo, iPsRepo, iBufRepo)
+	engineSvc := service.NewEngineService(iAccRepo, iTxnsRepo, iPsRepo, iBufRepo, iPeerDebtRepo)
 	payScheduleSvc := service.NewPayScheduleService(iPsRepo, iAccRepo)
+	friendSvc := service.NewFriendService(iFriendRepo)
+	peerDebtSvc := service.NewPeerDebtService(iPeerDebtRepo)
+	groupEventSvc := service.NewGroupEventService(iGroupEvtRepo, iFriendRepo)
 
 	e := echo.New()
 	e.HTTPErrorHandler = handler.CustomHTTPErrorHandler
@@ -61,6 +70,9 @@ func New(cfg config.Config) (*App, error) {
 		TxnsSvc:        txnsSvc,
 		EngineSvc:      engineSvc,
 		PayScheduleSvc: payScheduleSvc,
+		FriendSvc:      friendSvc,
+		PeerDebtSvc:    peerDebtSvc,
+		GroupEventSvc:  groupEventSvc,
 	}, nil
 }
 

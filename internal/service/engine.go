@@ -25,10 +25,11 @@ type EngineResult struct {
 
 // EngineService implements the CanIBuyIt decision engine.
 type EngineService struct {
-	accRepo    sqlite.AccountsRepo
-	txnsRepo   sqlite.TransactionsRepo
-	psRepo     sqlite.PayScheduleRepo
-	bufferRepo sqlite.SafetyBufferRepo
+	accRepo      sqlite.AccountsRepo
+	txnsRepo     sqlite.TransactionsRepo
+	psRepo       sqlite.PayScheduleRepo
+	bufferRepo   sqlite.SafetyBufferRepo
+	peerDebtRepo sqlite.PeerDebtRepo
 }
 
 // NewEngineService creates a new EngineService.
@@ -37,12 +38,14 @@ func NewEngineService(
 	txnsRepo sqlite.TransactionsRepo,
 	psRepo sqlite.PayScheduleRepo,
 	bufferRepo sqlite.SafetyBufferRepo,
+	peerDebtRepo sqlite.PeerDebtRepo,
 ) *EngineService {
 	return &EngineService{
-		accRepo:    accRepo,
-		txnsRepo:   txnsRepo,
-		psRepo:     psRepo,
-		bufferRepo: bufferRepo,
+		accRepo:      accRepo,
+		txnsRepo:     txnsRepo,
+		psRepo:       psRepo,
+		bufferRepo:   bufferRepo,
+		peerDebtRepo: peerDebtRepo,
 	}
 }
 
@@ -102,6 +105,12 @@ func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineR
 	// purchasing_power = balance + obligations (obligations <= 0) - threshold
 	// Example: balance=50000, obligations=-20000, threshold=10000 → pp=20000
 
+	// Step 4b: Sum outgoing peer debt obligations (money user owes friends).
+	peerObligations, err := s.peerDebtRepo.SumUpcomingPeerObligations()
+	if err != nil {
+		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: sum peer obligations: %w", err)
+	}
+
 	// Step 5: Load safety buffer.
 	buf, err := s.bufferRepo.Get()
 	if err != nil {
@@ -109,7 +118,8 @@ func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineR
 	}
 
 	// Step 6: Calculate purchasing power.
-	purchasingPower := acc.CurrentBalance + obligations - buf.MinThreshold
+	// peerObligations is already <= 0, so adding it reduces purchasing power correctly.
+	purchasingPower := acc.CurrentBalance + obligations + peerObligations - buf.MinThreshold
 
 	// Step 7: Determine can_buy and buffer_remaining.
 	canBuy := purchasingPower >= itemPrice
@@ -127,8 +137,8 @@ func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineR
 
 	// Cannot buy — check WAIT: will the user afford it after the earliest payday?
 	projectedBalance := acc.CurrentBalance + earliestSchedule.Amount
-	// obligations is already summed for the [now, earliestPayday] window (same window).
-	projectedPurchasingPower := projectedBalance + obligations - buf.MinThreshold
+	// obligations and peerObligations are already summed for the [now, earliestPayday] window.
+	projectedPurchasingPower := projectedBalance + obligations + peerObligations - buf.MinThreshold
 	willAfford := projectedPurchasingPower >= itemPrice
 
 	result := EngineResult{
