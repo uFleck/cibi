@@ -1,9 +1,9 @@
-import { useParams } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { fetchPublicGroup, type ParticipantResponse } from '@/lib/api'
 import { formatMoney } from '@/lib/format'
+import { publicGroupRoute } from '@/router'
 
 function participantLabel(p: ParticipantResponse, index: number): string {
   if (p.friend_id === null) return 'Host'
@@ -11,7 +11,7 @@ function participantLabel(p: ParticipantResponse, index: number): string {
 }
 
 export function GroupPublicPage() {
-  const { token } = useParams({ strict: false }) as { token: string }
+  const { token } = publicGroupRoute.useParams()
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['public-group', token],

@@ -190,6 +190,7 @@ const routeTree = rootRoute.addChildren([
 ])
 
 export const router = createRouter({ routeTree })
+export { publicFriendRoute, publicGroupRoute }
 
 declare module '@tanstack/react-router' {
   interface Register {
