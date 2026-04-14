@@ -1,4 +1,4 @@
-import { createRootRoute, createRoute, createRouter, Link } from '@tanstack/react-router'
+import { createRootRoute, createRoute, createRouter, Link, Outlet } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useEffect, useContext } from 'react'
@@ -8,13 +8,25 @@ import { StatCards } from '@/components/StatCards'
 import { CheckWidget } from '@/components/CheckWidget'
 import { ObligationsList } from '@/components/ObligationsList'
 import { PayScheduleList } from '@/components/PayScheduleList'
+import { FriendLedgerWidget } from '@/components/FriendLedgerWidget'
 import { Settings } from '@/pages/settings'
 import { AccountsPage } from '@/pages/accounts'
 import { TransactionsPage } from '@/pages/transactions'
+import { FriendsPage } from '@/pages/friends'
+import { FriendPublicPage } from '@/pages/friend-public'
+import { GroupPublicPage } from '@/pages/group-public'
 import { fetchDefaultAccount, fetchAccounts, fetchTransactions, listPaySchedules } from '@/lib/api'
 import { AccountContext, RootLayout } from '@/App'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+
+function PublicLayout() {
+  return (
+    <div className="min-h-screen bg-background">
+      <Outlet />
+    </div>
+  )
+}
 
 function Dashboard() {
   const { selectedAccountId, setSelectedAccountId } = useContext(AccountContext)
@@ -112,6 +124,8 @@ function Dashboard() {
 
       <CheckWidget />
 
+      <FriendLedgerWidget />
+
       <ObligationsList transactions={transactions} currency={account?.currency} nextPayday={nextPayday} />
 
       <PayScheduleList schedules={paySchedules} currency={account?.currency} />
@@ -142,7 +156,38 @@ const transactionsRoute = createRoute({
   path: '/transactions',
   component: TransactionsPage,
 })
-const routeTree = rootRoute.addChildren([indexRoute, settingsRoute, accountsRoute, transactionsRoute])
+const friendsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/friends',
+  component: FriendsPage,
+})
+
+const publicRootRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: 'public-layout',
+  component: PublicLayout,
+})
+
+const publicFriendRoute = createRoute({
+  getParentRoute: () => publicRootRoute,
+  path: '/public/friend/$token',
+  component: FriendPublicPage,
+})
+
+const publicGroupRoute = createRoute({
+  getParentRoute: () => publicRootRoute,
+  path: '/public/group/$token',
+  component: GroupPublicPage,
+})
+
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  settingsRoute,
+  accountsRoute,
+  transactionsRoute,
+  friendsRoute,
+  publicRootRoute.addChildren([publicFriendRoute, publicGroupRoute]),
+])
 
 export const router = createRouter({ routeTree })
 
