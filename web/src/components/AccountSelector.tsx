@@ -1,5 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchAccounts } from '@/lib/api'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface AccountSelectorProps {
   selectedAccountId: string | null
@@ -21,18 +28,22 @@ export function AccountSelector({ selectedAccountId, onSelectAccount, fullWidth 
   const displayId = selectedAccountId || defaultAccount?.id
 
   return (
-    <select
-      value={displayId || ''}
-      onChange={e => onSelectAccount(e.target.value)}
-      className={`h-7 px-2 py-0.5 text-xs rounded-lg border border-input bg-background text-foreground cursor-pointer${fullWidth ? ' w-full' : ''}`}
-      title="Switch account"
-    >
-      {accounts.map(account => (
-        <option key={account.id} value={account.id}>
-          {account.name}
-          {account.is_default ? ' (Default)' : ''}
-        </option>
-      ))}
-    </select>
+    <Select value={displayId || ''} onValueChange={onSelectAccount}>
+      <SelectTrigger
+        size="sm"
+        className={`h-7 text-xs${fullWidth ? ' w-full' : ''}`}
+        title="Switch account"
+      >
+        <SelectValue placeholder="Select account" />
+      </SelectTrigger>
+      <SelectContent>
+        {accounts.map(account => (
+          <SelectItem key={account.id} value={account.id}>
+            {account.name}
+            {account.is_default ? ' (Default)' : ''}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
