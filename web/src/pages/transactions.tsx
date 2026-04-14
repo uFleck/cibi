@@ -18,6 +18,7 @@ import {
   deleteTransaction,
   type TransactionResponse,
 } from '@/lib/api'
+import { formatDate } from '@/lib/format'
 import { AccountContext } from '@/App'
 
 const CATEGORIES = [
@@ -28,7 +29,6 @@ const CATEGORIES = [
 interface FormData {
   account_id: string
   amount: number
-  amountSign: 'positive' | 'negative'
   description: string
   category: string
   is_recurring?: boolean
@@ -47,7 +47,6 @@ export function TransactionsPage() {
   const [formData, setFormData] = useState<FormData>({
     account_id: '',
     amount: 0,
-    amountSign: 'negative',
     description: '',
     category: 'General',
     is_recurring: false,
@@ -55,6 +54,7 @@ export function TransactionsPage() {
     anchor_date: '',
   })
   const [formErrors, setFormErrors] = useState<FormErrors>({})
+  const [amountText, setAmountText] = useState('')
 
   const {
     data: accounts = [],
@@ -77,7 +77,7 @@ export function TransactionsPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: ({ amountSign: _sign, ...data }: FormData) => createTransaction(data),
+    mutationFn: (data: FormData) => createTransaction(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       toast.success('Transaction created')
@@ -85,7 +85,6 @@ export function TransactionsPage() {
       setFormData({
         account_id: currentAccountId,
         amount: 0,
-        amountSign: 'negative',
         description: '',
         category: 'General',
         is_recurring: false,
@@ -93,6 +92,7 @@ export function TransactionsPage() {
         anchor_date: '',
       })
       setFormErrors({})
+      setAmountText('')
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to create transaction')
@@ -100,7 +100,7 @@ export function TransactionsPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, updates: { amountSign: _sign, ...updates } }: { id: string; updates: Partial<FormData> }) =>
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<FormData> }) =>
       updateTransaction(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
@@ -109,7 +109,6 @@ export function TransactionsPage() {
       setFormData({
         account_id: currentAccountId,
         amount: 0,
-        amountSign: 'negative',
         description: '',
         category: 'General',
         is_recurring: false,
@@ -117,6 +116,7 @@ export function TransactionsPage() {
         anchor_date: '',
       })
       setFormErrors({})
+      setAmountText('')
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to update transaction')
@@ -138,10 +138,10 @@ export function TransactionsPage() {
     setIsCreating(true)
     setEditingId(null)
     setFormErrors({})
+    setAmountText('')
     setFormData({
       account_id: currentAccountId,
       amount: 0,
-      amountSign: 'negative',
       description: '',
       category: 'General',
       is_recurring: false,
@@ -153,15 +153,15 @@ export function TransactionsPage() {
   const handleEditClick = (txn: TransactionResponse) => {
     setEditingId(txn.id)
     setFormErrors({})
+    setAmountText(txn.amount.toString())
     setFormData({
       account_id: txn.account_id,
-      amount: Math.abs(txn.amount),
-      amountSign: txn.amount < 0 ? 'negative' : 'positive',
+      amount: txn.amount,
       description: txn.description,
       category: txn.category,
       is_recurring: txn.is_recurring,
       frequency: txn.frequency || 'monthly',
-      anchor_date: txn.anchor_date || '',
+      anchor_date: txn.anchor_date ? txn.anchor_date.slice(0, 10) : '',
     })
   }
 
@@ -177,9 +177,8 @@ export function TransactionsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate()) return
-    const signedAmount = formData.amountSign === 'negative' ? -Math.abs(formData.amount) : Math.abs(formData.amount)
     const anchorDate = formData.anchor_date ? formData.anchor_date + 'T00:00:00Z' : undefined
-    const payload = { ...formData, amount: signedAmount, anchor_date: anchorDate }
+    const payload = { ...formData, anchor_date: anchorDate }
     if (editingId) {
       updateMutation.mutate({ id: editingId, updates: payload })
     } else {
@@ -191,6 +190,7 @@ export function TransactionsPage() {
     setIsCreating(false)
     setEditingId(null)
     setFormErrors({})
+    setAmountText('')
     setFormData({
       account_id: currentAccountId,
       amount: 0,
@@ -199,7 +199,6 @@ export function TransactionsPage() {
       is_recurring: false,
       frequency: 'monthly',
       anchor_date: '',
-      amountSign: 'negative',
     })
   }
 
@@ -282,10 +281,12 @@ export function TransactionsPage() {
                     </div>
                     <div className="text-right">
                       <div className={`font-medium ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {txn.amount >= 0 ? '+' : ''}{(txn.amount / 100).toFixed(2)}
+                        {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {new Date(txn.timestamp).toLocaleDateString()}
+                        {txn.is_recurring && txn.next_occurrence && txn.anchor_date && txn.anchor_date.slice(0, 10) > new Date().toISOString().slice(0, 10)
+                          ? formatDate(txn.next_occurrence)
+                          : formatDate(txn.timestamp)}
                       </div>
                     </div>
                     <div className="flex gap-2 justify-end">
@@ -343,38 +344,24 @@ export function TransactionsPage() {
               )}
               <div className="flex flex-col gap-2">
                 <Label htmlFor="txn-amount" className="text-xs">Amount *</Label>
-                <div className="flex gap-2">
-                  <div className="flex rounded-md border border-input overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, amountSign: 'positive' })}
-                      className={`px-3 text-sm font-medium transition-colors ${formData.amountSign === 'positive' ? 'bg-green-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
-                    >
-                      +
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, amountSign: 'negative' })}
-                      className={`px-3 text-sm font-medium transition-colors ${formData.amountSign === 'negative' ? 'bg-red-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
-                    >
-                      −
-                    </button>
-                  </div>
-                  <Input
-                    id="txn-amount"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.amount / 100}
-                    onChange={e => {
-                      setFormData({ ...formData, amount: Math.round(parseFloat(e.target.value) * 100) })
-                      if (formErrors.amount) setFormErrors({ ...formErrors, amount: undefined })
-                    }}
-                    placeholder="0.00"
-                    aria-invalid={!!formErrors.amount || undefined}
-                    aria-describedby={formErrors.amount ? 'txn-amount-error' : undefined}
-                  />
-                </div>
+                <Input
+                  id="txn-amount"
+                  type="text"
+                  inputMode="decimal"
+                  value={amountText}
+                  onChange={e => {
+                    const raw = e.target.value
+                    setAmountText(raw)
+                    const parsed = parseFloat(raw)
+                    if (!isNaN(parsed)) {
+                      setFormData({ ...formData, amount: parsed })
+                    }
+                    if (formErrors.amount) setFormErrors({ ...formErrors, amount: undefined })
+                  }}
+                  placeholder="-50.00"
+                  aria-invalid={!!formErrors.amount || undefined}
+                  aria-describedby={formErrors.amount ? 'txn-amount-error' : undefined}
+                />
                 {formErrors.amount && (
                   <p id="txn-amount-error" className="text-xs text-destructive">
                     {formErrors.amount}

@@ -38,7 +38,7 @@ export function AccountsPage() {
   const [formData, setFormData] = useState<FormData>({
     name: '',
     current_balance: 0,
-    currency: 'USD',
+    currency: 'BRL',
   })
   const [formErrors, setFormErrors] = useState<FormErrors>({})
 
@@ -214,7 +214,7 @@ export function AccountsPage() {
                     </div>
                     <div className="text-right">
                       <div className="font-medium">
-                        {(account.current_balance / 100).toFixed(2)}
+                        {account.current_balance.toFixed(2)}
                       </div>
                     </div>
                     <div className="flex gap-2 justify-end">
@@ -288,11 +288,11 @@ export function AccountsPage() {
                   id="account-balance"
                   type="number"
                   step="0.01"
-                  value={formData.current_balance / 100}
+                  value={formData.current_balance}
                   onChange={e =>
                     setFormData({
                       ...formData,
-                      current_balance: Math.round(parseFloat(e.target.value) * 100),
+                      current_balance: parseFloat(e.target.value),
                     })
                   }
                   placeholder="0.00"

@@ -106,7 +106,7 @@ export function Settings() {
       label: ps.label ?? '',
       frequency: ps.frequency,
       anchor_date: ps.anchor_date,
-      amount: (ps.amount / 100).toFixed(2),
+      amount: ps.amount.toFixed(2),
       day_of_month: ps.day_of_month != null ? String(ps.day_of_month) : '',
       day_of_month_2: ps.day_of_month_2 != null ? String(ps.day_of_month_2) : '',
     })
@@ -126,7 +126,7 @@ export function Settings() {
       account_id: currentAccountId,
       frequency: form.frequency,
       anchor_date: form.anchor_date,
-      amount: Math.round(parseFloat(form.amount) * 100),
+      amount: parseFloat(form.amount),
       ...(form.label ? { label: form.label } : {}),
       ...(form.day_of_month ? { day_of_month: parseInt(form.day_of_month, 10) } : {}),
       ...(form.day_of_month_2 ? { day_of_month_2: parseInt(form.day_of_month_2, 10) } : {}),
@@ -195,7 +195,7 @@ export function Settings() {
                   </p>
                 </div>
                 <p className="font-semibold tabular-nums text-right text-green-600">
-                  +{formatMoney(ps.amount / 100)}
+                  +{formatMoney(ps.amount)}
                 </p>
                 <div className="flex gap-2 justify-end">
                   <Button variant="ghost" size="sm" aria-label="Edit schedule"

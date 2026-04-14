@@ -27,12 +27,16 @@ var checkCmd = &cobra.Command{
 		}
 
 		yesStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
+		waitStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
 		noStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9"))
 		labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 
-		if result.CanBuy {
+		switch {
+		case result.CanBuy:
 			fmt.Println(yesStyle.Render("YES — you can afford it"))
-		} else {
+		case result.WillAffordAfterPayday && result.WaitUntil != nil:
+			fmt.Println(waitStyle.Render(fmt.Sprintf("WAIT — you'll afford it after %s", result.WaitUntil.Format("2006-01-02"))))
+		default:
 			fmt.Println(noStyle.Render("NO — insufficient funds"))
 		}
 

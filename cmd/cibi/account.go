@@ -159,7 +159,7 @@ var accountPayScheduleCmd = &cobra.Command{
 func init() {
 	accountAddCmd.Flags().String("name", "", "account name (required)")
 	accountAddCmd.Flags().Int64("balance", 0, "initial balance in cents (e.g., 150000 = $1500.00)")
-	accountAddCmd.Flags().String("currency", "USD", "currency code")
+	accountAddCmd.Flags().String("currency", "BRL", "currency code")
 	accountAddCmd.Flags().Bool("default", false, "set as default account")
 
 	accountPayScheduleCmd.Flags().String("account-id", "", "account ID (uses default if not provided)")
