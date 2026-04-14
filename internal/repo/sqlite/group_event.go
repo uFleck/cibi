@@ -201,9 +201,15 @@ func (r *SqliteGroupEventRepo) SetParticipants(eventID uuid.UUID, participants [
 	if err != nil {
 		return fmt.Errorf("group_event.SetParticipants: begin: %w", err)
 	}
+	defer tx.Rollback()
+
+	// Verify the event exists before modifying participants.
+	var exists int
+	if err := tx.QueryRow(`SELECT 1 FROM GroupEvent WHERE id = ?`, eventID.String()).Scan(&exists); err != nil {
+		return fmt.Errorf("group_event.SetParticipants: %w", sql.ErrNoRows)
+	}
 
 	if _, err := tx.Exec(`DELETE FROM GroupEventParticipant WHERE event_id = ?`, eventID.String()); err != nil {
-		tx.Rollback()
 		return fmt.Errorf("group_event.SetParticipants: delete: %w", err)
 	}
 
@@ -216,7 +222,6 @@ func (r *SqliteGroupEventRepo) SetParticipants(eventID uuid.UUID, participants [
 			`INSERT INTO GroupEventParticipant (event_id, friend_id, share_amount, is_confirmed) VALUES (?, ?, ?, ?)`,
 			eventID.String(), friendID, p.ShareAmount, p.IsConfirmed,
 		); err != nil {
-			tx.Rollback()
 			return fmt.Errorf("group_event.SetParticipants: insert: %w", err)
 		}
 	}
