@@ -147,11 +147,11 @@ var accountPayScheduleCmd = &cobra.Command{
 		}
 
 		psSvc := application.PayScheduleSvc
-		if err := psSvc.SetPaySchedule(accID, frequency, anchorDate, dom1, dom2, nil); err != nil {
-			return fmt.Errorf("failed to set pay schedule: %w", err)
+		if _, err := psSvc.CreatePaySchedule(accID, frequency, anchorDate, dom1, dom2, nil, 0); err != nil {
+			return fmt.Errorf("failed to create pay schedule: %w", err)
 		}
 
-		fmt.Printf("Pay schedule set for account %s\n", accID.String())
+		fmt.Printf("Pay schedule created for account %s\n", accID.String())
 		return nil
 	},
 }
