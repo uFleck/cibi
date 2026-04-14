@@ -1,9 +1,9 @@
-import { useParams } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { fetchPublicFriend, type PeerDebtResponse } from '@/lib/api'
 import { formatMoney, formatDate } from '@/lib/format'
+import { publicFriendRoute } from '@/router'
 
 function debtStatusLabel(debt: PeerDebtResponse): { label: string; variant: 'default' | 'secondary' | 'outline' } {
   if (debt.is_confirmed) return { label: 'Paid', variant: 'default' }
@@ -14,7 +14,7 @@ function debtStatusLabel(debt: PeerDebtResponse): { label: string; variant: 'def
 }
 
 export function FriendPublicPage() {
-  const { token } = useParams({ strict: false }) as { token: string }
+  const { token } = publicFriendRoute.useParams()
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['public-friend', token],
