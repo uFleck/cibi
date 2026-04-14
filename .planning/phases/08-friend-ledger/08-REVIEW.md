@@ -2,72 +2,79 @@
 phase: 08-friend-ledger
 reviewed: 2026-04-14T00:00:00Z
 depth: standard
-files_reviewed: 21
+files_reviewed: 22
 files_reviewed_list:
-  - internal/app/app.go
-  - internal/handler/friend.go
-  - internal/handler/group_event.go
-  - internal/handler/peer_debt.go
-  - internal/handler/public.go
-  - internal/handler/routes.go
   - internal/migrations/20260414000002_friend_ledger.go
   - internal/repo/sqlite/friend.go
-  - internal/repo/sqlite/group_event.go
   - internal/repo/sqlite/peer_debt.go
-  - internal/service/engine.go
-  - internal/service/friend.go
-  - internal/service/group_event.go
-  - internal/service/peer_debt.go
+  - internal/repo/sqlite/group_event.go
   - internal/service/token.go
+  - internal/service/friend.go
+  - internal/service/peer_debt.go
+  - internal/service/group_event.go
+  - internal/service/engine.go
+  - internal/app/app.go
+  - internal/handler/friend.go
+  - internal/handler/peer_debt.go
+  - internal/handler/group_event.go
+  - internal/handler/public.go
+  - internal/handler/routes.go
   - web/src/components/FriendLedgerWidget.tsx
-  - web/src/components/SidebarNav.tsx
-  - web/src/lib/api.ts
-  - web/src/pages/friend-public.tsx
   - web/src/pages/friends.tsx
+  - web/src/pages/friend-public.tsx
   - web/src/pages/group-public.tsx
+  - web/src/lib/api.ts
   - web/src/router.tsx
+  - web/src/components/SidebarNav.tsx
+  - web/tsconfig.json
 findings:
-  critical: 3
+  critical: 0
   warning: 9
   info: 4
-  total: 16
+  total: 13
 status: issues_found
 ---
 
 # Phase 08: Code Review Report
 
-**Reviewed:** 2026-04-14
+**Reviewed:** 2026-04-14T00:00:00Z
 **Depth:** standard
-**Files Reviewed:** 21
+**Files Reviewed:** 22
 **Status:** issues_found
 
 ## Summary
 
-The Friend Ledger implementation is well-structured with clean layering (repo → service → handler → frontend) and correct use of interface-based dependency injection. The migration, public-token generation, and overall wire-up are solid.
+The Friend Ledger feature is well-structured with clean layer separation (migration -> repo -> service -> handler -> frontend). The migration is correct and rolls back cleanly. Token generation uses `crypto/rand` with 128-bit entropy. Interface-based dependency injection and compile-time satisfaction checks are used throughout. The public endpoints are intentionally unauthenticated by design.
 
-Three categories of recurring problems were found:
+Four recurring problem areas were identified:
 
-1. **Non-atomic partial updates in the repo layer.** All three `Update` methods (Friend, GroupEvent, PeerDebt) issue multiple independent `Exec` calls. A mid-flight error silently commits partial data.
-2. **SQL division-by-zero / NULL-math in the engine obligation query**, which can silently corrupt the CanIBuyIt purchasing-power calculation.
-3. **Frontend NaN/null propagation** — raw `parseFloat` / `parseInt` results are sent to the API without validation guards, creating invalid records on empty form submission.
+1. **Non-atomic partial updates** in all three repo `Update` methods — each field is committed in a separate SQL statement with no wrapping transaction, risking partial writes on failure.
+2. **Integer division truncation and NULL-arithmetic in obligation math** — the installment obligation query uses integer division and has no guard against `total_installments` being NULL or zero, silently undercounting obligations fed into the CanIBuyIt engine.
+3. **Missing server-side validation for installment debts** — `is_installment=true` can be submitted without a valid `total_installments`, creating a broken record that is excluded from obligation calculations.
+4. **Frontend NaN propagation** — `parseFloat('')` and `parseInt('')` produce `NaN`, which serialises to `null` in JSON and can reach the API, creating zero-amount or partially-formed records.
 
 ---
 
-## Critical Issues
+## Warnings
 
-### CR-01: Non-atomic Friend update — partial write on error
+### WR-01: Non-atomic partial updates in all three repo `Update` methods
 
-**File:** `internal/repo/sqlite/friend.go:123-135`
-**Issue:** `Update` issues two independent `Exec` calls — one for `name`, one for `notes` — outside a transaction. If the second `Exec` fails (e.g. disk error, UNIQUE constraint on a future index) the first write is already committed. The row ends up with the new name and the old notes, with no error visible to the caller.
+**Files:**
+- `internal/repo/sqlite/friend.go:123-135`
+- `internal/repo/sqlite/peer_debt.go:182-203`
+- `internal/repo/sqlite/group_event.go:136-158`
 
-**Fix:**
+**Issue:** Each `Update` method issues a separate `db.Exec` call per field with no wrapping transaction. If the second or subsequent write fails (disk error, constraint violation on a future index, etc.) the earlier writes are already committed. For example, `PeerDebt.Update` can commit a new `amount` while leaving `description` unchanged, producing an inconsistent record with no error returned to the caller.
+
+**Fix:** Wrap all `Exec` calls in a single transaction using `defer tx.Rollback()` (which is a no-op after `Commit`):
+
 ```go
 func (r *SqliteFriendRepo) Update(id uuid.UUID, name *string, notes *string) error {
     tx, err := r.db.Begin()
     if err != nil {
         return fmt.Errorf("friend.Update: begin: %w", err)
     }
-    defer tx.Rollback() // no-op after Commit
+    defer tx.Rollback()
     if name != nil {
         if _, err := tx.Exec(`UPDATE Friend SET name = ? WHERE id = ?`, *name, id.String()); err != nil {
             return fmt.Errorf("friend.Update: name: %w", err)
@@ -82,69 +89,86 @@ func (r *SqliteFriendRepo) Update(id uuid.UUID, name *string, notes *string) err
 }
 ```
 
-Alternatively, build a single `UPDATE Friend SET name=COALESCE(?,name), notes=COALESCE(?,notes) WHERE id=?` query.
+Apply the same pattern to `SqlitePeerDebtRepo.Update` and `SqliteGroupEventRepo.Update`.
 
 ---
 
-### CR-02: Non-atomic GroupEvent update — partial write on error
-
-**File:** `internal/repo/sqlite/group_event.go:136-158`
-**Issue:** `Update` runs up to four independent `Exec` calls (title, date, total_amount, notes) without a transaction. Any failure after the first statement leaves the event in an inconsistent state with no rollback.
-
-**Fix:** Same transaction-wrapping pattern as CR-01 — begin a transaction, wrap all `Exec` calls, `defer tx.Rollback()`, commit at the end.
-
----
-
-### CR-03: Non-atomic PeerDebt update — partial write on error
-
-**File:** `internal/repo/sqlite/peer_debt.go:182-204`
-**Issue:** `Update` runs up to four independent `Exec` calls (amount, description, is_confirmed, paid_installments) without a transaction. `ConfirmInstallment` in the service layer calls this method; if the write of `paid_installments` succeeds but a subsequent call errors, the count is off by one with no record of failure.
-
-**Fix:** Same transaction-wrapping pattern as CR-01.
-
----
-
-## Warnings
-
-### WR-01: SQL division-by-zero / NULL-arithmetic corrupts engine obligations
+### WR-02: Integer division truncation in `SumUpcomingPeerObligations`
 
 **File:** `internal/repo/sqlite/peer_debt.go:256-261`
-**Issue:** The installment branch of `SumUpcomingPeerObligations` executes:
+
+**Issue:** The installment branch of the query uses integer division:
 ```sql
 SELECT COALESCE(SUM(amount / total_installments), 0) FROM PeerDebt
 WHERE amount < 0 AND is_installment = 1 AND paid_installments < total_installments
 ```
-There is no `NOT NULL` or `> 0` constraint on `total_installments` in the migration. SQLite integer division by zero returns `NULL` (not an error), so `COALESCE(SUM(...), 0)` silently returns 0 if any row has `total_installments = 0`. The debt obligation is then invisible to the engine, overstating purchasing power.
+SQLite performs integer division when both operands are integers. An installment debt of -100 cents over 3 installments returns -33 instead of -33.33. Across many debts this consistently underestimates the obligation passed to the CanIBuyIt engine, making purchasing power appear slightly higher than it is.
 
-**Fix:**
+**Fix:** Cast to REAL before dividing and round at the Go layer:
+
 ```sql
-SELECT COALESCE(SUM(amount / total_installments), 0) FROM PeerDebt
+SELECT COALESCE(SUM(CAST(amount AS REAL) / total_installments), 0) FROM PeerDebt
 WHERE amount < 0
   AND is_installment = 1
   AND total_installments IS NOT NULL
   AND total_installments > 0
   AND paid_installments < total_installments
 ```
-Also add a `CHECK(total_installments > 0)` constraint in the migration (or a `NOT NULL` + check constraint).
+
+Scan into a `float64` and round to cents before returning:
+
+```go
+var installmentSum float64
+// ... scan ...
+return lumpSum + int64(math.Round(installmentSum)), nil
+```
 
 ---
 
-### WR-02: Confirmed installment debts still counted as upcoming obligations
+### WR-03: NULL-arithmetic silently drops installment obligations from engine query
 
 **File:** `internal/repo/sqlite/peer_debt.go:256-261`
-**Issue:** The installment query filters `paid_installments < total_installments` but does NOT filter `is_confirmed = 0`. For non-installment debts the lump-sum query (line 248) already includes `is_confirmed = 0`. If an installment is fully confirmed mid-stream, it continues to contribute to the engine's obligation sum until `paid_installments` reaches `total_installments`. This is a logic inconsistency: confirmed debts should reduce the obligation even before all installments are paid.
 
-**Fix:** Add `AND is_confirmed = 0` to the installment query, or align the semantics consistently across both branches by documenting the intended behaviour and enforcing it in a test.
+**Issue:** If `total_installments IS NULL`, `amount / NULL` evaluates to NULL in SQL. The `COALESCE(SUM(...), 0)` wrapper masks this — those rows are silently dropped from the obligation sum. If `total_installments = 0`, SQLite returns NULL for integer division by zero (no error), also silently dropped. Both cases overstate purchasing power. No constraint in the migration prevents these values from being stored (see WR-04).
+
+**Fix:** Add `AND total_installments IS NOT NULL AND total_installments > 0` to the query (shown in WR-02 fix). Also add a database-level constraint:
+
+```sql
+-- in the migration, add to PeerDebt:
+CHECK (NOT is_installment OR (total_installments IS NOT NULL AND total_installments > 0))
+```
 
 ---
 
-### WR-03: PATCH /friends/:id silently succeeds on non-existent ID
+### WR-04: No server-side validation that installment debts have `total_installments`
 
-**File:** `internal/handler/friend.go:136`  
-**Related file:** `internal/repo/sqlite/friend.go:123-135`
-**Issue:** `SqliteFriendRepo.Update` never returns `sql.ErrNoRows` — `Exec` against a non-existent ID simply affects 0 rows and returns `nil`. The handler therefore falls through to `GetFriendByID`, which does return `sql.ErrNoRows` and produces a 404 — but only after a spurious successful update call. The `errors.Is(err, sql.ErrNoRows)` check at line 137 will never match for the Update error path.
+**File:** `internal/handler/peer_debt.go:42-51`
 
-**Fix:** Check `RowsAffected()` after `Exec` in the repo and return `sql.ErrNoRows` when 0 rows are affected:
+**Issue:** `CreatePeerDebtRequest.TotalInstallments` is typed `*int64` with no `validate` tag. A caller can POST `{"is_installment": true, "total_installments": null, ...}` and the record is written with `is_installment=1, total_installments=NULL`. This record is excluded from obligation calculations (WR-03) and the `ConfirmInstallment` cap logic (`d.TotalInstallments != nil`) never fires, allowing `paid_installments` to grow without bound.
+
+**Fix:** Add an explicit check in the handler before calling the service:
+
+```go
+if req.IsInstallment && (req.TotalInstallments == nil || *req.TotalInstallments <= 0) {
+    return echo.NewHTTPError(http.StatusBadRequest,
+        "total_installments must be a positive integer when is_installment is true")
+}
+```
+
+---
+
+### WR-05: PATCH update silently succeeds on non-existent friend or group event ID
+
+**Files:**
+- `internal/repo/sqlite/friend.go:123-135`
+- `internal/handler/friend.go:127-150`
+- `internal/repo/sqlite/group_event.go:136-158`
+- `internal/handler/group_event.go:162-191`
+
+**Issue:** SQLite `UPDATE` against a non-existent ID silently affects 0 rows and returns no error. Both `SqliteFriendRepo.Update` and `SqliteGroupEventRepo.Update` never return `sql.ErrNoRows`. The `errors.Is(err, sql.ErrNoRows)` guard in the handlers (friend.go:137, group_event.go:178) therefore never triggers for the update step. The handler only returns 404 because the subsequent `GetByID` call finds nothing — a fragile, indirect path.
+
+**Fix:** Check `RowsAffected()` after the first `Exec` and return `sql.ErrNoRows` when 0 rows are updated:
+
 ```go
 res, err := r.db.Exec(`UPDATE Friend SET name = ? WHERE id = ?`, *name, id.String())
 if err != nil {
@@ -157,130 +181,127 @@ if n, _ := res.RowsAffected(); n == 0 {
 
 ---
 
-### WR-04: PATCH /group-events/:id silently succeeds on non-existent ID
-
-**File:** `internal/handler/group_event.go:177`  
-**Related file:** `internal/repo/sqlite/group_event.go:136-158`
-**Issue:** Same root cause as WR-03. `GroupEventRepo.Update` never returns `sql.ErrNoRows`, so the `errors.Is(err, sql.ErrNoRows)` guard at handler line 178 never fires for the update step.
-
-**Fix:** Add `RowsAffected()` checks in `SqliteGroupEventRepo.Update`, same pattern as WR-03.
-
----
-
-### WR-05: Frontend sends NaN for amount on empty debt form submission
-
-**File:** `web/src/pages/friends.tsx:79`
-**Issue:** `parseFloat(debtForm.amount)` when `debtForm.amount` is `""` returns `NaN`. `JSON.stringify({ amount: NaN })` produces `{"amount":null}`, which the backend receives as a missing or zero amount. The Go `validate:"required"` tag on `CreatePeerDebtRequest.Amount` (a `float64`) considers 0.0 as failing required validation only in some validator versions; `null` from JSON binding sets the field to its zero value (0.0), which silently creates a zero-cent debt record.
-
-**Fix:**
-```tsx
-const amount = parseFloat(debtForm.amount)
-if (isNaN(amount)) {
-  toast.error('Amount must be a number')
-  return
-}
-// then pass `amount` to createPeerDebt
-```
-
----
-
-### WR-06: Frontend sends NaN for total_installments on empty installment form
-
-**File:** `web/src/pages/friends.tsx:85`
-**Issue:** `parseInt(debtForm.total_installments, 10)` when the field is empty returns `NaN`, serialised as `null`. The backend stores `null` in `total_installments`. The SQL installment query (WR-01) then hits `amount / NULL = NULL`, and `SumUpcomingPeerObligations` silently drops the obligation.
-
-**Fix:** Validate before submission:
-```tsx
-const totalInstallments = parseInt(debtForm.total_installments, 10)
-if (debtForm.is_installment && isNaN(totalInstallments)) {
-  toast.error('Total installments must be a whole number')
-  return
-}
-```
-
----
-
-### WR-07: Frontend sends NaN for group event total_amount on empty form
-
-**File:** `web/src/pages/friends.tsx:531`
-**Issue:** `parseFloat(eventForm.total_amount)` returns `NaN` when the field is empty, producing a null total_amount in the API request. The backend `validate:"required"` tag on `CreateGroupEventRequest.TotalAmount` would catch this only if the binder properly sets the zero value; in practice `math.Round(NaN) = 0`, so a zero-amount event is created silently.
-
-**Fix:** Same NaN guard as WR-05, applied to `total_amount` before calling `createGroupEvent`.
-
----
-
-### WR-08: SetParticipants transaction does not rollback on Commit failure
-
-**File:** `internal/repo/sqlite/group_event.go:168-193`
-**Issue:** `SetParticipants` calls `tx.Rollback()` explicitly on `Exec` errors (lines 175, 188), but if `tx.Commit()` at line 193 fails (e.g. disk full during flush), there is no rollback call and the deferred rollback pattern is not used. In practice SQLite's WAL mode will roll back automatically on connection close, but the caller receives an error while the DB state is undefined until the connection is recycled.
-
-**Fix:** Use `defer tx.Rollback()` at the top of the function (it is a no-op after a successful `Commit`) instead of explicit rollbacks:
-```go
-tx, err := r.db.Begin()
-if err != nil { ... }
-defer tx.Rollback()
-
-// ... Exec calls without explicit Rollback ...
-
-return tx.Commit()
-```
-
----
-
-### WR-09: ConfirmInstallment is not atomic — lost-update under concurrency
+### WR-06: `ConfirmInstallment` is not atomic — lost update under concurrency
 
 **File:** `internal/service/peer_debt.go:67-87`
-**Issue:** `ConfirmInstallment` does a read-then-write: it fetches the debt, increments `PaidInstallments` in Go, then writes. Two concurrent confirms on the same debt will both read `PaidInstallments = N` and both write `N+1`, losing one increment. While this is a single-user app today, the HTTP handler has no concurrency guard.
 
-**Fix:** Perform the increment atomically in SQL:
+**Issue:** `ConfirmInstallment` performs a read-then-write: it fetches the current `PaidInstallments`, increments it in Go, then writes back. Two concurrent HTTP requests to `POST /peer-debts/:id/confirm` will both read `N` and both write `N+1`, losing one increment. While the app is single-user today, there is no concurrency guard at the HTTP layer.
+
+**Fix:** Replace the read-modify-write with an atomic SQL update:
+
 ```sql
 UPDATE PeerDebt
-SET paid_installments = MIN(paid_installments + 1, total_installments)
+SET paid_installments = MIN(paid_installments + 1,
+    COALESCE(total_installments, paid_installments + 1))
 WHERE id = ?
 ```
-This removes the need to fetch the row first.
+
+This eliminates the need to fetch the row first and is race-condition-free.
+
+---
+
+### WR-07: Unsafe route param access via `useParams({ strict: false })` type assertion
+
+**Files:**
+- `web/src/pages/friend-public.tsx:17`
+- `web/src/pages/group-public.tsx:14`
+
+**Issue:** Both public pages obtain the route token with:
+```ts
+const { token } = useParams({ strict: false }) as { token: string }
+```
+The `as` cast bypasses TypeScript's type system. `strict: false` returns `Record<string, string>`, so if the route is matched without the `$token` segment, `token` is `undefined` at runtime but typed as `string`. The API call hits `/public/friend/undefined`, returning a 404 that manifests as a generic "Balance not found" error with no actionable diagnostic.
+
+**Fix:** Use TanStack Router's typed route-specific `useParams()` by exporting the route objects from `router.tsx`:
+
+```ts
+// router.tsx — export the route instances
+export { publicFriendRoute, publicGroupRoute }
+
+// friend-public.tsx
+import { publicFriendRoute } from '@/router'
+const { token } = publicFriendRoute.useParams() // type-safe, guaranteed non-undefined
+```
+
+---
+
+### WR-08: Frontend sends `NaN` / `null` when numeric form fields are empty
+
+**File:** `web/src/pages/friends.tsx:79, 85, 531`
+
+**Issue:**
+- Line 79: `parseFloat(debtForm.amount)` returns `NaN` when `debtForm.amount` is `""`.
+- Line 85: `parseInt(debtForm.total_installments, 10)` returns `NaN` when the field is empty.
+- Line 531: `parseFloat(eventForm.total_amount)` returns `NaN` for an empty total amount field.
+
+`JSON.stringify({ amount: NaN })` produces `{"amount":null}`. In Go, `null` JSON for a `float64` field binds to `0.0`. The backend `validate:"required"` tag does not reject 0.0 for `float64`, so zero-amount records can be silently created. HTML `required` attributes help in normal use but can be bypassed programmatically (e.g. rapid double-submit, automation).
+
+**Fix:** Guard before mutating:
+
+```ts
+function handleAddDebt(e: React.FormEvent) {
+  e.preventDefault()
+  const amount = parseFloat(debtForm.amount)
+  if (isNaN(amount)) {
+    toast.error('Please enter a valid amount')
+    return
+  }
+  addDebtMutation.mutate()
+}
+```
+
+Apply the same check to `total_installments` and `total_amount`.
+
+---
+
+### WR-09: `SetParticipants` does not verify the event exists; FK enforcement may be off
+
+**File:** `internal/repo/sqlite/group_event.go:168-193`
+
+**Issue:** `SetParticipants` deletes existing participants and inserts new ones, but never checks whether `eventID` maps to an existing `GroupEvent`. The `REFERENCES GroupEvent(id)` FK constraint would reject orphaned inserts — but SQLite FK enforcement is disabled by default and requires `PRAGMA foreign_keys = ON` at connection time. If the pragma is not set, participants can be inserted for a non-existent event ID, and the handler's `errors.Is(err, sql.ErrNoRows)` guard at line 239 will never trigger (the function returns `nil`).
+
+**Fix:** Either confirm `PRAGMA foreign_keys = ON` is set in DB initialisation, or add an explicit existence check:
+
+```go
+var exists int
+if err := tx.QueryRow(`SELECT 1 FROM GroupEvent WHERE id = ?`, eventID.String()).Scan(&exists); err != nil {
+    tx.Rollback()
+    return fmt.Errorf("group_event.SetParticipants: %w", sql.ErrNoRows)
+}
+```
 
 ---
 
 ## Info
 
-### IN-01: EqualSplitAmounts is dead interface surface
+### IN-01: `EqualSplitAmounts` is declared in the handler interface but never called
 
 **File:** `internal/handler/group_event.go:25`
-**Issue:** `EqualSplitAmounts` is declared in `GroupEventServiceIface` and verified at compile time, but it is never called anywhere in the handler. The frontend computes its own equal-split estimate (line 361 of `friends.tsx`). This exposes an unnecessary method on the interface.
 
-**Fix:** Remove `EqualSplitAmounts` from `GroupEventServiceIface` if it will not be used by the handler. If an "auto-split" endpoint is planned, add it then.
+**Issue:** `EqualSplitAmounts` appears in `GroupEventServiceIface` and is verified by the compile-time check at line 29, but no handler method ever calls it. The frontend computes its own equal-split estimate (`friends.tsx:361`). The method is dead surface in the interface.
+
+**Fix:** Remove `EqualSplitAmounts` from `GroupEventServiceIface`. If a future "auto-split" endpoint is planned, add it at that time.
 
 ---
 
-### IN-02: Group public page hides participant identity
+### IN-02: Public group page shows generic participant labels, not names
 
 **File:** `web/src/pages/group-public.tsx:8-11`
-**Issue:** `participantLabel` labels every non-host participant as `Participant N` (based on array index), discarding the `friend_id` entirely. From the public view, participants cannot distinguish themselves from others without external context.
 
-**Fix:** This is an intentional privacy design choice (friend UUIDs are not meaningful to external viewers), but it should at minimum be consistent: consider passing friend names through the public API or documenting that participant names are intentionally omitted from the public payload.
+**Issue:** `participantLabel` labels all non-host participants as `Participant N` (index-based). The public API response does not include friend names, so there is no client-side data to show. From a shared link, participants cannot identify themselves or others. The `friend_id` UUID is silently discarded.
 
----
-
-### IN-03: updateFriend return type mismatch between API client and backend
-
-**File:** `web/src/lib/api.ts:316-318`
-**Issue:** `updateFriend` is typed `Promise<void>` and discards the response body, but the backend PATCH /friends/:id returns HTTP 200 with the updated `FriendResponse`. The caller must do a separate `listFriends` refetch to see the new data. All other PATCH handlers (e.g. `updateAccount`, `updateTransaction`) follow the same void pattern, so this is consistent — but the backend's 200-with-body response is wasted bandwidth.
-
-**Fix:** Either type `updateFriend` as `Promise<FriendResponse>` and use the return value to update the cache directly, or change the backend to return 204 No Content (matching the peer-debt and group-event update handlers). The latter is the simpler fix:
-```go
-// handler/friend.go Update — replace the re-fetch + 200 with:
-return c.NoContent(http.StatusNoContent)
-```
+**Fix:** Include a `name` field on the public participant response in `internal/handler/public.go` by joining the `Friend` table when fetching participants, or document the intentional privacy design (omitting friend names from public links) so future implementors know the behaviour is deliberate.
 
 ---
 
-### IN-04: PatchPeerDebtRequest frontend type includes fields the backend ignores
+### IN-03: `PatchPeerDebtRequest` TypeScript type includes fields the backend ignores
 
 **File:** `web/src/lib/api.ts:273-281`
-**Issue:** `PatchPeerDebtRequest` in the TypeScript client includes `date`, `is_installment`, `total_installments`, `frequency`, and `is_confirmed` — none of which are accepted by the backend `PatchPeerDebtRequest` struct (which only accepts `amount` and `description`). Sending these extra fields is silently ignored by the Go JSON binder, but it creates a false impression that they are patchable, which may cause future confusion.
+
+**Issue:** The frontend `PatchPeerDebtRequest` interface declares `date`, `is_installment`, `total_installments`, `frequency`, and `is_confirmed` as patchable. The backend `PatchPeerDebtRequest` struct only accepts `amount` and `description`. Sending these extra fields is silently ignored by Go's JSON binder, but the mismatch creates a false impression that these fields are patchable through the PATCH endpoint, which may confuse future callers.
 
 **Fix:** Align the TypeScript type with the actual backend contract:
+
 ```ts
 export interface PatchPeerDebtRequest {
   amount?: number
@@ -290,6 +311,22 @@ export interface PatchPeerDebtRequest {
 
 ---
 
-_Reviewed: 2026-04-14_
+### IN-04: `GroupEventParticipant` table has no unique constraint on `(event_id, friend_id)`
+
+**File:** `internal/migrations/20260414000002_friend_ledger.go:44-51`
+
+**Issue:** The partial unique index `idx_gep_host` enforces at most one host (NULL `friend_id`) per event, but there is no constraint preventing duplicate `(event_id, friend_id)` pairs for non-null friend rows. `SetParticipants` replaces all rows atomically so duplicates cannot arise through the current API. However, direct DB access or future code paths that bypass `SetParticipants` could insert duplicate rows, leading to inflated share totals.
+
+**Fix:** Add a companion unique index for non-null participants:
+
+```sql
+CREATE UNIQUE INDEX IF NOT EXISTS idx_gep_friend
+    ON GroupEventParticipant(event_id, friend_id)
+    WHERE friend_id IS NOT NULL;
+```
+
+---
+
+_Reviewed: 2026-04-14T00:00:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
