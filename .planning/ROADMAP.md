@@ -179,7 +179,7 @@ Plans:
 **Goal:** Fix transaction balance bugs: non-recurring not deducted on creation, value updates not adjusting balance, recurring need confirmation mechanism
 **Requirements**: TXN-01, TXN-02
 **Depends on:** Phase 8
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 09-01-PLAN.md — Backend: atomic balance sync + ConfirmRecurring endpoint
