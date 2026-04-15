@@ -1,7 +1,7 @@
 import { useState, useContext } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Edit2, Trash2, ArrowLeftRight } from 'lucide-react'
+import { Plus, Edit2, Trash2, ArrowLeftRight, Check } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,6 +16,7 @@ import {
   createTransaction,
   updateTransaction,
   deleteTransaction,
+  confirmTransaction,
   type TransactionResponse,
 } from '@/lib/api'
 import { formatDate } from '@/lib/format'
@@ -55,6 +56,8 @@ export function TransactionsPage() {
   })
   const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [amountText, setAmountText] = useState('')
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const [confirmSuccessId, setConfirmSuccessId] = useState<string | null>(null)
 
   const {
     data: accounts = [],
@@ -136,6 +139,28 @@ export function TransactionsPage() {
       toast.error(error.message || 'Failed to delete transaction')
     },
   })
+
+  const confirmMutation = useMutation({
+    mutationFn: (id: string) => confirmTransaction(id),
+    onSuccess: (_, id) => {
+      setConfirmSuccessId(id)
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      toast.success('Payment confirmed')
+      setTimeout(() => {
+        setConfirmSuccessId(null)
+        setConfirmingId(null)
+      }, 2000)
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to confirm payment')
+      setConfirmingId(null)
+    },
+  })
+
+  const handleConfirmClick = (id: string) => {
+    setConfirmingId(id)
+    confirmMutation.mutate(id)
+  }
 
   const handleCreateClick = () => {
     setIsCreating(true)
@@ -258,7 +283,7 @@ export function TransactionsPage() {
           </div>
         }
       >
-        {transactions.length === 0 && !isCreating && !editingId ? (
+{transactions.length === 0 && !isCreating && !editingId ? (
           <Card>
             <CardContent className="text-center py-12">
               <ArrowLeftRight className="mx-auto mb-4 text-muted-foreground/40" size={40} />
@@ -277,42 +302,115 @@ export function TransactionsPage() {
                   <h2 className="text-sm font-medium text-muted-foreground">Recurring</h2>
                   <div className="h-px flex-1 bg-border/50" />
                 </div>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-3">
                   {recurringTxns.map((txn: TransactionResponse) => (
-                    <div
-                      key={txn.id}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-card/60 transition-colors group"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{txn.description}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {txn.category} · {txn.frequency} · next {txn.next_occurrence ? formatDate(txn.next_occurrence) : txn.anchor_date?.slice(0, 10)}
+                    <Card key={txn.id}>
+                      <CardContent className="py-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-center">
+                          <div className="min-w-0">
+                            <div className="font-medium truncate">{txn.description}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {txn.category} · {txn.frequency}
+                            </div>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            next {txn.next_occurrence ? formatDate(txn.next_occurrence) : txn.anchor_date?.slice(0, 10)}
+                          </div>
+                          <div className={`text-sm font-medium tabular-nums ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            {txn.is_recurring && (
+                              <Button
+                                onClick={() => handleConfirmClick(txn.id)}
+                                size="sm"
+                                disabled={confirmingId === txn.id}
+                              >
+                                {confirmSuccessId === txn.id ? (
+                                  <Check size={14} />
+                                ) : (
+                                  <>
+                                    <Check size={14} />
+                                    Confirm Paid
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                            <Button
+                              onClick={() => handleEditClick(txn)}
+                              variant="ghost"
+                              size="sm"
+                              aria-label="Edit transaction"
+                            >
+                              <Edit2 size={14} />
+                            </Button>
+                            <Button
+                              onClick={() => setConfirmDelete(txn.id)}
+                              variant="ghost"
+                              size="sm"
+                              aria-label="Delete transaction"
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <div className={`text-sm font-medium tabular-nums ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {oneTimeTxns.length > 0 && (
+              <section>
+                <div className="flex items-center gap-2 mb-3">
+                  <h2 className="text-sm font-medium text-muted-foreground">One-Time</h2>
+                  <div className="h-px flex-1 bg-border/50" />
+                </div>
+                <div className="flex flex-col gap-3">
+                  {oneTimeTxns.map((txn: TransactionResponse) => (
+                    <Card key={txn.id}>
+                      <CardContent className="py-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-center">
+                          <div className="min-w-0">
+                            <div className="font-medium truncate">{txn.description}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {txn.category}
+                            </div>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {formatDate(txn.timestamp)}
+                          </div>
+                          <div className={`text-sm font-medium tabular-nums ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <Button
+                              onClick={() => handleEditClick(txn)}
+                              variant="ghost"
+                              size="sm"
+                              aria-label="Edit transaction"
+                            >
+                              <Edit2 size={14} />
+                            </Button>
+                            <Button
+                              onClick={() => setConfirmDelete(txn.id)}
+                              variant="ghost"
+                              size="sm"
+                              aria-label="Delete transaction"
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          onClick={() => handleEditClick(txn)}
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          aria-label="Edit"
-                        >
-                          <Edit2 size={12} />
-                        </Button>
-                        <Button
-                          onClick={() => setConfirmDelete(txn.id)}
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          aria-label="Delete"
-                        >
-                          <Trash2 size={12} />
-                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
                       </div>
                     </div>
                   ))}
@@ -338,38 +436,7 @@ export function TransactionsPage() {
                           {txn.category} · {formatDate(txn.timestamp)}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className={`text-sm font-medium tabular-nums ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
-                        </div>
-                      </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          onClick={() => handleEditClick(txn)}
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          aria-label="Edit"
-                        >
-                          <Edit2 size={12} />
-                        </Button>
-                        <Button
-                          onClick={() => setConfirmDelete(txn.id)}
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          aria-label="Delete"
-                        >
-                          <Trash2 size={12} />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-          </div>
-        )}
+
       </Skeleton>
 
       {(isCreating || editingId) && (
