@@ -191,6 +191,12 @@ export function deleteTransaction(id: string): Promise<void> {
   })
 }
 
+export function confirmTransaction(id: string): Promise<TransactionResponse> {
+  return apiFetch<TransactionResponse>(`/api/transactions/${id}/confirm`, {
+    method: 'POST',
+  })
+}
+
 // ─── Friend Ledger Types ───────────────────────────────────────────────────
 
 export interface FriendResponse {
