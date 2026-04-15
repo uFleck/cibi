@@ -294,123 +294,117 @@ export function TransactionsPage() {
               </Button>
             </CardContent>
           </Card>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {recurringTxns.length > 0 && (
-              <section>
-                <div className="flex items-center gap-2 mb-2">
-                  <h2 className="text-sm font-medium text-muted-foreground">Recurring</h2>
-                  <div className="h-px flex-1 bg-border/50" />
-                </div>
-                <div className="flex flex-col gap-1">
-                  {recurringTxns.map((txn: TransactionResponse) => (
-                    <Card key={txn.id}>
-                      <CardContent className="py-2 px-3">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-center">
-                          <div className="min-w-0">
-                            <div className="font-medium text-sm truncate">{txn.description}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {txn.category} · {txn.frequency}
-                            </div>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            next {txn.next_occurrence ? formatDate(txn.next_occurrence) : txn.anchor_date?.slice(0, 10)}
-                          </div>
-                          <div className={`text-sm font-medium tabular-nums ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
-                          </div>
-                          <div className="flex gap-1 justify-end">
-                            {txn.is_recurring && (
-                              <Button
-                                onClick={() => handleConfirmClick(txn.id)}
-                                variant={confirmSuccessId === txn.id ? "default" : "outline"}
-                                size="icon"
-                                className="h-7 w-7"
-                                disabled={confirmingId === txn.id}
-                                aria-label="Confirm paid"
-                              >
-                                <Check size={14} />
-                              </Button>
-                            )}
-                            <Button
-                              onClick={() => handleEditClick(txn)}
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              aria-label="Edit transaction"
-                            >
-                              <Edit2 size={14} />
-                            </Button>
-                            <Button
-                              onClick={() => setConfirmDelete(txn.id)}
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              aria-label="Delete transaction"
-                            >
-                              <Trash2 size={14} />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {oneTimeTxns.length > 0 && (
-              <section>
-                <div className="flex items-center gap-2 mb-2">
-                  <h2 className="text-sm font-medium text-muted-foreground">One-Time</h2>
-                  <div className="h-px flex-1 bg-border/50" />
-                </div>
-                <div className="flex flex-col gap-1">
-                  {oneTimeTxns.map((txn: TransactionResponse) => (
-                    <Card key={txn.id}>
-                      <CardContent className="py-2 px-3">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-center">
-                          <div className="min-w-0">
-                            <div className="font-medium text-sm truncate">{txn.description}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {txn.category}
-                            </div>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {formatDate(txn.timestamp)}
-                          </div>
-                          <div className={`text-sm font-medium tabular-nums ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
-                          </div>
-                          <div className="flex gap-1 justify-end">
-                            <Button
-                              onClick={() => handleEditClick(txn)}
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              aria-label="Edit transaction"
-                            >
-                              <Edit2 size={14} />
-                            </Button>
-                            <Button
-                              onClick={() => setConfirmDelete(txn.id)}
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              aria-label="Delete transaction"
-                            >
-                              <Trash2 size={14} />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </section>
-            )}
+        ) : 
+          (recurringTxns.length > 0 || oneTimeTxns.length > 0) ? (
+          <div className="border rounded-md overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-muted-foreground">
+                <tr>
+                  <th className="text-left px-3 py-2 font-medium">Description</th>
+                  <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">When</th>
+                  <th className="text-right px-3 py-2 font-medium">Amount</th>
+                  <th className="text-right px-3 py-2 font-medium w-20">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {recurringTxns.map((txn: TransactionResponse) => (
+                  <tr key={txn.id} className="hover:bg-muted/30">
+                    <td className="px-3 py-2">
+                      <div className="font-medium truncate max-w-[150px]">{txn.description}</div>
+                      <div className="text-xs text-muted-foreground sm:hidden">
+                        {txn.category} · {txn.frequency}
+                      </div>
+                      <div className="text-xs text-muted-foreground hidden sm:block">
+                        {txn.category} · {txn.frequency} · next {txn.next_occurrence ? formatDate(txn.next_occurrence) : txn.anchor_date?.slice(0, 10)}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">
+                      {txn.next_occurrence ? formatDate(txn.next_occurrence) : txn.anchor_date?.slice(0, 10)}
+                    </td>
+                    <td className={`px-3 py-2 text-right font-medium tabular-nums ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex gap-1 justify-end">
+                        {txn.is_recurring && (
+                          <Button
+                            onClick={() => handleConfirmClick(txn.id)}
+                            variant={confirmSuccessId === txn.id ? "default" : "ghost"}
+                            size="icon"
+                            className="h-7 w-7"
+                            disabled={confirmingId === txn.id}
+                            aria-label="Confirm paid"
+                          >
+                            <Check size={14} />
+                          </Button>
+                        )}
+                        <Button
+                          onClick={() => handleEditClick(txn)}
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          aria-label="Edit transaction"
+                        >
+                          <Edit2 size={14} />
+                        </Button>
+                        <Button
+                          onClick={() => setConfirmDelete(txn.id)}
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          aria-label="Delete transaction"
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {oneTimeTxns.map((txn: TransactionResponse) => (
+                  <tr key={txn.id} className="hover:bg-muted/30">
+                    <td className="px-3 py-2">
+                      <div className="font-medium truncate max-w-[150px]">{txn.description}</div>
+                      <div className="text-xs text-muted-foreground sm:hidden">
+                        {txn.category}
+                      </div>
+                      <div className="text-xs text-muted-foreground hidden sm:block">
+                        {txn.category}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">
+                      {formatDate(txn.timestamp)}
+                    </td>
+                    <td className={`px-3 py-2 text-right font-medium tabular-nums ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex gap-1 justify-end">
+                        <Button
+                          onClick={() => handleEditClick(txn)}
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          aria-label="Edit transaction"
+                        >
+                          <Edit2 size={14} />
+                        </Button>
+                        <Button
+                          onClick={() => setConfirmDelete(txn.id)}
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          aria-label="Delete transaction"
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
+        ) : null}
       </Skeleton>
 
       {(isCreating || editingId) && (
