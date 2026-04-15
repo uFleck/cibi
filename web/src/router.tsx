@@ -164,7 +164,8 @@ const friendsRoute = createRoute({
 
 const publicRootRoute = createRoute({
   getParentRoute: () => rootRoute,
-  id: 'public-layout',
+  id: 'public',
+  staticData: { layout: 'public' },
   component: PublicLayout,
 })
 

@@ -136,7 +136,7 @@ func (h *PeerDebtHandler) Create(c echo.Context) error {
 	}
 	d := sqlite.PeerDebt{
 		FriendID:          friendID,
-		Amount:            int64(math.Round(req.Amount * 100)),
+		Amount:            int64(math.Round(req.Amount)),
 		Description:       req.Description,
 		Date:              req.Date,
 		IsInstallment:     req.IsInstallment,
@@ -161,12 +161,12 @@ func (h *PeerDebtHandler) Update(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	var amountCents *int64
+	var amountValue *int64
 	if req.Amount != nil {
-		v := int64(math.Round(*req.Amount * 100))
-		amountCents = &v
+		v := int64(math.Round(*req.Amount))
+		amountValue = &v
 	}
-	if err := h.svc.UpdateDebt(id, amountCents, req.Description); err != nil {
+	if err := h.svc.UpdateDebt(id, amountValue, req.Description); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "peer debt not found")
 		}

@@ -4,12 +4,19 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 	"github.com/ufleck/cibi/internal/service"
 )
+
+var indexHTML []byte
+
+func SetIndexHTML(html []byte) {
+	indexHTML = html
+}
 
 // PublicFriendTokenSvc is the minimal interface for friend token lookups.
 type PublicFriendTokenSvc interface {
@@ -71,9 +78,23 @@ type PublicGroupResponse struct {
 	Participants []ParticipantResponse `json:"participants"`
 }
 
+func init() {
+	// Embedded by cmd/cibi-api/main.go via SetIndexHTML.
+}
+
 // GetFriendByToken handles GET /public/friend/:token — returns friend balance summary.
+// When Accept: text/html is present, returns index.html for client-side rendering.
 func (h *PublicHandler) GetFriendByToken(c echo.Context) error {
 	token := c.Param("token")
+
+	// Check if client wants HTML (browser)
+	accept := c.Request().Header.Get("Accept")
+	wantsHTML := accept != "" && (strings.Contains(accept, "text/html") || accept == "*/*")
+
+	if wantsHTML && len(indexHTML) > 0 {
+		return c.HTML(http.StatusOK, string(indexHTML))
+	}
+
 	friend, err := h.friendSvc.GetFriendByToken(token)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -105,8 +126,18 @@ func (h *PublicHandler) GetFriendByToken(c echo.Context) error {
 }
 
 // GetGroupByToken handles GET /public/group/:token — returns event + participants.
+// When Accept: text/html is present, returns index.html for client-side rendering.
 func (h *PublicHandler) GetGroupByToken(c echo.Context) error {
 	token := c.Param("token")
+
+	// Check if client wants HTML (browser)
+	accept := c.Request().Header.Get("Accept")
+	wantsHTML := accept != "" && (strings.Contains(accept, "text/html") || accept == "*/*")
+
+	if wantsHTML && len(indexHTML) > 0 {
+		return c.HTML(http.StatusOK, string(indexHTML))
+	}
+
 	event, err := h.groupSvc.GetEventByToken(token)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

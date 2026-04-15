@@ -125,7 +125,7 @@ func (h *PayScheduleHandler) Create(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid anchor_date format, use YYYY-MM-DD")
 	}
 	ps, err := h.svc.CreatePaySchedule(accountID, req.Frequency, anchorDate,
-		req.DayOfMonth, req.DayOfMonth2, req.Label, int64(math.Round(req.Amount*100)))
+		req.DayOfMonth, req.DayOfMonth2, req.Label, int64(math.Round(req.Amount)))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -150,7 +150,7 @@ func (h *PayScheduleHandler) Update(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid anchor_date format, use YYYY-MM-DD")
 	}
 	if err := h.svc.UpdatePaySchedule(id, req.Frequency, anchorDate,
-		req.DayOfMonth, req.DayOfMonth2, req.Label, int64(math.Round(req.Amount*100))); err != nil {
+		req.DayOfMonth, req.DayOfMonth2, req.Label, int64(math.Round(req.Amount))); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.NoContent(http.StatusNoContent)

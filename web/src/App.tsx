@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { RouterProvider, Outlet } from '@tanstack/react-router'
+import { RouterProvider, Outlet, useLocation } from '@tanstack/react-router'
 import { Toaster } from '@/components/ui/sonner'
 import { createContext, useState } from 'react'
 import { router } from './router'
@@ -25,7 +25,7 @@ export const AccountContext = createContext<{
   setSelectedAccountId: () => {},
 })
 
-export function RootLayout() {
+function RootLayoutWithNav() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
 
   return (
@@ -38,6 +38,21 @@ export function RootLayout() {
       </main>
     </div>
   )
+}
+
+export function RootLayout() {
+  const location = useLocation()
+  const pathname = location.pathname || '/'
+
+  if (pathname.startsWith('/public/friend') || pathname.startsWith('/public/group')) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Outlet />
+      </div>
+    )
+  }
+
+  return <RootLayoutWithNav />
 }
 
 export default function App() {
