@@ -49,7 +49,7 @@ func New(cfg config.Config) (*App, error) {
 	iGroupEvtRepo := reposqlite.NewSqliteGroupEventRepo(database)
 
 	accountsSvc := service.NewAccountsService(iAccRepo)
-	txnsSvc := service.NewTransactionsService(iTxnsRepo, iAccRepo)
+	txnsSvc := service.NewTransactionsService(database, iTxnsRepo, iAccRepo)
 	engineSvc := service.NewEngineService(iAccRepo, iTxnsRepo, iPsRepo, iBufRepo, iPeerDebtRepo)
 	payScheduleSvc := service.NewPayScheduleService(iPsRepo, iAccRepo)
 	friendSvc := service.NewFriendService(iFriendRepo)

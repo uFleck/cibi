@@ -20,6 +20,7 @@ type TransactionsServiceIface interface {
 	GetTransaction(id uuid.UUID) (sqlite.Transaction, error)
 	UpdateTransaction(id uuid.UUID, upd sqlite.UpdateTransaction) error
 	DeleteTransaction(id uuid.UUID) error
+	ConfirmRecurring(transactionID uuid.UUID) (time.Time, error)
 }
 
 // Ensure *service.TransactionsService satisfies TransactionsServiceIface.
@@ -57,7 +58,7 @@ type PatchTransactionRequest struct {
 type TransactionResponse struct {
 	ID             string  `json:"id"`
 	AccountID      string  `json:"account_id"`
-	Amount         float64 `json:"amount"`          // cents → dollars
+	Amount         float64 `json:"amount"`          // stored as dollars
 	Description    string  `json:"description"`
 	Category       string  `json:"category"`
 	Timestamp      string  `json:"timestamp"`       // RFC3339
@@ -164,7 +165,7 @@ func (h *TransactionsHandler) Update(c echo.Context) error {
 		Category:    req.Category,
 	}
 
-	// Convert *float64 dollars to *int64 cents if provided.
+	// Convert dollars to stored value if provided.
 	if req.Amount != nil {
 		v := int64(math.Round(*req.Amount * 100))
 		upd.Amount = &v
@@ -211,4 +212,28 @@ func (h *TransactionsHandler) Delete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.NoContent(http.StatusNoContent)
+}
+
+// Confirm handles POST /transactions/:id/confirm — confirms a recurring transaction,
+// applies debit to balance, and advances next_occurrence.
+func (h *TransactionsHandler) Confirm(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid transaction id")
+	}
+
+	next, err := h.svc.ConfirmRecurring(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "transaction not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Return updated transaction with new next_occurrence.
+	txn, err := h.svc.GetTransaction(id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(http.StatusOK, txnToResponse(txn))
 }
