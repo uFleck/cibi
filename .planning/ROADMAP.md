@@ -174,6 +174,16 @@ Plans:
 - [ ] 07-02-PLAN.md — Handler full CRUD (List/Create/Update/Delete) + routes update + frequency enum fix + check response WAIT fields
 - [ ] 07-03-PLAN.md — React: api.ts CRUD functions + Settings page + CheckWidget WAIT amber card + CSS tokens
 
+### Phase 9: fix transaction balance and recurring payment confirm
+
+**Goal:** Fix transaction balance bugs: non-recurring not deducted on creation, value updates not adjusting balance, recurring need confirmation mechanism
+**Requirements**: TXN-01, TXN-02
+**Depends on:** Phase 8
+**Plans:** 1 plan
+
+Plans:
+- [x] 09-01-PLAN.md — Backend: atomic balance sync + ConfirmRecurring endpoint
+
 ---
 
 ## Progress Table
