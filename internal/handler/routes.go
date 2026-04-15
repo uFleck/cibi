@@ -44,6 +44,7 @@ func SetupRoutes(
 	txn.POST("", th.Create)
 	txn.PATCH("/:id", th.Update)
 	txn.DELETE("/:id", th.Delete)
+	txn.POST("/:id/confirm", th.Confirm)
 
 	api.POST("/check", ch.Check)
 

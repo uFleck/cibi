@@ -50,7 +50,7 @@ func (h *CheckHandler) Check(c echo.Context) error {
 	if err := c.Validate(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	cents := int64(math.Round(req.Amount * 100))
+	cents := int64(math.Round(req.Amount))
 	result, err := h.svc.CanIBuyItDefault(cents)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())

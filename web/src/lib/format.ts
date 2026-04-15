@@ -1,8 +1,11 @@
 export function formatMoney(amount: number, currency = 'BRL'): string {
-  return new Intl.NumberFormat('en-US', {
+  const isNegative = amount < 0
+  const absAmount = Math.abs(amount)
+  const formatted = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency,
-  }).format(amount)
+  }).format(absAmount)
+  return isNegative ? `-${formatted}` : formatted
 }
 
 

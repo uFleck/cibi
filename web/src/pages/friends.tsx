@@ -12,6 +12,7 @@ import {
   deleteFriend,
   listPeerDebts,
   createPeerDebt,
+  deletePeerDebt,
   confirmDebt,
   listGroupEvents,
   createGroupEvent,
@@ -107,15 +108,43 @@ function FriendCard({ friend }: { friend: FriendResponse }) {
     onError: () => toast.error('Failed to confirm debt'),
   })
 
-  function copyLink() {
+  const deleteDebtMutation = useMutation({
+    mutationFn: (id: string) => deletePeerDebt(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['peer-debts', friend.id] })
+      queryClient.invalidateQueries({ queryKey: ['friend-summary'] })
+      toast.success('Debt deleted')
+    },
+    onError: () => toast.error('Failed to delete debt'),
+  })
+
+  function copyLink(e: React.MouseEvent) {
+    e.stopPropagation()
     const url = `${window.location.origin}/public/friend/${friend.public_token}`
-    navigator.clipboard.writeText(url).then(
-      () => toast.success('Link copied!'),
-      () => toast.error('Failed to copy link'),
-    )
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(url).then(
+        () => toast.success('Link copied!'),
+        () => toast.error('Failed to copy link'),
+      )
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = url
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      try {
+        document.execCommand('copy')
+        toast.success('Link copied!')
+      } catch {
+        toast.error('Failed to copy link')
+      }
+      document.body.removeChild(textarea)
+    }
   }
 
-  function handleDelete() {
+  function handleDelete(e: React.MouseEvent) {
+    e.stopPropagation()
     if (!window.confirm(`Remove ${friend.name}? This will delete all their debt history.`)) return
     deleteFriendMutation.mutate()
   }
@@ -189,7 +218,7 @@ function FriendCard({ friend }: { friend: FriendResponse }) {
                           <td className="py-2 pr-3 whitespace-nowrap">{formatDate(debt.date)}</td>
                           <td className="py-2 pr-3">{debt.description}</td>
                           <td
-                            className={`py-2 pr-3 text-right tabular-nums ${
+                            className={`py-2 pr-3 text-right tabular-nums whitespace-nowrap ${
                               debt.amount < 0 ? 'text-red-500' : 'text-green-600'
                             }`}
                           >
@@ -199,16 +228,29 @@ function FriendCard({ friend }: { friend: FriendResponse }) {
                             <Badge variant={status.variant}>{status.label}</Badge>
                           </td>
                           <td className="py-2">
-                            {!debt.is_confirmed && (
+                            <div className="flex gap-1">
+                              {!debt.is_confirmed && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => confirmMutation.mutate(debt.id)}
+                                  disabled={confirmMutation.isPending}
+                                >
+                                  Confirm
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => confirmMutation.mutate(debt.id)}
-                                disabled={confirmMutation.isPending}
+                                onClick={() => {
+                                  if (!window.confirm('Delete this debt?')) return
+                                  deleteDebtMutation.mutate(debt.id)
+                                }}
+                                disabled={deleteDebtMutation.isPending}
                               >
-                                Confirm
+                                <Trash2 size={12} />
                               </Button>
-                            )}
+                            </div>
                           </td>
                         </tr>
                       )
@@ -350,12 +392,29 @@ function GroupEventCard({ event, friends }: { event: GroupEventResponse; friends
     onError: () => toast.error('Failed to update participants'),
   })
 
-  function copyLink() {
+  function copyLink(e: React.MouseEvent) {
+    e.stopPropagation()
     const url = `${window.location.origin}/public/group/${event.public_token}`
-    navigator.clipboard.writeText(url).then(
-      () => toast.success('Link copied!'),
-      () => toast.error('Failed to copy link'),
-    )
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(url).then(
+        () => toast.success('Link copied!'),
+        () => toast.error('Failed to copy link'),
+      )
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = url
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      try {
+        document.execCommand('copy')
+        toast.success('Link copied!')
+      } catch {
+        toast.error('Failed to copy link')
+      }
+      document.body.removeChild(textarea)
+    }
   }
 
   function startEditParticipants() {
@@ -370,7 +429,7 @@ function GroupEventCard({ event, friends }: { event: GroupEventResponse; friends
     } else {
       // Default: equal split among all friends + host (you)
       const count = friends.length + 1
-      const equalShare = count > 0 ? Math.floor((event.total_amount / count) * 100) / 100 : 0
+      const equalShare = count > 0 ? event.total_amount / count : 0
       const rows: ParticipantRow[] = friends.map(f => ({
         friend_id: f.id,
         share_amount: equalShare.toFixed(2),

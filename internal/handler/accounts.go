@@ -41,7 +41,7 @@ func NewAccountsHandler(svc *service.AccountsService) *AccountsHandler {
 
 type CreateAccountRequest struct {
 	Name           string  `json:"name"            validate:"required"`
-	CurrentBalance float64 `json:"current_balance"` // dollars → cents in handler
+	CurrentBalance float64 `json:"current_balance"` // stored as dollars
 	Currency       string  `json:"currency"         validate:"required"`
 	IsDefault      bool    `json:"is_default"`
 }
@@ -49,7 +49,7 @@ type CreateAccountRequest struct {
 type AccountResponse struct {
 	ID             string  `json:"id"`
 	Name           string  `json:"name"`
-	CurrentBalance float64 `json:"current_balance"` // cents → dollars
+	CurrentBalance float64 `json:"current_balance"` // stored as dollars
 	Currency       string  `json:"currency"`
 	IsDefault      bool    `json:"is_default"`
 }
@@ -59,7 +59,7 @@ type PatchAccountRequest struct {
 	CurrentBalance *float64 `json:"current_balance"` // nil = no change
 }
 
-// accountToResponse converts a sqlite.Account to AccountResponse (cents → dollars).
+// accountToResponse converts a sqlite.Account to AccountResponse.
 func accountToResponse(a sqlite.Account) AccountResponse {
 	return AccountResponse{
 		ID:             a.ID.String(),
@@ -95,7 +95,7 @@ func (h *AccountsHandler) Create(c echo.Context) error {
 	acc := sqlite.Account{
 		ID:             uuid.New(),
 		Name:           req.Name,
-		CurrentBalance: int64(math.Round(req.CurrentBalance * 100)),
+		CurrentBalance: int64(math.Round(req.CurrentBalance)),
 		Currency:       req.Currency,
 		IsDefault:      req.IsDefault,
 	}
@@ -143,13 +143,13 @@ func (h *AccountsHandler) Update(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	// Convert *float64 dollars to *int64 cents if provided.
-	var balanceCents *int64
+	// Convert dollars to stored value if provided.
+	var balanceValue *int64
 	if req.CurrentBalance != nil {
-		v := int64(math.Round(*req.CurrentBalance * 100))
-		balanceCents = &v
+		v := int64(math.Round(*req.CurrentBalance))
+		balanceValue = &v
 	}
-	if err := h.svc.UpdateAccount(id, req.Name, balanceCents); err != nil {
+	if err := h.svc.UpdateAccount(id, req.Name, balanceValue); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "account not found")
 		}

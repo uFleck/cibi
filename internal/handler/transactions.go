@@ -222,7 +222,7 @@ func (h *TransactionsHandler) Confirm(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid transaction id")
 	}
 
-	next, err := h.svc.ConfirmRecurring(id)
+	_, err := h.svc.ConfirmRecurring(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "transaction not found")

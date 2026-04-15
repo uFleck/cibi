@@ -3,7 +3,7 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
-	"math"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -48,7 +48,7 @@ type PeerDebtRepo interface {
 	DeleteByID(id uuid.UUID) error
 	GetBalanceByFriend(friendID uuid.UUID) (PeerDebtBalance, error)
 	GetGlobalBalance() (GlobalPeerBalance, error)
-	SumUpcomingPeerObligations() (int64, error)
+SumUpcomingPeerObligations(after, onOrBefore time.Time) (int64, error)
 	// ConfirmInstallment atomically increments paid_installments (capped at total_installments)
 	// for installment debts, or sets is_confirmed=1 for non-installment debts.
 	ConfirmInstallment(id uuid.UUID) error
@@ -298,28 +298,65 @@ func (r *SqlitePeerDebtRepo) ConfirmInstallment(id uuid.UUID) error {
 	return nil
 }
 
-func (r *SqlitePeerDebtRepo) SumUpcomingPeerObligations() (int64, error) {
-	// Unconfirmed lump-sum debts (user owes friend, amount < 0, not installment, not confirmed)
+func (r *SqlitePeerDebtRepo) SumUpcomingPeerObligations(after, onOrBefore time.Time) (int64, error) {
+	afterStr := after.UTC().Format(time.RFC3339)
+	onOrBeforeStr := onOrBefore.UTC().Format(time.RFC3339)
+
 	var lumpSum int64
 	if err := r.db.QueryRow(
 		`SELECT COALESCE(SUM(amount), 0) FROM PeerDebt
-		 WHERE amount < 0 AND is_installment = 0 AND is_confirmed = 0`,
+		 WHERE amount < 0 AND is_installment = 0 AND is_confirmed = 0
+		   AND date > ? AND date <= ?`,
+		afterStr, onOrBeforeStr,
 	).Scan(&lumpSum); err != nil {
 		return 0, fmt.Errorf("peer_debt.SumUpcomingPeerObligations: lump sum: %w", err)
 	}
 
-	// Active installment debts — one payment per active debt (cast to REAL to avoid integer division)
-	var installmentSum float64
-	if err := r.db.QueryRow(
-		`SELECT COALESCE(SUM(CAST(amount AS REAL) / total_installments), 0) FROM PeerDebt
+	rows, err := r.db.Query(
+		`SELECT id, amount, total_installments, paid_installments, frequency, date
+		 FROM PeerDebt
 		 WHERE amount < 0
 		   AND is_installment = 1
 		   AND total_installments IS NOT NULL
 		   AND total_installments > 0
 		   AND paid_installments < total_installments`,
-	).Scan(&installmentSum); err != nil {
-		return 0, fmt.Errorf("peer_debt.SumUpcomingPeerObligations: installment sum: %w", err)
+	)
+	if err != nil {
+		return 0, fmt.Errorf("peer_debt.SumUpcomingPeerObligations: query: %w", err)
+	}
+	defer rows.Close()
+
+	var totalInstallmentSum int64
+	for rows.Next() {
+		var id string
+		var amount, totalInst, paidInst int64
+		var freq string
+		var dateStr string
+		if err := rows.Scan(&id, &amount, &totalInst, &paidInst, &freq, &dateStr); err != nil {
+			return 0, fmt.Errorf("peer_debt.SumUpcomingPeerObligations: scan: %w", err)
+		}
+
+		instPayment := amount / totalInst
+
+		firstDue, err := time.Parse(time.RFC3339, dateStr)
+		if err != nil {
+			continue
+		}
+
+		nextInstNum := paidInst + 1
+		var nextDue time.Time
+		if freq == "monthly" {
+			nextDue = firstDue.AddDate(0, int(nextInstNum-1), 0)
+		} else if freq == "weekly" {
+			nextDue = firstDue.AddDate(0, 0, int(nextInstNum-1)*7)
+		} else {
+			nextDue = firstDue.AddDate(0, int(nextInstNum-1), 0)
+		}
+
+		if nextDue.After(after) && !nextDue.After(onOrBefore) {
+			totalInstallmentSum += instPayment
+		}
 	}
 
-	return lumpSum + int64(math.Round(installmentSum)), nil
+	return lumpSum + totalInstallmentSum, nil
 }

@@ -131,8 +131,8 @@ func (h *GroupEventHandler) Create(c echo.Context) error {
 	if err := c.Validate(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	totalCents := int64(math.Round(req.TotalAmount * 100))
-	event, err := h.svc.CreateEvent(req.Title, req.Date, totalCents, req.Notes)
+	totalValue := int64(math.Round(req.TotalAmount))
+	event, err := h.svc.CreateEvent(req.Title, req.Date, totalValue, req.Notes)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -169,12 +169,12 @@ func (h *GroupEventHandler) Update(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	var totalCents *int64
+	var totalValue *int64
 	if req.TotalAmount != nil {
-		v := int64(math.Round(*req.TotalAmount * 100))
-		totalCents = &v
+		v := int64(math.Round(*req.TotalAmount))
+		totalValue = &v
 	}
-	if err := h.svc.UpdateEvent(id, req.Title, req.Date, totalCents, req.Notes); err != nil {
+	if err := h.svc.UpdateEvent(id, req.Title, req.Date, totalValue, req.Notes); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "group event not found")
 		}
@@ -231,7 +231,7 @@ func (h *GroupEventHandler) SetParticipants(c echo.Context) error {
 		participants[i] = sqlite.GroupEventParticipant{
 			EventID:     id,
 			FriendID:    friendID,
-			ShareAmount: int64(math.Round(p.ShareAmount * 100)),
+			ShareAmount: int64(math.Round(p.ShareAmount)),
 			IsConfirmed: p.IsConfirmed,
 		}
 	}

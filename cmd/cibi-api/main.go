@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/ufleck/cibi/internal/app"
 	"github.com/ufleck/cibi/internal/config"
+	"github.com/ufleck/cibi/internal/handler"
 )
 
 func main() {
@@ -30,6 +32,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to sub web/dist: %v", err)
 	}
+
+	// Read index.html and pass to handler for public routes
+	indexFile, err := distFS.Open("index.html")
+	if err != nil {
+		log.Fatalf("Failed to open index.html: %v", err)
+	}
+	indexContent, err := io.ReadAll(indexFile)
+	indexFile.Close()
+	if err != nil {
+		log.Fatalf("Failed to read index.html: %v", err)
+	}
+	handler.SetIndexHTML(indexContent)
+
 	application.Echo.Use(middleware.StaticWithConfig(middleware.StaticConfig{
 		HTML5:      true,
 		Root:       ".",
