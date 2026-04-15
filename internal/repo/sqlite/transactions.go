@@ -32,10 +32,10 @@ type Transaction struct {
 
 // TransactionsRepo defines the data access contract for transactions.
 type TransactionsRepo interface {
-	Insert(t Transaction) error
+	Insert(t Transaction, tx *sql.Tx) error
 	GetByAccount(accountID uuid.UUID) ([]Transaction, error)
 	GetByID(id uuid.UUID) (Transaction, error)
-	Update(id uuid.UUID, upd UpdateTransaction) error
+	Update(id uuid.UUID, upd UpdateTransaction, tx *sql.Tx) error
 	DeleteByID(id uuid.UUID) error
 	AdvanceNextOccurrence(id uuid.UUID, next time.Time, tx *sql.Tx) error
 	SumUpcomingObligations(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error)
@@ -59,7 +59,7 @@ func NewSqliteTxnsRepo(db *sql.DB) *SqliteTxnsRepo {
 	return &SqliteTxnsRepo{db: db}
 }
 
-func (r *SqliteTxnsRepo) Insert(t Transaction) error {
+func (r *SqliteTxnsRepo) Insert(t Transaction, tx *sql.Tx) error {
 	var freq interface{}
 	if t.Frequency != nil {
 		freq = *t.Frequency
@@ -75,21 +75,40 @@ func (r *SqliteTxnsRepo) Insert(t Transaction) error {
 		nextStr = t.NextOccurrence.UTC().Format(time.RFC3339)
 	}
 
-	_, err := r.db.Exec(
-		`INSERT INTO "Transaction"
-		(id, account_id, amount, description, category, timestamp, is_recurring, frequency, anchor_date, next_occurrence)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		t.ID.String(),
-		t.AccountID.String(),
-		t.Amount,
-		t.Description,
-		t.Category,
-		t.Timestamp.UTC().Format(time.RFC3339),
-		t.IsRecurring,
-		freq,
-		anchorStr,
-		nextStr,
-	)
+	var err error
+	if tx != nil {
+		_, err = tx.Exec(
+			`INSERT INTO "Transaction"
+			(id, account_id, amount, description, category, timestamp, is_recurring, frequency, anchor_date, next_occurrence)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			t.ID.String(),
+			t.AccountID.String(),
+			t.Amount,
+			t.Description,
+			t.Category,
+			t.Timestamp.UTC().Format(time.RFC3339),
+			t.IsRecurring,
+			freq,
+			anchorStr,
+			nextStr,
+		)
+	} else {
+		_, err = r.db.Exec(
+			`INSERT INTO "Transaction"
+			(id, account_id, amount, description, category, timestamp, is_recurring, frequency, anchor_date, next_occurrence)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			t.ID.String(),
+			t.AccountID.String(),
+			t.Amount,
+			t.Description,
+			t.Category,
+			t.Timestamp.UTC().Format(time.RFC3339),
+			t.IsRecurring,
+			freq,
+			anchorStr,
+			nextStr,
+		)
+	}
 	if err != nil {
 		return fmt.Errorf("transactions.Insert: %w", err)
 	}
@@ -133,25 +152,49 @@ func (r *SqliteTxnsRepo) GetByID(id uuid.UUID) (Transaction, error) {
 	return t, nil
 }
 
-func (r *SqliteTxnsRepo) Update(id uuid.UUID, upd UpdateTransaction) error {
+func (r *SqliteTxnsRepo) Update(id uuid.UUID, upd UpdateTransaction, tx *sql.Tx) error {
 	if upd.Description != nil {
-		if _, err := r.db.Exec(`UPDATE "Transaction" SET description = ? WHERE id = ?`, *upd.Description, id.String()); err != nil {
+		var err error
+		if tx != nil {
+			_, err = tx.Exec(`UPDATE "Transaction" SET description = ? WHERE id = ?`, *upd.Description, id.String())
+		} else {
+			_, err = r.db.Exec(`UPDATE "Transaction" SET description = ? WHERE id = ?`, *upd.Description, id.String())
+		}
+		if err != nil {
 			return fmt.Errorf("transactions.Update description: %w", err)
 		}
 	}
 	if upd.Category != nil {
-		if _, err := r.db.Exec(`UPDATE "Transaction" SET category = ? WHERE id = ?`, *upd.Category, id.String()); err != nil {
+		var err error
+		if tx != nil {
+			_, err = tx.Exec(`UPDATE "Transaction" SET category = ? WHERE id = ?`, *upd.Category, id.String())
+		} else {
+			_, err = r.db.Exec(`UPDATE "Transaction" SET category = ? WHERE id = ?`, *upd.Category, id.String())
+		}
+		if err != nil {
 			return fmt.Errorf("transactions.Update category: %w", err)
 		}
 	}
 	if upd.Amount != nil {
-		if _, err := r.db.Exec(`UPDATE "Transaction" SET amount = ? WHERE id = ?`, *upd.Amount, id.String()); err != nil {
+		var err error
+		if tx != nil {
+			_, err = tx.Exec(`UPDATE "Transaction" SET amount = ? WHERE id = ?`, *upd.Amount, id.String())
+		} else {
+			_, err = r.db.Exec(`UPDATE "Transaction" SET amount = ? WHERE id = ?`, *upd.Amount, id.String())
+		}
+		if err != nil {
 			return fmt.Errorf("transactions.Update amount: %w", err)
 		}
 	}
 	if upd.NextOccurrence != nil {
 		nextStr := upd.NextOccurrence.UTC().Format(time.RFC3339)
-		if _, err := r.db.Exec(`UPDATE "Transaction" SET next_occurrence = ? WHERE id = ?`, nextStr, id.String()); err != nil {
+		var err error
+		if tx != nil {
+			_, err = tx.Exec(`UPDATE "Transaction" SET next_occurrence = ? WHERE id = ?`, nextStr, id.String())
+		} else {
+			_, err = r.db.Exec(`UPDATE "Transaction" SET next_occurrence = ? WHERE id = ?`, nextStr, id.String())
+		}
+		if err != nil {
 			return fmt.Errorf("transactions.Update next_occurrence: %w", err)
 		}
 	}
