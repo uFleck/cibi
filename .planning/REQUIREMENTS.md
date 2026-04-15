@@ -114,8 +114,8 @@
 | ENGINE-02 | Phase 2 | Pending |
 | ENGINE-03 | Phase 2 | Pending |
 | ENGINE-04 | Phase 2 | Pending |
-| TXN-01 | Phase 2 | Pending |
-| TXN-02 | Phase 2 | Pending |
+| TXN-01 | Phase 2 | Complete |
+| TXN-02 | Phase 2 | Complete |
 | TXN-03 | Phase 1 | Complete |
 | CLI-01 | Phase 3 | Pending |
 | CLI-02 | Phase 3 | Pending |
