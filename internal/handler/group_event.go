@@ -20,7 +20,7 @@ type GroupEventServiceIface interface {
 	GetEventByToken(token string) (sqlite.GroupEvent, error)
 	UpdateEvent(id uuid.UUID, title *string, date *string, totalAmount *int64, notes *string) error
 	DeleteEvent(id uuid.UUID) error
-	SetParticipants(eventID uuid.UUID, participants []sqlite.GroupEventParticipant) error
+	SetParticipants(eventID uuid.UUID, participants []sqlite.GroupEventParticipant, hostFriendID *uuid.UUID) error
 	GetParticipants(eventID uuid.UUID) ([]sqlite.GroupEventParticipant, error)
 	EqualSplitAmounts(totalAmount int64, count int) []int64
 }
@@ -62,6 +62,7 @@ type ParticipantInput struct {
 
 type SetParticipantsRequest struct {
 	Participants []ParticipantInput `json:"participants" validate:"required"`
+	HostFriendID *string            `json:"host_friend_id"`
 }
 
 type ParticipantResponse struct {
@@ -71,24 +72,31 @@ type ParticipantResponse struct {
 }
 
 type GroupEventResponse struct {
-	ID          string                `json:"id"`
-	Title       string                `json:"title"`
-	Date        string                `json:"date"`
-	TotalAmount float64               `json:"total_amount"` // dollars
-	PublicToken string                `json:"public_token"`
-	Notes       *string               `json:"notes"`
-	Participants []ParticipantResponse `json:"participants,omitempty"`
+	ID           string                 `json:"id"`
+	Title        string                 `json:"title"`
+	Date         string                 `json:"date"`
+	TotalAmount  float64                `json:"total_amount"` // dollars
+	PublicToken  string                 `json:"public_token"`
+	Notes        *string                `json:"notes"`
+	HostFriendID *string                `json:"host_friend_id"`
+	Participants []ParticipantResponse  `json:"participants,omitempty"`
 }
 
 // groupEventToResponse converts a sqlite.GroupEvent to GroupEventResponse (cents → dollars).
 func groupEventToResponse(e sqlite.GroupEvent, participants []sqlite.GroupEventParticipant) GroupEventResponse {
+	var hostFriendIDStr *string
+	if e.HostFriendID != nil {
+		s := e.HostFriendID.String()
+		hostFriendIDStr = &s
+	}
 	resp := GroupEventResponse{
-		ID:          e.ID.String(),
-		Title:       e.Title,
-		Date:        e.Date,
-		TotalAmount: float64(e.TotalAmount) / 100.0,
-		PublicToken: e.PublicToken,
-		Notes:       e.Notes,
+		ID:           e.ID.String(),
+		Title:        e.Title,
+		Date:         e.Date,
+		TotalAmount:  float64(e.TotalAmount) / 100.0,
+		PublicToken:  e.PublicToken,
+		Notes:        e.Notes,
+		HostFriendID: hostFriendIDStr,
 	}
 	if participants != nil {
 		parts := make([]ParticipantResponse, len(participants))
@@ -131,7 +139,7 @@ func (h *GroupEventHandler) Create(c echo.Context) error {
 	if err := c.Validate(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	totalValue := int64(math.Round(req.TotalAmount))
+	totalValue := int64(math.Round(req.TotalAmount * 100))
 	event, err := h.svc.CreateEvent(req.Title, req.Date, totalValue, req.Notes)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -171,7 +179,7 @@ func (h *GroupEventHandler) Update(c echo.Context) error {
 	}
 	var totalValue *int64
 	if req.TotalAmount != nil {
-		v := int64(math.Round(*req.TotalAmount))
+		v := int64(math.Round(*req.TotalAmount * 100))
 		totalValue = &v
 	}
 	if err := h.svc.UpdateEvent(id, req.Title, req.Date, totalValue, req.Notes); err != nil {
@@ -231,11 +239,20 @@ func (h *GroupEventHandler) SetParticipants(c echo.Context) error {
 		participants[i] = sqlite.GroupEventParticipant{
 			EventID:     id,
 			FriendID:    friendID,
-			ShareAmount: int64(math.Round(p.ShareAmount)),
+			ShareAmount: int64(math.Round(p.ShareAmount * 100)),
 			IsConfirmed: p.IsConfirmed,
 		}
 	}
-	if err := h.svc.SetParticipants(id, participants); err != nil {
+	var hostFriendID *uuid.UUID
+	if req.HostFriendID != nil && *req.HostFriendID != "" {
+		parsed, err := uuid.Parse(*req.HostFriendID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid host_friend_id")
+		}
+		hostFriendID = &parsed
+	}
+
+	if err := h.svc.SetParticipants(id, participants, hostFriendID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "group event not found")
 		}

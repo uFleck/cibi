@@ -1,4 +1,5 @@
 import { formatMoney, formatDate } from '@/lib/format'
+import { isInCurrentPayWindow } from '@/lib/financial-window'
 import type { TransactionResponse } from '@/lib/api'
 
 interface ObligationsListProps {
@@ -8,9 +9,13 @@ interface ObligationsListProps {
 }
 
 export function ObligationsList({ transactions, currency = 'BRL', nextPayday }: ObligationsListProps) {
+  const now = new Date()
+
   const obligations = transactions
-    .filter(t => t.is_recurring && t.next_occurrence !== null &&
-      (nextPayday === null || t.next_occurrence!.slice(0, 10) <= nextPayday))
+    .filter(
+      t => t.is_recurring && t.next_occurrence !== null
+        && isInCurrentPayWindow(t.next_occurrence, now, nextPayday),
+    )
     .sort((a, b) =>
       new Date(a.next_occurrence!).getTime() - new Date(b.next_occurrence!).getTime()
     )

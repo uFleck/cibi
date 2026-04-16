@@ -9,19 +9,20 @@ import (
 
 // GroupEvent represents a shared expense event (e.g., pizza night).
 type GroupEvent struct {
-	ID          uuid.UUID
-	Title       string
-	Date        string  // RFC3339
-	TotalAmount int64   // cents
-	PublicToken string
-	Notes       *string // nullable
+	ID           uuid.UUID
+	Title        string
+	Date         string // RFC3339
+	TotalAmount  int64  // cents
+	PublicToken  string
+	Notes        *string // nullable
+	HostFriendID *uuid.UUID
 }
 
 // GroupEventParticipant represents a participant's share in a group event.
-// FriendID nil = host (the user).
+// FriendID nil = app owner/admin.
 type GroupEventParticipant struct {
 	EventID     uuid.UUID
-	FriendID    *uuid.UUID // nil = host/user row
+	FriendID    *uuid.UUID // nil = app owner/admin row
 	ShareAmount int64      // cents
 	IsConfirmed bool
 }
@@ -32,9 +33,11 @@ type GroupEventRepo interface {
 	GetAll() ([]GroupEvent, error)
 	GetByID(id uuid.UUID) (GroupEvent, error)
 	GetByToken(token string) (GroupEvent, error)
+	GetByFriend(friendID uuid.UUID) ([]GroupEvent, error)
 	Update(id uuid.UUID, title *string, date *string, totalAmount *int64, notes *string) error
 	DeleteByID(id uuid.UUID) error
-	SetParticipants(eventID uuid.UUID, participants []GroupEventParticipant) error
+	SetParticipants(eventID uuid.UUID, participants []GroupEventParticipant, hostFriendID *uuid.UUID) error
+	SetParticipantConfirmed(eventID uuid.UUID, friendID uuid.UUID, isConfirmed bool) error
 	GetParticipants(eventID uuid.UUID) ([]GroupEventParticipant, error)
 }
 
@@ -53,9 +56,13 @@ func (r *SqliteGroupEventRepo) Insert(e GroupEvent) error {
 	if e.Notes != nil {
 		notes = *e.Notes
 	}
+	var hostFriendID interface{}
+	if e.HostFriendID != nil {
+		hostFriendID = e.HostFriendID.String()
+	}
 	_, err := r.db.Exec(
-		`INSERT INTO GroupEvent (id, title, date, total_amount, public_token, notes) VALUES (?, ?, ?, ?, ?, ?)`,
-		e.ID.String(), e.Title, e.Date, e.TotalAmount, e.PublicToken, notes,
+		`INSERT INTO GroupEvent (id, title, date, total_amount, public_token, notes, host_friend_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		e.ID.String(), e.Title, e.Date, e.TotalAmount, e.PublicToken, notes, hostFriendID,
 	)
 	if err != nil {
 		return fmt.Errorf("group_event.Insert: %w", err)
@@ -64,7 +71,7 @@ func (r *SqliteGroupEventRepo) Insert(e GroupEvent) error {
 }
 
 func (r *SqliteGroupEventRepo) GetAll() ([]GroupEvent, error) {
-	rows, err := r.db.Query(`SELECT id, title, date, total_amount, public_token, notes FROM GroupEvent`)
+	rows, err := r.db.Query(`SELECT id, title, date, total_amount, public_token, notes, host_friend_id FROM GroupEvent`)
 	if err != nil {
 		return nil, fmt.Errorf("group_event.GetAll: query: %w", err)
 	}
@@ -75,7 +82,8 @@ func (r *SqliteGroupEventRepo) GetAll() ([]GroupEvent, error) {
 		var e GroupEvent
 		var idStr string
 		var notes sql.NullString
-		if err := rows.Scan(&idStr, &e.Title, &e.Date, &e.TotalAmount, &e.PublicToken, &notes); err != nil {
+		var hostFriendID sql.NullString
+		if err := rows.Scan(&idStr, &e.Title, &e.Date, &e.TotalAmount, &e.PublicToken, &notes, &hostFriendID); err != nil {
 			return nil, fmt.Errorf("group_event.GetAll: scan: %w", err)
 		}
 		e.ID, err = uuid.Parse(idStr)
@@ -84,6 +92,13 @@ func (r *SqliteGroupEventRepo) GetAll() ([]GroupEvent, error) {
 		}
 		if notes.Valid {
 			e.Notes = &notes.String
+		}
+		if hostFriendID.Valid {
+			fid, parseErr := uuid.Parse(hostFriendID.String)
+			if parseErr != nil {
+				return nil, fmt.Errorf("group_event.GetAll: parse host_friend_id uuid: %w", parseErr)
+			}
+			e.HostFriendID = &fid
 		}
 		events = append(events, e)
 	}
@@ -94,10 +109,11 @@ func (r *SqliteGroupEventRepo) GetByID(id uuid.UUID) (GroupEvent, error) {
 	var e GroupEvent
 	var idStr string
 	var notes sql.NullString
+	var hostFriendID sql.NullString
 	err := r.db.QueryRow(
-		`SELECT id, title, date, total_amount, public_token, notes FROM GroupEvent WHERE id = ?`,
+		`SELECT id, title, date, total_amount, public_token, notes, host_friend_id FROM GroupEvent WHERE id = ?`,
 		id.String(),
-	).Scan(&idStr, &e.Title, &e.Date, &e.TotalAmount, &e.PublicToken, &notes)
+	).Scan(&idStr, &e.Title, &e.Date, &e.TotalAmount, &e.PublicToken, &notes, &hostFriendID)
 	if err != nil {
 		return e, fmt.Errorf("group_event.GetByID: %w", err)
 	}
@@ -108,6 +124,13 @@ func (r *SqliteGroupEventRepo) GetByID(id uuid.UUID) (GroupEvent, error) {
 	if notes.Valid {
 		e.Notes = &notes.String
 	}
+	if hostFriendID.Valid {
+		fid, parseErr := uuid.Parse(hostFriendID.String)
+		if parseErr != nil {
+			return e, fmt.Errorf("group_event.GetByID: parse host_friend_id uuid: %w", parseErr)
+		}
+		e.HostFriendID = &fid
+	}
 	return e, nil
 }
 
@@ -115,22 +138,72 @@ func (r *SqliteGroupEventRepo) GetByToken(token string) (GroupEvent, error) {
 	var e GroupEvent
 	var idStr string
 	var notes sql.NullString
+	var hostFriendID sql.NullString
 	err := r.db.QueryRow(
-		`SELECT id, title, date, total_amount, public_token, notes FROM GroupEvent WHERE public_token = ?`,
+		`SELECT id, title, date, total_amount, public_token, notes, host_friend_id FROM GroupEvent WHERE public_token = ?`,
 		token,
-	).Scan(&idStr, &e.Title, &e.Date, &e.TotalAmount, &e.PublicToken, &notes)
+	).Scan(&idStr, &e.Title, &e.Date, &e.TotalAmount, &e.PublicToken, &notes, &hostFriendID)
 	if err != nil {
 		return e, fmt.Errorf("group_event.GetByToken: %w", err)
 	}
-	var parseErr error
-	e.ID, parseErr = uuid.Parse(idStr)
-	if parseErr != nil {
-		return e, fmt.Errorf("group_event.GetByToken: parse uuid: %w", parseErr)
+	e.ID, err = uuid.Parse(idStr)
+	if err != nil {
+		return e, fmt.Errorf("group_event.GetByToken: parse uuid: %w", err)
 	}
 	if notes.Valid {
 		e.Notes = &notes.String
 	}
+	if hostFriendID.Valid {
+		fid, parseErr := uuid.Parse(hostFriendID.String)
+		if parseErr != nil {
+			return e, fmt.Errorf("group_event.GetByToken: parse host_friend_id uuid: %w", parseErr)
+		}
+		e.HostFriendID = &fid
+	}
 	return e, nil
+}
+
+func (r *SqliteGroupEventRepo) GetByFriend(friendID uuid.UUID) ([]GroupEvent, error) {
+	rows, err := r.db.Query(
+		`SELECT DISTINCT ge.id, ge.title, ge.date, ge.total_amount, ge.public_token, ge.notes, ge.host_friend_id
+		 FROM GroupEvent ge
+		 JOIN GroupEventParticipant gep ON gep.event_id = ge.id
+		 WHERE gep.friend_id = ? OR ge.host_friend_id = ?
+		 ORDER BY ge.date DESC`,
+		friendID.String(), friendID.String(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("group_event.GetByFriend: query: %w", err)
+	}
+	defer rows.Close()
+
+	var events []GroupEvent
+	for rows.Next() {
+		var e GroupEvent
+		var idStr string
+		var notes sql.NullString
+		var hostFriendID sql.NullString
+		if err := rows.Scan(&idStr, &e.Title, &e.Date, &e.TotalAmount, &e.PublicToken, &notes, &hostFriendID); err != nil {
+			return nil, fmt.Errorf("group_event.GetByFriend: scan: %w", err)
+		}
+		parsedID, parseErr := uuid.Parse(idStr)
+		if parseErr != nil {
+			return nil, fmt.Errorf("group_event.GetByFriend: parse uuid: %w", parseErr)
+		}
+		e.ID = parsedID
+		if notes.Valid {
+			e.Notes = &notes.String
+		}
+		if hostFriendID.Valid {
+			fid, parseErr := uuid.Parse(hostFriendID.String)
+			if parseErr != nil {
+				return nil, fmt.Errorf("group_event.GetByFriend: parse host_friend_id uuid: %w", parseErr)
+			}
+			e.HostFriendID = &fid
+		}
+		events = append(events, e)
+	}
+	return events, rows.Err()
 }
 
 func (r *SqliteGroupEventRepo) Update(id uuid.UUID, title *string, date *string, totalAmount *int64, notes *string) error {
@@ -196,7 +269,7 @@ func (r *SqliteGroupEventRepo) DeleteByID(id uuid.UUID) error {
 }
 
 // SetParticipants replaces all participants for an event in a single transaction.
-func (r *SqliteGroupEventRepo) SetParticipants(eventID uuid.UUID, participants []GroupEventParticipant) error {
+func (r *SqliteGroupEventRepo) SetParticipants(eventID uuid.UUID, participants []GroupEventParticipant, hostFriendID *uuid.UUID) error {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return fmt.Errorf("group_event.SetParticipants: begin: %w", err)
@@ -207,6 +280,40 @@ func (r *SqliteGroupEventRepo) SetParticipants(eventID uuid.UUID, participants [
 	var exists int
 	if err := tx.QueryRow(`SELECT 1 FROM GroupEvent WHERE id = ?`, eventID.String()).Scan(&exists); err != nil {
 		return fmt.Errorf("group_event.SetParticipants: %w", sql.ErrNoRows)
+	}
+
+	ownerIncluded := false
+	if hostFriendID != nil {
+		hostIncluded := false
+		for _, p := range participants {
+			if p.FriendID == nil {
+				ownerIncluded = true
+			}
+			if p.FriendID != nil && *p.FriendID == *hostFriendID {
+				hostIncluded = true
+			}
+		}
+		if !hostIncluded {
+			return fmt.Errorf("group_event.SetParticipants: host friend must be a participant")
+		}
+	} else {
+		for _, p := range participants {
+			if p.FriendID == nil {
+				ownerIncluded = true
+				break
+			}
+		}
+	}
+	if !ownerIncluded {
+		return fmt.Errorf("group_event.SetParticipants: owner/admin must always be a participant")
+	}
+
+	var hostValue interface{}
+	if hostFriendID != nil {
+		hostValue = hostFriendID.String()
+	}
+	if _, err := tx.Exec(`UPDATE GroupEvent SET host_friend_id = ? WHERE id = ?`, hostValue, eventID.String()); err != nil {
+		return fmt.Errorf("group_event.SetParticipants: update host: %w", err)
 	}
 
 	if _, err := tx.Exec(`DELETE FROM GroupEventParticipant WHERE event_id = ?`, eventID.String()); err != nil {
@@ -227,6 +334,20 @@ func (r *SqliteGroupEventRepo) SetParticipants(eventID uuid.UUID, participants [
 	}
 
 	return tx.Commit()
+}
+
+func (r *SqliteGroupEventRepo) SetParticipantConfirmed(eventID uuid.UUID, friendID uuid.UUID, isConfirmed bool) error {
+	res, err := r.db.Exec(
+		`UPDATE GroupEventParticipant SET is_confirmed = ? WHERE event_id = ? AND friend_id = ?`,
+		isConfirmed, eventID.String(), friendID.String(),
+	)
+	if err != nil {
+		return fmt.Errorf("group_event.SetParticipantConfirmed: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("group_event.SetParticipantConfirmed: %w", sql.ErrNoRows)
+	}
+	return nil
 }
 
 func (r *SqliteGroupEventRepo) GetParticipants(eventID uuid.UUID) ([]GroupEventParticipant, error) {

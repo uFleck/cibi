@@ -3,18 +3,23 @@ FROM golang:1.25-alpine AS builder
 
 WORKDIR /build
 
-# Copy Go source
+# Go dependencies - cached unless go.mod/go.sum changes
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
+# React dependencies - cached unless package.json/package-lock changes
+COPY web/package.json web/package-lock.json* ./web/
+RUN apk add --no-cache nodejs npm && \
+    cd web && npm install --prefer-offline
+
+# Copy source code
 COPY . .
 
 # Build React SPA
-RUN apk add --no-cache nodejs npm && \
-    cd web && npm install && npm run build && cd .. && \
+RUN cd web && npm run build && cd .. && \
     rm -rf cmd/cibi-api/web/dist && cp -r web/dist cmd/cibi-api/web/dist
 
-# Build Go binaries (CGO_ENABLED=0 for pure Go, scratch-compatible)
+# Build Go binaries
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o cibi-api ./cmd/cibi-api && \
     CGO_ENABLED=0 go build -ldflags="-s -w" -o cibi ./cmd/cibi
 

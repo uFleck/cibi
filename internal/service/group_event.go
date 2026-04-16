@@ -66,6 +66,15 @@ func (s *GroupEventService) GetEventByToken(token string) (sqlite.GroupEvent, er
 	return e, nil
 }
 
+// ListEventsByFriend returns all group events a friend participates in.
+func (s *GroupEventService) ListEventsByFriend(friendID uuid.UUID) ([]sqlite.GroupEvent, error) {
+	events, err := s.repo.GetByFriend(friendID)
+	if err != nil {
+		return nil, fmt.Errorf("service.ListEventsByFriend: %w", err)
+	}
+	return events, nil
+}
+
 // UpdateEvent patches mutable fields on a group event.
 // Pass nil for fields that should not change.
 func (s *GroupEventService) UpdateEvent(id uuid.UUID, title *string, date *string, totalAmount *int64, notes *string) error {
@@ -84,8 +93,8 @@ func (s *GroupEventService) DeleteEvent(id uuid.UUID) error {
 }
 
 // SetParticipants replaces all participants for an event in a single transaction.
-func (s *GroupEventService) SetParticipants(eventID uuid.UUID, participants []sqlite.GroupEventParticipant) error {
-	if err := s.repo.SetParticipants(eventID, participants); err != nil {
+func (s *GroupEventService) SetParticipants(eventID uuid.UUID, participants []sqlite.GroupEventParticipant, hostFriendID *uuid.UUID) error {
+	if err := s.repo.SetParticipants(eventID, participants, hostFriendID); err != nil {
 		return fmt.Errorf("service.SetParticipants: %w", err)
 	}
 	return nil
@@ -98,6 +107,14 @@ func (s *GroupEventService) GetParticipants(eventID uuid.UUID) ([]sqlite.GroupEv
 		return nil, fmt.Errorf("service.GetParticipants: %w", err)
 	}
 	return parts, nil
+}
+
+// SetParticipantConfirmed marks one friend participant payment status for an event.
+func (s *GroupEventService) SetParticipantConfirmed(eventID uuid.UUID, friendID uuid.UUID, isConfirmed bool) error {
+	if err := s.repo.SetParticipantConfirmed(eventID, friendID, isConfirmed); err != nil {
+		return fmt.Errorf("service.SetParticipantConfirmed: %w", err)
+	}
+	return nil
 }
 
 // EqualSplitAmounts distributes totalAmount as evenly as possible across count participants.

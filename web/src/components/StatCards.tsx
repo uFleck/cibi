@@ -1,11 +1,17 @@
 import { Wallet, ShieldCheck, Zap } from 'lucide-react'
 import { formatMoney } from '@/lib/format'
-import type { AccountResponse, TransactionResponse } from '@/lib/api'
+import { isInCurrentPayWindow } from '@/lib/financial-window'
+import type {
+  AccountResponse,
+  TransactionResponse,
+  FriendDebtBreakdownItem,
+} from '@/lib/api'
 
 interface StatCardsProps {
   account: AccountResponse
   recurringTxns: TransactionResponse[]
   nextPayday: string | null
+  friendBreakdown?: FriendDebtBreakdownItem[]
 }
 
 interface StatCardProps {
@@ -31,11 +37,30 @@ function StatCard({ label, value, icon, valueStyle }: StatCardProps) {
   )
 }
 
-export function StatCards({ account, recurringTxns, nextPayday }: StatCardsProps) {
-  const reserved = recurringTxns
-    .filter(t => t.is_recurring && t.next_occurrence !== null &&
-      (nextPayday === null || t.next_occurrence!.slice(0, 10) <= nextPayday))
+export function StatCards({
+  account,
+  recurringTxns,
+  nextPayday,
+  friendBreakdown = [],
+}: StatCardsProps) {
+  const now = new Date()
+
+  const recurringReserved = recurringTxns
+    .filter(
+      t => t.is_recurring && t.next_occurrence !== null
+        && isInCurrentPayWindow(t.next_occurrence, now, nextPayday),
+    )
     .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+
+  const peerObligations = friendBreakdown.reduce((sum, debt) => {
+    if (!debt.next_payment_date) return sum + debt.next_payment
+    if (isInCurrentPayWindow(debt.next_payment_date, now, nextPayday)) {
+      return sum + debt.next_payment
+    }
+    return sum
+  }, 0)
+
+  const reserved = recurringReserved + peerObligations
   const liquid = account.current_balance - reserved
 
   return (

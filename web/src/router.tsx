@@ -8,14 +8,14 @@ import { StatCards } from '@/components/StatCards'
 import { CheckWidget } from '@/components/CheckWidget'
 import { ObligationsList } from '@/components/ObligationsList'
 import { PayScheduleList } from '@/components/PayScheduleList'
+import { ProjectionWidget } from '@/components/ProjectionWidget'
 import { FriendLedgerWidget } from '@/components/FriendLedgerWidget'
-import { Settings } from '@/pages/settings'
 import { AccountsPage } from '@/pages/accounts'
 import { TransactionsPage } from '@/pages/transactions'
 import { FriendsPage } from '@/pages/friends'
 import { FriendPublicPage } from '@/pages/friend-public'
 import { GroupPublicPage } from '@/pages/group-public'
-import { fetchDefaultAccount, fetchAccounts, fetchTransactions, listPaySchedules } from '@/lib/api'
+import { fetchDefaultAccount, fetchAccounts, fetchTransactions, listPaySchedules, fetchFriendBreakdown } from '@/lib/api'
 import { AccountContext, RootLayout } from '@/App'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -71,6 +71,13 @@ function Dashboard() {
     enabled: !!account?.id,
   })
 
+  const {
+    data: friendBreakdown = [],
+  } = useQuery({
+    queryKey: ['friend-breakdown'],
+    queryFn: fetchFriendBreakdown,
+  })
+
   const nextPayday = paySchedules.length > 0
     ? paySchedules.reduce((earliest, ps) =>
         ps.next_payday < earliest ? ps.next_payday : earliest,
@@ -118,7 +125,7 @@ function Dashboard() {
             </div>
           }
         >
-          {account ? <StatCards account={account} recurringTxns={transactions} nextPayday={nextPayday} /> : null}
+          {account ? <StatCards account={account} recurringTxns={transactions} nextPayday={nextPayday} friendBreakdown={friendBreakdown} /> : null}
         </Skeleton>
       )}
 
@@ -127,6 +134,16 @@ function Dashboard() {
       <FriendLedgerWidget />
 
       <ObligationsList transactions={transactions} currency={account?.currency} nextPayday={nextPayday} />
+
+      {account ? (
+        <ProjectionWidget
+          account={account}
+          transactions={transactions}
+          paySchedules={paySchedules}
+          friendBreakdown={friendBreakdown}
+          nextPayday={nextPayday}
+        />
+      ) : null}
 
       <PayScheduleList schedules={paySchedules} currency={account?.currency} />
 
@@ -140,11 +157,6 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   component: Dashboard,
-})
-const settingsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/settings',
-  component: Settings,
 })
 const accountsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -183,7 +195,6 @@ const publicGroupRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
-  settingsRoute,
   accountsRoute,
   transactionsRoute,
   friendsRoute,

@@ -27,7 +27,7 @@ func (s *FriendService) ListFriends() ([]sqlite.Friend, error) {
 }
 
 // CreateFriend creates a new friend with a generated UUID and public token.
-func (s *FriendService) CreateFriend(name string, notes *string) (sqlite.Friend, error) {
+func (s *FriendService) CreateFriend(name string, notes *string, pixKey *string) (sqlite.Friend, error) {
 	id := uuid.New()
 	token, err := generatePublicToken()
 	if err != nil {
@@ -38,6 +38,7 @@ func (s *FriendService) CreateFriend(name string, notes *string) (sqlite.Friend,
 		Name:        name,
 		PublicToken: token,
 		Notes:       notes,
+		PixKey:      pixKey,
 	}
 	if err := s.repo.Insert(f); err != nil {
 		return sqlite.Friend{}, fmt.Errorf("service.CreateFriend: %w", err)
@@ -65,8 +66,8 @@ func (s *FriendService) GetFriendByToken(token string) (sqlite.Friend, error) {
 
 // UpdateFriend patches mutable fields on a friend.
 // Pass nil for fields that should not change.
-func (s *FriendService) UpdateFriend(id uuid.UUID, name *string, notes *string) error {
-	if err := s.repo.Update(id, name, notes); err != nil {
+func (s *FriendService) UpdateFriend(id uuid.UUID, name *string, notes *string, pixKey *string) error {
+	if err := s.repo.Update(id, name, notes, pixKey); err != nil {
 		return fmt.Errorf("service.UpdateFriend: %w", err)
 	}
 	return nil

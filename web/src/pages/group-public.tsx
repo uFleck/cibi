@@ -1,11 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { fetchPublicGroup, type ParticipantResponse } from '@/lib/api'
 import { formatMoney } from '@/lib/format'
 import { publicGroupRoute } from '@/router'
+import { Copy } from 'lucide-react'
+import { toast } from 'sonner'
 
 function participantLabel(p: ParticipantResponse, index: number): string {
+  if (p.name && p.name.trim().length > 0) return p.name
   if (p.friend_id === null) return 'Host'
   return `Participant ${index + 1}`
 }
@@ -47,11 +51,29 @@ export function GroupPublicPage() {
   return (
     <div className="max-w-xl mx-auto px-4 py-12 flex flex-col gap-6">
       <h1 className="text-2xl font-bold">{data.title}</h1>
-      <div className="flex gap-4 text-sm text-muted-foreground">
+      <div className="flex flex-wrap gap-3 text-sm text-muted-foreground items-center">
         <span>{data.date}</span>
+        <span>Host: {data.host_name}</span>
         <span className="font-medium text-foreground tabular-nums">
           {formatMoney(data.total_amount)} total
         </span>
+        {data.host_pix_key && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(data.host_pix_key!)
+                toast.success('PIX key copied')
+              } catch {
+                toast.error('Failed to copy PIX key')
+              }
+            }}
+          >
+            <Copy size={14} />
+            Copy host PIX
+          </Button>
+        )}
       </div>
 
       {data.notes && (
@@ -78,7 +100,10 @@ export function GroupPublicPage() {
                 <tbody>
                   {data.participants.map((p, i) => (
                     <tr key={i} className="border-b border-border/20 last:border-0">
-                      <td className="py-2 pr-3">{participantLabel(p, i)}</td>
+                      <td className="py-2 pr-3 inline-flex items-center gap-1">
+                        {participantLabel(p, i)}
+                        {p.is_host && <Badge variant="secondary">Host</Badge>}
+                      </td>
                       <td className="py-2 pr-3 text-right tabular-nums">
                         {formatMoney(p.share_amount)}
                       </td>

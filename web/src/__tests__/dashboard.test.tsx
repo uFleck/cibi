@@ -2,26 +2,26 @@ import { describe, it, expect } from 'vitest'
 import { formatMoney, formatDate } from '@/lib/format'
 
 describe('formatMoney', () => {
-  it('formats positive dollar amount', () => {
-    expect(formatMoney(75)).toBe('$75.00')
+  it('formats positive BRL amount', () => {
+    expect(formatMoney(75)).toBe('R$\u00a075,00')
   })
-  it('formats negative dollar amount', () => {
-    expect(formatMoney(-15.99)).toBe('-$15.99')
+  it('formats negative BRL amount', () => {
+    expect(formatMoney(-15.99)).toBe('-R$\u00a015,99')
   })
   it('formats zero', () => {
-    expect(formatMoney(0)).toBe('$0.00')
+    expect(formatMoney(0)).toBe('R$\u00a00,00')
   })
   it('formats large amount with thousands separator', () => {
-    expect(formatMoney(1234.56)).toBe('$1,234.56')
+    expect(formatMoney(1234.56)).toBe('R$\u00a01.234,56')
   })
 })
 
 describe('formatDate', () => {
-  it('formats ISO string as short month + day', () => {
-    expect(formatDate('2026-04-15T12:00:00Z')).toBe('Apr 15')
+  it('formats ISO string as DD/MM', () => {
+    expect(formatDate('2026-04-15T12:00:00Z')).toBe('15/04')
   })
   it('formats January', () => {
-    expect(formatDate('2026-01-01T12:00:00Z')).toBe('Jan 1')
+    expect(formatDate('2026-01-01T12:00:00Z')).toBe('01/01')
   })
 })
 

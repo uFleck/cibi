@@ -1,15 +1,17 @@
-import { useState, useContext } from 'react'
+import { useState, useContext, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Edit2, Trash2, ArrowLeftRight, Check } from 'lucide-react'
+import { Plus, Edit2, Trash2, ArrowLeftRight, Check, ArrowUp, ArrowDown, Filter, X } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   fetchAccounts,
   fetchTransactions,
@@ -58,6 +60,11 @@ export function TransactionsPage() {
   const [amountText, setAmountText] = useState('')
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [confirmSuccessId, setConfirmSuccessId] = useState<string | null>(null)
+  const [sortField, setSortField] = useState<'description' | 'date' | 'amount'>('date')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [filterCategory, setFilterCategory] = useState<string>('all')
+  const [filterType, setFilterType] = useState<'all' | 'recurring' | 'one-time'>('one-time')
+  const [showFilters, setShowFilters] = useState(false)
 
   const {
     data: accounts = [],
@@ -82,10 +89,49 @@ export function TransactionsPage() {
   const recurringTxns = transactions.filter((t: TransactionResponse) => t.is_recurring)
   const oneTimeTxns = transactions.filter((t: TransactionResponse) => !t.is_recurring)
 
+  const filteredAndSortedTxns = useMemo(() => {
+    let txns = [...transactions]
+    
+    if (filterCategory !== 'all') {
+      txns = txns.filter((t: TransactionResponse) => t.category === filterCategory)
+    }
+    
+    if (filterType === 'recurring') {
+      txns = txns.filter((t: TransactionResponse) => t.is_recurring)
+    } else if (filterType === 'one-time') {
+      txns = txns.filter((t: TransactionResponse) => !t.is_recurring)
+    }
+    
+    txns.sort((a: TransactionResponse, b: TransactionResponse) => {
+      let cmp = 0
+      if (sortField === 'description') {
+        cmp = a.description.localeCompare(b.description)
+      } else if (sortField === 'date') {
+        const dateA = a.next_occurrence || a.timestamp || a.anchor_date || ''
+        const dateB = b.next_occurrence || b.timestamp || b.anchor_date || ''
+        cmp = dateA.localeCompare(dateB)
+      } else if (sortField === 'amount') {
+        cmp = a.amount - b.amount
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    
+    return txns
+  }, [transactions, filterCategory, filterType, sortField, sortDir])
+
+  const categories = useMemo(() => {
+    const cats = new Set(transactions.map((t: TransactionResponse) => t.category))
+    return Array.from(cats).sort()
+  }, [transactions])
+
+  const hasActiveFilters = filterCategory !== 'all' || filterType !== 'one-time'
+
   const createMutation = useMutation({
     mutationFn: (data: FormData) => createTransaction(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
       toast.success('Transaction created')
       setIsCreating(false)
       setFormData({
@@ -110,6 +156,8 @@ export function TransactionsPage() {
       updateTransaction(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
       toast.success('Transaction updated')
       setEditingId(null)
       setFormData({
@@ -133,6 +181,8 @@ export function TransactionsPage() {
     mutationFn: deleteTransaction,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
       toast.success('Transaction deleted')
     },
     onError: (error: Error) => {
@@ -145,6 +195,8 @@ export function TransactionsPage() {
     onSuccess: (_, id) => {
       setConfirmSuccessId(id)
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
       toast.success('Payment confirmed')
       setTimeout(() => {
         setConfirmSuccessId(null)
@@ -265,11 +317,74 @@ export function TransactionsPage() {
             </p>
           )}
         </div>
-        <Button onClick={handleCreateClick} size="sm">
-          <Plus size={16} />
-          New Transaction
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => setShowFilters(!showFilters)} 
+            variant={showFilters || hasActiveFilters ? "secondary" : "outline"} 
+            size="sm"
+          >
+            <Filter size={16} />
+            Filters
+            {hasActiveFilters && (
+              <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+                {[filterCategory !== 'all', filterType !== 'one-time'].filter(Boolean).length}
+              </span>
+            )}
+          </Button>
+          <Button onClick={handleCreateClick} size="sm">
+            <Plus size={16} />
+            New Transaction
+          </Button>
+        </div>
       </div>
+
+      {showFilters && (
+        <Card>
+          <CardContent className="py-3 flex flex-wrap gap-4 items-center">
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs">Category</Label>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-32 h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {categories.map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs">Type</Label>
+              <Select value={filterType} onValueChange={v => setFilterType(v as 'all' | 'recurring' | 'one-time')}>
+                <SelectTrigger className="w-32 h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="recurring">Recurring</SelectItem>
+                  <SelectItem value="one-time">One-time</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {hasActiveFilters && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="self-end"
+                onClick={() => {
+                  setFilterCategory('all')
+                  setFilterType('one-time')
+                }}
+              >
+                <X size={14} />
+                Clear
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Skeleton
         name="transaction-list"
@@ -283,7 +398,7 @@ export function TransactionsPage() {
           </div>
         }
       >
-{transactions.length === 0 && !isCreating && !editingId ? (
+{transactions.length === 0 ? (
           <Card>
             <CardContent className="text-center py-12">
               <ArrowLeftRight className="mx-auto mb-4 text-muted-foreground/40" size={40} />
@@ -300,151 +415,194 @@ export function TransactionsPage() {
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-muted-foreground">
                 <tr>
-                  <th className="text-left px-3 py-2 font-medium">Description</th>
-                  <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">When</th>
-                  <th className="text-right px-3 py-2 font-medium">Amount</th>
+                  <th className="text-left px-3 py-2 font-medium">
+                    <button 
+                      onClick={() => {
+                        if (sortField === 'description') {
+                          setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+                        } else {
+                          setSortField('description')
+                          setSortDir('asc')
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 hover:text-foreground"
+                    >
+                      Description
+                      {sortField === 'description' && (
+                        sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                      )}
+                    </button>
+                  </th>
+                  <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">
+                    <button 
+                      onClick={() => {
+                        if (sortField === 'date') {
+                          setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+                        } else {
+                          setSortField('date')
+                          setSortDir('desc')
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 hover:text-foreground"
+                    >
+                      When
+                      {sortField === 'date' && (
+                        sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                      )}
+                    </button>
+                  </th>
+                  <th className="text-right px-3 py-2 font-medium">
+                    <button 
+                      onClick={() => {
+                        if (sortField === 'amount') {
+                          setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+                        } else {
+                          setSortField('amount')
+                          setSortDir('desc')
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 ml-auto hover:text-foreground"
+                    >
+                      Amount
+                      {sortField === 'amount' && (
+                        sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                      )}
+                    </button>
+                  </th>
                   <th className="text-right px-3 py-2 font-medium w-20">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {recurringTxns.map((txn: TransactionResponse) => (
-                  <tr key={txn.id} className="hover:bg-muted/30">
-                    <td className="px-3 py-2">
-                      <div className="font-medium truncate max-w-[150px]">{txn.description}</div>
-                      <div className="text-xs text-muted-foreground sm:hidden">
-                        {txn.category} · {txn.frequency}
-                      </div>
-                      <div className="text-xs text-muted-foreground hidden sm:block">
-                        {txn.category} · {txn.frequency} · next {txn.next_occurrence ? formatDate(txn.next_occurrence) : txn.anchor_date?.slice(0, 10)}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">
-                      {txn.next_occurrence ? formatDate(txn.next_occurrence) : txn.anchor_date?.slice(0, 10)}
-                    </td>
-                    <td className={`px-3 py-2 text-right font-medium tabular-nums ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex gap-1 justify-end">
-                        {txn.is_recurring && (
-                          <Button
-                            onClick={() => handleConfirmClick(txn.id)}
-                            variant={confirmSuccessId === txn.id ? "default" : "ghost"}
-                            size="icon"
-                            className="h-7 w-7"
-                            disabled={confirmingId === txn.id}
-                            aria-label="Confirm paid"
-                          >
-                            <Check size={14} />
-                          </Button>
-                        )}
-                        <Button
-                          onClick={() => handleEditClick(txn)}
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          aria-label="Edit transaction"
-                        >
-                          <Edit2 size={14} />
-                        </Button>
-                        <Button
-                          onClick={() => setConfirmDelete(txn.id)}
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          aria-label="Delete transaction"
-                        >
-                          <Trash2 size={14} />
-                        </Button>
-                      </div>
+                {filteredAndSortedTxns.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">
+                      No transactions match your filters
                     </td>
                   </tr>
-                ))}
-                {oneTimeTxns.map((txn: TransactionResponse) => (
-                  <tr key={txn.id} className="hover:bg-muted/30">
-                    <td className="px-3 py-2">
-                      <div className="font-medium truncate max-w-[150px]">{txn.description}</div>
-                      <div className="text-xs text-muted-foreground sm:hidden">
-                        {txn.category}
-                      </div>
-                      <div className="text-xs text-muted-foreground hidden sm:block">
-                        {txn.category}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">
-                      {formatDate(txn.timestamp)}
-                    </td>
-                    <td className={`px-3 py-2 text-right font-medium tabular-nums ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex gap-1 justify-end">
-                        <Button
-                          onClick={() => handleEditClick(txn)}
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          aria-label="Edit transaction"
-                        >
-                          <Edit2 size={14} />
-                        </Button>
-                        <Button
-                          onClick={() => setConfirmDelete(txn.id)}
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          aria-label="Delete transaction"
-                        >
-                          <Trash2 size={14} />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                ) : (
+                  filteredAndSortedTxns.map((txn: TransactionResponse) => (
+                    <tr key={txn.id} className="hover:bg-muted/30">
+                      <td className="px-3 py-2">
+                        <div className="font-medium truncate max-w-[150px]">{txn.description}</div>
+                        <div className="text-xs text-muted-foreground sm:hidden">
+                          {txn.category} · {txn.is_recurring ? txn.frequency : 'one-time'}
+                        </div>
+                        <div className="text-xs text-muted-foreground hidden sm:block">
+                          {txn.category} · {txn.is_recurring ? `${txn.frequency} · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : txn.anchor_date?.slice(0, 10)}` : formatDate(txn.timestamp)}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">
+                        {txn.is_recurring 
+                          ? (txn.next_occurrence ? formatDate(txn.next_occurrence) : txn.anchor_date?.slice(0, 10))
+                          : formatDate(txn.timestamp)
+                        }
+                      </td>
+                      <td className={`px-3 py-2 text-right font-medium tabular-nums ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex gap-1 justify-end">
+                          {txn.is_recurring && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  onClick={() => handleConfirmClick(txn.id)}
+                                  variant={confirmSuccessId === txn.id ? "default" : "ghost"}
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  disabled={confirmingId === txn.id}
+                                  aria-label="Confirm paid"
+                                >
+                                  <Check size={14} />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Confirm payment</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                onClick={() => handleEditClick(txn)}
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                aria-label="Edit transaction"
+                              >
+                                <Edit2 size={14} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Edit transaction</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                onClick={() => setConfirmDelete(txn.id)}
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                aria-label="Delete transaction"
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Delete transaction</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         ) : null}
       </Skeleton>
 
-      {(isCreating || editingId) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              {editingId ? 'Edit Transaction' : 'New Transaction'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-              {!editingId && (
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="txn-account" className="text-xs">Account *</Label>
-                  <Select
-                    value={formData.account_id}
-                    onValueChange={v => setFormData({ ...formData, account_id: v })}
-                  >
-                    <SelectTrigger id="txn-account" size="sm" className="w-full">
-                      <SelectValue placeholder="Select account" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accounts.map(acc => (
-                        <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+      <Dialog open={isCreating || !!editingId} onOpenChange={(open) => !open && handleCancel()}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingId ? 'Edit Transaction' : 'New Transaction'}</DialogTitle>
+            <DialogDescription>
+              {editingId ? 'Update transaction details.' : 'Create a new transaction.'}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            {!editingId && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="txn-account" className="text-xs">Account *</Label>
+                <Select
+                  value={formData.account_id}
+                  onValueChange={v => setFormData({ ...formData, account_id: v })}
+                >
+                  <SelectTrigger id="txn-account" size="sm" className="w-full">
+                    <SelectValue placeholder="Select account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map(acc => (
+                      <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="txn-amount" className="text-xs">Amount *</Label>
                 <Input
                   id="txn-amount"
                   type="text"
-                  inputMode="decimal"
+                  inputMode="text"
                   value={amountText}
                   onChange={e => {
                     const raw = e.target.value
                     setAmountText(raw)
-                    const parsed = parseFloat(raw)
+                    const parsed = parseFloat(raw.replace(',', '.'))
                     if (!isNaN(parsed)) {
                       setFormData({ ...formData, amount: parsed })
                     }
@@ -454,6 +612,41 @@ export function TransactionsPage() {
                   aria-invalid={!!formErrors.amount || undefined}
                   aria-describedby={formErrors.amount ? 'txn-amount-error' : undefined}
                 />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={formData.amount < 0 || amountText.trim().startsWith('-') ? 'secondary' : 'outline'}
+                    onClick={() => {
+                      const parsed = parseFloat(amountText.replace(',', '.'))
+                      if (!isNaN(parsed)) {
+                        const next = -Math.abs(parsed)
+                        setAmountText(next.toString())
+                        setFormData({ ...formData, amount: next })
+                      } else {
+                        setAmountText('-')
+                        setFormData({ ...formData, amount: 0 })
+                      }
+                    }}
+                  >
+                    Expense (-)
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={formData.amount >= 0 && !amountText.trim().startsWith('-') ? 'secondary' : 'outline'}
+                    onClick={() => {
+                      const parsed = parseFloat(amountText.replace(',', '.'))
+                      if (!isNaN(parsed)) {
+                        const next = Math.abs(parsed)
+                        setAmountText(next.toString())
+                        setFormData({ ...formData, amount: next })
+                      }
+                    }}
+                  >
+                    Income (+)
+                  </Button>
+                </div>
                 {formErrors.amount && (
                   <p id="txn-amount-error" className="text-xs text-destructive">
                     {formErrors.amount}
@@ -470,7 +663,6 @@ export function TransactionsPage() {
                     if (formErrors.description) setFormErrors({ ...formErrors, description: undefined })
                   }}
                   placeholder="Transaction description"
-                  autoFocus
                   aria-invalid={!!formErrors.description || undefined}
                   aria-describedby={formErrors.description ? 'txn-description-error' : undefined}
                 />
@@ -480,6 +672,8 @@ export function TransactionsPage() {
                   </p>
                 )}
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="txn-category" className="text-xs">Category *</Label>
                 <Select
@@ -512,59 +706,59 @@ export function TransactionsPage() {
                 />
                 <Label htmlFor="txn-recurring" className="text-xs cursor-pointer">Recurring</Label>
               </div>
-              {formData.is_recurring && (
-                <>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="txn-frequency" className="text-xs">Frequency</Label>
-                    <Select
-                      value={formData.frequency || 'monthly'}
-                      onValueChange={v => setFormData({ ...formData, frequency: v })}
-                    >
-                      <SelectTrigger id="txn-frequency" size="sm" className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="biweekly">Biweekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="txn-anchor" className="text-xs">Anchor Date</Label>
-                    <Input
-                      id="txn-anchor"
-                      type="date"
-                      value={formData.anchor_date || ''}
-                      onChange={e => setFormData({ ...formData, anchor_date: e.target.value })}
-                    />
-                  </div>
-                </>
-              )}
-              <div className="flex gap-2 pt-4">
-                <Button type="submit" size="sm" disabled={isPending}>
-                  {isPending
-                    ? editingId
-                      ? 'Updating...'
-                      : 'Creating...'
-                    : editingId
-                      ? 'Update'
-                      : 'Create'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCancel}
-                  disabled={isPending}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+            </div>
+            {formData.is_recurring && (
+              <>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="txn-frequency" className="text-xs">Frequency</Label>
+                  <Select
+                    value={formData.frequency || 'monthly'}
+                    onValueChange={v => setFormData({ ...formData, frequency: v })}
+                  >
+                    <SelectTrigger id="txn-frequency" size="sm" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="biweekly">Biweekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="txn-anchor" className="text-xs">Anchor Date</Label>
+                  <Input
+                    id="txn-anchor"
+                    type="date"
+                    value={formData.anchor_date || ''}
+                    onChange={e => setFormData({ ...formData, anchor_date: e.target.value })}
+                  />
+                </div>
+              </>
+            )}
+            <div className="flex gap-2 pt-4">
+              <Button type="submit" size="sm" disabled={isPending}>
+                {isPending
+                  ? editingId
+                    ? 'Updating...'
+                    : 'Creating...'
+                  : editingId
+                    ? 'Update'
+                    : 'Create'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleCancel}
+                disabled={isPending}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <div className="h-8" />
     </div>

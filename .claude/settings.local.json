@@ -13,7 +13,15 @@
       "Read(//opt/**)",
       "Bash(command -v uv)",
       "Bash(command -v conda)",
-      "Bash(node -e \"const pkg = require\\(''./package.json''\\); console.log\\(JSON.stringify\\(Object.keys\\(pkg.dependencies\\), null, 2\\)\\)\")"
+      "Bash(node -e \"const pkg = require\\(''./package.json''\\); console.log\\(JSON.stringify\\(Object.keys\\(pkg.dependencies\\), null, 2\\)\\)\")",
+      "Bash(/usr/local/go/bin/go build:*)",
+      "Read(//home/fleck/go/bin/**)",
+      "Read(//home/fleck/**)",
+      "Bash(sqlite3:*)",
+      "Bash(python3:*)",
+      "Bash(curl -s http://localhost:8080/api/friends/breakdown)",
+      "Read(//usr/local/go/**)",
+      "Read(//usr/**)"
     ]
   }
 }
