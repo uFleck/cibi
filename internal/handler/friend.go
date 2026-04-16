@@ -14,9 +14,9 @@ import (
 // FriendServiceIface defines the service contract used by FriendsHandler.
 type FriendServiceIface interface {
 	ListFriends() ([]sqlite.Friend, error)
-	CreateFriend(name string, notes *string) (sqlite.Friend, error)
+	CreateFriend(name string, notes *string, pixKey *string) (sqlite.Friend, error)
 	GetFriendByID(id uuid.UUID) (sqlite.Friend, error)
-	UpdateFriend(id uuid.UUID, name *string, notes *string) error
+	UpdateFriend(id uuid.UUID, name *string, notes *string, pixKey *string) error
 	DeleteFriend(id uuid.UUID) error
 	GetFriendByToken(token string) (sqlite.Friend, error)
 }
@@ -27,6 +27,8 @@ var _ FriendServiceIface = (*service.FriendService)(nil)
 // PeerDebtSummaryIface defines the minimal interface needed by FriendsHandler.Summary.
 type PeerDebtSummaryIface interface {
 	GetGlobalBalance() (sqlite.GlobalPeerBalance, error)
+	SumNextUserPayment() (int64, error)
+	GetFriendDebtBreakdown() ([]service.FriendDebtItem, error)
 }
 
 // Ensure *service.PeerDebtService satisfies PeerDebtSummaryIface.
@@ -46,13 +48,15 @@ func NewFriendsHandler(svc *service.FriendService, peerDebtSvc *service.PeerDebt
 // Request / response types.
 
 type CreateFriendRequest struct {
-	Name  string  `json:"name"  validate:"required"`
-	Notes *string `json:"notes"`
+	Name   string  `json:"name"  validate:"required"`
+	Notes  *string `json:"notes"`
+	PixKey *string `json:"pix_key"`
 }
 
 type PatchFriendRequest struct {
-	Name  *string `json:"name"`
-	Notes *string `json:"notes"`
+	Name   *string `json:"name"`
+	Notes  *string `json:"notes"`
+	PixKey *string `json:"pix_key"`
 }
 
 type FriendResponse struct {
@@ -60,12 +64,25 @@ type FriendResponse struct {
 	Name        string  `json:"name"`
 	PublicToken string  `json:"public_token"`
 	Notes       *string `json:"notes"`
+	PixKey      *string `json:"pix_key"`
 }
 
 type FriendSummaryResponse struct {
 	TotalOwedToUser float64 `json:"total_owed_to_user"` // dollars
 	TotalUserOwes   float64 `json:"total_user_owes"`
 	Net             float64 `json:"net"`
+	NextUserPayment float64 `json:"next_user_payment"` // next installment (or full amount for lump-sum)
+}
+
+type FriendDebtBreakdownItemResponse struct {
+	FriendName        string   `json:"friend_name"`
+	TotalAmount       float64  `json:"total_amount"`       // dollars
+	NextPayment       float64  `json:"next_payment"`       // dollars
+	IsInstallment     bool     `json:"is_installment"`
+	PerInstallAmount  float64  `json:"per_install_amount"` // dollars
+	TotalInstallments int64    `json:"total_installments"`
+	PaidInstallments  int64    `json:"paid_installments"`
+	NextPaymentDate   *string  `json:"next_payment_date"`  // RFC3339 or null
 }
 
 // friendToResponse converts a sqlite.Friend to FriendResponse.
@@ -75,6 +92,7 @@ func friendToResponse(f sqlite.Friend) FriendResponse {
 		Name:        f.Name,
 		PublicToken: f.PublicToken,
 		Notes:       f.Notes,
+		PixKey:      f.PixKey,
 	}
 }
 
@@ -100,7 +118,7 @@ func (h *FriendsHandler) Create(c echo.Context) error {
 	if err := c.Validate(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	f, err := h.svc.CreateFriend(req.Name, req.Notes)
+	f, err := h.svc.CreateFriend(req.Name, req.Notes, req.PixKey)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -133,7 +151,7 @@ func (h *FriendsHandler) Update(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	if err := h.svc.UpdateFriend(id, req.Name, req.Notes); err != nil {
+	if err := h.svc.UpdateFriend(id, req.Name, req.Notes, req.PixKey); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "friend not found")
 		}
@@ -164,9 +182,35 @@ func (h *FriendsHandler) Delete(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+// Breakdown handles GET /friends/breakdown — returns per-debt breakdown of active user-owes-friend debts.
+func (h *FriendsHandler) Breakdown(c echo.Context) error {
+	items, err := h.peerDebtSvc.GetFriendDebtBreakdown()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	resp := make([]FriendDebtBreakdownItemResponse, len(items))
+	for i, item := range items {
+		resp[i] = FriendDebtBreakdownItemResponse{
+			FriendName:        item.FriendName,
+			TotalAmount:       float64(item.TotalAmount) / 100.0,
+			NextPayment:       float64(item.NextPayment) / 100.0,
+			IsInstallment:     item.IsInstallment,
+			PerInstallAmount:  float64(item.PerInstallAmount) / 100.0,
+			TotalInstallments: item.TotalInstallments,
+			PaidInstallments:  item.PaidInstallments,
+			NextPaymentDate:   item.NextPaymentDate,
+		}
+	}
+	return c.JSON(http.StatusOK, resp)
+}
+
 // Summary handles GET /friends/summary — returns global peer balance totals.
 func (h *FriendsHandler) Summary(c echo.Context) error {
 	bal, err := h.peerDebtSvc.GetGlobalBalance()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	nextPayment, err := h.peerDebtSvc.SumNextUserPayment()
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -174,6 +218,7 @@ func (h *FriendsHandler) Summary(c echo.Context) error {
 		TotalOwedToUser: float64(bal.TotalOwedToUser) / 100.0,
 		TotalUserOwes:   float64(bal.TotalUserOwes) / 100.0,
 		Net:             float64(bal.Net) / 100.0,
+		NextUserPayment: float64(nextPayment) / 100.0,
 	})
 }
 

@@ -204,12 +204,25 @@ export interface FriendResponse {
   name: string
   public_token: string
   notes: string | null
+  pix_key?: string | null
 }
 
 export interface FriendSummaryResponse {
   total_owed_to_user: number
   total_user_owes: number
   net: number
+  next_user_payment: number
+}
+
+export interface FriendDebtBreakdownItem {
+  friend_name: string
+  total_amount: number         // dollars
+  next_payment: number         // dollars
+  is_installment: boolean
+  per_install_amount: number   // dollars
+  total_installments: number
+  paid_installments: number
+  next_payment_date: string | null
 }
 
 export interface PeerDebtResponse {
@@ -228,6 +241,7 @@ export interface PeerDebtResponse {
 
 export interface ParticipantResponse {
   friend_id: string | null
+  name?: string
   share_amount: number
   is_confirmed: boolean
 }
@@ -239,13 +253,32 @@ export interface GroupEventResponse {
   total_amount: number
   public_token: string
   notes: string | null
+  host_friend_id?: string | null
   participants?: ParticipantResponse[]
+}
+
+export interface PublicFriendGroupResponse {
+  event_id: string
+  title: string
+  date: string
+  share_amount: number
+  is_confirmed: boolean
+  host_name: string
+  host_pix_key?: string | null
+  viewer_is_host?: boolean
 }
 
 export interface PublicFriendResponse {
   name: string
   balance: { friend_owes_user: number; user_owes_friend: number; net: number }
   debts: PeerDebtResponse[]
+  groups: PublicFriendGroupResponse[]
+  hosted_groups?: Array<{
+    event_id: string
+    title: string
+    date: string
+    participants: Array<{ friend_id: string; friend_name: string; share_amount: number; is_confirmed: boolean }>
+  }>
 }
 
 export interface PublicGroupResponse {
@@ -253,17 +286,21 @@ export interface PublicGroupResponse {
   date: string
   total_amount: number
   notes: string | null
-  participants: ParticipantResponse[]
+  host_name: string
+  host_pix_key?: string | null
+  participants: Array<ParticipantResponse & { is_host?: boolean }>
 }
 
 export interface CreateFriendRequest {
   name: string
   notes?: string
+  pix_key?: string
 }
 
 export interface PatchFriendRequest {
   name?: string
   notes?: string
+  pix_key?: string
 }
 
 export interface CreatePeerDebtRequest {
@@ -302,6 +339,7 @@ export interface PatchGroupEventRequest {
 
 export interface SetParticipantsRequest {
   participants: Array<{ friend_id: string | null; share_amount: number; is_confirmed?: boolean }>
+  host_friend_id?: string | null
 }
 
 // ─── Friend Ledger API Functions ──────────────────────────────────────────
@@ -335,6 +373,10 @@ export function deleteFriend(id: string): Promise<void> {
 
 export function fetchFriendSummary(): Promise<FriendSummaryResponse> {
   return apiFetch<FriendSummaryResponse>('/api/friends/summary')
+}
+
+export function fetchFriendBreakdown(): Promise<FriendDebtBreakdownItem[]> {
+  return apiFetch<FriendDebtBreakdownItem[]>('/api/friends/breakdown')
 }
 
 // Peer Debts
@@ -412,11 +454,42 @@ export function setParticipants(eventId: string, data: SetParticipantsRequest): 
   })
 }
 
+export interface ProfileResponse {
+  display_name: string
+  pix_key?: string | null
+}
+
+export function fetchProfile(): Promise<ProfileResponse> {
+  return apiFetch<ProfileResponse>('/api/profile')
+}
+
+export function updateProfile(data: ProfileResponse): Promise<void> {
+  return apiFetch<void>('/api/profile', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
 // Public (no auth required)
 export function fetchPublicFriend(token: string): Promise<PublicFriendResponse> {
-  return apiFetch<PublicFriendResponse>(`/public/friend/${token}`)
+  return apiFetch<PublicFriendResponse>(`/public/friend/${token}`, {
+    headers: {
+      'Accept': 'application/json'
+    }
+  })
+}
+
+export function confirmPublicFriendGroupPayment(token: string, eventId: string, friendId: string): Promise<void> {
+  return apiFetch<void>(`/public/friend/${token}/groups/${eventId}/participants/${friendId}/confirm`, {
+    method: 'POST',
+  })
 }
 
 export function fetchPublicGroup(token: string): Promise<PublicGroupResponse> {
-  return apiFetch<PublicGroupResponse>(`/public/group/${token}`)
+  return apiFetch<PublicGroupResponse>(`/public/group/${token}`, {
+    headers: {
+      'Accept': 'application/json'
+    }
+  })
 }

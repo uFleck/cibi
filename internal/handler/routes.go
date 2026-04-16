@@ -22,6 +22,7 @@ func SetupRoutes(
 	friendSvc *service.FriendService,
 	peerDebtSvc *service.PeerDebtService,
 	groupEventSvc *service.GroupEventService,
+	profileSvc *service.ProfileService,
 ) {
 	ah := NewAccountsHandler(accSvc)
 	th := NewTransactionsHandler(txnsSvc)
@@ -62,13 +63,15 @@ func SetupRoutes(
 	fh := NewFriendsHandler(friendSvc, peerDebtSvc)
 	pdh := NewPeerDebtHandler(peerDebtSvc)
 	geh := NewGroupEventHandler(groupEventSvc)
-	ph := NewPublicHandler(friendSvc, peerDebtSvc, groupEventSvc)
+	ph := NewPublicHandler(friendSvc, peerDebtSvc, groupEventSvc, profileSvc)
+	prh := NewProfileHandler(profileSvc)
 
 	// Authenticated friend ledger routes under /api.
 	friends := api.Group("/friends")
 	friends.GET("", fh.List)
 	friends.POST("", fh.Create)
-	friends.GET("/summary", fh.Summary) // BEFORE /:id to avoid conflict
+	friends.GET("/summary", fh.Summary)       // BEFORE /:id to avoid conflict
+	friends.GET("/breakdown", fh.Breakdown)   // BEFORE /:id to avoid conflict
 	friends.GET("/:id", fh.GetByID)
 	friends.PATCH("/:id", fh.Update)
 	friends.DELETE("/:id", fh.Delete)
@@ -88,8 +91,13 @@ func SetupRoutes(
 	groupEvents.DELETE("/:id", geh.Delete)
 	groupEvents.PUT("/:id/participants", geh.SetParticipants)
 
+	profile := api.Group("/profile")
+	profile.GET("", prh.Get)
+	profile.PATCH("", prh.Patch)
+
 	// Public unauthenticated endpoints — no middleware.
 	pub := e.Group("/public")
 	pub.GET("/friend/:token", ph.GetFriendByToken)
+	pub.POST("/friend/:token/groups/:eventID/participants/:friendID/confirm", ph.ConfirmHostedGroupPayment)
 	pub.GET("/group/:token", ph.GetGroupByToken)
 }

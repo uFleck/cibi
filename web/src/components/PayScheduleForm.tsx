@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createPaySchedule, type CreatePayScheduleRequest } from '@/lib/api'
 
 type Frequency = 'weekly' | 'bi-weekly' | 'monthly'
@@ -141,13 +142,20 @@ export function PayScheduleForm() {
           </div>
         )}
 
-        <Button
-          type="submit"
-          disabled={saving}
-          className="w-full h-11 font-semibold cursor-pointer mt-1"
-        >
-          {saving ? 'Saving…' : 'Save Pay Schedule'}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="submit"
+              disabled={saving}
+              className="w-full h-11 font-semibold cursor-pointer mt-1"
+            >
+              {saving ? 'Saving…' : 'Save Pay Schedule'}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Save your pay schedule</p>
+          </TooltipContent>
+        </Tooltip>
       </form>
     </div>
   )

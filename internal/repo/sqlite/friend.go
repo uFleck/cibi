@@ -13,6 +13,7 @@ type Friend struct {
 	Name        string
 	PublicToken string
 	Notes       *string // nullable
+	PixKey      *string // nullable
 }
 
 // FriendRepo defines the data access contract for friends.
@@ -21,7 +22,7 @@ type FriendRepo interface {
 	GetAll() ([]Friend, error)
 	GetByID(id uuid.UUID) (Friend, error)
 	GetByToken(token string) (Friend, error)
-	Update(id uuid.UUID, name *string, notes *string) error
+	Update(id uuid.UUID, name *string, notes *string, pixKey *string) error
 	DeleteByID(id uuid.UUID) error
 }
 
@@ -40,9 +41,13 @@ func (r *SqliteFriendRepo) Insert(f Friend) error {
 	if f.Notes != nil {
 		notes = *f.Notes
 	}
+	var pixKey interface{}
+	if f.PixKey != nil {
+		pixKey = *f.PixKey
+	}
 	_, err := r.db.Exec(
-		`INSERT INTO Friend (id, name, public_token, notes) VALUES (?, ?, ?, ?)`,
-		f.ID.String(), f.Name, f.PublicToken, notes,
+		`INSERT INTO Friend (id, name, public_token, notes, pix_key) VALUES (?, ?, ?, ?, ?)`,
+		f.ID.String(), f.Name, f.PublicToken, notes, pixKey,
 	)
 	if err != nil {
 		return fmt.Errorf("friend.Insert: %w", err)
@@ -51,7 +56,7 @@ func (r *SqliteFriendRepo) Insert(f Friend) error {
 }
 
 func (r *SqliteFriendRepo) GetAll() ([]Friend, error) {
-	rows, err := r.db.Query(`SELECT id, name, public_token, notes FROM Friend`)
+	rows, err := r.db.Query(`SELECT id, name, public_token, notes, pix_key FROM Friend`)
 	if err != nil {
 		return nil, fmt.Errorf("friend.GetAll: query: %w", err)
 	}
@@ -62,7 +67,8 @@ func (r *SqliteFriendRepo) GetAll() ([]Friend, error) {
 		var f Friend
 		var idStr string
 		var notes sql.NullString
-		if err := rows.Scan(&idStr, &f.Name, &f.PublicToken, &notes); err != nil {
+		var pixKey sql.NullString
+		if err := rows.Scan(&idStr, &f.Name, &f.PublicToken, &notes, &pixKey); err != nil {
 			return nil, fmt.Errorf("friend.GetAll: scan: %w", err)
 		}
 		f.ID, err = uuid.Parse(idStr)
@@ -71,6 +77,9 @@ func (r *SqliteFriendRepo) GetAll() ([]Friend, error) {
 		}
 		if notes.Valid {
 			f.Notes = &notes.String
+		}
+		if pixKey.Valid {
+			f.PixKey = &pixKey.String
 		}
 		friends = append(friends, f)
 	}
@@ -81,10 +90,11 @@ func (r *SqliteFriendRepo) GetByID(id uuid.UUID) (Friend, error) {
 	var f Friend
 	var idStr string
 	var notes sql.NullString
+	var pixKey sql.NullString
 	err := r.db.QueryRow(
-		`SELECT id, name, public_token, notes FROM Friend WHERE id = ?`,
+		`SELECT id, name, public_token, notes, pix_key FROM Friend WHERE id = ?`,
 		id.String(),
-	).Scan(&idStr, &f.Name, &f.PublicToken, &notes)
+	).Scan(&idStr, &f.Name, &f.PublicToken, &notes, &pixKey)
 	if err != nil {
 		return f, fmt.Errorf("friend.GetByID: %w", err)
 	}
@@ -95,6 +105,9 @@ func (r *SqliteFriendRepo) GetByID(id uuid.UUID) (Friend, error) {
 	if notes.Valid {
 		f.Notes = &notes.String
 	}
+	if pixKey.Valid {
+		f.PixKey = &pixKey.String
+	}
 	return f, nil
 }
 
@@ -102,10 +115,11 @@ func (r *SqliteFriendRepo) GetByToken(token string) (Friend, error) {
 	var f Friend
 	var idStr string
 	var notes sql.NullString
+	var pixKey sql.NullString
 	err := r.db.QueryRow(
-		`SELECT id, name, public_token, notes FROM Friend WHERE public_token = ?`,
+		`SELECT id, name, public_token, notes, pix_key FROM Friend WHERE public_token = ?`,
 		token,
-	).Scan(&idStr, &f.Name, &f.PublicToken, &notes)
+	).Scan(&idStr, &f.Name, &f.PublicToken, &notes, &pixKey)
 	if err != nil {
 		return f, fmt.Errorf("friend.GetByToken: %w", err)
 	}
@@ -117,10 +131,13 @@ func (r *SqliteFriendRepo) GetByToken(token string) (Friend, error) {
 	if notes.Valid {
 		f.Notes = &notes.String
 	}
+	if pixKey.Valid {
+		f.PixKey = &pixKey.String
+	}
 	return f, nil
 }
 
-func (r *SqliteFriendRepo) Update(id uuid.UUID, name *string, notes *string) error {
+func (r *SqliteFriendRepo) Update(id uuid.UUID, name *string, notes *string, pixKey *string) error {
 	tx, err := r.db.Begin()
 	if err != nil {
 		return fmt.Errorf("friend.Update: begin: %w", err)
@@ -138,6 +155,11 @@ func (r *SqliteFriendRepo) Update(id uuid.UUID, name *string, notes *string) err
 	if notes != nil {
 		if _, err := tx.Exec(`UPDATE Friend SET notes = ? WHERE id = ?`, *notes, id.String()); err != nil {
 			return fmt.Errorf("friend.Update: notes: %w", err)
+		}
+	}
+	if pixKey != nil {
+		if _, err := tx.Exec(`UPDATE Friend SET pix_key = ? WHERE id = ?`, *pixKey, id.String()); err != nil {
+			return fmt.Errorf("friend.Update: pix_key: %w", err)
 		}
 	}
 	return tx.Commit()

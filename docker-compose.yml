@@ -3,7 +3,10 @@ version: '3.8'
 services:
   cibi-api:
     image: ufleck/cibi:latest
-    build: .
+    build:
+      context: .
+      cache_from:
+        - ufleck/cibi:latest
     container_name: cibi-api
     ports:
       - "42069:42069"

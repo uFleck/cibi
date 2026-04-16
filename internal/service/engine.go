@@ -59,7 +59,7 @@ func NewEngineService(
 //
 // Upcoming obligations: recurring transactions where
 //
-//	next_occurrence > now AND next_occurrence <= earliest_next_payday  (D-02)
+//	next_occurrence > now AND next_occurrence < earliest_next_payday  (D-02)
 //
 // The union window approach uses the earliest next payday across all schedules.
 // Must complete in under 100ms.
@@ -96,7 +96,7 @@ func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineR
 		}
 	}
 
-	// Step 4: Sum upcoming obligations (next_occurrence > now AND <= earliestPayday).
+	// Step 4: Sum upcoming obligations (next_occurrence > now AND < earliestPayday).
 	obligations, err := s.txnsRepo.SumUpcomingObligations(accountID, now, earliestPayday)
 	if err != nil {
 		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: sum obligations: %w", err)

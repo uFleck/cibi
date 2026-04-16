@@ -38,6 +38,19 @@ type GlobalPeerBalance struct {
 	Net             int64
 }
 
+// ActiveUserDebt is a flattened row used for computing the per-debt breakdown
+// of debts the user owes to friends (amount < 0, still active).
+type ActiveUserDebt struct {
+	FriendName        string
+	Amount            int64   // negative cents
+	IsInstallment     bool
+	TotalInstallments int64   // 0 if not installment
+	PaidInstallments  int64
+	Frequency         string  // "" if not set
+	Date              string  // RFC3339 or date-only due date
+	AnchorDate        *string // RFC3339 or date-only; nil if not set
+}
+
 // PeerDebtRepo defines the data access contract for peer debts.
 type PeerDebtRepo interface {
 	Insert(d PeerDebt) error
@@ -48,7 +61,13 @@ type PeerDebtRepo interface {
 	DeleteByID(id uuid.UUID) error
 	GetBalanceByFriend(friendID uuid.UUID) (PeerDebtBalance, error)
 	GetGlobalBalance() (GlobalPeerBalance, error)
-SumUpcomingPeerObligations(after, onOrBefore time.Time) (int64, error)
+	SumUpcomingPeerObligations(after, onOrBefore time.Time) (int64, error)
+	// SumNextUserPayment returns the total of the user's next payment for each active debt:
+	// one installment amount for installment debts, full amount for unconfirmed lump-sum debts.
+	SumNextUserPayment() (int64, error)
+	// GetActiveUserDebtsWithFriend returns all active debts the user owes to friends,
+	// joined with the friend name for display purposes.
+	GetActiveUserDebtsWithFriend() ([]ActiveUserDebt, error)
 	// ConfirmInstallment atomically increments paid_installments (capped at total_installments)
 	// for installment debts, or sets is_confirmed=1 for non-installment debts.
 	ConfirmInstallment(id uuid.UUID) error
@@ -298,6 +317,71 @@ func (r *SqlitePeerDebtRepo) ConfirmInstallment(id uuid.UUID) error {
 	return nil
 }
 
+func (r *SqlitePeerDebtRepo) SumNextUserPayment() (int64, error) {
+	var sum int64
+	err := r.db.QueryRow(`
+		SELECT COALESCE(ABS(SUM(
+			CASE
+				WHEN is_installment = 1 AND total_installments > 0
+					THEN amount / total_installments
+				ELSE amount
+			END
+		)), 0)
+		FROM PeerDebt
+		WHERE amount < 0
+		  AND (
+		    (is_installment = 1 AND paid_installments < total_installments)
+		    OR
+		    (is_installment = 0 AND is_confirmed = 0)
+		  )`,
+	).Scan(&sum)
+	if err != nil {
+		return 0, fmt.Errorf("peer_debt.SumNextUserPayment: %w", err)
+	}
+	return sum, nil
+}
+
+func (r *SqlitePeerDebtRepo) GetActiveUserDebtsWithFriend() ([]ActiveUserDebt, error) {
+	rows, err := r.db.Query(`
+		SELECT f.name, pd.amount, pd.is_installment,
+		       COALESCE(pd.total_installments, 0),
+		       pd.paid_installments,
+		       COALESCE(pd.frequency, ''),
+		       pd.date,
+		       pd.anchor_date
+		FROM PeerDebt pd
+		JOIN Friend f ON f.id = pd.friend_id
+		WHERE pd.amount < 0
+		  AND (
+		    (pd.is_installment = 1 AND pd.paid_installments < pd.total_installments)
+		    OR
+		    (pd.is_installment = 0 AND pd.is_confirmed = 0)
+		  )
+		ORDER BY f.name, pd.date`)
+	if err != nil {
+		return nil, fmt.Errorf("peer_debt.GetActiveUserDebtsWithFriend: query: %w", err)
+	}
+	defer rows.Close()
+
+	var result []ActiveUserDebt
+	for rows.Next() {
+		var d ActiveUserDebt
+		var anchorDate sql.NullString
+		if err := rows.Scan(
+			&d.FriendName, &d.Amount, &d.IsInstallment,
+			&d.TotalInstallments, &d.PaidInstallments,
+			&d.Frequency, &d.Date, &anchorDate,
+		); err != nil {
+			return nil, fmt.Errorf("peer_debt.GetActiveUserDebtsWithFriend: scan: %w", err)
+		}
+		if anchorDate.Valid {
+			d.AnchorDate = &anchorDate.String
+		}
+		result = append(result, d)
+	}
+	return result, rows.Err()
+}
+
 func (r *SqlitePeerDebtRepo) SumUpcomingPeerObligations(after, onOrBefore time.Time) (int64, error) {
 	afterStr := after.UTC().Format(time.RFC3339)
 	onOrBeforeStr := onOrBefore.UTC().Format(time.RFC3339)
@@ -306,7 +390,7 @@ func (r *SqlitePeerDebtRepo) SumUpcomingPeerObligations(after, onOrBefore time.T
 	if err := r.db.QueryRow(
 		`SELECT COALESCE(SUM(amount), 0) FROM PeerDebt
 		 WHERE amount < 0 AND is_installment = 0 AND is_confirmed = 0
-		   AND date > ? AND date <= ?`,
+		   AND date > ? AND date < ?`,
 		afterStr, onOrBeforeStr,
 	).Scan(&lumpSum); err != nil {
 		return 0, fmt.Errorf("peer_debt.SumUpcomingPeerObligations: lump sum: %w", err)
@@ -353,7 +437,7 @@ func (r *SqlitePeerDebtRepo) SumUpcomingPeerObligations(after, onOrBefore time.T
 			nextDue = firstDue.AddDate(0, int(nextInstNum-1), 0)
 		}
 
-		if nextDue.After(after) && !nextDue.After(onOrBefore) {
+		if nextDue.After(after) && nextDue.Before(onOrBefore) {
 			totalInstallmentSum += instPayment
 		}
 	}

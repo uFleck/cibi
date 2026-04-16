@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatMoney, formatDate } from '@/lib/format'
 import { postCheck, type CheckResponse } from '@/lib/api'
 
@@ -34,7 +35,7 @@ export function CheckWidget() {
     } catch (err) {
       const error = err as Error & { code?: string }
       if (error.code === 'PAY_SCHEDULE_REQUIRED') {
-        toast.error('Set up your pay schedule in Settings first.')
+        toast.error('Set up your pay schedule in Accounts first.')
       } else {
         toast.error('Something went wrong. Try again.')
       }
@@ -72,17 +73,24 @@ export function CheckWidget() {
               className="pl-7 h-11 bg-muted/50 border-border/60 text-base focus-visible:ring-primary/50"
             />
           </div>
-          <Button
-            onClick={handleCheck}
-            disabled={state === 'loading'}
-            className="h-11 px-6 font-semibold tracking-wide cursor-pointer"
-          >
-            {state === 'loading' ? (
-              <Loader2 className="animate-spin" size={15} />
-            ) : (
-              'CHECK'
-            )}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={handleCheck}
+                disabled={state === 'loading'}
+                className="h-11 px-6 font-semibold tracking-wide cursor-pointer"
+              >
+                {state === 'loading' ? (
+                  <Loader2 className="animate-spin" size={15} />
+                ) : (
+                  'CHECK'
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Check if you can afford this purchase</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
       ) : (
         <div className="flex flex-col gap-3">

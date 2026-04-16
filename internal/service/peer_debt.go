@@ -2,10 +2,23 @@ package service
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 )
+
+// FriendDebtItem is a computed summary for a single active debt the user owes a friend.
+type FriendDebtItem struct {
+	FriendName        string
+	TotalAmount       int64   // abs cents — full debt amount
+	NextPayment       int64   // abs cents — next installment or full lump-sum
+	IsInstallment     bool
+	PerInstallAmount  int64   // abs cents — same as NextPayment for installment debts
+	TotalInstallments int64
+	PaidInstallments  int64
+	NextPaymentDate   *string // RFC3339; nil if unparseable
+}
 
 // PeerDebtService handles business logic for peer debts.
 type PeerDebtService struct {
@@ -88,4 +101,65 @@ func (s *PeerDebtService) GetGlobalBalance() (sqlite.GlobalPeerBalance, error) {
 		return b, fmt.Errorf("service.GetGlobalBalance: %w", err)
 	}
 	return b, nil
+}
+
+// GetFriendDebtBreakdown returns per-debt breakdown of active debts the user owes friends,
+// with computed next payment amount and due date.
+func (s *PeerDebtService) GetFriendDebtBreakdown() ([]FriendDebtItem, error) {
+	rows, err := s.repo.GetActiveUserDebtsWithFriend()
+	if err != nil {
+		return nil, fmt.Errorf("service.GetFriendDebtBreakdown: %w", err)
+	}
+	items := make([]FriendDebtItem, 0, len(rows))
+	for _, r := range rows {
+		totalAbs := -r.Amount // amount is negative
+		item := FriendDebtItem{
+			FriendName:        r.FriendName,
+			TotalAmount:       totalAbs,
+			IsInstallment:     r.IsInstallment,
+			TotalInstallments: r.TotalInstallments,
+			PaidInstallments:  r.PaidInstallments,
+		}
+		if r.IsInstallment && r.TotalInstallments > 0 {
+			perInst := totalAbs / r.TotalInstallments
+			item.NextPayment = perInst
+			item.PerInstallAmount = perInst
+			anchorStr := r.Date
+			if r.AnchorDate != nil && *r.AnchorDate != "" {
+				anchorStr = *r.AnchorDate
+			}
+			firstDue, err := time.Parse(time.RFC3339, anchorStr)
+			if err != nil {
+				firstDue, err = time.Parse("2006-01-02", anchorStr)
+			}
+			if err == nil {
+				nextInstNum := r.PaidInstallments + 1
+				var nextDue time.Time
+				if r.Frequency == "weekly" {
+					nextDue = firstDue.AddDate(0, 0, int(nextInstNum-1)*7)
+				} else {
+					nextDue = firstDue.AddDate(0, int(nextInstNum-1), 0)
+				}
+				s := nextDue.UTC().Format(time.RFC3339)
+				item.NextPaymentDate = &s
+			}
+		} else {
+			item.NextPayment = totalAbs
+			item.PerInstallAmount = totalAbs
+			d := r.Date
+			item.NextPaymentDate = &d
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+// SumNextUserPayment returns the sum of the user's next payment for each active debt.
+// For installment debts: one installment amount. For lump-sum debts: full amount.
+func (s *PeerDebtService) SumNextUserPayment() (int64, error) {
+	v, err := s.repo.SumNextUserPayment()
+	if err != nil {
+		return 0, fmt.Errorf("service.SumNextUserPayment: %w", err)
+	}
+	return v, nil
 }
