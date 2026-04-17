@@ -95,7 +95,7 @@ func (h *AccountsHandler) Create(c echo.Context) error {
 	acc := sqlite.Account{
 		ID:             uuid.New(),
 		Name:           req.Name,
-		CurrentBalance: int64(math.Round(req.CurrentBalance)),
+		CurrentBalance: int64(math.Round(req.CurrentBalance * 100)),
 		Currency:       req.Currency,
 		IsDefault:      req.IsDefault,
 	}
@@ -146,7 +146,7 @@ func (h *AccountsHandler) Update(c echo.Context) error {
 	// Convert dollars to stored value if provided.
 	var balanceValue *int64
 	if req.CurrentBalance != nil {
-		v := int64(math.Round(*req.CurrentBalance))
+		v := int64(math.Round(*req.CurrentBalance * 100))
 		balanceValue = &v
 	}
 	if err := h.svc.UpdateAccount(id, req.Name, balanceValue); err != nil {

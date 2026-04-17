@@ -269,7 +269,12 @@ func (r *SqlitePeerDebtRepo) GetBalanceByFriend(friendID uuid.UUID, accountID *u
 	query := `SELECT
 		    COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0),
 		    COALESCE(ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)), 0)
-		 FROM PeerDebt WHERE friend_id = ?`
+		 FROM PeerDebt WHERE friend_id = ?
+		   AND (
+		     (is_installment = 1 AND paid_installments < total_installments)
+		     OR
+		     (is_installment = 0 AND is_confirmed = 0)
+		   )`
 	args := []any{friendID.String()}
 	if accountID != nil {
 		query += ` AND account_id = ?`
@@ -289,10 +294,15 @@ func (r *SqlitePeerDebtRepo) GetGlobalBalance(accountID *uuid.UUID) (GlobalPeerB
 	query := `SELECT
 		    COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0),
 		    COALESCE(ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)), 0)
-		 FROM PeerDebt`
+		 FROM PeerDebt
+		 WHERE (
+		   (is_installment = 1 AND paid_installments < total_installments)
+		   OR
+		   (is_installment = 0 AND is_confirmed = 0)
+		 )`
 	args := []any{}
 	if accountID != nil {
-		query += ` WHERE account_id = ?`
+		query += ` AND account_id = ?`
 		args = append(args, accountID.String())
 	}
 
