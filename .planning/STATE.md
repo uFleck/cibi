@@ -3,23 +3,23 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Executing Phase 01
-last_updated: "2026-04-17T20:28:29.049Z"
+last_updated: "2026-04-17T20:34:35.773Z"
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 9
-  completed_plans: 6
-  percent: 67
+  completed_plans: 7
+  percent: 78
 ---
 
 # Project State
 
 ## Current Position
 
-- **Milestone status:** Complete (except MCP integration phase)
-- **Last completed phase:** 10 — codebase simplification and logic centralization
+- **Milestone status:** Executing Phase 01 (UI standardization wave)
+- **Last completed plan:** 01-03 — dashboard MoneyValue migration
 - **Next planned phase:** 6 — MCP Server
-- **Health:** Stable (human verification confirmed)
+- **Health:** Stable (dashboard regression/build checks green)
 
 ## Decisions
 
@@ -35,6 +35,9 @@ progress:
 - Phase 10: Dead `RecordDebit` path removed; regression tests added for transaction + scoped paths.
 - [Phase 01]: MoneyValue now owns sign/tone rendering policy with explicit props.
 - [Phase 01]: MoneyValue formats absolute values and prefixes signs to avoid double-sign bugs.
+- [Phase 01]: Dashboard widgets now render money values through MoneyValue with explicit tone/sign props.
+- [Phase 01]: Projection obligations now render via amount={-nextObligations} and showSign='always', removing string replace sign hacks.
+- [Phase 01]: CheckWidget monetary result lines now use MoneyValue while preserving default currency fallback behavior.
 
 ## Performance Metrics (Recent)
 
