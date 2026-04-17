@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Executing Phase 01
-last_updated: "2026-04-17T21:05:00.000Z"
+last_updated: "2026-04-17T20:46:15.312Z"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 9
-  completed_plans: 8
-  percent: 89
+  completed_plans: 9
+  percent: 100
 ---
 
 # Project State
@@ -17,9 +17,9 @@ progress:
 ## Current Position
 
 - **Milestone status:** Executing Phase 01 (UI standardization wave)
-- **Last completed plan:** 01-04 — accounts + transactions MoneyValue migration
+- **Last completed plan:** 01-05 — friends/public MoneyValue standardization
 - **Next planned phase:** 6 — MCP Server
-- **Health:** Stable (accounts/transactions build + rendering guard checks green)
+- **Health:** Stable (friends/public build + grep cleanup checks green)
 
 ## Decisions
 
@@ -40,6 +40,9 @@ progress:
 - [Phase 01]: CheckWidget monetary result lines now use MoneyValue while preserving default currency fallback behavior.
 - [Phase 01]: Transactions page now resolves account currency once and renders amounts via MoneyValue in mobile+desktop branches.
 - [Phase 01]: Accounts and schedule modal now pass explicit account-derived currency into MoneyValue, eliminating raw toFixed/sign display logic.
+- [Phase 01]: CompactEntityTable secondary now accepts ReactNode to carry rich money nodes in compact rows.
+- [Phase 01]: Friends/public surfaces use explicit BRL fallback when rendering MoneyValue.
+- [Phase 01]: Signed balances use MoneyValue auto tone/sign while neutral shares suppress sign.
 
 ## Performance Metrics (Recent)
 
