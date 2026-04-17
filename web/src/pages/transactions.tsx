@@ -324,6 +324,10 @@ export function TransactionsPage() {
             </p>
           )}
         </div>
+        <Button onClick={handleCreateClick} size="sm" className="hidden sm:inline-flex">
+          <Plus size={16} />
+          Add Transaction
+        </Button>
       </div>
 
       <TransactionFilters
