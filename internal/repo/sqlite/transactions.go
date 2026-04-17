@@ -36,7 +36,7 @@ type TransactionsRepo interface {
 	GetByAccount(accountID uuid.UUID) ([]Transaction, error)
 	GetByID(id uuid.UUID) (Transaction, error)
 	Update(id uuid.UUID, upd UpdateTransaction, tx *sql.Tx) error
-	DeleteByID(id uuid.UUID) error
+	DeleteByID(id uuid.UUID, tx *sql.Tx) error
 	AdvanceNextOccurrence(id uuid.UUID, next time.Time, tx *sql.Tx) error
 	SumUpcomingObligations(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error)
 }
@@ -201,8 +201,13 @@ func (r *SqliteTxnsRepo) Update(id uuid.UUID, upd UpdateTransaction, tx *sql.Tx)
 	return nil
 }
 
-func (r *SqliteTxnsRepo) DeleteByID(id uuid.UUID) error {
-	_, err := r.db.Exec(`DELETE FROM "Transaction" WHERE id = ?`, id.String())
+func (r *SqliteTxnsRepo) DeleteByID(id uuid.UUID, tx *sql.Tx) error {
+	var err error
+	if tx != nil {
+		_, err = tx.Exec(`DELETE FROM "Transaction" WHERE id = ?`, id.String())
+	} else {
+		_, err = r.db.Exec(`DELETE FROM "Transaction" WHERE id = ?`, id.String())
+	}
 	if err != nil {
 		return fmt.Errorf("transactions.DeleteByID: %w", err)
 	}
