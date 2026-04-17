@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CompactEntityTable } from '@/components/CompactEntityTable'
 import { fetchPublicGroup, type ParticipantResponse } from '@/lib/api'
+import { MoneyValue } from '@/components/ui/money-value'
 import { formatMoney } from '@/lib/format'
 import { copyToClipboard } from '@/lib/clipboard'
 import { publicGroupRoute } from '@/router'
@@ -93,8 +94,11 @@ export function GroupPublicPage() {
               items={data.participants.map((p, i) => ({
                 id: `${p.friend_id ?? 'host'}-${i}`,
                 primary: `${participantLabel(p, i)}${p.is_host ? ' · Host' : ''}`,
-                secondary: `${formatMoney(p.share_amount)} · ${p.is_confirmed ? 'Confirmed' : 'Pending'}`,
-              }))}
+                secondary: (
+                  <>
+                    <MoneyValue amount={p.share_amount} currency="BRL" showSign="never" tone="auto" /> · {p.is_confirmed ? 'Confirmed' : 'Pending'}
+                  </>
+                ),              }))}
             />
           )}
         </CardContent>
