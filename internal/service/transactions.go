@@ -149,11 +149,37 @@ func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateT
 	return nil
 }
 
-// DeleteTransaction removes a transaction by ID.
+// DeleteTransaction removes a transaction by ID and atomically reverses account balance.
 func (s *TransactionsService) DeleteTransaction(id uuid.UUID) error {
-	if err := s.txnsRepo.DeleteByID(id); err != nil {
-		return fmt.Errorf("service.DeleteTransaction: %w", err)
+	t, err := s.txnsRepo.GetByID(id)
+	if err != nil {
+		return fmt.Errorf("service.DeleteTransaction: get transaction: %w", err)
 	}
+
+	acc, err := s.accRepo.GetByID(t.AccountID)
+	if err != nil {
+		return fmt.Errorf("service.DeleteTransaction: get account: %w", err)
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("service.DeleteTransaction: begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := s.txnsRepo.DeleteByID(id, tx); err != nil {
+		return fmt.Errorf("service.DeleteTransaction: delete: %w", err)
+	}
+
+	newBalance := acc.CurrentBalance - t.Amount
+	if err := s.accRepo.UpdateBalance(t.AccountID, newBalance, tx); err != nil {
+		return fmt.Errorf("service.DeleteTransaction: update balance: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("service.DeleteTransaction: commit: %w", err)
+	}
+
 	return nil
 }
 
