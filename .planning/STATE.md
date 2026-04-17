@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 10-02-PLAN.md
-last_updated: "2026-04-17T03:20:37.688Z"
+stopped_at: Completed 10-03-PLAN.md
+last_updated: "2026-04-17T03:31:56.424Z"
 progress:
   total_phases: 9
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 25
-  completed_plans: 22
-  percent: 88
+  completed_plans: 23
+  percent: 92
 ---
 
 # Project State
@@ -40,6 +40,8 @@ Next: Docker containerization (ad-hoc) + Phase 06 (MCP Server)
 - [Phase 10]: Public GetFriendByToken orchestration moved to FriendService.GetPublicFriendView(token).
 - [Phase 10]: DeleteTransaction now performs delete and account balance reversal inside one SQL transaction.
 - [Phase 10]: Removed dead RecordDebit path after confirming no production callers.
+- [Phase 10]: Use func-field repo/service mocks with tx-aware balance assertions for regression coverage
+- [Phase 10]: Gate optional account-scope behavior by asserting pointer-scoped repo call paths in tests
 
 ## Performance Metrics
 
@@ -50,6 +52,7 @@ Next: Docker containerization (ad-hoc) + Phase 06 (MCP Server)
 | Phase 10 P04 | 4 min | 3 tasks | 5 files |
 | Phase 10 P05 | 7 min | 3 tasks | 6 files |
 | Phase 10 P02 | 18 min | 4 tasks | 9 files |
+| Phase 10 P03 | 1 min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -62,10 +65,10 @@ Next: Docker containerization (ad-hoc) + Phase 06 (MCP Server)
 ## Last Session
 
 - **Timestamp:** 2026-04-11T22:35:37Z
-- **Stopped at:** Completed 10-02-PLAN.md
+- **Stopped at:** Completed 10-03-PLAN.md
 
 ## Session Continuity
 
-- **Last session:** 2026-04-17T03:20:37.681Z
+- **Last session:** 2026-04-17T03:31:50.187Z
 - **Stopped at:** Session resumed, proceeding to execute Phase 10
 - **Resume file:** None
