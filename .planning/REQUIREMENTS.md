@@ -121,7 +121,7 @@
 | CLI-02 | Phase 3 | Pending |
 | CLI-03 | Phase 3 | Pending |
 | CLI-04 | Phase 3 | Pending |
-| API-01 | Phase 4 | Pending |
+| API-01 | Phase 4 | Complete |
 | API-02 | Phase 4 | Pending |
 | API-03 | Phase 4 | Pending |
 | WEB-01 | Phase 5 | Complete |
