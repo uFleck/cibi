@@ -14,16 +14,14 @@ import (
 
 // PeerDebtServiceIface defines the service contract used by PeerDebtHandler.
 type PeerDebtServiceIface interface {
-	ListByFriend(friendID uuid.UUID) ([]sqlite.PeerDebt, error)
-	ListByFriendAndAccount(friendID, accountID uuid.UUID) ([]sqlite.PeerDebt, error)
-	ListAll() ([]sqlite.PeerDebt, error)
-	ListAllByAccount(accountID uuid.UUID) ([]sqlite.PeerDebt, error)
+	ListByFriend(friendID uuid.UUID, accountID *uuid.UUID) ([]sqlite.PeerDebt, error)
+	ListAll(accountID *uuid.UUID) ([]sqlite.PeerDebt, error)
 	CreateDebt(d sqlite.PeerDebt) (sqlite.PeerDebt, error)
 	UpdateDebt(id uuid.UUID, amount *int64, description *string) error
 	DeleteDebt(id uuid.UUID) error
 	ConfirmInstallment(id uuid.UUID) error
 	GetBalanceByFriend(friendID uuid.UUID) (sqlite.PeerDebtBalance, error)
-	GetGlobalBalance() (sqlite.GlobalPeerBalance, error)
+	GetGlobalBalance(accountID *uuid.UUID) (sqlite.GlobalPeerBalance, error)
 }
 
 // Ensure *service.PeerDebtService satisfies PeerDebtServiceIface.
@@ -108,7 +106,7 @@ func (h *PeerDebtHandler) List(c echo.Context) error {
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid friend_id")
 		}
-		debts, err := h.svc.ListByFriendAndAccount(friendID, accountID)
+		debts, err := h.svc.ListByFriend(friendID, &accountID)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
@@ -119,7 +117,7 @@ func (h *PeerDebtHandler) List(c echo.Context) error {
 		return c.JSON(http.StatusOK, resp)
 	}
 
-	debts, err := h.svc.ListAllByAccount(accountID)
+	debts, err := h.svc.ListAll(&accountID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
