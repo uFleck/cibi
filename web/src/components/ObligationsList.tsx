@@ -1,4 +1,5 @@
-import { formatMoney, formatDate } from '@/lib/format'
+import { MoneyValue } from '@/components/ui/money-value'
+import { formatDate } from '@/lib/format'
 import { isInCurrentPayWindow } from '@/lib/financial-window'
 import type { TransactionResponse } from '@/lib/api'
 
@@ -42,12 +43,13 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday }: 
               className="flex items-center px-5 py-2.5 gap-4 hover:bg-muted/30 transition-colors"
             >
               <span className="flex-1 text-sm">{t.description}</span>
-              <span
-                className="text-sm tabular-nums font-medium"
-                style={{ color: t.amount < 0 ? 'var(--color-verdict-no)' : undefined }}
-              >
-                {formatMoney(t.amount, currency)}
-              </span>
+              <MoneyValue
+                amount={t.amount}
+                currency={currency}
+                tone="negative"
+                showSign="auto"
+                className="text-sm font-medium"
+              />
               <span className="text-xs text-muted-foreground w-14 text-right tabular-nums">
                 {formatDate(t.next_occurrence!)}
               </span>
@@ -58,12 +60,13 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday }: 
             <span className="flex-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
               Total reserved
             </span>
-            <span
-              className="text-sm font-semibold tabular-nums"
-              style={{ color: 'var(--color-verdict-no)' }}
-            >
-              {formatMoney(total, currency)}
-            </span>
+            <MoneyValue
+              amount={total}
+              currency={currency}
+              tone="negative"
+              showSign="never"
+              className="text-sm font-semibold"
+            />
           </div>
         </div>
       )}

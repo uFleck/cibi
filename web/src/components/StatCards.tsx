@@ -1,5 +1,5 @@
 import { Wallet, ShieldCheck, Zap } from 'lucide-react'
-import { formatMoney } from '@/lib/format'
+import { MoneyValue } from '@/components/ui/money-value'
 import { isInCurrentPayWindow } from '@/lib/financial-window'
 import type {
   AccountResponse,
@@ -16,12 +16,11 @@ interface StatCardsProps {
 
 interface StatCardProps {
   label: string
-  value: string
+  value: React.ReactNode
   icon: React.ReactNode
-  valueStyle?: React.CSSProperties
 }
 
-function StatCard({ label, value, icon, valueStyle }: StatCardProps) {
+function StatCard({ label, value, icon }: StatCardProps) {
   return (
     <div className="rounded-xl border border-border/60 bg-card px-5 py-4 flex flex-col gap-3">
       <div className="flex items-center justify-between">
@@ -30,7 +29,7 @@ function StatCard({ label, value, icon, valueStyle }: StatCardProps) {
         </span>
         <span className="text-muted-foreground/50">{icon}</span>
       </div>
-      <p className="text-2xl font-semibold tabular-nums tracking-tight" style={valueStyle}>
+      <p className="text-2xl font-semibold tabular-nums tracking-tight">
         {value}
       </p>
     </div>
@@ -67,24 +66,41 @@ export function StatCards({
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       <StatCard
         label="Balance"
-        value={formatMoney(account.current_balance, account.currency)}
+        value={(
+          <MoneyValue
+            amount={account.current_balance}
+            currency={account.currency}
+            tone="neutral"
+            showSign="auto"
+          />
+        )}
         icon={<Wallet size={14} />}
       />
       <StatCard
         label="Reserved"
-        value={formatMoney(reserved, account.currency)}
+        value={(
+          <MoneyValue
+            amount={reserved}
+            currency={account.currency}
+            tone="neutral"
+            showSign="never"
+            className="text-[var(--color-risk-medium)]"
+          />
+        )}
         icon={<ShieldCheck size={14} />}
-        valueStyle={{ color: 'var(--color-risk-medium)' }}
       />
       <StatCard
         label="Liquid"
-        value={formatMoney(liquid, account.currency)}
+        value={(
+          <MoneyValue
+            amount={liquid}
+            currency={account.currency}
+            tone="neutral"
+            showSign="auto"
+            className={liquid <= 0 ? 'text-[var(--color-verdict-no)]' : 'text-[var(--color-verdict-yes)]'}
+          />
+        )}
         icon={<Zap size={14} />}
-        valueStyle={{
-          color: liquid <= 0
-            ? 'var(--color-verdict-no)'
-            : 'var(--color-verdict-yes)',
-        }}
       />
     </div>
   )

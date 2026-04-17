@@ -1,4 +1,5 @@
-import { formatMoney, formatDate } from '@/lib/format'
+import { MoneyValue } from '@/components/ui/money-value'
+import { formatDate } from '@/lib/format'
 import type { PayScheduleResponse } from '@/lib/api'
 
 interface PayScheduleListProps {
@@ -27,12 +28,13 @@ export function PayScheduleList({ schedules, currency = 'BRL' }: PayScheduleList
             className="flex items-center px-5 py-2.5 gap-4 hover:bg-muted/30 transition-colors"
           >
             <span className="flex-1 text-sm">{ps.label ?? ps.frequency}</span>
-            <span
-              className="text-sm tabular-nums font-medium"
-              style={{ color: 'var(--color-verdict-yes)' }}
-            >
-              +{formatMoney(ps.amount, currency)}
-            </span>
+            <MoneyValue
+              amount={ps.amount}
+              currency={currency}
+              tone="positive"
+              showSign="always"
+              className="text-sm font-medium"
+            />
             <span className="text-xs text-muted-foreground w-14 text-right tabular-nums">
               {formatDate(ps.next_payday)}
             </span>
@@ -43,12 +45,13 @@ export function PayScheduleList({ schedules, currency = 'BRL' }: PayScheduleList
           <span className="flex-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
             Total incoming
           </span>
-          <span
-            className="text-sm font-semibold tabular-nums"
-            style={{ color: 'var(--color-verdict-yes)' }}
-          >
-            {formatMoney(total, currency)}
-          </span>
+          <MoneyValue
+            amount={total}
+            currency={currency}
+            tone="positive"
+            showSign="never"
+            className="text-sm font-semibold"
+          />
         </div>
       </div>
     </div>
