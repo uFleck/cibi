@@ -18,14 +18,14 @@
 
 ### Milestone 1 — Core
 
-- [ ] **Phase 1: Foundation** — Restructure the repo, eliminate the global DB connection, wire migrations, and establish the clean layered architecture that all other phases depend on
-- [ ] **Phase 2: Domain + Engine** — Implement the PaySchedule entity, recurring transaction engine with month-end safety, and the Decision Engine that answers "Can I Buy It?"
-- [ ] **Phase 3: CLI** — Cobra command tree that mirrors the full domain surface; `cibi check` as the primary user-facing command
+- [x] **Phase 1: Foundation** — Restructure the repo, eliminate the global DB connection, wire migrations, and establish the clean layered architecture that all other phases depend on
+- [x] **Phase 2: Domain + Engine** — Implement the PaySchedule entity, recurring transaction engine with month-end safety, and the Decision Engine that answers "Can I Buy It?"
+- [x] **Phase 3: CLI** — Cobra command tree that mirrors the full domain surface; `cibi check` as the primary user-facing command
 
 ### Milestone 2 — API + Dashboard
 
-- [ ] **Phase 4: API Layer** — Echo HTTP server exposing all domain operations as JSON endpoints; the API becomes the gateway for web access over Tailscale
-- [ ] **Phase 5: Web Dashboard** — React 19 + Vite 6 SPA showing balance, reserved funds, and the animated "Can I Buy It?" verdict card
+- [x] **Phase 4: API Layer** — Echo HTTP server exposing all domain operations as JSON endpoints; the API becomes the gateway for web access over Tailscale
+- [x] **Phase 5: Web Dashboard** — React 19 + Vite 6 SPA showing balance, reserved funds, and the animated "Can I Buy It?" verdict card
 
 ### Milestone 3 — MCP
 
@@ -132,14 +132,16 @@ Plans:
   6. Transactions page: create, read, update, delete — matches API endpoints.
   7. Account selector in header — switch active account context; dashboard recalculates.
 
-**Plans**: 5 plans (Wave 1 parallel → Wave 2 → Wave 3 → Wave 4 checkpoint)
+**Plans**: 7 plans total (05-01..05-05 plus 05.1-01 and 05.2-01 gap/polish follow-ups)
 
 Plans:
 - [x] 05-01-PLAN.md — Go: /api/ route prefix + go:embed web/dist + static middleware in main.go
 - [x] 05-02-PLAN.md — React: Vite scaffold + all deps + shadcn init + data layer (api.ts, format.ts, router.ts, App.tsx) + Wave 0 tests
 - [x] 05-03-PLAN.md — UI components: StatCards + CheckWidget (Motion verdict) + ObligationsList + Dashboard wiring
 - [x] 05-04-PLAN.md — Human verify checkpoint: live browser confirmation of all dashboard behavior
-- [ ] 05-05-PLAN.md — Full CRUD: AccountsPage + TransactionsPage + AccountSelector + feature parity
+- [x] 05-05-PLAN.md — Full CRUD: AccountsPage + TransactionsPage + AccountSelector + feature parity
+- [x] 05.1-01-PLAN.md — Gap closure: missing pay schedule handling across API/CLI/UI
+- [x] 05.2-01-PLAN.md — Obsolete/superseded polish plan closed for tracking (no retained code changes)
 
 ---
 
@@ -170,9 +172,9 @@ Plans:
 **Plans**: 3 plans (Wave 1 → Wave 2 → Wave 3)
 
 Plans:
-- [ ] 07-01-PLAN.md — Migration (amount column) + repo CRUD refactor + service refactor + engine multi-schedule loop + WAIT verdict
-- [ ] 07-02-PLAN.md — Handler full CRUD (List/Create/Update/Delete) + routes update + frequency enum fix + check response WAIT fields
-- [ ] 07-03-PLAN.md — React: api.ts CRUD functions + Settings page + CheckWidget WAIT amber card + CSS tokens
+- [x] 07-01-PLAN.md — Migration (amount column) + repo CRUD refactor + service refactor + engine multi-schedule loop + WAIT verdict
+- [x] 07-02-PLAN.md — Handler full CRUD (List/Create/Update/Delete) + routes update + frequency enum fix + check response WAIT fields
+- [x] 07-03-PLAN.md — React: api.ts CRUD functions + Settings page + CheckWidget WAIT amber card + CSS tokens
 
 ### Phase 9: fix transaction balance and recurring payment confirm
 
@@ -201,10 +203,10 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/? | Not started | - |
+| 1. Foundation | 1/1 | Complete | 2026-04-11 |
 | 2. Domain + Engine | 3/3 | Complete | 2026-04-12 |
 | 3. CLI | 1/1 | Complete | 2026-04-11 |
-| 4. API Layer | 0/3 | Not started | - |
-| 5. Web Dashboard | 0/4 | Not started | - |
+| 4. API Layer | 3/3 | Complete | 2026-04-12 |
+| 5. Web Dashboard | 7/7 | Complete | 2026-04-17 |
 | 6. MCP Server | 0/? | Not started | - |
-| 7. N Payment Schedules | 0/3 | Not started | - |
+| 7. N Payment Schedules | 3/3 | Complete | 2026-04-17 |
