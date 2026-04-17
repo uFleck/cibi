@@ -124,8 +124,8 @@
 | API-01 | Phase 4 | Pending |
 | API-02 | Phase 4 | Pending |
 | API-03 | Phase 4 | Pending |
-| WEB-01 | Phase 5 | Pending |
-| WEB-02 | Phase 5 | Pending |
+| WEB-01 | Phase 5 | Complete |
+| WEB-02 | Phase 5 | Complete |
 | WEB-03 | Phase 5 | Pending |
 | WEB-04 | Phase 5 | Pending |
 | MCP-01 | Phase 6 | Pending |
