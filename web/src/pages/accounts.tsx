@@ -25,7 +25,7 @@ import {
   type PayScheduleResponse,
   type CreatePayScheduleRequest,
 } from '@/lib/api'
-import { formatMoney } from '@/lib/format'
+import { MoneyValue } from '@/components/ui/money-value'
 
 const CURRENCIES = [
   'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'MXN', 'BRL', 'INR', 'SGD', 'HKD',
@@ -309,6 +309,7 @@ export function AccountsPage() {
 
   const isPending = createMutation.isPending || updateMutation.isPending
   const accountToDelete = accounts.find(a => a.id === confirmDelete)
+  const scheduleCurrency = accounts.find(a => a.id === scheduleModalAccountId)?.currency ?? 'BRL'
 
   const handleAccountNameChange = (value: string) => {
     setFormData({ ...formData, name: value })
@@ -391,7 +392,13 @@ export function AccountsPage() {
                             {account.is_default && ' · Default'}
                           </div>
                         </div>
-                        <div className="font-semibold tabular-nums text-right">{account.current_balance.toFixed(2)}</div>
+                        <MoneyValue
+                          amount={account.current_balance}
+                          currency={account.currency}
+                          showSign="never"
+                          tone="auto"
+                          className="font-semibold text-right"
+                        />
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">
@@ -450,8 +457,14 @@ export function AccountsPage() {
                             {account.is_default && ' · Default'}
                           </div>
                         </td>
-                        <td className="px-3 py-2 text-right font-medium tabular-nums">
-                          {account.current_balance.toFixed(2)}
+                        <td className="px-3 py-2 text-right">
+                          <MoneyValue
+                            amount={account.current_balance}
+                            currency={account.currency}
+                            showSign="never"
+                            tone="auto"
+                            className="font-medium"
+                          />
                         </td>
                         <td className="px-3 py-2">
                           <div className="flex gap-1 justify-end">
@@ -597,7 +610,13 @@ export function AccountsPage() {
                             {ps.day_of_month_2 ? ` · day ${ps.day_of_month_2}` : ''}
                           </div>
                         </div>
-                        <div className="text-green-600 font-semibold tabular-nums">+{formatMoney(ps.amount)}</div>
+                        <MoneyValue
+                          amount={ps.amount}
+                          currency={scheduleCurrency}
+                          showSign="always"
+                          tone="positive"
+                          className="font-semibold"
+                        />
                       </div>
                       <div className="flex justify-end gap-2 mt-2">
                         <MobileActionButton onClick={() => startEditSchedule(ps)} icon={Edit2} label="Edit" variant="outline" />
@@ -628,8 +647,14 @@ export function AccountsPage() {
                               {ps.day_of_month_2 ? ` · day ${ps.day_of_month_2}` : ''}
                             </div>
                           </td>
-                          <td className="px-3 py-2 text-right font-medium tabular-nums text-green-600">
-                            +{formatMoney(ps.amount)}
+                          <td className="px-3 py-2 text-right">
+                            <MoneyValue
+                              amount={ps.amount}
+                              currency={scheduleCurrency}
+                              showSign="always"
+                              tone="positive"
+                              className="font-medium"
+                            />
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex gap-1 justify-end">
