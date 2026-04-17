@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { AppModal } from '@/components/AppModal'
 import { CompactEntityTable } from '@/components/CompactEntityTable'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { MoneyValue } from '@/components/ui/money-value'
 import { FriendForm } from '@/components/FriendForm'
 import { DebtForm, type DebtFormState } from '@/components/DebtForm'
 import { GroupEventForm, type GroupEventFormState } from '@/components/GroupEventForm'
@@ -919,8 +920,11 @@ export function FriendsPage() {
               return {
                 id: friend.id,
                 primary: friend.name,
-                secondary: `${overview.openCount} open · ${formatMoney(overview.total)} total`,
-                onCopy: async () => {
+                secondary: (
+                  <>
+                    {overview.openCount} open · <MoneyValue amount={overview.total} currency="BRL" showSign="auto" tone="auto" /> total
+                  </>
+                ),                onCopy: async () => {
                   const ok = await copyToClipboard(`${window.location.origin}/public/friend/${friend.public_token}`)
                   if (ok) toast.success('Link copied')
                   else toast.error('Failed to copy link')
@@ -961,8 +965,11 @@ export function FriendsPage() {
             items={groupEvents.map(event => ({
               id: event.id,
               primary: event.title,
-              secondary: `${formatDate(event.date)} · ${formatMoney(event.total_amount)}`,
-              onCopy: async () => {
+              secondary: (
+                <>
+                  {formatDate(event.date)} · <MoneyValue amount={event.total_amount} currency="BRL" showSign="auto" tone="auto" />
+                </>
+              ),              onCopy: async () => {
                 const ok = await copyToClipboard(`${window.location.origin}/public/group/${event.public_token}`)
                 if (ok) toast.success('Link copied')
                 else toast.error('Failed to copy link')

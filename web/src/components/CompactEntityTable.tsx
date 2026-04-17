@@ -1,3 +1,4 @@
+import type * as React from 'react'
 import { Copy, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -5,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 export interface CompactEntityTableItem {
   id: string
   primary: string
-  secondary: string
+  secondary: React.ReactNode
   onCopy?: () => void | Promise<void>
   onOpen?: () => void
   copyAriaLabel?: string
