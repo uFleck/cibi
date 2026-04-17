@@ -45,8 +45,7 @@ type AdminGroupExpense struct {
 // GroupEventRepo defines the data access contract for group events.
 type GroupEventRepo interface {
 	Insert(e GroupEvent) error
-	GetAll() ([]GroupEvent, error)
-	GetAllByAccount(accountID uuid.UUID) ([]GroupEvent, error)
+	GetAll(accountID *uuid.UUID) ([]GroupEvent, error)
 	GetByID(id uuid.UUID) (GroupEvent, error)
 	GetByToken(token string) (GroupEvent, error)
 	GetByFriend(friendID uuid.UUID) ([]GroupEvent, error)
@@ -55,12 +54,9 @@ type GroupEventRepo interface {
 	SetParticipants(eventID uuid.UUID, participants []GroupEventParticipant, hostFriendID *uuid.UUID) error
 	SetParticipantConfirmed(eventID uuid.UUID, friendID uuid.UUID, isConfirmed bool) error
 	GetParticipants(eventID uuid.UUID) ([]GroupEventParticipant, error)
-	SumUpcomingAdminObligations(after, onOrBefore time.Time) (int64, error)
-	SumUpcomingAdminObligationsByAccount(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error)
-	GetAdminPendingExpenses() ([]AdminGroupExpense, error)
-	GetAdminPendingExpensesByAccount(accountID uuid.UUID) ([]AdminGroupExpense, error)
-	GetPendingBalanceForAdmin() (GroupEventBalance, error)
-	GetPendingBalanceForAdminByAccount(accountID uuid.UUID) (GroupEventBalance, error)
+	SumUpcomingAdminObligations(accountID *uuid.UUID, after, onOrBefore time.Time) (int64, error)
+	GetAdminPendingExpenses(accountID *uuid.UUID) ([]AdminGroupExpense, error)
+	GetPendingBalanceForAdmin(accountID *uuid.UUID) (GroupEventBalance, error)
 }
 
 // SqliteGroupEventRepo implements GroupEventRepo against modernc SQLite.
@@ -92,8 +88,15 @@ func (r *SqliteGroupEventRepo) Insert(e GroupEvent) error {
 	return nil
 }
 
-func (r *SqliteGroupEventRepo) GetAll() ([]GroupEvent, error) {
-	rows, err := r.db.Query(`SELECT id, account_id, title, date, total_amount, public_token, notes, host_friend_id FROM GroupEvent`)
+func (r *SqliteGroupEventRepo) GetAll(accountID *uuid.UUID) ([]GroupEvent, error) {
+	query := `SELECT id, account_id, title, date, total_amount, public_token, notes, host_friend_id FROM GroupEvent`
+	var args []any
+	if accountID != nil {
+		query += ` WHERE account_id = ?`
+		args = []any{accountID.String()}
+	}
+
+	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("group_event.GetAll: query: %w", err)
 	}
@@ -123,45 +126,6 @@ func (r *SqliteGroupEventRepo) GetAll() ([]GroupEvent, error) {
 			fid, parseErr := uuid.Parse(hostFriendID.String)
 			if parseErr != nil {
 				return nil, fmt.Errorf("group_event.GetAll: parse host_friend_id uuid: %w", parseErr)
-			}
-			e.HostFriendID = &fid
-		}
-		events = append(events, e)
-	}
-	return events, rows.Err()
-}
-
-func (r *SqliteGroupEventRepo) GetAllByAccount(accountID uuid.UUID) ([]GroupEvent, error) {
-	rows, err := r.db.Query(`SELECT id, account_id, title, date, total_amount, public_token, notes, host_friend_id FROM GroupEvent WHERE account_id = ?`, accountID.String())
-	if err != nil {
-		return nil, fmt.Errorf("group_event.GetAllByAccount: query: %w", err)
-	}
-	defer rows.Close()
-
-	var events []GroupEvent
-	for rows.Next() {
-		var e GroupEvent
-		var idStr, accountIDStr string
-		var notes sql.NullString
-		var hostFriendID sql.NullString
-		if err := rows.Scan(&idStr, &accountIDStr, &e.Title, &e.Date, &e.TotalAmount, &e.PublicToken, &notes, &hostFriendID); err != nil {
-			return nil, fmt.Errorf("group_event.GetAllByAccount: scan: %w", err)
-		}
-		e.ID, err = uuid.Parse(idStr)
-		if err != nil {
-			return nil, fmt.Errorf("group_event.GetAllByAccount: parse uuid: %w", err)
-		}
-		e.AccountID, err = uuid.Parse(accountIDStr)
-		if err != nil {
-			return nil, fmt.Errorf("group_event.GetAllByAccount: parse account_id uuid: %w", err)
-		}
-		if notes.Valid {
-			e.Notes = &notes.String
-		}
-		if hostFriendID.Valid {
-			fid, parseErr := uuid.Parse(hostFriendID.String)
-			if parseErr != nil {
-				return nil, fmt.Errorf("group_event.GetAllByAccount: parse host_friend_id uuid: %w", parseErr)
 			}
 			e.HostFriendID = &fid
 		}
@@ -472,56 +436,22 @@ func parseGroupEventDate(raw string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("unsupported date format")
 }
 
-// SumUpcomingAdminObligationsByAccount returns pending admin->host obligations in [after, onOrBefore).
-// Value is negative or zero so it can be added directly in engine purchasing power math.
-func (r *SqliteGroupEventRepo) SumUpcomingAdminObligationsByAccount(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error) {
-	rows, err := r.db.Query(
-		`SELECT ge.date, gep.share_amount
-		 FROM GroupEvent ge
-		 JOIN GroupEventParticipant gep ON gep.event_id = ge.id
-		 WHERE ge.account_id = ?
-		   AND ge.host_friend_id IS NOT NULL
-		   AND gep.friend_id IS NULL
-		   AND gep.is_confirmed = 0`,
-		accountID.String(),
-	)
-	if err != nil {
-		return 0, fmt.Errorf("group_event.SumUpcomingAdminObligationsByAccount: query: %w", err)
-	}
-	defer rows.Close()
-
-	var sum int64
-	for rows.Next() {
-		var dateStr string
-		var share int64
-		if err := rows.Scan(&dateStr, &share); err != nil {
-			return 0, fmt.Errorf("group_event.SumUpcomingAdminObligationsByAccount: scan: %w", err)
-		}
-		due, err := parseGroupEventDate(dateStr)
-		if err != nil {
-			continue
-		}
-		if due.After(after) && due.Before(onOrBefore) {
-			sum -= share
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return 0, fmt.Errorf("group_event.SumUpcomingAdminObligationsByAccount: rows: %w", err)
-	}
-	return sum, nil
-}
-
 // SumUpcomingAdminObligations returns pending admin->host obligations in [after, onOrBefore).
 // Value is negative or zero so it can be added directly in engine purchasing power math.
-func (r *SqliteGroupEventRepo) SumUpcomingAdminObligations(after, onOrBefore time.Time) (int64, error) {
-	rows, err := r.db.Query(
-		`SELECT ge.date, gep.share_amount
+func (r *SqliteGroupEventRepo) SumUpcomingAdminObligations(accountID *uuid.UUID, after, onOrBefore time.Time) (int64, error) {
+	query := `SELECT ge.date, gep.share_amount
 		 FROM GroupEvent ge
 		 JOIN GroupEventParticipant gep ON gep.event_id = ge.id
 		 WHERE ge.host_friend_id IS NOT NULL
 		   AND gep.friend_id IS NULL
-		   AND gep.is_confirmed = 0`,
-	)
+		   AND gep.is_confirmed = 0`
+	args := []any{}
+	if accountID != nil {
+		query += ` AND ge.account_id = ?`
+		args = append(args, accountID.String())
+	}
+
+	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return 0, fmt.Errorf("group_event.SumUpcomingAdminObligations: query: %w", err)
 	}
@@ -548,48 +478,23 @@ func (r *SqliteGroupEventRepo) SumUpcomingAdminObligations(after, onOrBefore tim
 	return sum, nil
 }
 
-// GetAdminPendingExpensesByAccount returns all unconfirmed admin shares where a friend is the host.
-func (r *SqliteGroupEventRepo) GetAdminPendingExpensesByAccount(accountID uuid.UUID) ([]AdminGroupExpense, error) {
-	rows, err := r.db.Query(
-		`SELECT f.name, gep.share_amount, ge.date
-		 FROM GroupEvent ge
-		 JOIN GroupEventParticipant gep ON gep.event_id = ge.id
-		 JOIN Friend f ON f.id = ge.host_friend_id
-		 WHERE ge.account_id = ?
-		   AND ge.host_friend_id IS NOT NULL
-		   AND gep.friend_id IS NULL
-		   AND gep.is_confirmed = 0
-		 ORDER BY ge.date`,
-		accountID.String(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("group_event.GetAdminPendingExpensesByAccount: query: %w", err)
-	}
-	defer rows.Close()
-
-	result := []AdminGroupExpense{}
-	for rows.Next() {
-		var item AdminGroupExpense
-		if err := rows.Scan(&item.HostName, &item.ShareAmount, &item.Date); err != nil {
-			return nil, fmt.Errorf("group_event.GetAdminPendingExpensesByAccount: scan: %w", err)
-		}
-		result = append(result, item)
-	}
-	return result, rows.Err()
-}
-
 // GetAdminPendingExpenses returns all unconfirmed admin shares where a friend is the host.
-func (r *SqliteGroupEventRepo) GetAdminPendingExpenses() ([]AdminGroupExpense, error) {
-	rows, err := r.db.Query(
-		`SELECT f.name, gep.share_amount, ge.date
+func (r *SqliteGroupEventRepo) GetAdminPendingExpenses(accountID *uuid.UUID) ([]AdminGroupExpense, error) {
+	query := `SELECT f.name, gep.share_amount, ge.date
 		 FROM GroupEvent ge
 		 JOIN GroupEventParticipant gep ON gep.event_id = ge.id
 		 JOIN Friend f ON f.id = ge.host_friend_id
 		 WHERE ge.host_friend_id IS NOT NULL
 		   AND gep.friend_id IS NULL
-		   AND gep.is_confirmed = 0
-		 ORDER BY ge.date`,
-	)
+		   AND gep.is_confirmed = 0`
+	args := []any{}
+	if accountID != nil {
+		query += ` AND ge.account_id = ?`
+		args = append(args, accountID.String())
+	}
+	query += ` ORDER BY ge.date`
+
+	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("group_event.GetAdminPendingExpenses: query: %w", err)
 	}
@@ -606,33 +511,9 @@ func (r *SqliteGroupEventRepo) GetAdminPendingExpenses() ([]AdminGroupExpense, e
 	return result, rows.Err()
 }
 
-// GetPendingBalanceForAdminByAccount aggregates pending group-event balances for the admin.
-func (r *SqliteGroupEventRepo) GetPendingBalanceForAdminByAccount(accountID uuid.UUID) (GroupEventBalance, error) {
-	var b GroupEventBalance
-	err := r.db.QueryRow(
-		`SELECT
-		    COALESCE(SUM(CASE
-		      WHEN ge.host_friend_id IS NULL AND gep.friend_id IS NOT NULL AND gep.is_confirmed = 0
-		      THEN gep.share_amount ELSE 0 END), 0),
-		    COALESCE(SUM(CASE
-		      WHEN ge.host_friend_id IS NOT NULL AND gep.friend_id IS NULL AND gep.is_confirmed = 0
-		      THEN gep.share_amount ELSE 0 END), 0)
-		 FROM GroupEvent ge
-		 JOIN GroupEventParticipant gep ON gep.event_id = ge.id
-		 WHERE ge.account_id = ?`,
-		accountID.String(),
-	).Scan(&b.TheyOweAdmin, &b.AdminOwesHost)
-	if err != nil {
-		return b, fmt.Errorf("group_event.GetPendingBalanceForAdminByAccount: %w", err)
-	}
-	return b, nil
-}
-
 // GetPendingBalanceForAdmin aggregates pending group-event balances for the admin.
-func (r *SqliteGroupEventRepo) GetPendingBalanceForAdmin() (GroupEventBalance, error) {
-	var b GroupEventBalance
-	err := r.db.QueryRow(
-		`SELECT
+func (r *SqliteGroupEventRepo) GetPendingBalanceForAdmin(accountID *uuid.UUID) (GroupEventBalance, error) {
+	query := `SELECT
 		    COALESCE(SUM(CASE
 		      WHEN ge.host_friend_id IS NULL AND gep.friend_id IS NOT NULL AND gep.is_confirmed = 0
 		      THEN gep.share_amount ELSE 0 END), 0),
@@ -640,8 +521,15 @@ func (r *SqliteGroupEventRepo) GetPendingBalanceForAdmin() (GroupEventBalance, e
 		      WHEN ge.host_friend_id IS NOT NULL AND gep.friend_id IS NULL AND gep.is_confirmed = 0
 		      THEN gep.share_amount ELSE 0 END), 0)
 		 FROM GroupEvent ge
-		 JOIN GroupEventParticipant gep ON gep.event_id = ge.id`,
-	).Scan(&b.TheyOweAdmin, &b.AdminOwesHost)
+		 JOIN GroupEventParticipant gep ON gep.event_id = ge.id`
+	args := []any{}
+	if accountID != nil {
+		query += ` WHERE ge.account_id = ?`
+		args = append(args, accountID.String())
+	}
+
+	var b GroupEventBalance
+	err := r.db.QueryRow(query, args...).Scan(&b.TheyOweAdmin, &b.AdminOwesHost)
 	if err != nil {
 		return b, fmt.Errorf("group_event.GetPendingBalanceForAdmin: %w", err)
 	}
