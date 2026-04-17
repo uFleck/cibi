@@ -284,6 +284,14 @@ export function TransactionsPage() {
   const isPending = createMutation.isPending || updateMutation.isPending
   const txnToDelete = transactions.find((t: TransactionResponse) => t.id === confirmDelete)
 
+  const handleTransactionChange = (changes: Partial<FormData>) => {
+    setFormData(prev => ({ ...prev, ...changes }))
+  }
+
+  const handleTransactionAmountParsed = (parsed: number | null) => {
+    setFormData(prev => ({ ...prev, amount: parsed ?? 0 }))
+  }
+
   if (isError || accountsLoading) {
     return (
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
@@ -591,9 +599,9 @@ export function TransactionsPage() {
           accounts={accounts}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
-          onChange={changes => setFormData(prev => ({ ...prev, ...changes }))}
+          onChange={handleTransactionChange}
           onAmountTextChange={setAmountText}
-          onAmountParsedChange={parsed => setFormData(prev => ({ ...prev, amount: parsed ?? 0 }))}
+          onAmountParsedChange={handleTransactionAmountParsed}
           onClearError={field => setFormErrors({ ...formErrors, [field]: undefined })}
         />
       </AppModal>
