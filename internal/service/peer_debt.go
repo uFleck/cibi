@@ -39,11 +39,29 @@ func (s *PeerDebtService) ListByFriend(friendID uuid.UUID) ([]sqlite.PeerDebt, e
 	return debts, nil
 }
 
+// ListByFriendAndAccount returns all debts for a friend scoped by account.
+func (s *PeerDebtService) ListByFriendAndAccount(friendID, accountID uuid.UUID) ([]sqlite.PeerDebt, error) {
+	debts, err := s.repo.GetByFriendAndAccount(friendID, accountID)
+	if err != nil {
+		return nil, fmt.Errorf("service.ListByFriendAndAccount: %w", err)
+	}
+	return debts, nil
+}
+
 // ListAll returns all peer debts across all friends.
 func (s *PeerDebtService) ListAll() ([]sqlite.PeerDebt, error) {
 	debts, err := s.repo.GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("service.ListAll: %w", err)
+	}
+	return debts, nil
+}
+
+// ListAllByAccount returns all peer debts for one account.
+func (s *PeerDebtService) ListAllByAccount(accountID uuid.UUID) ([]sqlite.PeerDebt, error) {
+	debts, err := s.repo.GetAllByAccount(accountID)
+	if err != nil {
+		return nil, fmt.Errorf("service.ListAllByAccount: %w", err)
 	}
 	return debts, nil
 }
@@ -103,6 +121,15 @@ func (s *PeerDebtService) GetGlobalBalance() (sqlite.GlobalPeerBalance, error) {
 	return b, nil
 }
 
+// GetGlobalBalanceByAccount returns aggregated balance summary scoped to one account.
+func (s *PeerDebtService) GetGlobalBalanceByAccount(accountID uuid.UUID) (sqlite.GlobalPeerBalance, error) {
+	b, err := s.repo.GetGlobalBalanceByAccount(accountID)
+	if err != nil {
+		return b, fmt.Errorf("service.GetGlobalBalanceByAccount: %w", err)
+	}
+	return b, nil
+}
+
 // GetFriendDebtBreakdown returns per-debt breakdown of active debts the user owes friends,
 // with computed next payment amount and due date.
 func (s *PeerDebtService) GetFriendDebtBreakdown() ([]FriendDebtItem, error) {
@@ -154,12 +181,71 @@ func (s *PeerDebtService) GetFriendDebtBreakdown() ([]FriendDebtItem, error) {
 	return items, nil
 }
 
+// GetFriendDebtBreakdownByAccount returns breakdown scoped to one account.
+func (s *PeerDebtService) GetFriendDebtBreakdownByAccount(accountID uuid.UUID) ([]FriendDebtItem, error) {
+	rows, err := s.repo.GetActiveUserDebtsWithFriendByAccount(accountID)
+	if err != nil {
+		return nil, fmt.Errorf("service.GetFriendDebtBreakdownByAccount: %w", err)
+	}
+	items := make([]FriendDebtItem, 0, len(rows))
+	for _, r := range rows {
+		totalAbs := -r.Amount
+		item := FriendDebtItem{
+			FriendName:        r.FriendName,
+			TotalAmount:       totalAbs,
+			IsInstallment:     r.IsInstallment,
+			TotalInstallments: r.TotalInstallments,
+			PaidInstallments:  r.PaidInstallments,
+		}
+		if r.IsInstallment && r.TotalInstallments > 0 {
+			perInst := totalAbs / r.TotalInstallments
+			item.NextPayment = perInst
+			item.PerInstallAmount = perInst
+			anchorStr := r.Date
+			if r.AnchorDate != nil && *r.AnchorDate != "" {
+				anchorStr = *r.AnchorDate
+			}
+			firstDue, err := time.Parse(time.RFC3339, anchorStr)
+			if err != nil {
+				firstDue, err = time.Parse("2006-01-02", anchorStr)
+			}
+			if err == nil {
+				nextInstNum := r.PaidInstallments + 1
+				var nextDue time.Time
+				if r.Frequency == "weekly" {
+					nextDue = firstDue.AddDate(0, 0, int(nextInstNum-1)*7)
+				} else {
+					nextDue = firstDue.AddDate(0, int(nextInstNum-1), 0)
+				}
+				s := nextDue.UTC().Format(time.RFC3339)
+				item.NextPaymentDate = &s
+			}
+		} else {
+			item.NextPayment = totalAbs
+			item.PerInstallAmount = totalAbs
+			d := r.Date
+			item.NextPaymentDate = &d
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
 // SumNextUserPayment returns the sum of the user's next payment for each active debt.
 // For installment debts: one installment amount. For lump-sum debts: full amount.
 func (s *PeerDebtService) SumNextUserPayment() (int64, error) {
 	v, err := s.repo.SumNextUserPayment()
 	if err != nil {
 		return 0, fmt.Errorf("service.SumNextUserPayment: %w", err)
+	}
+	return v, nil
+}
+
+// SumNextUserPaymentByAccount returns next payment sum scoped to one account.
+func (s *PeerDebtService) SumNextUserPaymentByAccount(accountID uuid.UUID) (int64, error) {
+	v, err := s.repo.SumNextUserPaymentByAccount(accountID)
+	if err != nil {
+		return 0, fmt.Errorf("service.SumNextUserPaymentByAccount: %w", err)
 	}
 	return v, nil
 }

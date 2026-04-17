@@ -12,9 +12,10 @@ interface AccountSelectorProps {
   selectedAccountId: string | null
   onSelectAccount: (accountId: string) => void
   fullWidth?: boolean
+  compact?: boolean
 }
 
-export function AccountSelector({ selectedAccountId, onSelectAccount, fullWidth }: AccountSelectorProps) {
+export function AccountSelector({ selectedAccountId, onSelectAccount, fullWidth, compact = false }: AccountSelectorProps) {
   const { data: accounts = [] } = useQuery({
     queryKey: ['accounts'],
     queryFn: fetchAccounts,
@@ -31,7 +32,7 @@ export function AccountSelector({ selectedAccountId, onSelectAccount, fullWidth 
     <Select value={displayId || ''} onValueChange={onSelectAccount}>
       <SelectTrigger
         size="sm"
-        className={`h-7 text-xs${fullWidth ? ' w-full' : ''}`}
+        className={`${compact ? 'h-8 text-xs' : 'h-10 text-sm'}${fullWidth ? ' w-full' : ''}`}
         title="Switch account"
       >
         <SelectValue placeholder="Select account" />

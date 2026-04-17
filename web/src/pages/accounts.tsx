@@ -6,10 +6,12 @@ import { Skeleton } from 'boneyard-js/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { ValueInput } from '@/components/ui/value-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { AppModal } from '@/components/AppModal'
+import { MobileActionButton } from '@/components/MobileActionButton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   fetchAccounts,
@@ -50,6 +52,7 @@ export function AccountsPage() {
     currency: 'BRL',
   })
   const [formErrors, setFormErrors] = useState<FormErrors>({})
+  const [balanceText, setBalanceText] = useState('0')
   const [scheduleModalAccountId, setScheduleModalAccountId] = useState<string | null>(null)
   const [scheduleForm, setScheduleForm] = useState({
     label: '',
@@ -87,6 +90,7 @@ export function AccountsPage() {
       toast.success('Account created')
       setIsCreating(false)
       setFormData({ name: '', current_balance: 0, currency: 'USD' })
+      setBalanceText('0')
       setFormErrors({})
     },
     onError: (error: Error) => {
@@ -102,6 +106,7 @@ export function AccountsPage() {
       toast.success('Account updated')
       setEditingId(null)
       setFormData({ name: '', current_balance: 0, currency: 'USD' })
+      setBalanceText('0')
       setFormErrors({})
     },
     onError: (error: Error) => {
@@ -198,6 +203,7 @@ export function AccountsPage() {
       current_balance: account.current_balance,
       currency: account.currency,
     })
+    setBalanceText(account.current_balance.toString())
   }
 
   const validate = (): boolean => {
@@ -222,6 +228,7 @@ export function AccountsPage() {
     setEditingId(null)
     setFormErrors({})
     setFormData({ name: '', current_balance: 0, currency: 'USD' })
+    setBalanceText('0')
   }
 
   const openScheduleModal = (accountId: string) => {
@@ -272,7 +279,7 @@ export function AccountsPage() {
       account_id: scheduleModalAccountId,
       frequency: scheduleForm.frequency,
       anchor_date: scheduleForm.anchor_date,
-      amount: parseFloat(scheduleForm.amount),
+      amount: parseFloat(scheduleForm.amount.replace(',', '.')),
       ...(scheduleForm.label ? { label: scheduleForm.label } : {}),
       ...(scheduleForm.day_of_month ? { day_of_month: parseInt(scheduleForm.day_of_month, 10) } : {}),
       ...(scheduleForm.day_of_month_2 ? { day_of_month_2: parseInt(scheduleForm.day_of_month_2, 10) } : {}),
@@ -361,115 +368,167 @@ export function AccountsPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="border rounded-md overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-muted-foreground">
-                  <tr>
-                    <th className="text-left px-3 py-2 font-medium">Account</th>
-                    <th className="text-right px-3 py-2 font-medium">Balance</th>
-                    <th className="text-right px-3 py-2 font-medium w-20">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {accounts.map(account => (
-                    <tr key={account.id} className="hover:bg-muted/30">
-                      <td className="px-3 py-2">
-                        <div className="font-medium truncate">{account.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {account.currency}
-                          {account.is_default && ' · Default'}
+            <>
+              <div className="sm:hidden flex flex-col gap-3">
+                {accounts.map(account => (
+                  <Card key={account.id}>
+                    <CardContent className="py-4 flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-medium">{account.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {account.currency}
+                            {account.is_default && ' · Default'}
+                          </div>
                         </div>
-                      </td>
-                      <td className="px-3 py-2 text-right font-medium tabular-nums">
-                        {account.current_balance.toFixed(2)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex gap-1 justify-end">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                onClick={() => openScheduleModal(account.id)}
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                aria-label="Manage pay schedules"
-                              >
-                                <DollarSign size={14} />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Pay schedules</p>
-                            </TooltipContent>
-                          </Tooltip>
-                          {!account.is_default && (
+                        <div className="font-semibold tabular-nums text-right">{account.current_balance.toFixed(2)}</div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <MobileActionButton
+                          onClick={() => openScheduleModal(account.id)}
+                          icon={DollarSign}
+                          label="Schedules"
+                          variant="outline"
+                        />
+                        {!account.is_default ? (
+                          <MobileActionButton
+                            onClick={() => defaultMutation.mutate(account.id)}
+                            icon={Check}
+                            label="Default"
+                            variant="outline"
+                          />
+                        ) : (
+                          <div />
+                        )}
+                        <MobileActionButton
+                          onClick={() => handleEditClick(account)}
+                          icon={Edit2}
+                          label="Edit"
+                          variant="outline"
+                          aria-label="Edit account"
+                        />
+                        <MobileActionButton
+                          onClick={() => setConfirmDelete(account.id)}
+                          icon={Trash2}
+                          label="Delete"
+                          variant="outline"
+                          aria-label="Delete account"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              <div className="hidden sm:block border rounded-md overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 text-muted-foreground">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">Account</th>
+                      <th className="text-right px-3 py-2 font-medium">Balance</th>
+                      <th className="text-right px-3 py-2 font-medium w-20">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {accounts.map(account => (
+                      <tr key={account.id} className="hover:bg-muted/30">
+                        <td className="px-3 py-2">
+                          <div className="font-medium truncate">{account.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {account.currency}
+                            {account.is_default && ' · Default'}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right font-medium tabular-nums">
+                          {account.current_balance.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex gap-1 justify-end">
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
-                                  onClick={() => defaultMutation.mutate(account.id)}
+                                  onClick={() => openScheduleModal(account.id)}
                                   variant="ghost"
                                   size="icon"
-                                  className="h-7 w-7"
-                                  aria-label="Set as default"
+                                  className="h-9 w-9"
+                                  aria-label="Manage pay schedules"
                                 >
-                                  <Check size={14} />
+                                  <DollarSign size={14} />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>Set as default</p>
+                                <p>Pay schedules</p>
                               </TooltipContent>
                             </Tooltip>
-                          )}
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                onClick={() => handleEditClick(account)}
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                aria-label="Edit account"
-                              >
-                                <Edit2 size={14} />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Edit account</p>
-                            </TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                onClick={() => setConfirmDelete(account.id)}
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                aria-label="Delete account"
-                              >
-                                <Trash2 size={14} />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Delete account</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                            {!account.is_default && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    onClick={() => defaultMutation.mutate(account.id)}
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-9"
+                                    aria-label="Set as default"
+                                  >
+                                    <Check size={14} />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Set as default</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  onClick={() => handleEditClick(account)}
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9"
+                                  aria-label="Edit account"
+                                >
+                                  <Edit2 size={14} />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Edit account</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  onClick={() => setConfirmDelete(account.id)}
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9"
+                                  aria-label="Delete account"
+                                >
+                                  <Trash2 size={14} />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Delete account</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </Skeleton>
 
-      <Dialog open={isCreating || !!editingId} onOpenChange={(open) => !open && handleCancel()}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingId ? 'Edit Account' : 'New Account'}</DialogTitle>
-            <DialogDescription>
-              {editingId ? 'Update account details.' : 'Create a new account.'}
-            </DialogDescription>
-          </DialogHeader>
+      <AppModal
+        open={isCreating || !!editingId}
+        onOpenChange={(open) => !open && handleCancel()}
+        title={editingId ? 'Edit Account' : 'New Account'}
+        description={editingId ? 'Update account details.' : 'Create a new account.'}
+      >
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="flex flex-col gap-2">
               <Label htmlFor="account-name" className="text-xs">Name *</Label>
@@ -491,18 +550,17 @@ export function AccountsPage() {
                 </p>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="account-balance" className="text-xs">Current Balance</Label>
-                <Input
+                <ValueInput
                   id="account-balance"
-                  type="number"
-                  step="0.01"
-                  value={formData.current_balance}
-                  onChange={e =>
+                  value={balanceText}
+                  onValueChange={setBalanceText}
+                  onParsedValueChange={value =>
                     setFormData({
                       ...formData,
-                      current_balance: parseFloat(e.target.value),
+                      current_balance: value ?? 0,
                     })
                   }
                   placeholder="0.00"
@@ -525,7 +583,7 @@ export function AccountsPage() {
                 </Select>
               </div>
             </div>
-            <div className="flex gap-2 pt-4">
+            <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm flex gap-2 pt-4 pb-1">
               <Button type="submit" size="sm" disabled={isPending}>
                 {isPending
                   ? editingId
@@ -546,21 +604,24 @@ export function AccountsPage() {
               </Button>
             </div>
           </form>
-        </DialogContent>
-      </Dialog>
+      </AppModal>
 
-      <div className="h-8" />
+      <div className="h-24 sm:h-8" />
 
-      <Dialog open={!!scheduleModalAccountId} onOpenChange={(open) => !open && closeScheduleModal()}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Pay Schedules
-            </DialogTitle>
-            <DialogDescription>
-              {scheduleModalAccountId ? accounts.find(a => a.id === scheduleModalAccountId)?.name : ''}
-            </DialogDescription>
-          </DialogHeader>
+      <div className="sm:hidden fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] left-4 right-4 z-30">
+        <Button onClick={handleCreateClick} className="h-12 w-full shadow-lg">
+          <Plus size={18} />
+          New Account
+        </Button>
+      </div>
+
+      <AppModal
+        open={!!scheduleModalAccountId}
+        onOpenChange={(open) => !open && closeScheduleModal()}
+        title="Pay Schedules"
+        description={scheduleModalAccountId ? accounts.find(a => a.id === scheduleModalAccountId)?.name : ''}
+        contentClassName="max-h-[80vh] sm:max-w-[calc(100vw-2rem)] lg:max-w-4xl"
+      >
 
           {schedulesLoading ? (
             <div className="flex flex-col gap-2">
@@ -574,71 +635,96 @@ export function AccountsPage() {
               <p className="text-xs text-muted-foreground">Add a schedule to tell CIBI when you get paid.</p>
             </div>
           ) : (
-            <div className="border rounded-md overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-muted-foreground">
-                  <tr>
-                    <th className="text-left px-3 py-2 font-medium">Schedule</th>
-                    <th className="text-right px-3 py-2 font-medium">Amount</th>
-                    <th className="text-right px-3 py-2 font-medium w-20">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {schedules.map((ps: PayScheduleResponse) => (
-                    editingScheduleId === ps.id ? null : (
-                      <tr key={ps.id} className="hover:bg-muted/30">
-                        <td className="px-3 py-2">
+            <>
+              <div className="sm:hidden flex flex-col gap-2">
+                {schedules.map((ps: PayScheduleResponse) => (
+                  editingScheduleId === ps.id ? null : (
+                    <div key={ps.id} className="border rounded-md p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
                           <div className="font-medium">{ps.label ?? ps.frequency}</div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-sm text-muted-foreground">
                             {ps.frequency} · {ps.anchor_date}
                             {ps.day_of_month_2 ? ` · day ${ps.day_of_month_2}` : ''}
                           </div>
-                        </td>
-                        <td className="px-3 py-2 text-right font-medium tabular-nums text-green-600">
-                          +{formatMoney(ps.amount)}
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex gap-1 justify-end">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  onClick={() => startEditSchedule(ps)}
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  aria-label="Edit schedule"
-                                >
-                                  <Edit2 size={14} />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Edit schedule</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  onClick={() => handleDeleteSchedule(ps.id)}
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  aria-label="Delete schedule"
-                                >
-                                  <Trash2 size={14} />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Delete schedule</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                        <div className="text-green-600 font-semibold tabular-nums">+{formatMoney(ps.amount)}</div>
+                      </div>
+                      <div className="flex justify-end gap-2 mt-2">
+                        <MobileActionButton onClick={() => startEditSchedule(ps)} icon={Edit2} label="Edit" variant="outline" />
+                        <MobileActionButton onClick={() => handleDeleteSchedule(ps.id)} icon={Trash2} label="Delete" variant="outline" />
+                      </div>
+                    </div>
+                  )
+                ))}
+              </div>
+
+              <div className="hidden sm:block border rounded-md overflow-x-auto">
+                <table className="min-w-full w-max text-sm">
+                  <thead className="bg-muted/50 text-muted-foreground">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">Schedule</th>
+                      <th className="text-right px-3 py-2 font-medium">Amount</th>
+                      <th className="text-right px-3 py-2 font-medium w-20">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {schedules.map((ps: PayScheduleResponse) => (
+                      editingScheduleId === ps.id ? null : (
+                        <tr key={ps.id} className="hover:bg-muted/30">
+                          <td className="px-3 py-2">
+                            <div className="font-medium">{ps.label ?? ps.frequency}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {ps.frequency} · {ps.anchor_date}
+                              {ps.day_of_month_2 ? ` · day ${ps.day_of_month_2}` : ''}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-right font-medium tabular-nums text-green-600">
+                            +{formatMoney(ps.amount)}
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex gap-1 justify-end">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    onClick={() => startEditSchedule(ps)}
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-9"
+                                    aria-label="Edit schedule"
+                                  >
+                                    <Edit2 size={14} />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Edit schedule</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    onClick={() => handleDeleteSchedule(ps.id)}
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-9"
+                                    aria-label="Delete schedule"
+                                  >
+                                    <Trash2 size={14} />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Delete schedule</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
           {(editingScheduleId || schedules.length === 0 || !editingScheduleId) && (
@@ -690,17 +776,15 @@ export function AccountsPage() {
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="schedule-amount" className="text-xs">Amount ($) *</Label>
-                  <Input
+                  <ValueInput
                     id="schedule-amount"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
                     value={scheduleForm.amount}
-                    onChange={e => {
-                      setScheduleForm({ ...scheduleForm, amount: e.target.value })
+                    onValueChange={value => {
+                      setScheduleForm({ ...scheduleForm, amount: value })
                       if (scheduleFormErrors.amount) setScheduleFormErrors({ ...scheduleFormErrors, amount: undefined })
                     }}
+                    placeholder="0.00"
+                    allowNegative={false}
                   />
                   {scheduleFormErrors.amount && (
                     <p className="text-xs text-destructive">{scheduleFormErrors.amount}</p>
@@ -733,7 +817,7 @@ export function AccountsPage() {
                   </div>
                 )}
               </div>
-              <div className="flex gap-2 mt-4">
+              <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm flex gap-2 mt-4 pt-2 pb-1">
                 <Button type="submit" size="sm" disabled={createScheduleMutation.isPending || updateScheduleMutation.isPending}>
                   {editingScheduleId ? 'Update Schedule' : 'Add Schedule'}
                 </Button>
@@ -745,8 +829,7 @@ export function AccountsPage() {
               </div>
             </form>
           )}
-        </DialogContent>
-      </Dialog>
+      </AppModal>
     </div>
   )
 }

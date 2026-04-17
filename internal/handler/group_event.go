@@ -15,7 +15,8 @@ import (
 // GroupEventServiceIface defines the service contract used by GroupEventHandler.
 type GroupEventServiceIface interface {
 	ListEvents() ([]sqlite.GroupEvent, error)
-	CreateEvent(title, date string, totalAmount int64, notes *string) (sqlite.GroupEvent, error)
+	ListEventsByAccount(accountID uuid.UUID) ([]sqlite.GroupEvent, error)
+	CreateEvent(accountID uuid.UUID, title, date string, totalAmount int64, notes *string) (sqlite.GroupEvent, error)
 	GetEventByID(id uuid.UUID) (sqlite.GroupEvent, error)
 	GetEventByToken(token string) (sqlite.GroupEvent, error)
 	UpdateEvent(id uuid.UUID, title *string, date *string, totalAmount *int64, notes *string) error
@@ -41,6 +42,7 @@ func NewGroupEventHandler(svc *service.GroupEventService) *GroupEventHandler {
 // Request / response types.
 
 type CreateGroupEventRequest struct {
+	AccountID   string   `json:"account_id"   validate:"required"`
 	Title       string   `json:"title"        validate:"required"`
 	Date        string   `json:"date"         validate:"required"`
 	TotalAmount float64  `json:"total_amount" validate:"required"` // dollars
@@ -73,6 +75,7 @@ type ParticipantResponse struct {
 
 type GroupEventResponse struct {
 	ID           string                 `json:"id"`
+	AccountID    string                 `json:"account_id"`
 	Title        string                 `json:"title"`
 	Date         string                 `json:"date"`
 	TotalAmount  float64                `json:"total_amount"` // dollars
@@ -91,6 +94,7 @@ func groupEventToResponse(e sqlite.GroupEvent, participants []sqlite.GroupEventP
 	}
 	resp := GroupEventResponse{
 		ID:           e.ID.String(),
+		AccountID:    e.AccountID.String(),
 		Title:        e.Title,
 		Date:         e.Date,
 		TotalAmount:  float64(e.TotalAmount) / 100.0,
@@ -117,9 +121,17 @@ func groupEventToResponse(e sqlite.GroupEvent, participants []sqlite.GroupEventP
 	return resp
 }
 
-// List handles GET /group-events — returns all events (no participants embedded).
+// List handles GET /group-events?account_id=<uuid> — returns events for an account.
 func (h *GroupEventHandler) List(c echo.Context) error {
-	events, err := h.svc.ListEvents()
+	accountIDStr := c.QueryParam("account_id")
+	if accountIDStr == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "account_id query parameter is required")
+	}
+	accountID, err := uuid.Parse(accountIDStr)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid account_id")
+	}
+	events, err := h.svc.ListEventsByAccount(accountID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -139,8 +151,12 @@ func (h *GroupEventHandler) Create(c echo.Context) error {
 	if err := c.Validate(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
+	accountID, err := uuid.Parse(req.AccountID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid account_id")
+	}
 	totalValue := int64(math.Round(req.TotalAmount * 100))
-	event, err := h.svc.CreateEvent(req.Title, req.Date, totalValue, req.Notes)
+	event, err := h.svc.CreateEvent(accountID, req.Title, req.Date, totalValue, req.Notes)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

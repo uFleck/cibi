@@ -4,12 +4,14 @@ import (
 	"math"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ufleck/cibi/internal/service"
 )
 
 // EngineServiceIface defines the service contract used by CheckHandler.
 type EngineServiceIface interface {
+	CanIBuyIt(accountID uuid.UUID, itemPrice int64) (service.EngineResult, error)
 	CanIBuyItDefault(itemPrice int64) (service.EngineResult, error)
 }
 
@@ -28,7 +30,8 @@ func NewCheckHandler(svc *service.EngineService) *CheckHandler {
 
 // CheckRequest is the request body for POST /check.
 type CheckRequest struct {
-	Amount float64 `json:"amount" validate:"required,gt=0"`
+	Amount    float64 `json:"amount" validate:"required,gt=0"`
+	AccountID *string `json:"account_id"`
 }
 
 // CheckResponse is the response body for POST /check.
@@ -50,8 +53,19 @@ func (h *CheckHandler) Check(c echo.Context) error {
 	if err := c.Validate(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	cents := int64(math.Round(req.Amount))
-	result, err := h.svc.CanIBuyItDefault(cents)
+	cents := int64(math.Round(req.Amount * 100))
+
+	var result service.EngineResult
+	var err error
+	if req.AccountID != nil && *req.AccountID != "" {
+		accountID, parseErr := uuid.Parse(*req.AccountID)
+		if parseErr != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid account_id")
+		}
+		result, err = h.svc.CanIBuyIt(accountID, cents)
+	} else {
+		result, err = h.svc.CanIBuyItDefault(cents)
+	}
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

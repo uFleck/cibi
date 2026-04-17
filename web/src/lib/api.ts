@@ -74,11 +74,11 @@ export function fetchTransactions(accountId: string): Promise<TransactionRespons
   return apiFetch<TransactionResponse[]>(`/api/transactions?account_id=${accountId}`)
 }
 
-export function postCheck(amount: number): Promise<CheckResponse> {
+export function postCheck(amount: number, accountId?: string): Promise<CheckResponse> {
   return apiFetch<CheckResponse>('/api/check', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount }),
+    body: JSON.stringify({ amount, ...(accountId ? { account_id: accountId } : {}) }),
   })
 }
 
@@ -227,6 +227,7 @@ export interface FriendDebtBreakdownItem {
 
 export interface PeerDebtResponse {
   id: string
+  account_id: string
   friend_id: string
   amount: number
   description: string
@@ -248,6 +249,7 @@ export interface ParticipantResponse {
 
 export interface GroupEventResponse {
   id: string
+  account_id: string
   title: string
   date: string
   total_amount: number
@@ -304,6 +306,7 @@ export interface PatchFriendRequest {
 }
 
 export interface CreatePeerDebtRequest {
+  account_id: string
   friend_id: string
   amount: number
   description: string
@@ -324,6 +327,7 @@ export interface PatchPeerDebtRequest {
 }
 
 export interface CreateGroupEventRequest {
+  account_id: string
   title: string
   date: string
   total_amount: number
@@ -371,17 +375,19 @@ export function deleteFriend(id: string): Promise<void> {
   })
 }
 
-export function fetchFriendSummary(): Promise<FriendSummaryResponse> {
-  return apiFetch<FriendSummaryResponse>('/api/friends/summary')
+export function fetchFriendSummary(accountId: string): Promise<FriendSummaryResponse> {
+  return apiFetch<FriendSummaryResponse>(`/api/friends/summary?account_id=${accountId}`)
 }
 
-export function fetchFriendBreakdown(): Promise<FriendDebtBreakdownItem[]> {
-  return apiFetch<FriendDebtBreakdownItem[]>('/api/friends/breakdown')
+export function fetchFriendBreakdown(accountId: string): Promise<FriendDebtBreakdownItem[]> {
+  return apiFetch<FriendDebtBreakdownItem[]>(`/api/friends/breakdown?account_id=${accountId}`)
 }
 
 // Peer Debts
-export function listPeerDebts(friendId?: string): Promise<PeerDebtResponse[]> {
-  const path = friendId ? `/api/peer-debts?friend_id=${friendId}` : '/api/peer-debts'
+export function listPeerDebts(accountId: string, friendId?: string): Promise<PeerDebtResponse[]> {
+  const path = friendId
+    ? `/api/peer-debts?account_id=${accountId}&friend_id=${friendId}`
+    : `/api/peer-debts?account_id=${accountId}`
   return apiFetch<PeerDebtResponse[]>(path)
 }
 
@@ -416,8 +422,8 @@ export function confirmDebt(id: string): Promise<void> {
 }
 
 // Group Events
-export function listGroupEvents(): Promise<GroupEventResponse[]> {
-  return apiFetch<GroupEventResponse[]>('/api/group-events')
+export function listGroupEvents(accountId: string): Promise<GroupEventResponse[]> {
+  return apiFetch<GroupEventResponse[]>(`/api/group-events?account_id=${accountId}`)
 }
 
 export function createGroupEvent(data: CreateGroupEventRequest): Promise<GroupEventResponse> {

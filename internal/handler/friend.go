@@ -27,22 +27,35 @@ var _ FriendServiceIface = (*service.FriendService)(nil)
 // PeerDebtSummaryIface defines the minimal interface needed by FriendsHandler.Summary.
 type PeerDebtSummaryIface interface {
 	GetGlobalBalance() (sqlite.GlobalPeerBalance, error)
+	GetGlobalBalanceByAccount(accountID uuid.UUID) (sqlite.GlobalPeerBalance, error)
 	SumNextUserPayment() (int64, error)
+	SumNextUserPaymentByAccount(accountID uuid.UUID) (int64, error)
 	GetFriendDebtBreakdown() ([]service.FriendDebtItem, error)
+	GetFriendDebtBreakdownByAccount(accountID uuid.UUID) ([]service.FriendDebtItem, error)
 }
 
-// Ensure *service.PeerDebtService satisfies PeerDebtSummaryIface.
+// GroupEventSummaryIface defines group-event aggregates used by dashboard endpoints.
+type GroupEventSummaryIface interface {
+	GetAdminPendingExpenses() ([]sqlite.AdminGroupExpense, error)
+	GetAdminPendingExpensesByAccount(accountID uuid.UUID) ([]sqlite.AdminGroupExpense, error)
+	GetPendingBalanceForAdmin() (sqlite.GroupEventBalance, error)
+	GetPendingBalanceForAdminByAccount(accountID uuid.UUID) (sqlite.GroupEventBalance, error)
+}
+
+// Ensure concrete services satisfy summary interfaces.
 var _ PeerDebtSummaryIface = (*service.PeerDebtService)(nil)
+var _ GroupEventSummaryIface = (*service.GroupEventService)(nil)
 
 // FriendsHandler handles HTTP requests for /friends routes.
 type FriendsHandler struct {
 	svc         FriendServiceIface
 	peerDebtSvc PeerDebtSummaryIface
+	groupSvc    GroupEventSummaryIface
 }
 
 // NewFriendsHandler creates a FriendsHandler wired to the given services.
-func NewFriendsHandler(svc *service.FriendService, peerDebtSvc *service.PeerDebtService) *FriendsHandler {
-	return &FriendsHandler{svc: svc, peerDebtSvc: peerDebtSvc}
+func NewFriendsHandler(svc *service.FriendService, peerDebtSvc *service.PeerDebtService, groupSvc *service.GroupEventService) *FriendsHandler {
+	return &FriendsHandler{svc: svc, peerDebtSvc: peerDebtSvc, groupSvc: groupSvc}
 }
 
 // Request / response types.
@@ -182,14 +195,44 @@ func (h *FriendsHandler) Delete(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// Breakdown handles GET /friends/breakdown — returns per-debt breakdown of active user-owes-friend debts.
+// Breakdown handles GET /friends/breakdown?account_id=<uuid>.
 func (h *FriendsHandler) Breakdown(c echo.Context) error {
-	items, err := h.peerDebtSvc.GetFriendDebtBreakdown()
+	accountIDStr := c.QueryParam("account_id")
+	if accountIDStr == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "account_id query parameter is required")
+	}
+	accountID, err := uuid.Parse(accountIDStr)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid account_id")
+	}
+
+	items, err := h.peerDebtSvc.GetFriendDebtBreakdownByAccount(accountID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	resp := make([]FriendDebtBreakdownItemResponse, len(items))
-	for i, item := range items {
+	groupExpenses, err := h.groupSvc.GetAdminPendingExpensesByAccount(accountID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	combined := make([]service.FriendDebtItem, 0, len(items)+len(groupExpenses))
+	combined = append(combined, items...)
+	for _, ge := range groupExpenses {
+		due := ge.Date
+		combined = append(combined, service.FriendDebtItem{
+			FriendName:        ge.HostName,
+			TotalAmount:       ge.ShareAmount,
+			NextPayment:       ge.ShareAmount,
+			IsInstallment:     false,
+			PerInstallAmount:  ge.ShareAmount,
+			TotalInstallments: 1,
+			PaidInstallments:  0,
+			NextPaymentDate:   &due,
+		})
+	}
+
+	resp := make([]FriendDebtBreakdownItemResponse, len(combined))
+	for i, item := range combined {
 		resp[i] = FriendDebtBreakdownItemResponse{
 			FriendName:        item.FriendName,
 			TotalAmount:       float64(item.TotalAmount) / 100.0,
@@ -204,20 +247,39 @@ func (h *FriendsHandler) Breakdown(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-// Summary handles GET /friends/summary — returns global peer balance totals.
+// Summary handles GET /friends/summary?account_id=<uuid>.
 func (h *FriendsHandler) Summary(c echo.Context) error {
-	bal, err := h.peerDebtSvc.GetGlobalBalance()
+	accountIDStr := c.QueryParam("account_id")
+	if accountIDStr == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "account_id query parameter is required")
+	}
+	accountID, err := uuid.Parse(accountIDStr)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid account_id")
+	}
+
+	bal, err := h.peerDebtSvc.GetGlobalBalanceByAccount(accountID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	nextPayment, err := h.peerDebtSvc.SumNextUserPayment()
+	nextPayment, err := h.peerDebtSvc.SumNextUserPaymentByAccount(accountID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+	groupBal, err := h.groupSvc.GetPendingBalanceForAdminByAccount(accountID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	totalOwedToUser := bal.TotalOwedToUser + groupBal.TheyOweAdmin
+	totalUserOwes := bal.TotalUserOwes + groupBal.AdminOwesHost
+	nextPayment += groupBal.AdminOwesHost
+	net := totalOwedToUser - totalUserOwes
+
 	return c.JSON(http.StatusOK, FriendSummaryResponse{
-		TotalOwedToUser: float64(bal.TotalOwedToUser) / 100.0,
-		TotalUserOwes:   float64(bal.TotalUserOwes) / 100.0,
-		Net:             float64(bal.Net) / 100.0,
+		TotalOwedToUser: float64(totalOwedToUser) / 100.0,
+		TotalUserOwes:   float64(totalUserOwes) / 100.0,
+		Net:             float64(net) / 100.0,
 		NextUserPayment: float64(nextPayment) / 100.0,
 	})
 }

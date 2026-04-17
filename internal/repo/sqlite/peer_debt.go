@@ -12,6 +12,7 @@ import (
 // Amount: positive = friend owes user, negative = user owes friend (in cents).
 type PeerDebt struct {
 	ID                uuid.UUID
+	AccountID         uuid.UUID
 	FriendID          uuid.UUID
 	Amount            int64   // cents; positive = friend owes user, negative = user owes friend
 	Description       string
@@ -55,19 +56,26 @@ type ActiveUserDebt struct {
 type PeerDebtRepo interface {
 	Insert(d PeerDebt) error
 	GetByFriend(friendID uuid.UUID) ([]PeerDebt, error)
+	GetByFriendAndAccount(friendID, accountID uuid.UUID) ([]PeerDebt, error)
 	GetAll() ([]PeerDebt, error)
+	GetAllByAccount(accountID uuid.UUID) ([]PeerDebt, error)
 	GetByID(id uuid.UUID) (PeerDebt, error)
 	Update(id uuid.UUID, amount *int64, description *string, isConfirmed *bool, paidInstallments *int64) error
 	DeleteByID(id uuid.UUID) error
 	GetBalanceByFriend(friendID uuid.UUID) (PeerDebtBalance, error)
+	GetBalanceByFriendAndAccount(friendID, accountID uuid.UUID) (PeerDebtBalance, error)
 	GetGlobalBalance() (GlobalPeerBalance, error)
+	GetGlobalBalanceByAccount(accountID uuid.UUID) (GlobalPeerBalance, error)
 	SumUpcomingPeerObligations(after, onOrBefore time.Time) (int64, error)
+	SumUpcomingPeerObligationsByAccount(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error)
 	// SumNextUserPayment returns the total of the user's next payment for each active debt:
 	// one installment amount for installment debts, full amount for unconfirmed lump-sum debts.
 	SumNextUserPayment() (int64, error)
+	SumNextUserPaymentByAccount(accountID uuid.UUID) (int64, error)
 	// GetActiveUserDebtsWithFriend returns all active debts the user owes to friends,
 	// joined with the friend name for display purposes.
 	GetActiveUserDebtsWithFriend() ([]ActiveUserDebt, error)
+	GetActiveUserDebtsWithFriendByAccount(accountID uuid.UUID) ([]ActiveUserDebt, error)
 	// ConfirmInstallment atomically increments paid_installments (capped at total_installments)
 	// for installment debts, or sets is_confirmed=1 for non-installment debts.
 	ConfirmInstallment(id uuid.UUID) error
@@ -97,10 +105,10 @@ func (r *SqlitePeerDebtRepo) Insert(d PeerDebt) error {
 		anchorDate = *d.AnchorDate
 	}
 	_, err := r.db.Exec(
-		`INSERT INTO PeerDebt (id, friend_id, amount, description, date, is_installment,
+		`INSERT INTO PeerDebt (id, account_id, friend_id, amount, description, date, is_installment,
 		 total_installments, paid_installments, frequency, anchor_date, is_confirmed)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		d.ID.String(), d.FriendID.String(), d.Amount, d.Description, d.Date,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		d.ID.String(), d.AccountID.String(), d.FriendID.String(), d.Amount, d.Description, d.Date,
 		d.IsInstallment, totalInstallments, d.PaidInstallments, frequency, anchorDate, d.IsConfirmed,
 	)
 	if err != nil {
@@ -109,11 +117,15 @@ func (r *SqlitePeerDebtRepo) Insert(d PeerDebt) error {
 	return nil
 }
 
-func scanPeerDebt(idStr, friendIDStr string, totalInstallments sql.NullInt64, frequency, anchorDate sql.NullString, d *PeerDebt) error {
+func scanPeerDebt(idStr, accountIDStr, friendIDStr string, totalInstallments sql.NullInt64, frequency, anchorDate sql.NullString, d *PeerDebt) error {
 	var err error
 	d.ID, err = uuid.Parse(idStr)
 	if err != nil {
 		return fmt.Errorf("parse id uuid: %w", err)
+	}
+	d.AccountID, err = uuid.Parse(accountIDStr)
+	if err != nil {
+		return fmt.Errorf("parse account_id uuid: %w", err)
 	}
 	d.FriendID, err = uuid.Parse(friendIDStr)
 	if err != nil {
@@ -133,7 +145,7 @@ func scanPeerDebt(idStr, friendIDStr string, totalInstallments sql.NullInt64, fr
 
 func (r *SqlitePeerDebtRepo) GetByFriend(friendID uuid.UUID) ([]PeerDebt, error) {
 	rows, err := r.db.Query(
-		`SELECT id, friend_id, amount, description, date, is_installment,
+		`SELECT id, account_id, friend_id, amount, description, date, is_installment,
 		 total_installments, paid_installments, frequency, anchor_date, is_confirmed
 		 FROM PeerDebt WHERE friend_id = ?`,
 		friendID.String(),
@@ -145,9 +157,23 @@ func (r *SqlitePeerDebtRepo) GetByFriend(friendID uuid.UUID) ([]PeerDebt, error)
 	return scanPeerDebts(rows)
 }
 
+func (r *SqlitePeerDebtRepo) GetByFriendAndAccount(friendID, accountID uuid.UUID) ([]PeerDebt, error) {
+	rows, err := r.db.Query(
+		`SELECT id, account_id, friend_id, amount, description, date, is_installment,
+		 total_installments, paid_installments, frequency, anchor_date, is_confirmed
+		 FROM PeerDebt WHERE friend_id = ? AND account_id = ?`,
+		friendID.String(), accountID.String(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("peer_debt.GetByFriendAndAccount: query: %w", err)
+	}
+	defer rows.Close()
+	return scanPeerDebts(rows)
+}
+
 func (r *SqlitePeerDebtRepo) GetAll() ([]PeerDebt, error) {
 	rows, err := r.db.Query(
-		`SELECT id, friend_id, amount, description, date, is_installment,
+		`SELECT id, account_id, friend_id, amount, description, date, is_installment,
 		 total_installments, paid_installments, frequency, anchor_date, is_confirmed
 		 FROM PeerDebt`,
 	)
@@ -158,20 +184,34 @@ func (r *SqlitePeerDebtRepo) GetAll() ([]PeerDebt, error) {
 	return scanPeerDebts(rows)
 }
 
+func (r *SqlitePeerDebtRepo) GetAllByAccount(accountID uuid.UUID) ([]PeerDebt, error) {
+	rows, err := r.db.Query(
+		`SELECT id, account_id, friend_id, amount, description, date, is_installment,
+		 total_installments, paid_installments, frequency, anchor_date, is_confirmed
+		 FROM PeerDebt WHERE account_id = ?`,
+		accountID.String(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("peer_debt.GetAllByAccount: query: %w", err)
+	}
+	defer rows.Close()
+	return scanPeerDebts(rows)
+}
+
 func scanPeerDebts(rows *sql.Rows) ([]PeerDebt, error) {
 	var debts []PeerDebt
 	for rows.Next() {
 		var d PeerDebt
-		var idStr, friendIDStr string
+		var idStr, accountIDStr, friendIDStr string
 		var totalInstallments sql.NullInt64
 		var frequency, anchorDate sql.NullString
 		if err := rows.Scan(
-			&idStr, &friendIDStr, &d.Amount, &d.Description, &d.Date, &d.IsInstallment,
+			&idStr, &accountIDStr, &friendIDStr, &d.Amount, &d.Description, &d.Date, &d.IsInstallment,
 			&totalInstallments, &d.PaidInstallments, &frequency, &anchorDate, &d.IsConfirmed,
 		); err != nil {
 			return nil, fmt.Errorf("peer_debt: scan: %w", err)
 		}
-		if err := scanPeerDebt(idStr, friendIDStr, totalInstallments, frequency, anchorDate, &d); err != nil {
+		if err := scanPeerDebt(idStr, accountIDStr, friendIDStr, totalInstallments, frequency, anchorDate, &d); err != nil {
 			return nil, fmt.Errorf("peer_debt: %w", err)
 		}
 		debts = append(debts, d)
@@ -181,22 +221,22 @@ func scanPeerDebts(rows *sql.Rows) ([]PeerDebt, error) {
 
 func (r *SqlitePeerDebtRepo) GetByID(id uuid.UUID) (PeerDebt, error) {
 	var d PeerDebt
-	var idStr, friendIDStr string
+	var idStr, accountIDStr, friendIDStr string
 	var totalInstallments sql.NullInt64
 	var frequency, anchorDate sql.NullString
 	err := r.db.QueryRow(
-		`SELECT id, friend_id, amount, description, date, is_installment,
+		`SELECT id, account_id, friend_id, amount, description, date, is_installment,
 		 total_installments, paid_installments, frequency, anchor_date, is_confirmed
 		 FROM PeerDebt WHERE id = ?`,
 		id.String(),
 	).Scan(
-		&idStr, &friendIDStr, &d.Amount, &d.Description, &d.Date, &d.IsInstallment,
+		&idStr, &accountIDStr, &friendIDStr, &d.Amount, &d.Description, &d.Date, &d.IsInstallment,
 		&totalInstallments, &d.PaidInstallments, &frequency, &anchorDate, &d.IsConfirmed,
 	)
 	if err != nil {
 		return d, fmt.Errorf("peer_debt.GetByID: %w", err)
 	}
-	if err := scanPeerDebt(idStr, friendIDStr, totalInstallments, frequency, anchorDate, &d); err != nil {
+	if err := scanPeerDebt(idStr, accountIDStr, friendIDStr, totalInstallments, frequency, anchorDate, &d); err != nil {
 		return d, fmt.Errorf("peer_debt.GetByID: %w", err)
 	}
 	return d, nil
@@ -265,6 +305,22 @@ func (r *SqlitePeerDebtRepo) DeleteByID(id uuid.UUID) error {
 	return nil
 }
 
+func (r *SqlitePeerDebtRepo) GetBalanceByFriendAndAccount(friendID, accountID uuid.UUID) (PeerDebtBalance, error) {
+	var b PeerDebtBalance
+	err := r.db.QueryRow(
+		`SELECT
+		    COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0),
+		    COALESCE(ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)), 0)
+		 FROM PeerDebt WHERE friend_id = ? AND account_id = ?`,
+		friendID.String(), accountID.String(),
+	).Scan(&b.FriendOwesUser, &b.UserOwesFriend)
+	if err != nil {
+		return b, fmt.Errorf("peer_debt.GetBalanceByFriendAndAccount: %w", err)
+	}
+	b.Net = b.FriendOwesUser - b.UserOwesFriend
+	return b, nil
+}
+
 func (r *SqlitePeerDebtRepo) GetBalanceByFriend(friendID uuid.UUID) (PeerDebtBalance, error) {
 	var b PeerDebtBalance
 	err := r.db.QueryRow(
@@ -278,6 +334,22 @@ func (r *SqlitePeerDebtRepo) GetBalanceByFriend(friendID uuid.UUID) (PeerDebtBal
 		return b, fmt.Errorf("peer_debt.GetBalanceByFriend: %w", err)
 	}
 	b.Net = b.FriendOwesUser - b.UserOwesFriend
+	return b, nil
+}
+
+func (r *SqlitePeerDebtRepo) GetGlobalBalanceByAccount(accountID uuid.UUID) (GlobalPeerBalance, error) {
+	var b GlobalPeerBalance
+	err := r.db.QueryRow(
+		`SELECT
+		    COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0),
+		    COALESCE(ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)), 0)
+		 FROM PeerDebt WHERE account_id = ?`,
+		accountID.String(),
+	).Scan(&b.TotalOwedToUser, &b.TotalUserOwes)
+	if err != nil {
+		return b, fmt.Errorf("peer_debt.GetGlobalBalanceByAccount: %w", err)
+	}
+	b.Net = b.TotalOwedToUser - b.TotalUserOwes
 	return b, nil
 }
 
@@ -317,6 +389,32 @@ func (r *SqlitePeerDebtRepo) ConfirmInstallment(id uuid.UUID) error {
 	return nil
 }
 
+func (r *SqlitePeerDebtRepo) SumNextUserPaymentByAccount(accountID uuid.UUID) (int64, error) {
+	var sum int64
+	err := r.db.QueryRow(`
+		SELECT COALESCE(ABS(SUM(
+			CASE
+				WHEN is_installment = 1 AND total_installments > 0
+					THEN amount / total_installments
+				ELSE amount
+			END
+		)), 0)
+		FROM PeerDebt
+		WHERE account_id = ?
+		  AND amount < 0
+		  AND (
+		    (is_installment = 1 AND paid_installments < total_installments)
+		    OR
+		    (is_installment = 0 AND is_confirmed = 0)
+		  )`,
+		accountID.String(),
+	).Scan(&sum)
+	if err != nil {
+		return 0, fmt.Errorf("peer_debt.SumNextUserPaymentByAccount: %w", err)
+	}
+	return sum, nil
+}
+
 func (r *SqlitePeerDebtRepo) SumNextUserPayment() (int64, error) {
 	var sum int64
 	err := r.db.QueryRow(`
@@ -339,6 +437,48 @@ func (r *SqlitePeerDebtRepo) SumNextUserPayment() (int64, error) {
 		return 0, fmt.Errorf("peer_debt.SumNextUserPayment: %w", err)
 	}
 	return sum, nil
+}
+
+func (r *SqlitePeerDebtRepo) GetActiveUserDebtsWithFriendByAccount(accountID uuid.UUID) ([]ActiveUserDebt, error) {
+	rows, err := r.db.Query(`
+		SELECT f.name, pd.amount, pd.is_installment,
+		       COALESCE(pd.total_installments, 0),
+		       pd.paid_installments,
+		       COALESCE(pd.frequency, ''),
+		       pd.date,
+		       pd.anchor_date
+		FROM PeerDebt pd
+		JOIN Friend f ON f.id = pd.friend_id
+		WHERE pd.account_id = ?
+		  AND pd.amount < 0
+		  AND (
+		    (pd.is_installment = 1 AND pd.paid_installments < pd.total_installments)
+		    OR
+		    (pd.is_installment = 0 AND pd.is_confirmed = 0)
+		  )
+		ORDER BY f.name, pd.date`, accountID.String())
+	if err != nil {
+		return nil, fmt.Errorf("peer_debt.GetActiveUserDebtsWithFriendByAccount: query: %w", err)
+	}
+	defer rows.Close()
+
+	var result []ActiveUserDebt
+	for rows.Next() {
+		var d ActiveUserDebt
+		var anchorDate sql.NullString
+		if err := rows.Scan(
+			&d.FriendName, &d.Amount, &d.IsInstallment,
+			&d.TotalInstallments, &d.PaidInstallments,
+			&d.Frequency, &d.Date, &anchorDate,
+		); err != nil {
+			return nil, fmt.Errorf("peer_debt.GetActiveUserDebtsWithFriendByAccount: scan: %w", err)
+		}
+		if anchorDate.Valid {
+			d.AnchorDate = &anchorDate.String
+		}
+		result = append(result, d)
+	}
+	return result, rows.Err()
 }
 
 func (r *SqlitePeerDebtRepo) GetActiveUserDebtsWithFriend() ([]ActiveUserDebt, error) {
@@ -380,6 +520,72 @@ func (r *SqlitePeerDebtRepo) GetActiveUserDebtsWithFriend() ([]ActiveUserDebt, e
 		result = append(result, d)
 	}
 	return result, rows.Err()
+}
+
+func (r *SqlitePeerDebtRepo) SumUpcomingPeerObligationsByAccount(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error) {
+	afterStr := after.UTC().Format(time.RFC3339)
+	onOrBeforeStr := onOrBefore.UTC().Format(time.RFC3339)
+
+	var lumpSum int64
+	if err := r.db.QueryRow(
+		`SELECT COALESCE(SUM(amount), 0) FROM PeerDebt
+		 WHERE account_id = ?
+		   AND amount < 0 AND is_installment = 0 AND is_confirmed = 0
+		   AND date > ? AND date < ?`,
+		accountID.String(), afterStr, onOrBeforeStr,
+	).Scan(&lumpSum); err != nil {
+		return 0, fmt.Errorf("peer_debt.SumUpcomingPeerObligationsByAccount: lump sum: %w", err)
+	}
+
+	rows, err := r.db.Query(
+		`SELECT id, amount, total_installments, paid_installments, frequency, date
+		 FROM PeerDebt
+		 WHERE account_id = ?
+		   AND amount < 0
+		   AND is_installment = 1
+		   AND total_installments IS NOT NULL
+		   AND total_installments > 0
+		   AND paid_installments < total_installments`,
+		accountID.String(),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("peer_debt.SumUpcomingPeerObligationsByAccount: query: %w", err)
+	}
+	defer rows.Close()
+
+	var totalInstallmentSum int64
+	for rows.Next() {
+		var id string
+		var amount, totalInst, paidInst int64
+		var freq string
+		var dateStr string
+		if err := rows.Scan(&id, &amount, &totalInst, &paidInst, &freq, &dateStr); err != nil {
+			return 0, fmt.Errorf("peer_debt.SumUpcomingPeerObligationsByAccount: scan: %w", err)
+		}
+
+		instPayment := amount / totalInst
+
+		firstDue, err := time.Parse(time.RFC3339, dateStr)
+		if err != nil {
+			continue
+		}
+
+		nextInstNum := paidInst + 1
+		var nextDue time.Time
+		if freq == "monthly" {
+			nextDue = firstDue.AddDate(0, int(nextInstNum-1), 0)
+		} else if freq == "weekly" {
+			nextDue = firstDue.AddDate(0, 0, int(nextInstNum-1)*7)
+		} else {
+			nextDue = firstDue.AddDate(0, int(nextInstNum-1), 0)
+		}
+
+		if nextDue.After(after) && nextDue.Before(onOrBefore) {
+			totalInstallmentSum += instPayment
+		}
+	}
+
+	return lumpSum + totalInstallmentSum, nil
 }
 
 func (r *SqlitePeerDebtRepo) SumUpcomingPeerObligations(after, onOrBefore time.Time) (int64, error) {

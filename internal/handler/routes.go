@@ -60,7 +60,7 @@ func SetupRoutes(
 	})
 
 	// Friend Ledger handlers.
-	fh := NewFriendsHandler(friendSvc, peerDebtSvc)
+	fh := NewFriendsHandler(friendSvc, peerDebtSvc, groupEventSvc)
 	pdh := NewPeerDebtHandler(peerDebtSvc)
 	geh := NewGroupEventHandler(groupEventSvc)
 	ph := NewPublicHandler(friendSvc, peerDebtSvc, groupEventSvc, profileSvc)

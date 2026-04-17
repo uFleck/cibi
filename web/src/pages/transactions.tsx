@@ -6,11 +6,13 @@ import { Skeleton } from 'boneyard-js/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { ValueInput } from '@/components/ui/value-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { AppModal } from '@/components/AppModal'
+import { MobileActionButton } from '@/components/MobileActionButton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   fetchAccounts,
@@ -317,11 +319,12 @@ export function TransactionsPage() {
             </p>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full sm:w-auto gap-2">
           <Button 
             onClick={() => setShowFilters(!showFilters)} 
             variant={showFilters || hasActiveFilters ? "secondary" : "outline"} 
             size="sm"
+            className="flex-1 sm:flex-none"
           >
             <Filter size={16} />
             Filters
@@ -331,20 +334,16 @@ export function TransactionsPage() {
               </span>
             )}
           </Button>
-          <Button onClick={handleCreateClick} size="sm">
-            <Plus size={16} />
-            New Transaction
-          </Button>
         </div>
       </div>
 
       {showFilters && (
         <Card>
-          <CardContent className="py-3 flex flex-wrap gap-4 items-center">
+          <CardContent className="py-3 grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
             <div className="flex flex-col gap-1">
               <Label className="text-xs">Category</Label>
               <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-32 h-8">
+                <SelectTrigger className="w-full h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -358,7 +357,7 @@ export function TransactionsPage() {
             <div className="flex flex-col gap-1">
               <Label className="text-xs">Type</Label>
               <Select value={filterType} onValueChange={v => setFilterType(v as 'all' | 'recurring' | 'one-time')}>
-                <SelectTrigger className="w-32 h-8">
+                <SelectTrigger className="w-full h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -372,7 +371,7 @@ export function TransactionsPage() {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="self-end"
+                className="w-full sm:w-auto"
                 onClick={() => {
                   setFilterCategory('all')
                   setFilterType('one-time')
@@ -411,167 +410,225 @@ export function TransactionsPage() {
           </Card>
         ) : 
           (recurringTxns.length > 0 || oneTimeTxns.length > 0) ? (
-          <div className="border rounded-md overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-muted-foreground">
-                <tr>
-                  <th className="text-left px-3 py-2 font-medium">
-                    <button 
-                      onClick={() => {
-                        if (sortField === 'description') {
-                          setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
-                        } else {
-                          setSortField('description')
-                          setSortDir('asc')
-                        }
-                      }}
-                      className="inline-flex items-center gap-1 hover:text-foreground"
-                    >
-                      Description
-                      {sortField === 'description' && (
-                        sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
-                      )}
-                    </button>
-                  </th>
-                  <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">
-                    <button 
-                      onClick={() => {
-                        if (sortField === 'date') {
-                          setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
-                        } else {
-                          setSortField('date')
-                          setSortDir('desc')
-                        }
-                      }}
-                      className="inline-flex items-center gap-1 hover:text-foreground"
-                    >
-                      When
-                      {sortField === 'date' && (
-                        sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
-                      )}
-                    </button>
-                  </th>
-                  <th className="text-right px-3 py-2 font-medium">
-                    <button 
-                      onClick={() => {
-                        if (sortField === 'amount') {
-                          setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
-                        } else {
-                          setSortField('amount')
-                          setSortDir('desc')
-                        }
-                      }}
-                      className="inline-flex items-center gap-1 ml-auto hover:text-foreground"
-                    >
-                      Amount
-                      {sortField === 'amount' && (
-                        sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
-                      )}
-                    </button>
-                  </th>
-                  <th className="text-right px-3 py-2 font-medium w-20">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {filteredAndSortedTxns.length === 0 ? (
+          <>
+            <div className="sm:hidden flex flex-col gap-3">
+              {filteredAndSortedTxns.length === 0 ? (
+                <Card>
+                  <CardContent className="py-8 text-center text-muted-foreground">
+                    No transactions match your filters
+                  </CardContent>
+                </Card>
+              ) : (
+                filteredAndSortedTxns.map((txn: TransactionResponse) => (
+                  <Card key={txn.id}>
+                    <CardContent className="py-4 flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-medium">{txn.description}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {txn.category} · {txn.is_recurring ? txn.frequency : 'one-time'}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {txn.is_recurring
+                              ? (txn.next_occurrence
+                                ? formatDate(txn.next_occurrence)
+                                : (txn.anchor_date ? formatDate(txn.anchor_date) : '-'))
+                              : formatDate(txn.timestamp)}
+                          </div>
+                        </div>
+                        <div className={`font-semibold tabular-nums ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        {txn.is_recurring ? (
+                          <MobileActionButton
+                            onClick={() => handleConfirmClick(txn.id)}
+                            icon={Check}
+                            label="Confirm"
+                            variant={confirmSuccessId === txn.id ? 'default' : 'outline'}
+                            disabled={confirmingId === txn.id}
+                          />
+                        ) : <div />}
+                        <MobileActionButton
+                          onClick={() => handleEditClick(txn)}
+                          icon={Edit2}
+                          label="Edit"
+                          variant="outline"
+                        />
+                        <MobileActionButton
+                          onClick={() => setConfirmDelete(txn.id)}
+                          icon={Trash2}
+                          label="Delete"
+                          variant="outline"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+
+            <div className="hidden sm:block border rounded-md overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-muted-foreground">
                   <tr>
-                    <td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">
-                      No transactions match your filters
-                    </td>
+                    <th className="text-left px-3 py-2 font-medium">
+                      <button 
+                        onClick={() => {
+                          if (sortField === 'description') {
+                            setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+                          } else {
+                            setSortField('description')
+                            setSortDir('asc')
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 hover:text-foreground"
+                      >
+                        Description
+                        {sortField === 'description' && (
+                          sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                        )}
+                      </button>
+                    </th>
+                    <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">
+                      <button 
+                        onClick={() => {
+                          if (sortField === 'date') {
+                            setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+                          } else {
+                            setSortField('date')
+                            setSortDir('desc')
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 hover:text-foreground"
+                      >
+                        When
+                        {sortField === 'date' && (
+                          sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                        )}
+                      </button>
+                    </th>
+                    <th className="text-right px-3 py-2 font-medium">
+                      <button 
+                        onClick={() => {
+                          if (sortField === 'amount') {
+                            setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+                          } else {
+                            setSortField('amount')
+                            setSortDir('desc')
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 ml-auto hover:text-foreground"
+                      >
+                        Amount
+                        {sortField === 'amount' && (
+                          sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+                        )}
+                      </button>
+                    </th>
+                    <th className="text-right px-3 py-2 font-medium w-20">Actions</th>
                   </tr>
-                ) : (
-                  filteredAndSortedTxns.map((txn: TransactionResponse) => (
-                    <tr key={txn.id} className="hover:bg-muted/30">
-                      <td className="px-3 py-2">
-                        <div className="font-medium truncate max-w-[150px]">{txn.description}</div>
-                        <div className="text-xs text-muted-foreground sm:hidden">
-                          {txn.category} · {txn.is_recurring ? txn.frequency : 'one-time'}
-                        </div>
-                        <div className="text-xs text-muted-foreground hidden sm:block">
-                          {txn.category} · {txn.is_recurring ? `${txn.frequency} · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : txn.anchor_date?.slice(0, 10)}` : formatDate(txn.timestamp)}
-                        </div>
+                </thead>
+                <tbody className="divide-y">
+                  {filteredAndSortedTxns.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">
+                        No transactions match your filters
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">
-                        {txn.is_recurring 
-                          ? (txn.next_occurrence ? formatDate(txn.next_occurrence) : txn.anchor_date?.slice(0, 10))
-                          : formatDate(txn.timestamp)
-                        }
-                      </td>
-                      <td className={`px-3 py-2 text-right font-medium tabular-nums ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex gap-1 justify-end">
-                          {txn.is_recurring && (
+                    </tr>
+                  ) : (
+                    filteredAndSortedTxns.map((txn: TransactionResponse) => (
+                      <tr key={txn.id} className="hover:bg-muted/30">
+                        <td className="px-3 py-2">
+                          <div className="font-medium truncate max-w-[150px]">{txn.description}</div>
+                          <div className="text-xs text-muted-foreground hidden sm:block">
+                            {txn.category} · {txn.is_recurring ? `${txn.frequency} · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : (txn.anchor_date ? formatDate(txn.anchor_date) : '-')}` : formatDate(txn.timestamp)}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">
+                          {txn.is_recurring 
+                            ? (txn.next_occurrence
+                              ? formatDate(txn.next_occurrence)
+                              : (txn.anchor_date ? formatDate(txn.anchor_date) : '-'))
+                            : formatDate(txn.timestamp)
+                          }
+                        </td>
+                        <td className={`px-3 py-2 text-right font-medium tabular-nums ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex gap-1 justify-end">
+                            {txn.is_recurring && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    onClick={() => handleConfirmClick(txn.id)}
+                                    variant={confirmSuccessId === txn.id ? "default" : "ghost"}
+                                    size="icon"
+                                    className="h-9 w-9"
+                                    disabled={confirmingId === txn.id}
+                                    aria-label="Confirm paid"
+                                  >
+                                    <Check size={14} />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Confirm payment</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
-                                  onClick={() => handleConfirmClick(txn.id)}
-                                  variant={confirmSuccessId === txn.id ? "default" : "ghost"}
+                                  onClick={() => handleEditClick(txn)}
+                                  variant="ghost"
                                   size="icon"
-                                  className="h-7 w-7"
-                                  disabled={confirmingId === txn.id}
-                                  aria-label="Confirm paid"
+                                  className="h-9 w-9"
+                                  aria-label="Edit transaction"
                                 >
-                                  <Check size={14} />
+                                  <Edit2 size={14} />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>Confirm payment</p>
+                                <p>Edit transaction</p>
                               </TooltipContent>
                             </Tooltip>
-                          )}
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                onClick={() => handleEditClick(txn)}
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                aria-label="Edit transaction"
-                              >
-                                <Edit2 size={14} />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Edit transaction</p>
-                            </TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                onClick={() => setConfirmDelete(txn.id)}
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                aria-label="Delete transaction"
-                              >
-                                <Trash2 size={14} />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Delete transaction</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  onClick={() => setConfirmDelete(txn.id)}
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9"
+                                  aria-label="Delete transaction"
+                                >
+                                  <Trash2 size={14} />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Delete transaction</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : null}
       </Skeleton>
 
-      <Dialog open={isCreating || !!editingId} onOpenChange={(open) => !open && handleCancel()}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingId ? 'Edit Transaction' : 'New Transaction'}</DialogTitle>
-            <DialogDescription>
-              {editingId ? 'Update transaction details.' : 'Create a new transaction.'}
-            </DialogDescription>
-          </DialogHeader>
+      <AppModal
+        open={isCreating || !!editingId}
+        onOpenChange={(open) => !open && handleCancel()}
+        title={editingId ? 'Edit Transaction' : 'New Transaction'}
+        description={editingId ? 'Update transaction details.' : 'Create a new transaction.'}
+      >
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             {!editingId && (
               <div className="flex flex-col gap-2">
@@ -591,62 +648,22 @@ export function TransactionsPage() {
                 </Select>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="txn-amount" className="text-xs">Amount *</Label>
-                <Input
+                <ValueInput
                   id="txn-amount"
-                  type="text"
-                  inputMode="text"
                   value={amountText}
-                  onChange={e => {
-                    const raw = e.target.value
+                  onValueChange={raw => {
                     setAmountText(raw)
-                    const parsed = parseFloat(raw.replace(',', '.'))
-                    if (!isNaN(parsed)) {
-                      setFormData({ ...formData, amount: parsed })
-                    }
                     if (formErrors.amount) setFormErrors({ ...formErrors, amount: undefined })
                   }}
+                  onParsedValueChange={parsed => setFormData(prev => ({ ...prev, amount: parsed ?? 0 }))}
                   placeholder="-50.00"
                   aria-invalid={!!formErrors.amount || undefined}
                   aria-describedby={formErrors.amount ? 'txn-amount-error' : undefined}
+                  showSignToggle
                 />
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={formData.amount < 0 || amountText.trim().startsWith('-') ? 'secondary' : 'outline'}
-                    onClick={() => {
-                      const parsed = parseFloat(amountText.replace(',', '.'))
-                      if (!isNaN(parsed)) {
-                        const next = -Math.abs(parsed)
-                        setAmountText(next.toString())
-                        setFormData({ ...formData, amount: next })
-                      } else {
-                        setAmountText('-')
-                        setFormData({ ...formData, amount: 0 })
-                      }
-                    }}
-                  >
-                    Expense (-)
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={formData.amount >= 0 && !amountText.trim().startsWith('-') ? 'secondary' : 'outline'}
-                    onClick={() => {
-                      const parsed = parseFloat(amountText.replace(',', '.'))
-                      if (!isNaN(parsed)) {
-                        const next = Math.abs(parsed)
-                        setAmountText(next.toString())
-                        setFormData({ ...formData, amount: next })
-                      }
-                    }}
-                  >
-                    Income (+)
-                  </Button>
-                </div>
                 {formErrors.amount && (
                   <p id="txn-amount-error" className="text-xs text-destructive">
                     {formErrors.amount}
@@ -673,7 +690,7 @@ export function TransactionsPage() {
                 )}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="txn-category" className="text-xs">Category *</Label>
                 <Select
@@ -736,7 +753,7 @@ export function TransactionsPage() {
                 </div>
               </>
             )}
-            <div className="flex gap-2 pt-4">
+            <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm flex gap-2 pt-4 pb-1">
               <Button type="submit" size="sm" disabled={isPending}>
                 {isPending
                   ? editingId
@@ -757,10 +774,16 @@ export function TransactionsPage() {
               </Button>
             </div>
           </form>
-        </DialogContent>
-      </Dialog>
+      </AppModal>
 
-      <div className="h-8" />
+      <div className="h-24 sm:h-8" />
+
+      <div className="sm:hidden fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] left-4 right-4 z-30">
+        <Button onClick={handleCreateClick} className="h-12 w-full shadow-lg">
+          <Plus size={18} />
+          New Transaction
+        </Button>
+      </div>
     </div>
   )
 }

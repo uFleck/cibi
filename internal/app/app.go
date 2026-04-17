@@ -52,7 +52,7 @@ func New(cfg config.Config) (*App, error) {
 
 	accountsSvc := service.NewAccountsService(iAccRepo)
 	txnsSvc := service.NewTransactionsService(database, iTxnsRepo, iAccRepo)
-	engineSvc := service.NewEngineService(iAccRepo, iTxnsRepo, iPsRepo, iBufRepo, iPeerDebtRepo)
+	engineSvc := service.NewEngineService(iAccRepo, iTxnsRepo, iPsRepo, iBufRepo, iPeerDebtRepo, iGroupEvtRepo)
 	payScheduleSvc := service.NewPayScheduleService(iPsRepo, iAccRepo)
 	friendSvc := service.NewFriendService(iFriendRepo)
 	peerDebtSvc := service.NewPeerDebtService(iPeerDebtRepo)

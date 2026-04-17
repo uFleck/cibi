@@ -29,7 +29,8 @@ type EngineService struct {
 	txnsRepo     sqlite.TransactionsRepo
 	psRepo       sqlite.PayScheduleRepo
 	bufferRepo   sqlite.SafetyBufferRepo
-	peerDebtRepo sqlite.PeerDebtRepo
+	peerDebtRepo  sqlite.PeerDebtRepo
+	groupEventRepo sqlite.GroupEventRepo
 }
 
 // NewEngineService creates a new EngineService.
@@ -39,13 +40,15 @@ func NewEngineService(
 	psRepo sqlite.PayScheduleRepo,
 	bufferRepo sqlite.SafetyBufferRepo,
 	peerDebtRepo sqlite.PeerDebtRepo,
+	groupEventRepo sqlite.GroupEventRepo,
 ) *EngineService {
 	return &EngineService{
-		accRepo:      accRepo,
-		txnsRepo:     txnsRepo,
-		psRepo:       psRepo,
-		bufferRepo:   bufferRepo,
-		peerDebtRepo: peerDebtRepo,
+		accRepo:       accRepo,
+		txnsRepo:      txnsRepo,
+		psRepo:        psRepo,
+		bufferRepo:    bufferRepo,
+		peerDebtRepo:  peerDebtRepo,
+		groupEventRepo: groupEventRepo,
 	}
 }
 
@@ -106,9 +109,15 @@ func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineR
 	// Example: balance=50000, obligations=-20000, threshold=10000 → pp=20000
 
 	// Step 4b: Sum outgoing peer debt obligations (money user owes friends).
-	peerObligations, err := s.peerDebtRepo.SumUpcomingPeerObligations(now, earliestPayday)
+	peerObligations, err := s.peerDebtRepo.SumUpcomingPeerObligationsByAccount(accountID, now, earliestPayday)
 	if err != nil {
 		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: sum peer obligations: %w", err)
+	}
+
+	// Step 4c: Sum admin obligations from friend-hosted group events.
+	groupObligations, err := s.groupEventRepo.SumUpcomingAdminObligationsByAccount(accountID, now, earliestPayday)
+	if err != nil {
+		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: sum group obligations: %w", err)
 	}
 
 	// Step 5: Load safety buffer.
@@ -118,8 +127,8 @@ func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineR
 	}
 
 	// Step 6: Calculate purchasing power.
-	// peerObligations is already <= 0, so adding it reduces purchasing power correctly.
-	purchasingPower := acc.CurrentBalance + obligations + peerObligations - buf.MinThreshold
+	// peerObligations and groupObligations are <= 0; adding them reduces purchasing power.
+	purchasingPower := acc.CurrentBalance + obligations + peerObligations + groupObligations - buf.MinThreshold
 
 	// Step 7: Determine can_buy and buffer_remaining.
 	canBuy := purchasingPower >= itemPrice
@@ -137,8 +146,8 @@ func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineR
 
 	// Cannot buy — check WAIT: will the user afford it after the earliest payday?
 	projectedBalance := acc.CurrentBalance + earliestSchedule.Amount
-	// obligations and peerObligations are already summed for the [now, earliestPayday] window.
-	projectedPurchasingPower := projectedBalance + obligations + peerObligations - buf.MinThreshold
+	// obligations, peerObligations, and groupObligations are summed for [now, earliestPayday].
+	projectedPurchasingPower := projectedBalance + obligations + peerObligations + groupObligations - buf.MinThreshold
 	willAfford := projectedPurchasingPower >= itemPrice
 
 	result := EngineResult{

@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { motion } from 'motion/react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { ValueInput } from '@/components/ui/value-input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatMoney, formatDate } from '@/lib/format'
 import { postCheck, type CheckResponse } from '@/lib/api'
@@ -18,18 +18,22 @@ const RISK_COLORS: Record<string, string> = {
   WAIT: 'var(--color-verdict-wait)',
 }
 
-export function CheckWidget() {
+type CheckWidgetProps = {
+  accountId?: string
+}
+
+export function CheckWidget({ accountId }: CheckWidgetProps) {
   const [state, setState] = useState<WidgetState>('idle')
   const [amount, setAmount] = useState('')
   const [result, setResult] = useState<CheckResponse | null>(null)
 
   async function handleCheck() {
-    const parsed = parseFloat(amount)
+    const parsed = parseFloat(amount.replace(',', '.'))
     if (isNaN(parsed) || parsed <= 0) return
 
     setState('loading')
     try {
-      const res = await postCheck(parsed)
+      const res = await postCheck(parsed, accountId)
       setResult(res)
       setState('verdict')
     } catch (err) {
@@ -51,7 +55,7 @@ export function CheckWidget() {
 
   return (
     <div className="rounded-xl border border-border/60 bg-card px-5 py-5 flex flex-col gap-4">
-      <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+      <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
         Can I Buy It?
       </p>
 
@@ -61,16 +65,14 @@ export function CheckWidget() {
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground select-none text-sm">
               $
             </span>
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
+            <ValueInput
               placeholder="0.00"
               value={amount}
-              onChange={e => setAmount(e.target.value)}
+              onValueChange={setAmount}
               onKeyDown={e => e.key === 'Enter' && handleCheck()}
               disabled={state === 'loading'}
-              className="pl-7 h-11 bg-muted/50 border-border/60 text-base focus-visible:ring-primary/50"
+              inputClassName="pl-7 h-11 bg-muted/50 border-border/60 text-base focus-visible:ring-primary/50"
+              allowNegative={false}
             />
           </div>
           <Tooltip>
@@ -157,7 +159,7 @@ export function CheckWidget() {
                 </div>
 
                 <span
-                  className="text-[10px] font-semibold uppercase tracking-widest px-2 py-1 rounded-md w-fit"
+                  className="text-xs font-semibold uppercase tracking-widest px-2 py-1 rounded-md w-fit"
                   style={{
                     color: RISK_COLORS[result!.risk_level],
                     background: `${RISK_COLORS[result!.risk_level]}1a`,

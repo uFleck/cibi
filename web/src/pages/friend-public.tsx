@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { fetchPublicFriend, confirmPublicFriendGroupPayment, type PeerDebtResponse, type PublicFriendGroupResponse } from '@/lib/api'
 import { formatMoney, formatDate } from '@/lib/format'
+import { copyToClipboard } from '@/lib/clipboard'
 import { publicFriendRoute } from '@/router'
 import { ChevronDown, ChevronUp, Check, Copy } from 'lucide-react'
 
@@ -130,13 +131,16 @@ export function FriendPublicPage() {
     .filter(g => !g.is_confirmed)
     .reduce((sum, g) => sum + g.share_amount, 0)
 
-  // Calculate total from remaining amounts
+  // Calculate total from remaining amounts (exclude fully paid debts)
   const totalAmount = data.debts.reduce((sum, debt) => {
+    if (debt.is_confirmed) return sum
+
     if (debt.is_installment && debt.total_installments && debt.total_installments > 0) {
       const installmentAmount = debt.amount / debt.total_installments
       const remainingInstallments = debt.total_installments - debt.paid_installments
       return sum + (installmentAmount * remainingInstallments)
     }
+
     return sum + debt.amount
   }, 0)
 
@@ -159,7 +163,41 @@ export function FriendPublicPage() {
                   <span className="font-semibold tabular-nums">{formatMoney(pendingGroupTotal)}</span>
                 </p>
               )}
-              <div className="overflow-x-auto">
+              <div className="sm:hidden flex flex-col gap-2">
+                {groups.map(group => {
+                  const status = groupStatus(group)
+                  return (
+                    <div key={group.event_id} className="border rounded-md p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-medium">{group.title}</div>
+                          <div className="text-sm text-muted-foreground">{formatDate(group.date)} · {group.host_name}</div>
+                        </div>
+                        <div className="tabular-nums font-semibold">{formatMoney(group.share_amount)}</div>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between">
+                        <Badge variant={status.variant}>{status.label}</Badge>
+                        {group.host_pix_key && (
+                          <Button
+                            variant="outline"
+                            className="h-9"
+                            onClick={async () => {
+                              const ok = await copyToClipboard(group.host_pix_key!)
+                              if (ok) toast.success('Host PIX copied')
+                              else toast.error('Failed to copy PIX key')
+                            }}
+                          >
+                            <Copy size={14} />
+                            Copy PIX
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-muted-foreground text-xs border-b border-border/40">
@@ -191,14 +229,11 @@ export function FriendPublicPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7"
+                                className="h-9 w-9"
                                 onClick={async () => {
-                                  try {
-                                    await navigator.clipboard.writeText(group.host_pix_key!)
-                                    toast.success('Host PIX copied')
-                                  } catch {
-                                    toast.error('Failed to copy PIX key')
-                                  }
+                                  const ok = await copyToClipboard(group.host_pix_key!)
+                                  if (ok) toast.success('Host PIX copied')
+                                  else toast.error('Failed to copy PIX key')
                                 }}
                                 aria-label="Copy host PIX"
                               >
@@ -232,43 +267,72 @@ export function FriendPublicPage() {
                 {group.participants.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No participants to confirm.</p>
                 ) : (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-muted-foreground text-xs border-b border-border/40">
-                        <th className="text-left pb-1 pr-2">Participant</th>
-                        <th className="text-right pb-1 pr-2">Share</th>
-                        <th className="text-left pb-1 pr-2">Status</th>
-                        <th className="text-right pb-1">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <>
+                    <div className="sm:hidden flex flex-col gap-2">
                       {group.participants.map(p => (
-                        <tr key={p.friend_id} className="border-b border-border/20 last:border-0">
-                          <td className="py-1 pr-2">{p.friend_name}</td>
-                          <td className="py-1 pr-2 text-right tabular-nums">{formatMoney(p.share_amount)}</td>
-                          <td className="py-1 pr-2">
+                        <div key={p.friend_id} className="border rounded-md p-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="font-medium">{p.friend_name}</div>
+                            <div className="tabular-nums">{formatMoney(p.share_amount)}</div>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between">
                             <Badge variant={p.is_confirmed ? 'default' : 'outline'}>
                               {p.is_confirmed ? 'Confirmed' : 'Pending'}
                             </Badge>
-                          </td>
-                          <td className="py-1 text-right">
                             {!p.is_confirmed && (
                               <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
+                                variant="outline"
+                                className="h-9"
                                 onClick={() => confirmGroupPaymentMutation.mutate({ eventId: group.event_id, friendId: p.friend_id })}
                                 disabled={confirmGroupPaymentMutation.isPending}
-                                aria-label="Confirm participant payment"
                               >
                                 <Check size={14} />
+                                Confirm
                               </Button>
                             )}
-                          </td>
-                        </tr>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+
+                    <table className="hidden sm:table w-full text-sm">
+                      <thead>
+                        <tr className="text-muted-foreground text-xs border-b border-border/40">
+                          <th className="text-left pb-1 pr-2">Participant</th>
+                          <th className="text-right pb-1 pr-2">Share</th>
+                          <th className="text-left pb-1 pr-2">Status</th>
+                          <th className="text-right pb-1">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.participants.map(p => (
+                          <tr key={p.friend_id} className="border-b border-border/20 last:border-0">
+                            <td className="py-1 pr-2">{p.friend_name}</td>
+                            <td className="py-1 pr-2 text-right tabular-nums">{formatMoney(p.share_amount)}</td>
+                            <td className="py-1 pr-2">
+                              <Badge variant={p.is_confirmed ? 'default' : 'outline'}>
+                                {p.is_confirmed ? 'Confirmed' : 'Pending'}
+                              </Badge>
+                            </td>
+                            <td className="py-1 text-right">
+                              {!p.is_confirmed && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9"
+                                  onClick={() => confirmGroupPaymentMutation.mutate({ eventId: group.event_id, friendId: p.friend_id })}
+                                  disabled={confirmGroupPaymentMutation.isPending}
+                                  aria-label="Confirm participant payment"
+                                >
+                                  <Check size={14} />
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
                 )}
               </div>
             ))}
@@ -284,78 +348,114 @@ export function FriendPublicPage() {
           {data.debts.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">No debts recorded</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-muted-foreground text-xs border-b border-border/40">
-                    <th className="text-left pb-2 pr-3">Date</th>
-                    <th className="text-left pb-2 pr-3">Description</th>
-                    <th className="text-right pb-2 pr-3">Remaining</th>
-                    <th className="text-left pb-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.debts.map(debt => {
-                    const status = debtStatusLabel(debt)
-                    const nextPayDate = calculateNextPayDate(debt)
-                    // For installment debts, calculate remaining amount
-                    let displayAmount = debt.amount
-                    if (debt.is_installment && debt.total_installments && debt.total_installments > 0) {
-                      const installmentAmount = debt.amount / debt.total_installments
-                      const remainingInstallments = debt.total_installments - debt.paid_installments
-                      displayAmount = installmentAmount * remainingInstallments
-                    }
-                    const installmentAmount = debt.is_installment && debt.total_installments
-                      ? debt.amount / debt.total_installments
-                      : null
-                    return (
-                      <tr key={debt.id} className="border-b border-border/20 last:border-0">
-                        <td className="py-2 pr-3 whitespace-nowrap">
-                          {nextPayDate ? formatDate(nextPayDate) : '-'}
-                        </td>
-                        <td className="py-2 pr-3">{debt.description}</td>
-                        <td
-                          className={`py-2 pr-3 text-right tabular-nums ${
-                            displayAmount < 0 ? 'text-red-500' : 'text-green-600'
-                          }`}
-                        >
-                          {installmentAmount != null ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="cursor-default underline decoration-dotted">
-                                  {formatMoney(displayAmount)}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {formatMoney(installmentAmount)} per installment
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            formatMoney(displayAmount)
-                          )}
-                        </td>
-                        <td className="py-2">
-                          <Badge variant={status.variant}>{status.label}</Badge>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t border-border/60">
-                    <td className="py-3 pr-3 font-semibold" colSpan={2}>Total</td>
-                    <td
-                      className={`py-3 pr-3 text-right font-semibold tabular-nums ${
-                        totalAmount < 0 ? 'text-red-500' : 'text-green-600'
-                      }`}
-                    >
-                      {formatMoney(totalAmount)}
-                    </td>
-                    <td />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            <>
+              <div className="sm:hidden flex flex-col gap-2">
+                {data.debts.map(debt => {
+                  const status = debtStatusLabel(debt)
+                  const nextPayDate = calculateNextPayDate(debt)
+                  let displayAmount = debt.amount
+                  if (debt.is_installment && debt.total_installments && debt.total_installments > 0) {
+                    const installmentAmount = debt.amount / debt.total_installments
+                    const remainingInstallments = debt.total_installments - debt.paid_installments
+                    displayAmount = installmentAmount * remainingInstallments
+                  }
+                  return (
+                    <div key={debt.id} className="border rounded-md p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-medium">{debt.description}</div>
+                          <div className="text-sm text-muted-foreground">{nextPayDate ? formatDate(nextPayDate) : '-'}</div>
+                        </div>
+                        <div className={`font-semibold tabular-nums ${displayAmount < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                          {formatMoney(displayAmount)}
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <Badge variant={status.variant}>{status.label}</Badge>
+                      </div>
+                    </div>
+                  )
+                })}
+                <div className="flex items-center justify-between border-t border-border/60 pt-2 mt-1">
+                  <span className="font-semibold">Total</span>
+                  <span className={`font-semibold tabular-nums ${totalAmount < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                    {formatMoney(totalAmount)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-muted-foreground text-xs border-b border-border/40">
+                      <th className="text-left pb-2 pr-3">Date</th>
+                      <th className="text-left pb-2 pr-3">Description</th>
+                      <th className="text-right pb-2 pr-3">Remaining</th>
+                      <th className="text-left pb-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.debts.map(debt => {
+                      const status = debtStatusLabel(debt)
+                      const nextPayDate = calculateNextPayDate(debt)
+                      let displayAmount = debt.amount
+                      if (debt.is_installment && debt.total_installments && debt.total_installments > 0) {
+                        const installmentAmount = debt.amount / debt.total_installments
+                        const remainingInstallments = debt.total_installments - debt.paid_installments
+                        displayAmount = installmentAmount * remainingInstallments
+                      }
+                      const installmentAmount = debt.is_installment && debt.total_installments
+                        ? debt.amount / debt.total_installments
+                        : null
+                      return (
+                        <tr key={debt.id} className="border-b border-border/20 last:border-0">
+                          <td className="py-2 pr-3 whitespace-nowrap">
+                            {nextPayDate ? formatDate(nextPayDate) : '-'}
+                          </td>
+                          <td className="py-2 pr-3">{debt.description}</td>
+                          <td
+                            className={`py-2 pr-3 text-right tabular-nums ${
+                              displayAmount < 0 ? 'text-red-500' : 'text-green-600'
+                            }`}
+                          >
+                            {installmentAmount != null ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-default underline decoration-dotted">
+                                    {formatMoney(displayAmount)}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {formatMoney(installmentAmount)} per installment
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              formatMoney(displayAmount)
+                            )}
+                          </td>
+                          <td className="py-2">
+                            <Badge variant={status.variant}>{status.label}</Badge>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-border/60">
+                      <td className="py-3 pr-3 font-semibold" colSpan={2}>Total</td>
+                      <td
+                        className={`py-3 pr-3 text-right font-semibold tabular-nums ${
+                          totalAmount < 0 ? 'text-red-500' : 'text-green-600'
+                        }`}
+                      >
+                        {formatMoney(totalAmount)}
+                      </td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

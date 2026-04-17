@@ -15,7 +15,7 @@ const FREQUENCIES: { value: Frequency; label: string }[] = [
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+    <label className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
       {children}
     </label>
   )
@@ -66,7 +66,7 @@ export function PayScheduleForm() {
 
   return (
     <div className="rounded-xl border border-border/60 bg-card px-5 py-5">
-      <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground mb-5">
+      <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-5">
         Pay Schedule
       </p>
 

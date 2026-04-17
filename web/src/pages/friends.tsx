@@ -1,13 +1,17 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Copy, Eye, Trash2, Check, Save, X } from 'lucide-react'
+import { Plus, Trash2, Check, Save, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { ValueInput } from '@/components/ui/value-input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { AppModal } from '@/components/AppModal'
+import { CompactEntityTable } from '@/components/CompactEntityTable'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   listFriends,
@@ -24,13 +28,12 @@ import {
   deleteGroupEvent,
   getGroupEvent,
   setParticipants,
-  fetchProfile,
-  updateProfile,
   type FriendResponse,
   type PeerDebtResponse,
   type GroupEventResponse,
 } from '@/lib/api'
 import { formatMoney, formatDate } from '@/lib/format'
+import { AccountContext } from '@/App'
 
 interface CreateFriendFormState {
   name: string
@@ -49,11 +52,21 @@ interface AddDebtFormState {
   description: string
   amount: string
   date: string
+  is_installment: boolean
+  total_installments: string
+  frequency: 'weekly' | 'monthly'
 }
 
 const EMPTY_FRIEND_FORM: CreateFriendFormState = { name: '', notes: '', pix_key: '' }
 const EMPTY_EVENT_FORM: CreateEventFormState = { title: '', date: '', total_amount: '', notes: '' }
-const EMPTY_DEBT_FORM: AddDebtFormState = { description: '', amount: '', date: '' }
+const EMPTY_DEBT_FORM: AddDebtFormState = {
+  description: '',
+  amount: '',
+  date: '',
+  is_installment: false,
+  total_installments: '',
+  frequency: 'monthly',
+}
 
 function debtStatus(debt: PeerDebtResponse): { label: string; variant: 'default' | 'secondary' | 'outline' } {
   if (debt.is_confirmed) return { label: 'Paid', variant: 'default' }
@@ -127,10 +140,12 @@ async function copyToClipboard(text: string): Promise<boolean> {
 
 function FriendDetailsModal({
   friend,
+  accountId,
   open,
   onOpenChange,
 }: {
   friend: FriendResponse | null
+  accountId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
@@ -149,9 +164,9 @@ function FriendDetailsModal({
   }, [friend])
 
   const { data: debts = [], isLoading: debtsLoading } = useQuery({
-    queryKey: ['peer-debts', friend?.id],
-    queryFn: () => listPeerDebts(friend!.id),
-    enabled: open && !!friend,
+    queryKey: ['peer-debts', accountId, friend?.id],
+    queryFn: () => listPeerDebts(accountId!, friend!.id),
+    enabled: open && !!friend && !!accountId,
   })
 
   const renameMutation = useMutation({
@@ -167,7 +182,7 @@ function FriendDetailsModal({
     mutationFn: () => deleteFriend(friend!.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['friends'] })
-      queryClient.invalidateQueries({ queryKey: ['peer-debts-all'] })
+      queryClient.invalidateQueries({ queryKey: ['peer-debts-all', accountId] })
       toast.success('Friend deleted')
       onOpenChange(false)
     },
@@ -177,14 +192,22 @@ function FriendDetailsModal({
   const addDebtMutation = useMutation({
     mutationFn: () =>
       createPeerDebt({
+        account_id: accountId!,
         friend_id: friend!.id,
         description: debtForm.description,
-        amount: Math.round(parseFloat(debtForm.amount) * 100),
+        amount: Math.round(parseFloat(debtForm.amount.replace(',', '.')) * 100),
         date: debtForm.date,
+        ...(debtForm.is_installment
+          ? {
+              is_installment: true,
+              total_installments: parseInt(debtForm.total_installments, 10),
+              frequency: debtForm.frequency,
+            }
+          : {}),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['peer-debts', friend?.id] })
-      queryClient.invalidateQueries({ queryKey: ['peer-debts-all'] })
+      queryClient.invalidateQueries({ queryKey: ['peer-debts', accountId, friend?.id] })
+      queryClient.invalidateQueries({ queryKey: ['peer-debts-all', accountId] })
       toast.success('Debt added')
       setDebtForm(EMPTY_DEBT_FORM)
       setShowAddDebt(false)
@@ -195,8 +218,8 @@ function FriendDetailsModal({
   const confirmMutation = useMutation({
     mutationFn: (id: string) => confirmDebt(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['peer-debts', friend?.id] })
-      queryClient.invalidateQueries({ queryKey: ['peer-debts-all'] })
+      queryClient.invalidateQueries({ queryKey: ['peer-debts', accountId, friend?.id] })
+      queryClient.invalidateQueries({ queryKey: ['peer-debts-all', accountId] })
       toast.success('Debt confirmed')
     },
     onError: () => toast.error('Failed to confirm debt'),
@@ -205,8 +228,8 @@ function FriendDetailsModal({
   const deleteDebtMutation = useMutation({
     mutationFn: (id: string) => deletePeerDebt(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['peer-debts', friend?.id] })
-      queryClient.invalidateQueries({ queryKey: ['peer-debts-all'] })
+      queryClient.invalidateQueries({ queryKey: ['peer-debts', accountId, friend?.id] })
+      queryClient.invalidateQueries({ queryKey: ['peer-debts-all', accountId] })
       toast.success('Debt deleted')
       setDebtToDelete(null)
     },
@@ -215,12 +238,20 @@ function FriendDetailsModal({
 
   function handleAddDebt(e: FormEvent) {
     e.preventDefault()
-    if (!friend) return
+    if (!friend || !accountId) return
 
-    const amount = parseFloat(debtForm.amount)
+    const amount = parseFloat(debtForm.amount.replace(',', '.'))
     if (Number.isNaN(amount)) {
       toast.error('Enter valid amount')
       return
+    }
+
+    if (debtForm.is_installment) {
+      const totalInstallments = parseInt(debtForm.total_installments, 10)
+      if (Number.isNaN(totalInstallments) || totalInstallments <= 0) {
+        toast.error('Enter valid installments')
+        return
+      }
     }
 
     addDebtMutation.mutate()
@@ -231,12 +262,13 @@ function FriendDetailsModal({
   const debtTarget = debts.find(d => d.id === debtToDelete)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Friend Details</DialogTitle>
-          <DialogDescription>Manage friend, debts, link access</DialogDescription>
-        </DialogHeader>
+    <AppModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Friend Details"
+      description="Manage friend, debts, link access"
+      contentClassName="sm:max-w-[calc(100vw-2rem)] lg:max-w-5xl"
+    >
 
         <ConfirmDialog
           open={confirmDeleteFriendOpen}
@@ -276,7 +308,7 @@ function FriendDetailsModal({
             <Button
               size="icon"
               variant="ghost"
-              className="h-8 w-8"
+              className="h-10 w-10"
               onClick={() => {
                 if (!nameDraft.trim()) {
                   toast.error('Name required')
@@ -292,7 +324,7 @@ function FriendDetailsModal({
             <Button
               size="icon"
               variant="ghost"
-              className="h-8 w-8"
+              className="h-10 w-10"
               onClick={() => setConfirmDeleteFriendOpen(true)}
               disabled={deleteFriendMutation.isPending}
               aria-label="Delete friend"
@@ -311,88 +343,138 @@ function FriendDetailsModal({
         ) : debts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">No debts recorded</div>
         ) : (
-          <div className="border rounded-md overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-muted-foreground">
-                <tr>
-                  <th className="text-left px-3 py-2 font-medium">Date</th>
-                  <th className="text-left px-3 py-2 font-medium">Description</th>
-                  <th className="text-right px-3 py-2 font-medium">Remaining</th>
-                  <th className="text-left px-3 py-2 font-medium">Status</th>
-                  <th className="text-right px-3 py-2 font-medium w-24">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {debts.map((debt: PeerDebtResponse) => {
-                  const status = debtStatus(debt)
-                  const nextPayDate = calculateNextPayDate(debt)
-                  const displayAmount = getDisplayAmount(debt)
+          <>
+            <div className="sm:hidden flex flex-col gap-2">
+              {debts.map((debt: PeerDebtResponse) => {
+                const status = debtStatus(debt)
+                const nextPayDate = calculateNextPayDate(debt)
+                const displayAmount = getDisplayAmount(debt)
 
-                  return (
-                    <tr key={debt.id} className="hover:bg-muted/30">
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {nextPayDate ? formatDate(nextPayDate) : '-'}
-                      </td>
-                      <td className="px-3 py-2">{debt.description}</td>
-                      <td
-                        className={`px-3 py-2 text-right font-medium tabular-nums whitespace-nowrap ${
-                          displayAmount < 0 ? 'text-red-500' : 'text-green-600'
-                        }`}
-                      >
+                return (
+                  <div key={debt.id} className="border rounded-md p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-medium">{debt.description}</div>
+                        <div className="text-sm text-muted-foreground">{nextPayDate ? formatDate(nextPayDate) : '-'}</div>
+                      </div>
+                      <div className={`font-semibold tabular-nums ${displayAmount < 0 ? 'text-red-500' : 'text-green-600'}`}>
                         {formatMoney(displayAmount)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <Badge variant={status.variant}>{status.label}</Badge>
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex gap-1 justify-end">
-                          {!debt.is_confirmed && (
+                      </div>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <Badge variant={status.variant}>{status.label}</Badge>
+                      <div className="flex gap-2">
+                        {!debt.is_confirmed && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => confirmMutation.mutate(debt.id)}
+                            disabled={confirmMutation.isPending}
+                            aria-label="Confirm debt"
+                          >
+                            <Check size={14} />
+                            Confirm
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDebtToDelete(debt.id)}
+                          disabled={deleteDebtMutation.isPending}
+                          aria-label="Delete debt"
+                        >
+                          <Trash2 size={14} />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="hidden sm:block border rounded-md overflow-x-auto">
+              <table className="min-w-full w-max text-sm">
+                <thead className="bg-muted/50 text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium">Date</th>
+                    <th className="text-left px-3 py-2 font-medium">Description</th>
+                    <th className="text-right px-3 py-2 font-medium">Remaining</th>
+                    <th className="text-left px-3 py-2 font-medium">Status</th>
+                    <th className="text-right px-3 py-2 font-medium w-24">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {debts.map((debt: PeerDebtResponse) => {
+                    const status = debtStatus(debt)
+                    const nextPayDate = calculateNextPayDate(debt)
+                    const displayAmount = getDisplayAmount(debt)
+
+                    return (
+                      <tr key={debt.id} className="hover:bg-muted/30">
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          {nextPayDate ? formatDate(nextPayDate) : '-'}
+                        </td>
+                        <td className="px-3 py-2">{debt.description}</td>
+                        <td
+                          className={`px-3 py-2 text-right font-medium tabular-nums whitespace-nowrap ${
+                            displayAmount < 0 ? 'text-red-500' : 'text-green-600'
+                          }`}
+                        >
+                          {formatMoney(displayAmount)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <Badge variant={status.variant}>{status.label}</Badge>
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex gap-1 justify-end">
+                            {!debt.is_confirmed && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => confirmMutation.mutate(debt.id)}
+                                disabled={confirmMutation.isPending}
+                                aria-label="Confirm debt"
+                              >
+                                <Check size={14} />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => confirmMutation.mutate(debt.id)}
-                              disabled={confirmMutation.isPending}
-                              aria-label="Confirm debt"
+                              onClick={() => setDebtToDelete(debt.id)}
+                              disabled={deleteDebtMutation.isPending}
+                              aria-label="Delete debt"
                             >
-                              <Check size={14} />
+                              <Trash2 size={14} />
                             </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDebtToDelete(debt.id)}
-                            disabled={deleteDebtMutation.isPending}
-                            aria-label="Delete debt"
-                          >
-                            <Trash2 size={14} />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {showAddDebt ? (
           <form onSubmit={handleAddDebt} className="border rounded-md p-3 space-y-3">
-            <p className="text-xs font-semibold">Add Debt</p>
-            <div className="grid sm:grid-cols-3 gap-2">
+            <p className="text-sm font-semibold">Add Debt</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <Input
                 required
                 value={debtForm.description}
                 onChange={e => setDebtForm({ ...debtForm, description: e.target.value })}
                 placeholder="Description"
               />
-              <Input
+              <ValueInput
                 required
-                type="number"
-                step="0.01"
                 value={debtForm.amount}
-                onChange={e => setDebtForm({ ...debtForm, amount: e.target.value })}
+                onValueChange={value => setDebtForm({ ...debtForm, amount: value })}
                 placeholder="Amount"
+                allowNegative
               />
               <Input
                 required
@@ -401,6 +483,43 @@ function FriendDetailsModal({
                 onChange={e => setDebtForm({ ...debtForm, date: e.target.value })}
               />
             </div>
+
+            <div className="flex items-center gap-3">
+              <Switch
+                id={`debt-installment-${friend.id}`}
+                checked={debtForm.is_installment}
+                onCheckedChange={checked => setDebtForm({ ...debtForm, is_installment: checked })}
+              />
+              <Label htmlFor={`debt-installment-${friend.id}`} className="cursor-pointer">
+                Paid in installments
+              </Label>
+            </div>
+
+            {debtForm.is_installment && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <Input
+                  required
+                  type="number"
+                  min="1"
+                  value={debtForm.total_installments}
+                  onChange={e => setDebtForm({ ...debtForm, total_installments: e.target.value })}
+                  placeholder="Total installments"
+                />
+                <Select
+                  value={debtForm.frequency}
+                  onValueChange={(value: 'weekly' | 'monthly') => setDebtForm({ ...debtForm, frequency: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Frequency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={addDebtMutation.isPending}>Add</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => setShowAddDebt(false)}>Cancel</Button>
@@ -412,8 +531,7 @@ function FriendDetailsModal({
             Add Debt
           </Button>
         )}
-      </DialogContent>
-    </Dialog>
+    </AppModal>
   )
 }
 
@@ -433,6 +551,8 @@ function GroupEventDetailsModal({
   const [confirmDeleteEventOpen, setConfirmDeleteEventOpen] = useState(false)
   const [participantsInput, setParticipantsInput] = useState('')
   const [showParticipantsInput, setShowParticipantsInput] = useState(false)
+  const [highlightParticipantsInput, setHighlightParticipantsInput] = useState(false)
+  const participantsInputRef = useRef<HTMLInputElement>(null)
   const [participantIds, setParticipantIds] = useState<Array<string | null>>([])
   const [hostFriendId, setHostFriendId] = useState<string | null>(null)
   const [participantConfirmedMap, setParticipantConfirmedMap] = useState<Map<string, boolean>>(new Map())
@@ -463,6 +583,7 @@ function GroupEventDetailsModal({
     setHostFriendId(eventDetail?.host_friend_id ?? null)
     setParticipantsInput('')
     setShowParticipantsInput(false)
+    setHighlightParticipantsInput(false)
 
     const map = new Map<string, boolean>()
     for (const p of eventDetail?.participants ?? []) {
@@ -470,6 +591,17 @@ function GroupEventDetailsModal({
     }
     setParticipantConfirmedMap(map)
   }, [open, event, eventDetail])
+
+  useEffect(() => {
+    if (!showParticipantsInput) return
+
+    participantsInputRef.current?.focus()
+    participantsInputRef.current?.select()
+
+    setHighlightParticipantsInput(true)
+    const timer = window.setTimeout(() => setHighlightParticipantsInput(false), 1200)
+    return () => window.clearTimeout(timer)
+  }, [showParticipantsInput])
 
   const renameMutation = useMutation({
     mutationFn: () => updateGroupEvent(event!.id, { title: titleDraft.trim() }),
@@ -641,12 +773,13 @@ function GroupEventDetailsModal({
   if (!event) return null
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Group Event Details</DialogTitle>
-          <DialogDescription>Manage event, participants, link access</DialogDescription>
-        </DialogHeader>
+    <AppModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Group Event Details"
+      description="Manage event, participants, link access"
+      contentClassName="sm:max-w-[calc(100vw-2rem)] lg:max-w-5xl"
+    >
 
         <ConfirmDialog
           open={confirmDeleteEventOpen}
@@ -670,7 +803,7 @@ function GroupEventDetailsModal({
           <Button
             size="icon"
             variant="ghost"
-            className="h-8 w-8"
+            className="h-10 w-10"
             onClick={() => {
               if (!titleDraft.trim()) {
                 toast.error('Title required')
@@ -686,7 +819,7 @@ function GroupEventDetailsModal({
           <Button
             size="icon"
             variant="ghost"
-            className="h-8 w-8"
+            className="h-10 w-10"
             onClick={() => setConfirmDeleteEventOpen(true)}
             disabled={deleteEventMutation.isPending}
             aria-label="Delete event"
@@ -702,6 +835,7 @@ function GroupEventDetailsModal({
         <div className="flex gap-2 items-center">
           {showParticipantsInput ? (
             <Input
+              ref={participantsInputRef}
               value={participantsInput}
               onChange={e => setParticipantsInput(e.target.value)}
               onKeyDown={e => {
@@ -713,16 +847,21 @@ function GroupEventDetailsModal({
                   e.preventDefault()
                   setShowParticipantsInput(false)
                   setParticipantsInput('')
+                  setHighlightParticipantsInput(false)
                 }
               }}
               placeholder="Add participants: lin, Mari, Amanda"
+              className={highlightParticipantsInput ? 'border-primary ring-2 ring-primary/30' : undefined}
               disabled={saveParticipantsMutation.isPending}
             />
           ) : (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowParticipantsInput(true)}
+              onClick={() => {
+                setShowParticipantsInput(true)
+                setHighlightParticipantsInput(true)
+              }}
               disabled={saveParticipantsMutation.isPending}
             >
               <Plus size={14} />
@@ -731,21 +870,25 @@ function GroupEventDetailsModal({
           )}
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold">Host</label>
-          <select
-            className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-sm font-medium">Host</Label>
+          <Select
             value={hostFriendId ?? '__owner__'}
-            onChange={e => {
-              const nextHost = e.target.value === '__owner__' ? null : e.target.value
+            onValueChange={(value) => {
+              const nextHost = value === '__owner__' ? null : value
               persistParticipants(participantIds, participantConfirmedMap, nextHost)
             }}
           >
-            <option value="__owner__">You (admin)</option>
-            {participantIds.filter((id): id is string => id !== null).map(id => (
-              <option key={id} value={id}>{participantLabel(id)}</option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full h-10">
+              <SelectValue placeholder="Select host" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__owner__">You (admin)</SelectItem>
+              {participantIds.filter((id): id is string => id !== null).map(id => (
+                <SelectItem key={id} value={id}>{participantLabel(id)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {isLoading ? (
@@ -757,70 +900,115 @@ function GroupEventDetailsModal({
         ) : participantIds.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">No participants set</div>
         ) : (
-          <div className="border rounded-md overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-muted-foreground">
-                <tr>
-                  <th className="text-left px-3 py-2 font-medium">Participant</th>
-                  <th className="text-right px-3 py-2 font-medium">Share</th>
-                  <th className="text-left px-3 py-2 font-medium">Status</th>
-                  <th className="text-right px-3 py-2 font-medium w-20">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {participantIds.map((friendId, i) => (
-                  <tr key={`${event.id}-${friendId ?? 'host'}-${i}`} className="hover:bg-muted/30">
-                    <td className="px-3 py-2 inline-flex items-center gap-1">
+          <>
+            <div className="sm:hidden flex flex-col gap-2">
+              {participantIds.map((friendId, i) => (
+                <div key={`${event.id}-${friendId ?? 'host'}-${i}`} className="border rounded-md p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="inline-flex items-center gap-1 font-medium">
                       {participantLabel(friendId)}
                       {((hostFriendId === null && friendId === null) || (hostFriendId !== null && friendId === hostFriendId)) && (
                         <Badge variant="secondary">Host</Badge>
                       )}
-                    </td>
-                    <td className="px-3 py-2 text-right font-medium tabular-nums">
-                      {formatMoney(equalShare)}
-                    </td>
-                    <td className="px-3 py-2">
-                      <Badge variant={(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'default' : 'outline'}>
-                        {(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'Confirmed' : 'Pending'}
-                      </Badge>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex justify-end gap-1">
+                    </div>
+                    <span className="tabular-nums font-semibold">{formatMoney(equalShare)}</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <Badge variant={(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'default' : 'outline'}>
+                      {(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'Confirmed' : 'Pending'}
+                    </Badge>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleParticipantConfirmed(friendId)}
+                        aria-label="Toggle payment confirmation"
+                      >
+                        <Check size={14} />
+                        Toggle
+                      </Button>
+                      {friendId !== null && (
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => toggleParticipantConfirmed(friendId)}
-                          aria-label="Toggle payment confirmation"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeParticipant(friendId)}
+                          aria-label="Remove participant"
                         >
-                          <Check size={14} />
+                          <X size={14} />
+                          Remove
                         </Button>
-                        {friendId !== null && (
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden sm:block border rounded-md overflow-x-auto">
+              <table className="min-w-full w-max text-sm">
+                <thead className="bg-muted/50 text-muted-foreground">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium">Participant</th>
+                    <th className="text-right px-3 py-2 font-medium">Share</th>
+                    <th className="text-left px-3 py-2 font-medium">Status</th>
+                    <th className="text-right px-3 py-2 font-medium w-20">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {participantIds.map((friendId, i) => (
+                    <tr key={`${event.id}-${friendId ?? 'host'}-${i}`} className="hover:bg-muted/30">
+                      <td className="px-3 py-2 inline-flex items-center gap-1">
+                        {participantLabel(friendId)}
+                        {((hostFriendId === null && friendId === null) || (hostFriendId !== null && friendId === hostFriendId)) && (
+                          <Badge variant="secondary">Host</Badge>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium tabular-nums">
+                        {formatMoney(equalShare)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <Badge variant={(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'default' : 'outline'}>
+                          {(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'Confirmed' : 'Pending'}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex justify-end gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7"
-                            onClick={() => removeParticipant(friendId)}
-                            aria-label="Remove participant"
+                            className="h-9 w-9"
+                            onClick={() => toggleParticipantConfirmed(friendId)}
+                            aria-label="Toggle payment confirmation"
                           >
-                            <X size={14} />
+                            <Check size={14} />
                           </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                          {friendId !== null && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9"
+                              onClick={() => removeParticipant(friendId)}
+                              aria-label="Remove participant"
+                            >
+                              <X size={14} />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
-      </DialogContent>
-    </Dialog>
+    </AppModal>
   )
 }
 
 export function FriendsPage() {
   const queryClient = useQueryClient()
+  const { selectedAccountId } = useContext(AccountContext)
 
   const [showCreateFriend, setShowCreateFriend] = useState(false)
   const [friendForm, setFriendForm] = useState<CreateFriendFormState>(EMPTY_FRIEND_FORM)
@@ -837,28 +1025,16 @@ export function FriendsPage() {
   })
 
   const { data: groupEvents = [], isLoading: eventsLoading } = useQuery({
-    queryKey: ['group-events'],
-    queryFn: listGroupEvents,
+    queryKey: ['group-events', selectedAccountId],
+    queryFn: () => listGroupEvents(selectedAccountId!),
+    enabled: !!selectedAccountId,
   })
 
   const { data: allDebts = [] } = useQuery({
-    queryKey: ['peer-debts-all'],
-    queryFn: () => listPeerDebts(),
+    queryKey: ['peer-debts-all', selectedAccountId],
+    queryFn: () => listPeerDebts(selectedAccountId!),
+    enabled: !!selectedAccountId,
   })
-
-  const { data: profile } = useQuery({
-    queryKey: ['profile'],
-    queryFn: fetchProfile,
-  })
-
-  const [profileDraft, setProfileDraft] = useState('')
-  const [profilePixDraft, setProfilePixDraft] = useState('')
-
-  useEffect(() => {
-    if (!profile) return
-    if (profile.display_name) setProfileDraft(profile.display_name)
-    setProfilePixDraft(profile.pix_key ?? '')
-  }, [profile])
 
   const friendOverview = useMemo(() => {
     const map = new Map<string, { total: number; openCount: number }>()
@@ -890,21 +1066,13 @@ export function FriendsPage() {
     onError: () => toast.error('Failed to add friend'),
   })
 
-  const updateProfileMutation = useMutation({
-    mutationFn: () => updateProfile({ display_name: profileDraft, pix_key: profilePixDraft.trim() || null }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile'] })
-      toast.success('Your display name was updated')
-    },
-    onError: () => toast.error('Failed to update display name'),
-  })
-
   const createEventMutation = useMutation({
     mutationFn: () =>
       createGroupEvent({
+        account_id: selectedAccountId!,
         title: eventForm.title,
         date: eventForm.date,
-        total_amount: parseFloat(eventForm.total_amount),
+        total_amount: parseFloat(eventForm.total_amount.replace(',', '.')),
         ...(eventForm.notes ? { notes: eventForm.notes } : {}),
       }),
     onSuccess: () => {
@@ -922,9 +1090,14 @@ export function FriendsPage() {
   function handleCreateEvent(e: FormEvent) {
     e.preventDefault()
 
-    const totalAmount = parseFloat(eventForm.total_amount)
+    const totalAmount = parseFloat(eventForm.total_amount.replace(',', '.'))
     if (Number.isNaN(totalAmount)) {
       toast.error('Please enter a valid total amount')
+      return
+    }
+
+    if (!selectedAccountId) {
+      toast.error('Select an account first')
       return
     }
 
@@ -936,97 +1109,11 @@ export function FriendsPage() {
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Friends</h1>
-          <Button size="sm" onClick={() => setShowCreateFriend(v => !v)}>
+          <Button size="sm" onClick={() => setShowCreateFriend(true)}>
             <Plus size={16} />
             Add Friend
           </Button>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Your Public Identity</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            <Input
-              value={profileDraft}
-              onChange={e => setProfileDraft(e.target.value)}
-              placeholder="Your display name"
-            />
-            <Input
-              value={profilePixDraft}
-              onChange={e => setProfilePixDraft(e.target.value)}
-              placeholder="Your PIX key (optional)"
-            />
-            <div>
-              <Button
-                size="sm"
-                onClick={() => updateProfileMutation.mutate()}
-                disabled={updateProfileMutation.isPending || !profileDraft.trim()}
-              >
-                <Save size={14} />
-                Save
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {showCreateFriend && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">New Friend</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form
-                onSubmit={e => {
-                  e.preventDefault()
-                  createFriendMutation.mutate()
-                }}
-                className="flex flex-col gap-4"
-              >
-                <div>
-                  <label className="block text-xs font-semibold mb-1">Name</label>
-                  <Input
-                    required
-                    value={friendForm.name}
-                    onChange={e => setFriendForm({ ...friendForm, name: e.target.value })}
-                    placeholder="Alice"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold mb-1">Notes (optional)</label>
-                  <textarea
-                    className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
-                    rows={2}
-                    value={friendForm.notes}
-                    onChange={e => setFriendForm({ ...friendForm, notes: e.target.value })}
-                    placeholder="Optional notes"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold mb-1">PIX key (optional)</label>
-                  <Input
-                    value={friendForm.pix_key}
-                    onChange={e => setFriendForm({ ...friendForm, pix_key: e.target.value })}
-                    placeholder="CPF, phone, email, random key"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button type="submit" disabled={createFriendMutation.isPending}>Create Friend</Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setShowCreateFriend(false)
-                      setFriendForm(EMPTY_FRIEND_FORM)
-                    }}
-                  >
-                    Discard
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        )}
 
         {friendsLoading ? (
           <div className="flex flex-col gap-2">
@@ -1040,152 +1127,38 @@ export function FriendsPage() {
             <p className="text-xs text-muted-foreground mt-1">Add friend to track debts.</p>
           </div>
         ) : (
-          <div className="border rounded-md overflow-hidden">
-            <table className="w-full text-sm table-fixed">
-              <thead className="bg-muted/50 text-muted-foreground">
-                <tr>
-                  <th className="text-left px-3 py-2 font-medium w-[42%]">Friend</th>
-                  <th className="text-left px-3 py-2 font-medium w-[44%]">Overview</th>
-                  <th className="text-right px-3 py-2 font-medium w-[14%]">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {friends.map(friend => {
-                  const overview = friendOverview.get(friend.id) ?? { total: 0, openCount: 0 }
+          <CompactEntityTable
+            entityLabel="Friend"
+            items={friends.map(friend => {
+              const overview = friendOverview.get(friend.id) ?? { total: 0, openCount: 0 }
 
-                  return (
-                    <tr key={friend.id} className="hover:bg-muted/30">
-                      <td className="px-3 py-2 w-[42%]">
-                        <div className="font-medium truncate">{friend.name}</div>
-                      </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground w-[44%]">
-                        <span className="truncate block">{overview.openCount} open · {formatMoney(overview.total)} total</span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex gap-1 justify-end">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={async () => {
-                                  const ok = await copyToClipboard(`${window.location.origin}/public/friend/${friend.public_token}`)
-                                  if (ok) toast.success('Link copied')
-                                  else toast.error('Failed to copy link')
-                                }}
-                                aria-label="Copy public link"
-                              >
-                                <Copy size={14} />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Copy URL</p>
-                            </TooltipContent>
-                          </Tooltip>
-
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => setActiveFriendId(friend.id)}
-                                aria-label="Access friend details"
-                              >
-                                <Eye size={14} />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Access</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+              return {
+                id: friend.id,
+                primary: friend.name,
+                secondary: `${overview.openCount} open · ${formatMoney(overview.total)} total`,
+                onCopy: async () => {
+                  const ok = await copyToClipboard(`${window.location.origin}/public/friend/${friend.public_token}`)
+                  if (ok) toast.success('Link copied')
+                  else toast.error('Failed to copy link')
+                },
+                onOpen: () => setActiveFriendId(friend.id),
+                copyAriaLabel: 'Copy public link',
+                openAriaLabel: 'Access friend details',
+              }
+            })}
+          />
         )}
       </section>
 
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Group Events</h2>
-          <Button size="sm" onClick={() => setShowCreateEvent(v => !v)}>
+          <Button size="sm" onClick={() => setShowCreateEvent(true)}>
             <Plus size={16} />
             New Event
           </Button>
         </div>
 
-        {showCreateEvent && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">New Group Event</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleCreateEvent} className="flex flex-col gap-4">
-                <div>
-                  <label className="block text-xs font-semibold mb-1">Title</label>
-                  <Input
-                    required
-                    value={eventForm.title}
-                    onChange={e => setEventForm({ ...eventForm, title: e.target.value })}
-                    placeholder="Pizza Night"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">Date</label>
-                    <Input
-                      type="date"
-                      required
-                      value={eventForm.date}
-                      onChange={e => setEventForm({ ...eventForm, date: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1">Total Amount ($)</label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      required
-                      value={eventForm.total_amount}
-                      onChange={e => setEventForm({ ...eventForm, total_amount: e.target.value })}
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold mb-1">Notes (optional)</label>
-                  <textarea
-                    className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
-                    rows={2}
-                    value={eventForm.notes}
-                    onChange={e => setEventForm({ ...eventForm, notes: e.target.value })}
-                    placeholder="Optional notes"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button type="submit" disabled={createEventMutation.isPending}>Create Event</Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setShowCreateEvent(false)
-                      setEventForm(EMPTY_EVENT_FORM)
-                    }}
-                  >
-                    Discard
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        )}
 
         {eventsLoading ? (
           <div className="flex flex-col gap-2">
@@ -1199,75 +1172,153 @@ export function FriendsPage() {
             <p className="text-xs text-muted-foreground mt-1">Create event to split costs.</p>
           </div>
         ) : (
-          <div className="border rounded-md overflow-hidden">
-            <table className="w-full text-sm table-fixed">
-              <thead className="bg-muted/50 text-muted-foreground">
-                <tr>
-                  <th className="text-left px-3 py-2 font-medium w-[42%]">Event</th>
-                  <th className="text-left px-3 py-2 font-medium w-[44%]">Overview</th>
-                  <th className="text-right px-3 py-2 font-medium w-[14%]">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {groupEvents.map(event => (
-                  <tr key={event.id} className="hover:bg-muted/30">
-                    <td className="px-3 py-2 w-[42%]">
-                      <div className="font-medium truncate">{event.title}</div>
-                    </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground w-[44%]">
-                      <span className="truncate block">{formatDate(event.date)} · {formatMoney(event.total_amount)}</span>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex gap-1 justify-end">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={async () => {
-                                const ok = await copyToClipboard(`${window.location.origin}/public/group/${event.public_token}`)
-                                if (ok) toast.success('Link copied')
-                                else toast.error('Failed to copy link')
-                              }}
-                              aria-label="Copy public link"
-                            >
-                              <Copy size={14} />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Copy URL</p>
-                          </TooltipContent>
-                        </Tooltip>
-
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => setActiveEventId(event.id)}
-                              aria-label="Access group event details"
-                            >
-                              <Eye size={14} />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Access</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <CompactEntityTable
+            entityLabel="Event"
+            items={groupEvents.map(event => ({
+              id: event.id,
+              primary: event.title,
+              secondary: `${formatDate(event.date)} · ${formatMoney(event.total_amount)}`,
+              onCopy: async () => {
+                const ok = await copyToClipboard(`${window.location.origin}/public/group/${event.public_token}`)
+                if (ok) toast.success('Link copied')
+                else toast.error('Failed to copy link')
+              },
+              onOpen: () => setActiveEventId(event.id),
+              copyAriaLabel: 'Copy public link',
+              openAriaLabel: 'Access group event details',
+            }))}
+          />
         )}
       </section>
 
+      <AppModal
+        open={showCreateEvent}
+        onOpenChange={(open) => {
+          setShowCreateEvent(open)
+          if (!open) setEventForm(EMPTY_EVENT_FORM)
+        }}
+        title="New Group Event"
+        description="Create event to split costs with friends."
+      >
+        <form onSubmit={handleCreateEvent} className="flex flex-col gap-4">
+          <div>
+            <Label className="block text-sm font-medium mb-1">Title</Label>
+            <Input
+              required
+              value={eventForm.title}
+              onChange={e => setEventForm({ ...eventForm, title: e.target.value })}
+              placeholder="Pizza Night"
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label className="block text-sm font-medium mb-1">Date</Label>
+              <Input
+                type="date"
+                required
+                value={eventForm.date}
+                onChange={e => setEventForm({ ...eventForm, date: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="block text-sm font-medium mb-1">Total Amount ($)</Label>
+              <ValueInput
+                required
+                value={eventForm.total_amount}
+                onValueChange={value => setEventForm({ ...eventForm, total_amount: value })}
+                placeholder="0.00"
+                allowNegative={false}
+              />
+            </div>
+          </div>
+          <div>
+            <Label className="block text-sm font-medium mb-1">Notes (optional)</Label>
+            <Textarea
+              rows={2}
+              value={eventForm.notes}
+              onChange={e => setEventForm({ ...eventForm, notes: e.target.value })}
+              placeholder="Optional notes"
+              className="resize-none"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={createEventMutation.isPending}>Create Event</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowCreateEvent(false)
+                setEventForm(EMPTY_EVENT_FORM)
+              }}
+            >
+              Discard
+            </Button>
+          </div>
+        </form>
+      </AppModal>
+
+      <AppModal
+        open={showCreateFriend}
+        onOpenChange={(open) => {
+          setShowCreateFriend(open)
+          if (!open) setFriendForm(EMPTY_FRIEND_FORM)
+        }}
+        title="New Friend"
+        description="Create friend to track debts and share link."
+      >
+        <form
+          onSubmit={e => {
+            e.preventDefault()
+            createFriendMutation.mutate()
+          }}
+          className="flex flex-col gap-4"
+        >
+          <div>
+            <Label className="block text-sm font-medium mb-1">Name</Label>
+            <Input
+              required
+              value={friendForm.name}
+              onChange={e => setFriendForm({ ...friendForm, name: e.target.value })}
+              placeholder="Alice"
+            />
+          </div>
+          <div>
+            <Label className="block text-sm font-medium mb-1">Notes (optional)</Label>
+            <Textarea
+              rows={2}
+              value={friendForm.notes}
+              onChange={e => setFriendForm({ ...friendForm, notes: e.target.value })}
+              placeholder="Optional notes"
+              className="resize-none"
+            />
+          </div>
+          <div>
+            <Label className="block text-sm font-medium mb-1">PIX key (optional)</Label>
+            <Input
+              value={friendForm.pix_key}
+              onChange={e => setFriendForm({ ...friendForm, pix_key: e.target.value })}
+              placeholder="CPF, phone, email, random key"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={createFriendMutation.isPending}>Create Friend</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowCreateFriend(false)
+                setFriendForm(EMPTY_FRIEND_FORM)
+              }}
+            >
+              Discard
+            </Button>
+          </div>
+        </form>
+      </AppModal>
+
       <FriendDetailsModal
         friend={activeFriend}
+        accountId={selectedAccountId}
         open={!!activeFriend}
         onOpenChange={(open) => {
           if (!open) setActiveFriendId(null)
@@ -1283,7 +1334,9 @@ export function FriendsPage() {
         }}
       />
 
-      <div className="h-8" />
+      <div className="h-24 sm:h-8" />
+
+
     </div>
   )
 }
