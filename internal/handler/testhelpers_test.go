@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -16,13 +17,13 @@ import (
 
 // mockAccountsService satisfies the AccountsServiceIface for handler tests.
 type mockAccountsService struct {
-	listFn         func() ([]sqlite.Account, error)
-	createFn       func(a sqlite.Account) error
-	getDefaultFn   func() (sqlite.Account, error)
-	getByIDFn      func(id uuid.UUID) (sqlite.Account, error)
-	updateFn       func(id uuid.UUID, name *string, balance *int64) error
-	deleteFn       func(id uuid.UUID) error
-	setDefaultFn   func(id uuid.UUID) error
+	listFn       func() ([]sqlite.Account, error)
+	createFn     func(a sqlite.Account) error
+	getDefaultFn func() (sqlite.Account, error)
+	getByIDFn    func(id uuid.UUID) (sqlite.Account, error)
+	updateFn     func(id uuid.UUID, name *string, balance *int64) error
+	deleteFn     func(id uuid.UUID) error
+	setDefaultFn func(id uuid.UUID) error
 }
 
 func (m *mockAccountsService) ListAccounts() ([]sqlite.Account, error) {
@@ -76,11 +77,12 @@ func (m *mockAccountsService) SetDefault(id uuid.UUID) error {
 
 // mockTransactionsService satisfies the TransactionsServiceIface for handler tests.
 type mockTransactionsService struct {
-	listFn      func(accountID uuid.UUID) ([]sqlite.Transaction, error)
-	createFn    func(t sqlite.Transaction) error
-	getByIDFn   func(id uuid.UUID) (sqlite.Transaction, error)
-	updateFn    func(id uuid.UUID, upd sqlite.UpdateTransaction) error
-	deleteFn    func(id uuid.UUID) error
+	listFn             func(accountID uuid.UUID) ([]sqlite.Transaction, error)
+	createFn           func(t sqlite.Transaction) error
+	getByIDFn          func(id uuid.UUID) (sqlite.Transaction, error)
+	updateFn           func(id uuid.UUID, upd sqlite.UpdateTransaction) error
+	deleteFn           func(id uuid.UUID) error
+	confirmRecurringFn func(id uuid.UUID) (time.Time, error)
 }
 
 func (m *mockTransactionsService) ListTransactions(accountID uuid.UUID) ([]sqlite.Transaction, error) {
@@ -114,6 +116,13 @@ func (m *mockTransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.Upd
 func (m *mockTransactionsService) DeleteTransaction(id uuid.UUID) error {
 	if m.deleteFn != nil {
 		return m.deleteFn(id)
+	}
+	panic("not implemented")
+}
+
+func (m *mockTransactionsService) ConfirmRecurring(id uuid.UUID) (time.Time, error) {
+	if m.confirmRecurringFn != nil {
+		return m.confirmRecurringFn(id)
 	}
 	panic("not implemented")
 }
