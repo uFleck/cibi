@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CompactEntityTable } from '@/components/CompactEntityTable'
 import { fetchPublicGroup, type ParticipantResponse } from '@/lib/api'
 import { MoneyValue } from '@/components/ui/money-value'
-import { formatMoney } from '@/lib/format'
 import { copyToClipboard } from '@/lib/clipboard'
 import { publicGroupRoute } from '@/router'
 import { Copy } from 'lucide-react'
@@ -57,7 +56,7 @@ export function GroupPublicPage() {
         <span>{data.date}</span>
         <span>Host: {data.host_name}</span>
         <span className="font-medium text-foreground tabular-nums">
-          {formatMoney(data.total_amount)} total
+          <MoneyValue amount={data.total_amount} currency="BRL" showSign="auto" tone="auto" /> total
         </span>
         {data.host_pix_key && (
           <Button

@@ -32,7 +32,7 @@ import {
   type PeerDebtResponse,
   type GroupEventResponse,
 } from '@/lib/api'
-import { formatMoney, formatDate } from '@/lib/format'
+import { formatDate } from '@/lib/format'
 import { AccountContext } from '@/App'
 
 interface CreateFriendFormState {
@@ -341,9 +341,7 @@ function FriendDetailsModal({
                         <div className="font-medium">{debt.description}</div>
                         <div className="text-sm text-muted-foreground">{nextPayDate ? formatDate(nextPayDate) : '-'}</div>
                       </div>
-                      <div className={`font-semibold tabular-nums ${displayAmount < 0 ? 'text-red-500' : 'text-green-600'}`}>
-                        {formatMoney(displayAmount)}
-                      </div>
+                      <MoneyValue amount={displayAmount} currency="BRL" showSign="auto" tone="auto" className="font-semibold" />
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <Badge variant={status.variant}>{status.label}</Badge>
@@ -400,12 +398,8 @@ function FriendDetailsModal({
                           {nextPayDate ? formatDate(nextPayDate) : '-'}
                         </td>
                         <td className="px-3 py-2">{debt.description}</td>
-                        <td
-                          className={`px-3 py-2 text-right font-medium tabular-nums whitespace-nowrap ${
-                            displayAmount < 0 ? 'text-red-500' : 'text-green-600'
-                          }`}
-                        >
-                          {formatMoney(displayAmount)}
+                        <td className="px-3 py-2 text-right font-medium tabular-nums whitespace-nowrap">
+                          <MoneyValue amount={displayAmount} currency="BRL" showSign="auto" tone="auto" className="font-medium" />
                         </td>
                         <td className="px-3 py-2">
                           <Badge variant={status.variant}>{status.label}</Badge>
@@ -754,7 +748,7 @@ function GroupEventDetailsModal({
         </div>
 
         <div className="text-sm text-muted-foreground">
-          {formatDate(event.date)} · {formatMoney(event.total_amount)}
+          {formatDate(event.date)} · <MoneyValue amount={event.total_amount} currency="BRL" showSign="auto" tone="auto" />
         </div>
 
         <ParticipantEditor

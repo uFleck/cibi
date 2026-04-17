@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { formatMoney } from '@/lib/format'
+import { MoneyValue } from '@/components/ui/money-value'
 
 export interface ParticipantEditorProps {
   eventId: string
@@ -130,8 +130,7 @@ export function ParticipantEditor({
                       <Badge variant="secondary">Host</Badge>
                     )}
                   </div>
-                  <span className="tabular-nums font-semibold">{formatMoney(equalShare)}</span>
-                </div>
+                  <MoneyValue amount={equalShare} currency="BRL" showSign="never" tone="auto" className="font-semibold" />                </div>
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <Badge variant={(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'default' : 'outline'}>
                     {(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'Confirmed' : 'Pending'}
@@ -183,7 +182,7 @@ export function ParticipantEditor({
                       )}
                     </td>
                     <td className="px-3 py-2 text-right font-medium tabular-nums">
-                      {formatMoney(equalShare)}
+                      <MoneyValue amount={equalShare} currency="BRL" showSign="never" tone="auto" className="font-medium" />
                     </td>
                     <td className="px-3 py-2">
                       <Badge variant={(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'default' : 'outline'}>

@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { fetchPublicFriend, confirmPublicFriendGroupPayment, type PeerDebtResponse, type PublicFriendGroupResponse } from '@/lib/api'
-import { formatMoney, formatDate } from '@/lib/format'
+import { formatDate } from '@/lib/format'
+import { MoneyValue } from '@/components/ui/money-value'
 import { copyToClipboard } from '@/lib/clipboard'
 import { publicFriendRoute } from '@/router'
 import { ChevronDown, ChevronUp, Check, Copy } from 'lucide-react'
@@ -160,8 +161,7 @@ export function FriendPublicPage() {
               {pendingGroupTotal > 0 && (
                 <p className="text-sm">
                   You still need to pay the host{groups[0]?.host_name ? ` (${groups[0].host_name})` : ''}:{' '}
-                  <span className="font-semibold tabular-nums">{formatMoney(pendingGroupTotal)}</span>
-                </p>
+                  <MoneyValue amount={pendingGroupTotal} currency="BRL" showSign="never" tone="neutral" className="font-semibold" />                </p>
               )}
               <div className="sm:hidden flex flex-col gap-2">
                 {groups.map(group => {
@@ -173,8 +173,7 @@ export function FriendPublicPage() {
                           <div className="font-medium">{group.title}</div>
                           <div className="text-sm text-muted-foreground">{formatDate(group.date)} · {group.host_name}</div>
                         </div>
-                        <div className="tabular-nums font-semibold">{formatMoney(group.share_amount)}</div>
-                      </div>
+                        <MoneyValue amount={group.share_amount} currency="BRL" showSign="never" tone="neutral" className="font-semibold" />                      </div>
                       <div className="mt-2 flex items-center justify-between">
                         <Badge variant={status.variant}>{status.label}</Badge>
                         {group.host_pix_key && (
@@ -220,8 +219,9 @@ export function FriendPublicPage() {
                             {group.host_name}
                             <Badge variant="secondary">Host</Badge>
                           </td>
-                          <td className="py-2 pr-3 text-right tabular-nums">{formatMoney(group.share_amount)}</td>
-                          <td className="py-2 pr-3">
+                          <td className="py-2 pr-3 text-right tabular-nums">
+                            <MoneyValue amount={group.share_amount} currency="BRL" showSign="never" tone="neutral" />
+                          </td>                          <td className="py-2 pr-3">
                             <Badge variant={status.variant}>{status.label}</Badge>
                           </td>
                           <td className="py-2 text-right">
@@ -273,8 +273,7 @@ export function FriendPublicPage() {
                         <div key={p.friend_id} className="border rounded-md p-2.5">
                           <div className="flex items-center justify-between gap-2">
                             <div className="font-medium">{p.friend_name}</div>
-                            <div className="tabular-nums">{formatMoney(p.share_amount)}</div>
-                          </div>
+                            <MoneyValue amount={p.share_amount} currency="BRL" showSign="never" tone="neutral" />                          </div>
                           <div className="mt-2 flex items-center justify-between">
                             <Badge variant={p.is_confirmed ? 'default' : 'outline'}>
                               {p.is_confirmed ? 'Confirmed' : 'Pending'}
@@ -308,8 +307,9 @@ export function FriendPublicPage() {
                         {group.participants.map(p => (
                           <tr key={p.friend_id} className="border-b border-border/20 last:border-0">
                             <td className="py-1 pr-2">{p.friend_name}</td>
-                            <td className="py-1 pr-2 text-right tabular-nums">{formatMoney(p.share_amount)}</td>
-                            <td className="py-1 pr-2">
+                            <td className="py-1 pr-2 text-right tabular-nums">
+                              <MoneyValue amount={p.share_amount} currency="BRL" showSign="never" tone="neutral" />
+                            </td>                            <td className="py-1 pr-2">
                               <Badge variant={p.is_confirmed ? 'default' : 'outline'}>
                                 {p.is_confirmed ? 'Confirmed' : 'Pending'}
                               </Badge>
@@ -366,9 +366,7 @@ export function FriendPublicPage() {
                           <div className="font-medium">{debt.description}</div>
                           <div className="text-sm text-muted-foreground">{nextPayDate ? formatDate(nextPayDate) : '-'}</div>
                         </div>
-                        <div className={`font-semibold tabular-nums ${displayAmount < 0 ? 'text-red-500' : 'text-green-600'}`}>
-                          {formatMoney(displayAmount)}
-                        </div>
+                        <MoneyValue amount={displayAmount} currency="BRL" showSign="auto" tone="auto" className="font-semibold" />
                       </div>
                       <div className="mt-2">
                         <Badge variant={status.variant}>{status.label}</Badge>
@@ -378,10 +376,7 @@ export function FriendPublicPage() {
                 })}
                 <div className="flex items-center justify-between border-t border-border/60 pt-2 mt-1">
                   <span className="font-semibold">Total</span>
-                  <span className={`font-semibold tabular-nums ${totalAmount < 0 ? 'text-red-500' : 'text-green-600'}`}>
-                    {formatMoney(totalAmount)}
-                  </span>
-                </div>
+                  <MoneyValue amount={totalAmount} currency="BRL" showSign="auto" tone="auto" className="font-semibold" />                </div>
               </div>
 
               <div className="hidden sm:block overflow-x-auto">
@@ -413,24 +408,20 @@ export function FriendPublicPage() {
                             {nextPayDate ? formatDate(nextPayDate) : '-'}
                           </td>
                           <td className="py-2 pr-3">{debt.description}</td>
-                          <td
-                            className={`py-2 pr-3 text-right tabular-nums ${
-                              displayAmount < 0 ? 'text-red-500' : 'text-green-600'
-                            }`}
-                          >
+                          <td className="py-2 pr-3 text-right tabular-nums">
                             {installmentAmount != null ? (
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <span className="cursor-default underline decoration-dotted">
-                                    {formatMoney(displayAmount)}
+                                    <MoneyValue amount={displayAmount} currency="BRL" showSign="auto" tone="auto" />
                                   </span>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  {formatMoney(installmentAmount)} per installment
+                                  <MoneyValue amount={installmentAmount} currency="BRL" showSign="never" tone="neutral" /> per installment
                                 </TooltipContent>
                               </Tooltip>
                             ) : (
-                              formatMoney(displayAmount)
+                              <MoneyValue amount={displayAmount} currency="BRL" showSign="auto" tone="auto" />
                             )}
                           </td>
                           <td className="py-2">
@@ -443,12 +434,8 @@ export function FriendPublicPage() {
                   <tfoot>
                     <tr className="border-t border-border/60">
                       <td className="py-3 pr-3 font-semibold" colSpan={2}>Total</td>
-                      <td
-                        className={`py-3 pr-3 text-right font-semibold tabular-nums ${
-                          totalAmount < 0 ? 'text-red-500' : 'text-green-600'
-                        }`}
-                      >
-                        {formatMoney(totalAmount)}
+                      <td className="py-3 pr-3 text-right font-semibold tabular-nums">
+                        <MoneyValue amount={totalAmount} currency="BRL" showSign="auto" tone="auto" className="font-semibold" />
                       </td>
                       <td />
                     </tr>
@@ -498,7 +485,7 @@ export function FriendPublicPage() {
                             <tr key={idx} className="border-b border-border/10 last:border-0">
                               <td className="py-1 pr-3">{formatDate(payment.date)}</td>
                               <td className="py-1 text-right tabular-nums">
-                                {formatMoney(payment.amount)}
+                                <MoneyValue amount={payment.amount} currency="BRL" showSign="never" tone="neutral" />
                               </td>
                             </tr>
                           ))}
