@@ -14,8 +14,7 @@ import (
 
 // GroupEventServiceIface defines the service contract used by GroupEventHandler.
 type GroupEventServiceIface interface {
-	ListEvents() ([]sqlite.GroupEvent, error)
-	ListEventsByAccount(accountID uuid.UUID) ([]sqlite.GroupEvent, error)
+	ListEvents(accountID *uuid.UUID) ([]sqlite.GroupEvent, error)
 	CreateEvent(accountID uuid.UUID, title, date string, totalAmount int64, notes *string) (sqlite.GroupEvent, error)
 	GetEventByID(id uuid.UUID) (sqlite.GroupEvent, error)
 	GetEventByToken(token string) (sqlite.GroupEvent, error)
@@ -131,7 +130,7 @@ func (h *GroupEventHandler) List(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid account_id")
 	}
-	events, err := h.svc.ListEventsByAccount(accountID)
+	events, err := h.svc.ListEvents(&accountID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

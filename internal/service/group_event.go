@@ -19,11 +19,20 @@ func NewGroupEventService(repo sqlite.GroupEventRepo, friendRepo sqlite.FriendRe
 	return &GroupEventService{repo: repo, friendRepo: friendRepo}
 }
 
-// ListEvents returns all group events.
-func (s *GroupEventService) ListEvents() ([]sqlite.GroupEvent, error) {
-	events, err := s.repo.GetAll(nil)
+// ListEvents returns all group events, optionally scoped by account.
+func (s *GroupEventService) ListEvents(accountID *uuid.UUID) ([]sqlite.GroupEvent, error) {
+	events, err := s.repo.GetAll(accountID)
 	if err != nil {
 		return nil, fmt.Errorf("service.ListEvents: %w", err)
+	}
+	return events, nil
+}
+
+// ListEventsUnscoped returns all group events across all accounts.
+func (s *GroupEventService) ListEventsUnscoped() ([]sqlite.GroupEvent, error) {
+	events, err := s.repo.GetAll(nil)
+	if err != nil {
+		return nil, fmt.Errorf("service.ListEventsUnscoped: %w", err)
 	}
 	return events, nil
 }
@@ -130,10 +139,19 @@ func (s *GroupEventService) SetParticipantConfirmed(eventID uuid.UUID, friendID 
 
 // SumUpcomingAdminObligations returns pending admin->host obligations in [after, onOrBefore).
 // Value is negative or zero for direct use in engine purchasing power math.
-func (s *GroupEventService) SumUpcomingAdminObligations(after, onOrBefore time.Time) (int64, error) {
-	v, err := s.repo.SumUpcomingAdminObligations(nil, after, onOrBefore)
+func (s *GroupEventService) SumUpcomingAdminObligations(accountID *uuid.UUID, after, onOrBefore time.Time) (int64, error) {
+	v, err := s.repo.SumUpcomingAdminObligations(accountID, after, onOrBefore)
 	if err != nil {
 		return 0, fmt.Errorf("service.SumUpcomingAdminObligations: %w", err)
+	}
+	return v, nil
+}
+
+// SumUpcomingAdminObligationsUnscoped returns pending obligations without account filter.
+func (s *GroupEventService) SumUpcomingAdminObligationsUnscoped(after, onOrBefore time.Time) (int64, error) {
+	v, err := s.repo.SumUpcomingAdminObligations(nil, after, onOrBefore)
+	if err != nil {
+		return 0, fmt.Errorf("service.SumUpcomingAdminObligationsUnscoped: %w", err)
 	}
 	return v, nil
 }
@@ -148,10 +166,19 @@ func (s *GroupEventService) SumUpcomingAdminObligationsByAccount(accountID uuid.
 }
 
 // GetAdminPendingExpenses returns all unconfirmed admin shares where a friend is host.
-func (s *GroupEventService) GetAdminPendingExpenses() ([]sqlite.AdminGroupExpense, error) {
-	items, err := s.repo.GetAdminPendingExpenses(nil)
+func (s *GroupEventService) GetAdminPendingExpenses(accountID *uuid.UUID) ([]sqlite.AdminGroupExpense, error) {
+	items, err := s.repo.GetAdminPendingExpenses(accountID)
 	if err != nil {
 		return nil, fmt.Errorf("service.GetAdminPendingExpenses: %w", err)
+	}
+	return items, nil
+}
+
+// GetAdminPendingExpensesUnscoped returns pending expenses without account filter.
+func (s *GroupEventService) GetAdminPendingExpensesUnscoped() ([]sqlite.AdminGroupExpense, error) {
+	items, err := s.repo.GetAdminPendingExpenses(nil)
+	if err != nil {
+		return nil, fmt.Errorf("service.GetAdminPendingExpensesUnscoped: %w", err)
 	}
 	return items, nil
 }
@@ -166,10 +193,19 @@ func (s *GroupEventService) GetAdminPendingExpensesByAccount(accountID uuid.UUID
 }
 
 // GetPendingBalanceForAdmin returns group-event pending balances from admin perspective.
-func (s *GroupEventService) GetPendingBalanceForAdmin() (sqlite.GroupEventBalance, error) {
-	b, err := s.repo.GetPendingBalanceForAdmin(nil)
+func (s *GroupEventService) GetPendingBalanceForAdmin(accountID *uuid.UUID) (sqlite.GroupEventBalance, error) {
+	b, err := s.repo.GetPendingBalanceForAdmin(accountID)
 	if err != nil {
 		return b, fmt.Errorf("service.GetPendingBalanceForAdmin: %w", err)
+	}
+	return b, nil
+}
+
+// GetPendingBalanceForAdminUnscoped returns pending balances without account filter.
+func (s *GroupEventService) GetPendingBalanceForAdminUnscoped() (sqlite.GroupEventBalance, error) {
+	b, err := s.repo.GetPendingBalanceForAdmin(nil)
+	if err != nil {
+		return b, fmt.Errorf("service.GetPendingBalanceForAdminUnscoped: %w", err)
 	}
 	return b, nil
 }

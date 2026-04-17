@@ -31,29 +31,47 @@ func NewPeerDebtService(repo sqlite.PeerDebtRepo) *PeerDebtService {
 	return &PeerDebtService{repo: repo}
 }
 
-// ListByFriend returns all debts for a given friend.
-func (s *PeerDebtService) ListByFriend(friendID uuid.UUID) ([]sqlite.PeerDebt, error) {
-	debts, err := s.repo.GetByFriend(friendID, nil)
+// ListByFriend returns all debts for a given friend, optionally scoped by account.
+func (s *PeerDebtService) ListByFriend(friendID uuid.UUID, accountID *uuid.UUID) ([]sqlite.PeerDebt, error) {
+	debts, err := s.repo.GetByFriend(friendID, accountID)
 	if err != nil {
 		return nil, fmt.Errorf("service.ListByFriend: %w", err)
 	}
 	return debts, nil
 }
 
-// ListByFriendAndAccount returns all debts for a friend scoped by account.
-func (s *PeerDebtService) ListByFriendAndAccount(friendID, accountID uuid.UUID) ([]sqlite.PeerDebt, error) {
-	debts, err := s.repo.GetByFriend(friendID, &accountID)
+// ListByFriendUnscoped returns all debts for a given friend without account filter.
+func (s *PeerDebtService) ListByFriendUnscoped(friendID uuid.UUID) ([]sqlite.PeerDebt, error) {
+	debts, err := s.repo.GetByFriend(friendID, nil)
 	if err != nil {
-		return nil, fmt.Errorf("service.ListByFriendAndAccount: %w", err)
+		return nil, fmt.Errorf("service.ListByFriendUnscoped: %w", err)
 	}
 	return debts, nil
 }
 
-// ListAll returns all peer debts across all friends.
-func (s *PeerDebtService) ListAll() ([]sqlite.PeerDebt, error) {
-	debts, err := s.repo.GetAll(nil)
+// ListByFriendByAccount returns all debts for a friend scoped by account.
+func (s *PeerDebtService) ListByFriendByAccount(friendID, accountID uuid.UUID) ([]sqlite.PeerDebt, error) {
+	debts, err := s.repo.GetByFriend(friendID, &accountID)
+	if err != nil {
+		return nil, fmt.Errorf("service.ListByFriendByAccount: %w", err)
+	}
+	return debts, nil
+}
+
+// ListAll returns all peer debts, optionally scoped by account.
+func (s *PeerDebtService) ListAll(accountID *uuid.UUID) ([]sqlite.PeerDebt, error) {
+	debts, err := s.repo.GetAll(accountID)
 	if err != nil {
 		return nil, fmt.Errorf("service.ListAll: %w", err)
+	}
+	return debts, nil
+}
+
+// ListAllUnscoped returns all peer debts across all accounts.
+func (s *PeerDebtService) ListAllUnscoped() ([]sqlite.PeerDebt, error) {
+	debts, err := s.repo.GetAll(nil)
+	if err != nil {
+		return nil, fmt.Errorf("service.ListAllUnscoped: %w", err)
 	}
 	return debts, nil
 }
@@ -113,16 +131,25 @@ func (s *PeerDebtService) GetBalanceByFriend(friendID uuid.UUID) (sqlite.PeerDeb
 	return b, nil
 }
 
-// GetGlobalBalance returns the aggregated balance summary across all friends.
-func (s *PeerDebtService) GetGlobalBalance() (sqlite.GlobalPeerBalance, error) {
-	b, err := s.repo.GetGlobalBalance(nil)
+// GetGlobalBalance returns the aggregated balance summary, optionally scoped by account.
+func (s *PeerDebtService) GetGlobalBalance(accountID *uuid.UUID) (sqlite.GlobalPeerBalance, error) {
+	b, err := s.repo.GetGlobalBalance(accountID)
 	if err != nil {
 		return b, fmt.Errorf("service.GetGlobalBalance: %w", err)
 	}
 	return b, nil
 }
 
-// GetGlobalBalanceByAccount returns aggregated balance summary scoped to one account.
+// GetGlobalBalanceUnscoped returns global balance without account filter.
+func (s *PeerDebtService) GetGlobalBalanceUnscoped() (sqlite.GlobalPeerBalance, error) {
+	b, err := s.repo.GetGlobalBalance(nil)
+	if err != nil {
+		return b, fmt.Errorf("service.GetGlobalBalanceUnscoped: %w", err)
+	}
+	return b, nil
+}
+
+// GetGlobalBalanceByAccount returns global balance scoped by account.
 func (s *PeerDebtService) GetGlobalBalanceByAccount(accountID uuid.UUID) (sqlite.GlobalPeerBalance, error) {
 	b, err := s.repo.GetGlobalBalance(&accountID)
 	if err != nil {
@@ -132,16 +159,25 @@ func (s *PeerDebtService) GetGlobalBalanceByAccount(accountID uuid.UUID) (sqlite
 }
 
 // GetFriendDebtBreakdown returns per-debt breakdown of active debts the user owes friends,
-// with computed next payment amount and due date.
-func (s *PeerDebtService) GetFriendDebtBreakdown() ([]FriendDebtItem, error) {
-	rows, err := s.repo.GetActiveUserDebtsWithFriend(nil)
+// with computed next payment amount and due date, optionally scoped by account.
+func (s *PeerDebtService) GetFriendDebtBreakdown(accountID *uuid.UUID) ([]FriendDebtItem, error) {
+	rows, err := s.repo.GetActiveUserDebtsWithFriend(accountID)
 	if err != nil {
 		return nil, fmt.Errorf("service.GetFriendDebtBreakdown: %w", err)
 	}
 	return buildFriendDebtItems(rows), nil
 }
 
-// GetFriendDebtBreakdownByAccount returns breakdown scoped to one account.
+// GetFriendDebtBreakdownUnscoped returns debt breakdown without account filter.
+func (s *PeerDebtService) GetFriendDebtBreakdownUnscoped() ([]FriendDebtItem, error) {
+	rows, err := s.repo.GetActiveUserDebtsWithFriend(nil)
+	if err != nil {
+		return nil, fmt.Errorf("service.GetFriendDebtBreakdownUnscoped: %w", err)
+	}
+	return buildFriendDebtItems(rows), nil
+}
+
+// GetFriendDebtBreakdownByAccount returns debt breakdown scoped by account.
 func (s *PeerDebtService) GetFriendDebtBreakdownByAccount(accountID uuid.UUID) ([]FriendDebtItem, error) {
 	rows, err := s.repo.GetActiveUserDebtsWithFriend(&accountID)
 	if err != nil {
@@ -191,15 +227,25 @@ func buildFriendDebtItems(rows []sqlite.ActiveUserDebt) []FriendDebtItem {
 
 // SumNextUserPayment returns the sum of the user's next payment for each active debt.
 // For installment debts: one installment amount. For lump-sum debts: full amount.
-func (s *PeerDebtService) SumNextUserPayment() (int64, error) {
-	v, err := s.repo.SumNextUserPayment(nil)
+// Optional account scope can be provided.
+func (s *PeerDebtService) SumNextUserPayment(accountID *uuid.UUID) (int64, error) {
+	v, err := s.repo.SumNextUserPayment(accountID)
 	if err != nil {
 		return 0, fmt.Errorf("service.SumNextUserPayment: %w", err)
 	}
 	return v, nil
 }
 
-// SumNextUserPaymentByAccount returns next payment sum scoped to one account.
+// SumNextUserPaymentUnscoped returns next user payment without account filter.
+func (s *PeerDebtService) SumNextUserPaymentUnscoped() (int64, error) {
+	v, err := s.repo.SumNextUserPayment(nil)
+	if err != nil {
+		return 0, fmt.Errorf("service.SumNextUserPaymentUnscoped: %w", err)
+	}
+	return v, nil
+}
+
+// SumNextUserPaymentByAccount returns next user payment scoped by account.
 func (s *PeerDebtService) SumNextUserPaymentByAccount(accountID uuid.UUID) (int64, error) {
 	v, err := s.repo.SumNextUserPayment(&accountID)
 	if err != nil {

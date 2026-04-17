@@ -26,20 +26,15 @@ var _ FriendServiceIface = (*service.FriendService)(nil)
 
 // PeerDebtSummaryIface defines the minimal interface needed by FriendsHandler.Summary.
 type PeerDebtSummaryIface interface {
-	GetGlobalBalance() (sqlite.GlobalPeerBalance, error)
-	GetGlobalBalanceByAccount(accountID uuid.UUID) (sqlite.GlobalPeerBalance, error)
-	SumNextUserPayment() (int64, error)
-	SumNextUserPaymentByAccount(accountID uuid.UUID) (int64, error)
-	GetFriendDebtBreakdown() ([]service.FriendDebtItem, error)
-	GetFriendDebtBreakdownByAccount(accountID uuid.UUID) ([]service.FriendDebtItem, error)
+	GetGlobalBalance(accountID *uuid.UUID) (sqlite.GlobalPeerBalance, error)
+	SumNextUserPayment(accountID *uuid.UUID) (int64, error)
+	GetFriendDebtBreakdown(accountID *uuid.UUID) ([]service.FriendDebtItem, error)
 }
 
 // GroupEventSummaryIface defines group-event aggregates used by dashboard endpoints.
 type GroupEventSummaryIface interface {
-	GetAdminPendingExpenses() ([]sqlite.AdminGroupExpense, error)
-	GetAdminPendingExpensesByAccount(accountID uuid.UUID) ([]sqlite.AdminGroupExpense, error)
-	GetPendingBalanceForAdmin() (sqlite.GroupEventBalance, error)
-	GetPendingBalanceForAdminByAccount(accountID uuid.UUID) (sqlite.GroupEventBalance, error)
+	GetAdminPendingExpenses(accountID *uuid.UUID) ([]sqlite.AdminGroupExpense, error)
+	GetPendingBalanceForAdmin(accountID *uuid.UUID) (sqlite.GroupEventBalance, error)
 }
 
 // Ensure concrete services satisfy summary interfaces.
@@ -206,11 +201,11 @@ func (h *FriendsHandler) Breakdown(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid account_id")
 	}
 
-	items, err := h.peerDebtSvc.GetFriendDebtBreakdownByAccount(accountID)
+	items, err := h.peerDebtSvc.GetFriendDebtBreakdown(&accountID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	groupExpenses, err := h.groupSvc.GetAdminPendingExpensesByAccount(accountID)
+	groupExpenses, err := h.groupSvc.GetAdminPendingExpenses(&accountID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -258,15 +253,15 @@ func (h *FriendsHandler) Summary(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid account_id")
 	}
 
-	bal, err := h.peerDebtSvc.GetGlobalBalanceByAccount(accountID)
+	bal, err := h.peerDebtSvc.GetGlobalBalance(&accountID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	nextPayment, err := h.peerDebtSvc.SumNextUserPaymentByAccount(accountID)
+	nextPayment, err := h.peerDebtSvc.SumNextUserPayment(&accountID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	groupBal, err := h.groupSvc.GetPendingBalanceForAdminByAccount(accountID)
+	groupBal, err := h.groupSvc.GetPendingBalanceForAdmin(&accountID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
