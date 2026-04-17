@@ -139,7 +139,7 @@ Plans:
 - [x] 05-02-PLAN.md — React: Vite scaffold + all deps + shadcn init + data layer (api.ts, format.ts, router.ts, App.tsx) + Wave 0 tests
 - [x] 05-03-PLAN.md — UI components: StatCards + CheckWidget (Motion verdict) + ObligationsList + Dashboard wiring
 - [x] 05-04-PLAN.md — Human verify checkpoint: live browser confirmation of all dashboard behavior
-- [x] 05-05-PLAN.md — Full CRUD: AccountsPage + TransactionsPage + AccountSelector + feature parity
+- [ ] 05-05-PLAN.md — Full CRUD: AccountsPage + TransactionsPage + AccountSelector + feature parity
 
 ---
 
