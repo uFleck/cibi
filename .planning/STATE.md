@@ -2,73 +2,64 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 10-03-PLAN.md
-last_updated: "2026-04-17T03:31:56.424Z"
+status: Executing Phase 01
+last_updated: "2026-04-17T20:28:29.049Z"
 progress:
-  total_phases: 9
-  completed_phases: 6
-  total_plans: 25
-  completed_plans: 23
-  percent: 92
+  total_phases: 4
+  completed_phases: 2
+  total_plans: 9
+  completed_plans: 6
+  percent: 67
 ---
 
 # Project State
 
 ## Current Position
 
-Phase: 9 (fix-transaction-balance-and-recurring-payment-confirm) — EXECUTING
-Plan: 7 of 7
-Next: Docker containerization (ad-hoc) + Phase 06 (MCP Server)
-
-- **Phase:** 05 of 8 (web dashboard)
-- **Status:** Phase complete — ready for verification
-- **Last completed:** 05-05-PLAN.md — Full account & transaction CRUD dashboard
+- **Milestone status:** Complete (except MCP integration phase)
+- **Last completed phase:** 10 — codebase simplification and logic centralization
+- **Next planned phase:** 6 — MCP Server
+- **Health:** Stable (human verification confirmed)
 
 ## Decisions
 
-- Phase 01: Dependency injection graph via app.New() — clean wiring without global state
-- Phase 03: AccountsService wraps sqlite.AccountsRepo — mirrors TransactionsService pattern
-- Phase 03: CLI resolves default account via AccountsSvc.GetDefault() when --account not provided
-- Phase 03: SafetyBuffer default 0 → 1000 cents ($10.00) per D-08
-- Phase 03: All CLI files in cmd/cibi/ as package main — no sub-package
-- [Phase 10]: Keep all API calls, query keys, and mutation invalidations in friends.tsx; extracted components remain pure UI/control surfaces.
-- [Phase 10]: Preserve UI copy contract by passing exact labels from friends.tsx into extracted components.
-- [Phase 10]: Kept React Query hooks/mutations in accounts.tsx and transactions.tsx; extracted components are prop-driven UI only.
-- [Phase 10]: Preserved transaction confirm-payment mutation path and copy strings during component extraction.
-- [Phase 10]: Pointer-based account scope is canonical (nil unscoped, &accountID scoped).
-- [Phase 10]: Public GetFriendByToken orchestration moved to FriendService.GetPublicFriendView(token).
-- [Phase 10]: DeleteTransaction now performs delete and account balance reversal inside one SQL transaction.
-- [Phase 10]: Removed dead RecordDebit path after confirming no production callers.
-- [Phase 10]: Use func-field repo/service mocks with tx-aware balance assertions for regression coverage
-- [Phase 10]: Gate optional account-scope behavior by asserting pointer-scoped repo call paths in tests
+- Phase 01: Dependency injection graph via `app.New()`; no global DB state.
+- Phase 03: CLI resolves default account via `AccountsSvc.GetDefault()` when `--account` not provided.
+- Phase 03: Safety buffer default set to 1000 cents ($10.00).
+- Phase 07: Account supports multiple pay schedules; WAIT verdict introduced.
+- Phase 08: Friend ledger model introduced (friends, peer debts, group events, public token views).
+- Phase 09: Transaction create/update/delete keep account balance synchronized atomically.
+- Phase 09: Recurring transactions require explicit confirm-paid action.
+- Phase 10: Public friend view orchestration moved from handler to service.
+- Phase 10: Frontend page decomposition keeps data hooks/mutations in page orchestrators.
+- Phase 10: Dead `RecordDebit` path removed; regression tests added for transaction + scoped paths.
+- [Phase 01]: MoneyValue now owns sign/tone rendering policy with explicit props.
+- [Phase 01]: MoneyValue formats absolute values and prefixes signs to avoid double-sign bugs.
 
-## Performance Metrics
+## Performance Metrics (Recent)
 
-| Phase | Plan  | Duration | Tasks | Files |
-|-------|-------|----------|-------|-------|
-| 01    | 01-01 | ~10m     | 4     | 6     |
-| 03    | 03    | ~5m      | 4     | 8     |
-| Phase 10 P04 | 4 min | 3 tasks | 5 files |
-| Phase 10 P05 | 7 min | 3 tasks | 6 files |
-| Phase 10 P02 | 18 min | 4 tasks | 9 files |
-| Phase 10 P03 | 1 min | 3 tasks | 5 files |
+| Phase | Plan | Duration | Tasks | Files |
+|---|---|---:|---:|---:|
+| 10 | 10-02 | 18 min | 4 | 9 |
+| 10 | 10-03 | 1 min | 3 | 5 |
+| 10 | 10-04 | 4 min | 3 | 5 |
+| 10 | 10-05 | 7 min | 3 | 6 |
+
+## Roadmap Evolution
+
+- Added Phase 7: N payment schedules per account + WAIT verdict.
+- Added Phase 8: Friend Ledger.
+- Added Phase 9: Transaction balance synchronization + recurring confirmation.
+- Added Phase 10: Codebase simplification and logic centralization.
+
+## Verification Status
+
+- Human/runtime verification completed for Phase 10.
+- No active blockers.
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
-- Phase 7 added: ability to have N payment schedule for N accounts (user receives 3k day 10 and 2k day 20)
-- Phase 9 added: fix transaction balance and recurring payment confirm (non-recurring transactions not deducted from balance on creation, value updates not adjusting balance, recurring transactions need confirm payment mechanism)
-- Phase 10 added: Codebase simplification and logic centralization
-
-## Last Session
-
-- **Timestamp:** 2026-04-11T22:35:37Z
-- **Stopped at:** Completed 10-03-PLAN.md
-
-## Session Continuity
-
-- **Last session:** 2026-04-17T03:31:50.187Z
-- **Stopped at:** Session resumed, proceeding to execute Phase 10
-- **Resume file:** None
+- Phase 1 added: UI standardization: shared value
+- Phase 2 added: shared debt list components
