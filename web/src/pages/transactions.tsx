@@ -1,19 +1,16 @@
 import { useState, useContext, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Edit2, Trash2, ArrowLeftRight, Check, ArrowUp, ArrowDown, Filter, X } from 'lucide-react'
+import { Plus, Edit2, Trash2, ArrowLeftRight, Check, ArrowUp, ArrowDown } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { ValueInput } from '@/components/ui/value-input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { AppModal } from '@/components/AppModal'
 import { MobileActionButton } from '@/components/MobileActionButton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { TransactionForm } from '@/components/TransactionForm'
+import { TransactionFilters } from '@/components/TransactionFilters'
 import {
   fetchAccounts,
   fetchTransactions,
@@ -319,71 +316,26 @@ export function TransactionsPage() {
             </p>
           )}
         </div>
-        <div className="flex w-full sm:w-auto gap-2">
-          <Button 
-            onClick={() => setShowFilters(!showFilters)} 
-            variant={showFilters || hasActiveFilters ? "secondary" : "outline"} 
-            size="sm"
-            className="flex-1 sm:flex-none"
-          >
-            <Filter size={16} />
-            Filters
-            {hasActiveFilters && (
-              <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
-                {[filterCategory !== 'all', filterType !== 'one-time'].filter(Boolean).length}
-              </span>
-            )}
-          </Button>
-        </div>
       </div>
 
-      {showFilters && (
-        <Card>
-          <CardContent className="py-3 grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">Category</Label>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {categories.map(c => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">Type</Label>
-              <Select value={filterType} onValueChange={v => setFilterType(v as 'all' | 'recurring' | 'one-time')}>
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="recurring">Recurring</SelectItem>
-                  <SelectItem value="one-time">One-time</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {hasActiveFilters && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="w-full sm:w-auto"
-                onClick={() => {
-                  setFilterCategory('all')
-                  setFilterType('one-time')
-                }}
-              >
-                <X size={14} />
-                Clear
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      <TransactionFilters
+        showFilters={showFilters}
+        hasActiveFilters={hasActiveFilters}
+        filterCategory={filterCategory}
+        filterType={filterType}
+        categories={categories}
+        sortField={sortField}
+        sortDir={sortDir}
+        onToggleFilters={() => setShowFilters(!showFilters)}
+        onFilterCategoryChange={setFilterCategory}
+        onFilterTypeChange={setFilterType}
+        onSortFieldChange={setSortField}
+        onSortDirChange={setSortDir}
+        onResetFilters={() => {
+          setFilterCategory('all')
+          setFilterType('one-time')
+        }}
+      />
 
       <Skeleton
         name="transaction-list"
@@ -569,13 +521,13 @@ export function TransactionsPage() {
                                     size="icon"
                                     className="h-9 w-9"
                                     disabled={confirmingId === txn.id}
-                                    aria-label="Confirm paid"
+                                    aria-label="Confirm Paid"
                                   >
                                     <Check size={14} />
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Confirm payment</p>
+                                  <p>Confirm Paid</p>
                                 </TooltipContent>
                               </Tooltip>
                             )}
@@ -629,151 +581,21 @@ export function TransactionsPage() {
         title={editingId ? 'Edit Transaction' : 'New Transaction'}
         description={editingId ? 'Update transaction details.' : 'Create a new transaction.'}
       >
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            {!editingId && (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="txn-account" className="text-xs">Account *</Label>
-                <Select
-                  value={formData.account_id}
-                  onValueChange={v => setFormData({ ...formData, account_id: v })}
-                >
-                  <SelectTrigger id="txn-account" size="sm" className="w-full">
-                    <SelectValue placeholder="Select account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accounts.map(acc => (
-                      <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="txn-amount" className="text-xs">Amount *</Label>
-                <ValueInput
-                  id="txn-amount"
-                  value={amountText}
-                  onValueChange={raw => {
-                    setAmountText(raw)
-                    if (formErrors.amount) setFormErrors({ ...formErrors, amount: undefined })
-                  }}
-                  onParsedValueChange={parsed => setFormData(prev => ({ ...prev, amount: parsed ?? 0 }))}
-                  placeholder="-50.00"
-                  aria-invalid={!!formErrors.amount || undefined}
-                  aria-describedby={formErrors.amount ? 'txn-amount-error' : undefined}
-                  showSignToggle
-                />
-                {formErrors.amount && (
-                  <p id="txn-amount-error" className="text-xs text-destructive">
-                    {formErrors.amount}
-                  </p>
-                )}
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="txn-description" className="text-xs">Description *</Label>
-                <Input
-                  id="txn-description"
-                  value={formData.description}
-                  onChange={e => {
-                    setFormData({ ...formData, description: e.target.value })
-                    if (formErrors.description) setFormErrors({ ...formErrors, description: undefined })
-                  }}
-                  placeholder="Transaction description"
-                  aria-invalid={!!formErrors.description || undefined}
-                  aria-describedby={formErrors.description ? 'txn-description-error' : undefined}
-                />
-                {formErrors.description && (
-                  <p id="txn-description-error" className="text-xs text-destructive">
-                    {formErrors.description}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="txn-category" className="text-xs">Category *</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={v => {
-                    setFormData({ ...formData, category: v })
-                    if (formErrors.category) setFormErrors({ ...formErrors, category: undefined })
-                  }}
-                >
-                  <SelectTrigger id="txn-category" size="sm" className="w-full" aria-invalid={!!formErrors.category || undefined}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {formErrors.category && (
-                  <p id="txn-category-error" className="text-xs text-destructive">
-                    {formErrors.category}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <Switch
-                  id="txn-recurring"
-                  checked={!!formData.is_recurring}
-                  onCheckedChange={v => setFormData({ ...formData, is_recurring: v })}
-                />
-                <Label htmlFor="txn-recurring" className="text-xs cursor-pointer">Recurring</Label>
-              </div>
-            </div>
-            {formData.is_recurring && (
-              <>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="txn-frequency" className="text-xs">Frequency</Label>
-                  <Select
-                    value={formData.frequency || 'monthly'}
-                    onValueChange={v => setFormData({ ...formData, frequency: v })}
-                  >
-                    <SelectTrigger id="txn-frequency" size="sm" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="biweekly">Biweekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="txn-anchor" className="text-xs">Anchor Date</Label>
-                  <Input
-                    id="txn-anchor"
-                    type="date"
-                    value={formData.anchor_date || ''}
-                    onChange={e => setFormData({ ...formData, anchor_date: e.target.value })}
-                  />
-                </div>
-              </>
-            )}
-            <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm flex gap-2 pt-4 pb-1">
-              <Button type="submit" size="sm" disabled={isPending}>
-                {isPending
-                  ? editingId
-                    ? 'Updating...'
-                    : 'Creating...'
-                  : editingId
-                    ? 'Update'
-                    : 'Create'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleCancel}
-                disabled={isPending}
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
+        <TransactionForm
+          editingId={editingId}
+          formData={formData}
+          formErrors={formErrors}
+          amountText={amountText}
+          isPending={isPending}
+          categories={CATEGORIES}
+          accounts={accounts}
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+          onChange={changes => setFormData(prev => ({ ...prev, ...changes }))}
+          onAmountTextChange={setAmountText}
+          onAmountParsedChange={parsed => setFormData(prev => ({ ...prev, amount: parsed ?? 0 }))}
+          onClearError={field => setFormErrors({ ...formErrors, [field]: undefined })}
+        />
       </AppModal>
 
       <div className="h-24 sm:h-8" />
