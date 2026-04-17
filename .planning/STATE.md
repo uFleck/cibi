@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Executing Phase 01
-last_updated: "2026-04-17T20:34:35.773Z"
+last_updated: "2026-04-17T21:05:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 9
-  completed_plans: 7
-  percent: 78
+  completed_plans: 8
+  percent: 89
 ---
 
 # Project State
@@ -17,9 +17,9 @@ progress:
 ## Current Position
 
 - **Milestone status:** Executing Phase 01 (UI standardization wave)
-- **Last completed plan:** 01-03 — dashboard MoneyValue migration
+- **Last completed plan:** 01-04 — accounts + transactions MoneyValue migration
 - **Next planned phase:** 6 — MCP Server
-- **Health:** Stable (dashboard regression/build checks green)
+- **Health:** Stable (accounts/transactions build + rendering guard checks green)
 
 ## Decisions
 
@@ -38,11 +38,14 @@ progress:
 - [Phase 01]: Dashboard widgets now render money values through MoneyValue with explicit tone/sign props.
 - [Phase 01]: Projection obligations now render via amount={-nextObligations} and showSign='always', removing string replace sign hacks.
 - [Phase 01]: CheckWidget monetary result lines now use MoneyValue while preserving default currency fallback behavior.
+- [Phase 01]: Transactions page now resolves account currency once and renders amounts via MoneyValue in mobile+desktop branches.
+- [Phase 01]: Accounts and schedule modal now pass explicit account-derived currency into MoneyValue, eliminating raw toFixed/sign display logic.
 
 ## Performance Metrics (Recent)
 
 | Phase | Plan | Duration | Tasks | Files |
 |---|---|---:|---:|---:|
+| 01 | 01-04 | 17 min | 3 | 2 |
 | 10 | 10-02 | 18 min | 4 | 9 |
 | 10 | 10-03 | 1 min | 3 | 5 |
 | 10 | 10-04 | 4 min | 3 | 5 |
