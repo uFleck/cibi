@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/ufleck/cibi/internal/engine"
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 )
 
@@ -137,48 +138,7 @@ func (s *PeerDebtService) GetFriendDebtBreakdown() ([]FriendDebtItem, error) {
 	if err != nil {
 		return nil, fmt.Errorf("service.GetFriendDebtBreakdown: %w", err)
 	}
-	items := make([]FriendDebtItem, 0, len(rows))
-	for _, r := range rows {
-		totalAbs := -r.Amount // amount is negative
-		item := FriendDebtItem{
-			FriendName:        r.FriendName,
-			TotalAmount:       totalAbs,
-			IsInstallment:     r.IsInstallment,
-			TotalInstallments: r.TotalInstallments,
-			PaidInstallments:  r.PaidInstallments,
-		}
-		if r.IsInstallment && r.TotalInstallments > 0 {
-			perInst := totalAbs / r.TotalInstallments
-			item.NextPayment = perInst
-			item.PerInstallAmount = perInst
-			anchorStr := r.Date
-			if r.AnchorDate != nil && *r.AnchorDate != "" {
-				anchorStr = *r.AnchorDate
-			}
-			firstDue, err := time.Parse(time.RFC3339, anchorStr)
-			if err != nil {
-				firstDue, err = time.Parse("2006-01-02", anchorStr)
-			}
-			if err == nil {
-				nextInstNum := r.PaidInstallments + 1
-				var nextDue time.Time
-				if r.Frequency == "weekly" {
-					nextDue = firstDue.AddDate(0, 0, int(nextInstNum-1)*7)
-				} else {
-					nextDue = firstDue.AddDate(0, int(nextInstNum-1), 0)
-				}
-				s := nextDue.UTC().Format(time.RFC3339)
-				item.NextPaymentDate = &s
-			}
-		} else {
-			item.NextPayment = totalAbs
-			item.PerInstallAmount = totalAbs
-			d := r.Date
-			item.NextPaymentDate = &d
-		}
-		items = append(items, item)
-	}
-	return items, nil
+	return buildFriendDebtItems(rows), nil
 }
 
 // GetFriendDebtBreakdownByAccount returns breakdown scoped to one account.
@@ -187,6 +147,10 @@ func (s *PeerDebtService) GetFriendDebtBreakdownByAccount(accountID uuid.UUID) (
 	if err != nil {
 		return nil, fmt.Errorf("service.GetFriendDebtBreakdownByAccount: %w", err)
 	}
+	return buildFriendDebtItems(rows), nil
+}
+
+func buildFriendDebtItems(rows []sqlite.ActiveUserDebt) []FriendDebtItem {
 	items := make([]FriendDebtItem, 0, len(rows))
 	for _, r := range rows {
 		totalAbs := -r.Amount
@@ -210,13 +174,7 @@ func (s *PeerDebtService) GetFriendDebtBreakdownByAccount(accountID uuid.UUID) (
 				firstDue, err = time.Parse("2006-01-02", anchorStr)
 			}
 			if err == nil {
-				nextInstNum := r.PaidInstallments + 1
-				var nextDue time.Time
-				if r.Frequency == "weekly" {
-					nextDue = firstDue.AddDate(0, 0, int(nextInstNum-1)*7)
-				} else {
-					nextDue = firstDue.AddDate(0, int(nextInstNum-1), 0)
-				}
+				nextDue := engine.NextInstallmentDue(firstDue, r.PaidInstallments, r.Frequency)
 				s := nextDue.UTC().Format(time.RFC3339)
 				item.NextPaymentDate = &s
 			}
@@ -228,7 +186,7 @@ func (s *PeerDebtService) GetFriendDebtBreakdownByAccount(accountID uuid.UUID) (
 		}
 		items = append(items, item)
 	}
-	return items, nil
+	return items
 }
 
 // SumNextUserPayment returns the sum of the user's next payment for each active debt.

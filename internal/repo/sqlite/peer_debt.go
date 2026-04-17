@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/ufleck/cibi/internal/engine"
 )
 
 // PeerDebt represents a debt record between the user and a friend.
@@ -457,15 +458,7 @@ func (r *SqlitePeerDebtRepo) SumUpcomingPeerObligations(accountID *uuid.UUID, af
 			continue
 		}
 
-		nextInstNum := paidInst + 1
-		var nextDue time.Time
-		if freq == "monthly" {
-			nextDue = firstDue.AddDate(0, int(nextInstNum-1), 0)
-		} else if freq == "weekly" {
-			nextDue = firstDue.AddDate(0, 0, int(nextInstNum-1)*7)
-		} else {
-			nextDue = firstDue.AddDate(0, int(nextInstNum-1), 0)
-		}
+		nextDue := engine.NextInstallmentDue(firstDue, paidInst, freq)
 
 		if nextDue.After(after) && nextDue.Before(onOrBefore) {
 			totalInstallmentSum += instPayment
