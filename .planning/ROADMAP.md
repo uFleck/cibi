@@ -185,6 +185,16 @@ Plans:
 - [x] 09-01-PLAN.md — Backend: atomic balance sync + ConfirmRecurring endpoint
 - [x] 09-02-PLAN.md — Frontend: Confirm Paid button in transactions list
 
+### Phase 10: Codebase simplification and logic centralization
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 9
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 10 to break down)
+
 ---
 
 ## Progress Table

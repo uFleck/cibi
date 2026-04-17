@@ -46,6 +46,7 @@ Next: Docker containerization (ad-hoc) + Phase 06 (MCP Server)
 
 - Phase 7 added: ability to have N payment schedule for N accounts (user receives 3k day 10 and 2k day 20)
 - Phase 9 added: fix transaction balance and recurring payment confirm (non-recurring transactions not deducted from balance on creation, value updates not adjusting balance, recurring transactions need confirm payment mechanism)
+- Phase 10 added: Codebase simplification and logic centralization
 
 ## Last Session
 
