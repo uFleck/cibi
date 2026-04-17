@@ -183,45 +183,6 @@ func (s *TransactionsService) DeleteTransaction(id uuid.UUID) error {
 	return nil
 }
 
-// RecordDebit records a debit against a recurring transaction and atomically
-// advances next_occurrence by one period. Guards against double-debit by
-// requiring next_occurrence > now before advancing.
-//
-// Formula per TXN-02:
-//   - weekly:    next = current_next + 7 days
-//   - bi-weekly: next = current_next + 14 days
-//   - monthly:   next = AddMonthClamped(current_next, 1)
-//   - yearly:    next = AddMonthClamped(current_next, 12)
-func (s *TransactionsService) RecordDebit(transactionID uuid.UUID) error {
-	t, err := s.txnsRepo.GetByID(transactionID)
-	if err != nil {
-		return fmt.Errorf("service.RecordDebit: get transaction: %w", err)
-	}
-	if !t.IsRecurring {
-		return fmt.Errorf("service.RecordDebit: transaction %v is not recurring", transactionID)
-	}
-	if t.Frequency == nil {
-		return fmt.Errorf("service.RecordDebit: transaction %v has no frequency", transactionID)
-	}
-	if t.NextOccurrence == nil {
-		return fmt.Errorf("service.RecordDebit: transaction %v has no next_occurrence", transactionID)
-	}
-
-	now := time.Now().UTC()
-
-	// Double-debit guard: next_occurrence must be in the future (> now).
-	if !t.NextOccurrence.After(now) {
-		return fmt.Errorf("service.RecordDebit: next_occurrence is not in the future — possible double debit on %v", transactionID)
-	}
-
-	next := advanceOccurrence(*t.NextOccurrence, *t.Frequency)
-
-	if err := s.txnsRepo.AdvanceNextOccurrence(transactionID, next, nil); err != nil {
-		return fmt.Errorf("service.RecordDebit: advance next_occurrence: %w", err)
-	}
-	return nil
-}
-
 // ConfirmRecurring confirms a recurring transaction, applies the debit to account
 // balance, and advances next_occurrence. D-03: User must explicitly confirm before debiting.
 // Returns the new next_occurrence time for UI update.
