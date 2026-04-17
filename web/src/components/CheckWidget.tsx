@@ -3,9 +3,10 @@ import { motion } from 'motion/react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { MoneyValue } from '@/components/ui/money-value'
 import { ValueInput } from '@/components/ui/value-input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { formatMoney, formatDate } from '@/lib/format'
+import { formatDate } from '@/lib/format'
 import { postCheck, type CheckResponse } from '@/lib/api'
 
 type WidgetState = 'idle' | 'loading' | 'verdict'
@@ -138,15 +139,21 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
                 <div className="flex flex-col gap-1.5 text-sm text-foreground/80">
                   <p>
                     Purchasing power:{' '}
-                    <span className="font-medium tabular-nums text-foreground">
-                      {formatMoney(result!.purchasing_power)}
-                    </span>
+                    <MoneyValue
+                      amount={result!.purchasing_power}
+                      tone="neutral"
+                      showSign="auto"
+                      className="font-medium text-foreground"
+                    />
                   </p>
                   <p>
                     Buffer remaining:{' '}
-                    <span className="font-medium tabular-nums text-foreground">
-                      {formatMoney(result!.buffer_remaining)}
-                    </span>
+                    <MoneyValue
+                      amount={result!.buffer_remaining}
+                      tone="neutral"
+                      showSign="auto"
+                      className="font-medium text-foreground"
+                    />
                   </p>
                   {isWait && result!.wait_until && (
                     <p className="text-sm text-foreground/80">

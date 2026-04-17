@@ -4,9 +4,10 @@ import { useContext } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { MoneyValue } from '@/components/ui/money-value'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { fetchFriendSummary, fetchFriendBreakdown } from '@/lib/api'
-import { formatMoney, formatDate } from '@/lib/format'
+import { formatDate } from '@/lib/format'
 import { AccountContext } from '@/App'
 
 export function FriendLedgerWidget() {
@@ -55,29 +56,30 @@ export function FriendLedgerWidget() {
           <div className="flex flex-col gap-1.5 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">They owe me</span>
-              <span className="font-medium tabular-nums text-green-600">
-                {formatMoney(summary.total_owed_to_user)}
-              </span>
+              <MoneyValue
+                amount={summary.total_owed_to_user}
+                tone="positive"
+                showSign="auto"
+                className="font-medium"
+              />
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">I owe</span>
-              <span className="font-medium tabular-nums text-red-500">
-                {formatMoney(summary.total_user_owes)}
-              </span>
+              <MoneyValue
+                amount={summary.total_user_owes}
+                tone="negative"
+                showSign="auto"
+                className="font-medium"
+              />
             </div>
             <div className="flex justify-between border-t border-border/40 pt-1.5 mt-0.5">
               <span className="font-semibold">Net</span>
-              <span
-                className={`font-semibold tabular-nums ${
-                  summary.net > 0
-                    ? 'text-green-600'
-                    : summary.net < 0
-                    ? 'text-red-500'
-                    : 'text-muted-foreground'
-                }`}
-              >
-                {formatMoney(summary.net)}
-              </span>
+              <MoneyValue
+                amount={summary.net}
+                tone={summary.net > 0 ? 'positive' : summary.net < 0 ? 'negative' : 'neutral'}
+                showSign="auto"
+                className="font-semibold"
+              />
             </div>
 
             {breakdown && breakdown.length > 0 && (
@@ -99,18 +101,21 @@ export function FriendLedgerWidget() {
                         </div>
                       </TooltipTrigger>
                       <TooltipContent side="right">
-                        <p className="font-medium">{formatMoney(item.total_amount)} total</p>
+                        <p className="font-medium"><MoneyValue amount={item.total_amount} showSign="auto" /> total</p>
                         {item.is_installment && (
                           <p className="text-muted-foreground">
-                            {formatMoney(item.per_install_amount)}/installment
+                            <MoneyValue amount={item.per_install_amount} showSign="auto" />/installment
                             {' '}({item.paid_installments}/{item.total_installments} paid)
                           </p>
                         )}
                       </TooltipContent>
                     </Tooltip>
-                    <span className="font-medium tabular-nums text-red-500 shrink-0">
-                      {formatMoney(item.next_payment)}
-                    </span>
+                    <MoneyValue
+                      amount={item.next_payment}
+                      tone="negative"
+                      showSign="auto"
+                      className="font-medium shrink-0"
+                    />
                   </div>
                 ))}
               </div>
