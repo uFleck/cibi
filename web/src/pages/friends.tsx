@@ -1,19 +1,17 @@
 import { useContext, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Trash2, Check, Save, X } from 'lucide-react'
+import { Plus, Trash2, Check, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ValueInput } from '@/components/ui/value-input'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { AppModal } from '@/components/AppModal'
 import { CompactEntityTable } from '@/components/CompactEntityTable'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { FriendForm } from '@/components/FriendForm'
 import { DebtForm } from '@/components/DebtForm'
+import { GroupEventForm } from '@/components/GroupEventForm'
+import { ParticipantEditor } from '@/components/ParticipantEditor'
 import {
   listFriends,
   createFriend,
@@ -597,11 +595,6 @@ function GroupEventDetailsModal({
     return friend?.name ?? `${friendId.slice(0, 8)}...`
   }
 
-  const equalShare = useMemo(() => {
-    if (!event || participantIds.length === 0) return 0
-    return event.total_amount / participantIds.length
-  }, [event, participantIds])
-
   function findFriendByToken(rawToken: string): { id: string | null; error?: string } {
     const token = rawToken.trim().toLowerCase()
     if (!token) return { id: null, error: 'empty' }
@@ -779,176 +772,36 @@ function GroupEventDetailsModal({
           {formatDate(event.date)} · {formatMoney(event.total_amount)}
         </div>
 
-        <div className="flex gap-2 items-center">
-          {showParticipantsInput ? (
-            <Input
-              ref={participantsInputRef}
-              value={participantsInput}
-              onChange={e => setParticipantsInput(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  void addParticipantsFromInput(true)
-                }
-                if (e.key === 'Escape') {
-                  e.preventDefault()
-                  setShowParticipantsInput(false)
-                  setParticipantsInput('')
-                  setHighlightParticipantsInput(false)
-                }
-              }}
-              placeholder="Add participants: lin, Mari, Amanda"
-              className={highlightParticipantsInput ? 'border-primary ring-2 ring-primary/30' : undefined}
-              disabled={saveParticipantsMutation.isPending}
-            />
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setShowParticipantsInput(true)
-                setHighlightParticipantsInput(true)
-              }}
-              disabled={saveParticipantsMutation.isPending}
-            >
-              <Plus size={14} />
-              Add participants
-            </Button>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-sm font-medium">Host</Label>
-          <Select
-            value={hostFriendId ?? '__owner__'}
-            onValueChange={(value) => {
-              const nextHost = value === '__owner__' ? null : value
-              persistParticipants(participantIds, participantConfirmedMap, nextHost)
-            }}
-          >
-            <SelectTrigger className="w-full h-10">
-              <SelectValue placeholder="Select host" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__owner__">You (admin)</SelectItem>
-              {participantIds.filter((id): id is string => id !== null).map(id => (
-                <SelectItem key={id} value={id}>{participantLabel(id)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {isLoading ? (
-          <div className="flex flex-col gap-2">
-            {[0, 1, 2].map(i => (
-              <div key={i} className="h-10 rounded-lg bg-card/60 animate-pulse border border-border/40" />
-            ))}
-          </div>
-        ) : participantIds.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">No participants set</div>
-        ) : (
-          <>
-            <div className="sm:hidden flex flex-col gap-2">
-              {participantIds.map((friendId, i) => (
-                <div key={`${event.id}-${friendId ?? 'host'}-${i}`} className="border rounded-md p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="inline-flex items-center gap-1 font-medium">
-                      {participantLabel(friendId)}
-                      {((hostFriendId === null && friendId === null) || (hostFriendId !== null && friendId === hostFriendId)) && (
-                        <Badge variant="secondary">Host</Badge>
-                      )}
-                    </div>
-                    <span className="tabular-nums font-semibold">{formatMoney(equalShare)}</span>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between gap-2">
-                    <Badge variant={(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'default' : 'outline'}>
-                      {(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'Confirmed' : 'Pending'}
-                    </Badge>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => toggleParticipantConfirmed(friendId)}
-                        aria-label="Toggle payment confirmation"
-                      >
-                        <Check size={14} />
-                        Toggle
-                      </Button>
-                      {friendId !== null && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeParticipant(friendId)}
-                          aria-label="Remove participant"
-                        >
-                          <X size={14} />
-                          Remove
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="hidden sm:block border rounded-md overflow-x-auto">
-              <table className="min-w-full w-max text-sm">
-                <thead className="bg-muted/50 text-muted-foreground">
-                  <tr>
-                    <th className="text-left px-3 py-2 font-medium">Participant</th>
-                    <th className="text-right px-3 py-2 font-medium">Share</th>
-                    <th className="text-left px-3 py-2 font-medium">Status</th>
-                    <th className="text-right px-3 py-2 font-medium w-20">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {participantIds.map((friendId, i) => (
-                    <tr key={`${event.id}-${friendId ?? 'host'}-${i}`} className="hover:bg-muted/30">
-                      <td className="px-3 py-2 inline-flex items-center gap-1">
-                        {participantLabel(friendId)}
-                        {((hostFriendId === null && friendId === null) || (hostFriendId !== null && friendId === hostFriendId)) && (
-                          <Badge variant="secondary">Host</Badge>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-right font-medium tabular-nums">
-                        {formatMoney(equalShare)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <Badge variant={(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'default' : 'outline'}>
-                          {(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'Confirmed' : 'Pending'}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9"
-                            onClick={() => toggleParticipantConfirmed(friendId)}
-                            aria-label="Toggle payment confirmation"
-                          >
-                            <Check size={14} />
-                          </Button>
-                          {friendId !== null && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-9 w-9"
-                              onClick={() => removeParticipant(friendId)}
-                              aria-label="Remove participant"
-                            >
-                              <X size={14} />
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
+        <ParticipantEditor
+          eventId={event.id}
+          eventTotalAmount={event.total_amount}
+          participantIds={participantIds}
+          hostFriendId={hostFriendId}
+          participantConfirmedMap={participantConfirmedMap}
+          participantLabel={participantLabel}
+          isLoading={isLoading}
+          isPending={saveParticipantsMutation.isPending}
+          showParticipantsInput={showParticipantsInput}
+          participantsInput={participantsInput}
+          participantsInputRef={participantsInputRef}
+          highlightParticipantsInput={highlightParticipantsInput}
+          onParticipantsInputChange={setParticipantsInput}
+          onParticipantsInputOpen={() => {
+            setShowParticipantsInput(true)
+            setHighlightParticipantsInput(true)
+          }}
+          onParticipantsInputClose={() => {
+            setShowParticipantsInput(false)
+            setParticipantsInput('')
+            setHighlightParticipantsInput(false)
+          }}
+          onAddParticipants={addParticipantsFromInput}
+          onHostChange={(nextHost) => persistParticipants(participantIds, participantConfirmedMap, nextHost)}
+          onToggleParticipantConfirmed={toggleParticipantConfirmed}
+          onRemoveParticipant={removeParticipant}
+          addParticipantsLabel="Add participants"
+          emptyLabel="No participants set"
+        />
     </AppModal>
   )
 }
@@ -1147,61 +1000,18 @@ export function FriendsPage() {
         title="New Group Event"
         description="Create event to split costs with friends."
       >
-        <form onSubmit={handleCreateEvent} className="flex flex-col gap-4">
-          <div>
-            <Label className="block text-sm font-medium mb-1">Title</Label>
-            <Input
-              required
-              value={eventForm.title}
-              onChange={e => setEventForm({ ...eventForm, title: e.target.value })}
-              placeholder="Pizza Night"
-            />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <Label className="block text-sm font-medium mb-1">Date</Label>
-              <Input
-                type="date"
-                required
-                value={eventForm.date}
-                onChange={e => setEventForm({ ...eventForm, date: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label className="block text-sm font-medium mb-1">Total Amount ($)</Label>
-              <ValueInput
-                required
-                value={eventForm.total_amount}
-                onValueChange={value => setEventForm({ ...eventForm, total_amount: value })}
-                placeholder="0.00"
-                allowNegative={false}
-              />
-            </div>
-          </div>
-          <div>
-            <Label className="block text-sm font-medium mb-1">Notes (optional)</Label>
-            <Textarea
-              rows={2}
-              value={eventForm.notes}
-              onChange={e => setEventForm({ ...eventForm, notes: e.target.value })}
-              placeholder="Optional notes"
-              className="resize-none"
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button type="submit" disabled={createEventMutation.isPending}>Create Event</Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setShowCreateEvent(false)
-                setEventForm(EMPTY_EVENT_FORM)
-              }}
-            >
-              Discard
-            </Button>
-          </div>
-        </form>
+        <GroupEventForm
+          form={eventForm}
+          onChange={setEventForm}
+          onSubmit={handleCreateEvent}
+          onCancel={() => {
+            setShowCreateEvent(false)
+            setEventForm(EMPTY_EVENT_FORM)
+          }}
+          isSubmitting={createEventMutation.isPending}
+          submitLabel="Create Event"
+          cancelLabel="Discard"
+        />
       </AppModal>
 
       <AppModal
