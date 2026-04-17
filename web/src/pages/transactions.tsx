@@ -21,6 +21,7 @@ import {
   type TransactionResponse,
 } from '@/lib/api'
 import { formatDate } from '@/lib/format'
+import { MoneyValue } from '@/components/ui/money-value'
 import { AccountContext } from '@/App'
 
 const CATEGORIES = [
@@ -74,6 +75,7 @@ export function TransactionsPage() {
   })
 
   const currentAccountId = selectedAccountId || accounts[0]?.id
+  const currentAccountCurrency = accounts.find(a => a.id === currentAccountId)?.currency ?? 'BRL'
 
   const {
     data: transactions = [],
@@ -400,9 +402,13 @@ export function TransactionsPage() {
                               : formatDate(txn.timestamp)}
                           </div>
                         </div>
-                        <div className={`font-semibold tabular-nums ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
-                        </div>
+                        <MoneyValue
+                          amount={txn.amount}
+                          currency={currentAccountCurrency}
+                          showSign="always"
+                          tone="auto"
+                          className="font-semibold"
+                        />
                       </div>
 
                       <div className="grid grid-cols-3 gap-2">
@@ -519,8 +525,14 @@ export function TransactionsPage() {
                             : formatDate(txn.timestamp)
                           }
                         </td>
-                        <td className={`px-3 py-2 text-right font-medium tabular-nums ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {txn.amount >= 0 ? '+' : ''}{txn.amount.toFixed(2)}
+                        <td className="px-3 py-2 text-right">
+                          <MoneyValue
+                            amount={txn.amount}
+                            currency={currentAccountCurrency}
+                            showSign="always"
+                            tone="auto"
+                            className="font-medium"
+                          />
                         </td>
                         <td className="px-3 py-2">
                           <div className="flex gap-1 justify-end">
