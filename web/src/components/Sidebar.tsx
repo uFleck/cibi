@@ -7,7 +7,7 @@ export function Sidebar() {
   const { selectedAccountId, setSelectedAccountId } = useContext(AccountContext)
 
   return (
-    <aside className="hidden lg:flex flex-col w-80 shrink-0 sticky top-0 h-screen border-r border-border/50 bg-background">
+    <aside className="hidden lg:flex flex-col w-72 shrink-0 sticky top-0 h-screen border-r border-border/50 bg-background">
       <div className="px-4 py-5 border-b border-border/50">
         <span className="text-sm font-semibold tracking-[0.18em] text-foreground">CIBI</span>
       </div>
@@ -17,7 +17,7 @@ export function Sidebar() {
           selectedAccountId={selectedAccountId}
           onSelectAccount={setSelectedAccountId}
           fullWidth
-          variant="default"
+          compact
         />
       </div>
 

@@ -24,7 +24,6 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
             selectedAccountId={selectedAccountId}
             onSelectAccount={setSelectedAccountId}
             fullWidth
-            variant="mobile"
           />
         </div>
 
