@@ -310,6 +310,18 @@ export function AccountsPage() {
   const isPending = createMutation.isPending || updateMutation.isPending
   const accountToDelete = accounts.find(a => a.id === confirmDelete)
 
+  const handleAccountNameChange = (value: string) => {
+    setFormData({ ...formData, name: value })
+    if (formErrors.name) setFormErrors({ ...formErrors, name: undefined })
+  }
+
+  const handleAccountBalanceParsedChange = (value: number | null) => {
+    setFormData({
+      ...formData,
+      current_balance: value ?? 0,
+    })
+  }
+
   if (isError) {
     return (
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
@@ -534,17 +546,9 @@ export function AccountsPage() {
           isPending={isPending}
           editingId={editingId}
           currencies={CURRENCIES}
-          onNameChange={value => {
-            setFormData({ ...formData, name: value })
-            if (formErrors.name) setFormErrors({ ...formErrors, name: undefined })
-          }}
+          onNameChange={handleAccountNameChange}
           onBalanceTextChange={setBalanceText}
-          onBalanceParsedChange={value =>
-            setFormData({
-              ...formData,
-              current_balance: value ?? 0,
-            })
-          }
+          onBalanceParsedChange={handleAccountBalanceParsedChange}
           onCurrencyChange={value => setFormData({ ...formData, currency: value })}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
