@@ -5,14 +5,12 @@ import { Plus, Edit2, Trash2, Check, Wallet, DollarSign } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { ValueInput } from '@/components/ui/value-input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { AppModal } from '@/components/AppModal'
 import { MobileActionButton } from '@/components/MobileActionButton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { AccountForm } from '@/components/AccountForm'
+import { AccountScheduleForm, type AccountScheduleFrequency } from '@/components/AccountScheduleForm'
 import {
   fetchAccounts,
   createAccount,
@@ -56,7 +54,7 @@ export function AccountsPage() {
   const [scheduleModalAccountId, setScheduleModalAccountId] = useState<string | null>(null)
   const [scheduleForm, setScheduleForm] = useState({
     label: '',
-    frequency: 'monthly' as 'weekly' | 'bi-weekly' | 'semi-monthly' | 'monthly',
+    frequency: 'monthly' as AccountScheduleFrequency,
     anchor_date: '',
     amount: '',
     day_of_month: '',
@@ -529,81 +527,28 @@ export function AccountsPage() {
         title={editingId ? 'Edit Account' : 'New Account'}
         description={editingId ? 'Update account details.' : 'Create a new account.'}
       >
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="account-name" className="text-xs">Name *</Label>
-              <Input
-                id="account-name"
-                value={formData.name}
-                onChange={e => {
-                  setFormData({ ...formData, name: e.target.value })
-                  if (formErrors.name) setFormErrors({ ...formErrors, name: undefined })
-                }}
-                placeholder="Account name"
-                autoFocus
-                aria-invalid={!!formErrors.name || undefined}
-                aria-describedby={formErrors.name ? 'account-name-error' : undefined}
-              />
-              {formErrors.name && (
-                <p id="account-name-error" className="text-xs text-destructive">
-                  {formErrors.name}
-                </p>
-              )}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="account-balance" className="text-xs">Current Balance</Label>
-                <ValueInput
-                  id="account-balance"
-                  value={balanceText}
-                  onValueChange={setBalanceText}
-                  onParsedValueChange={value =>
-                    setFormData({
-                      ...formData,
-                      current_balance: value ?? 0,
-                    })
-                  }
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="account-currency" className="text-xs">Currency *</Label>
-                <Select
-                  value={formData.currency}
-                  onValueChange={v => setFormData({ ...formData, currency: v })}
-                >
-                  <SelectTrigger id="account-currency" size="sm" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CURRENCIES.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm flex gap-2 pt-4 pb-1">
-              <Button type="submit" size="sm" disabled={isPending}>
-                {isPending
-                  ? editingId
-                    ? 'Updating...'
-                    : 'Creating...'
-                  : editingId
-                    ? 'Update'
-                    : 'Create'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleCancel}
-                disabled={isPending}
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
+        <AccountForm
+          formData={formData}
+          formErrors={formErrors}
+          balanceText={balanceText}
+          isPending={isPending}
+          editingId={editingId}
+          currencies={CURRENCIES}
+          onNameChange={value => {
+            setFormData({ ...formData, name: value })
+            if (formErrors.name) setFormErrors({ ...formErrors, name: undefined })
+          }}
+          onBalanceTextChange={setBalanceText}
+          onBalanceParsedChange={value =>
+            setFormData({
+              ...formData,
+              current_balance: value ?? 0,
+            })
+          }
+          onCurrencyChange={value => setFormData({ ...formData, currency: value })}
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+        />
       </AppModal>
 
       <div className="h-24 sm:h-8" />
@@ -728,106 +673,16 @@ export function AccountsPage() {
           )}
 
           {(editingScheduleId || schedules.length === 0 || !editingScheduleId) && (
-            <form onSubmit={handleScheduleSubmit} className="border-t pt-4 mt-4">
-              <h4 className="font-medium mb-4">
-                {editingScheduleId ? 'Edit Schedule' : 'Add Schedule'}
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="schedule-label" className="text-xs">Label</Label>
-                  <Input
-                    id="schedule-label"
-                    placeholder="e.g. Main paycheck"
-                    value={scheduleForm.label}
-                    onChange={e => setScheduleForm({ ...scheduleForm, label: e.target.value })}
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="schedule-frequency" className="text-xs">Frequency</Label>
-                  <Select
-                    value={scheduleForm.frequency}
-                    onValueChange={v => setScheduleForm({ ...scheduleForm, frequency: v as typeof scheduleForm.frequency })}
-                  >
-                    <SelectTrigger id="schedule-frequency" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="bi-weekly">Bi-weekly</SelectItem>
-                      <SelectItem value="semi-monthly">Semi-monthly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="schedule-anchor" className="text-xs">Anchor Date *</Label>
-                  <Input
-                    id="schedule-anchor"
-                    type="date"
-                    value={scheduleForm.anchor_date}
-                    onChange={e => {
-                      setScheduleForm({ ...scheduleForm, anchor_date: e.target.value })
-                      if (scheduleFormErrors.anchor_date) setScheduleFormErrors({ ...scheduleFormErrors, anchor_date: undefined })
-                    }}
-                  />
-                  {scheduleFormErrors.anchor_date && (
-                    <p className="text-xs text-destructive">{scheduleFormErrors.anchor_date}</p>
-                  )}
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="schedule-amount" className="text-xs">Amount ($) *</Label>
-                  <ValueInput
-                    id="schedule-amount"
-                    value={scheduleForm.amount}
-                    onValueChange={value => {
-                      setScheduleForm({ ...scheduleForm, amount: value })
-                      if (scheduleFormErrors.amount) setScheduleFormErrors({ ...scheduleFormErrors, amount: undefined })
-                    }}
-                    placeholder="0.00"
-                    allowNegative={false}
-                  />
-                  {scheduleFormErrors.amount && (
-                    <p className="text-xs text-destructive">{scheduleFormErrors.amount}</p>
-                  )}
-                </div>
-                {(scheduleForm.frequency === 'monthly' || scheduleForm.frequency === 'semi-monthly') && (
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="schedule-day" className="text-xs">Day of Month</Label>
-                    <Input
-                      id="schedule-day"
-                      type="number"
-                      min="1"
-                      max="31"
-                      value={scheduleForm.day_of_month}
-                      onChange={e => setScheduleForm({ ...scheduleForm, day_of_month: e.target.value })}
-                    />
-                  </div>
-                )}
-                {scheduleForm.frequency === 'semi-monthly' && (
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="schedule-day2" className="text-xs">Day of Month 2</Label>
-                    <Input
-                      id="schedule-day2"
-                      type="number"
-                      min="1"
-                      max="31"
-                      value={scheduleForm.day_of_month_2}
-                      onChange={e => setScheduleForm({ ...scheduleForm, day_of_month_2: e.target.value })}
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm flex gap-2 mt-4 pt-2 pb-1">
-                <Button type="submit" size="sm" disabled={createScheduleMutation.isPending || updateScheduleMutation.isPending}>
-                  {editingScheduleId ? 'Update Schedule' : 'Add Schedule'}
-                </Button>
-                {editingScheduleId && (
-                  <Button type="button" variant="outline" size="sm" onClick={discardScheduleForm}>
-                    Cancel
-                  </Button>
-                )}
-              </div>
-            </form>
+            <AccountScheduleForm
+              editingScheduleId={editingScheduleId}
+              scheduleForm={scheduleForm}
+              scheduleFormErrors={scheduleFormErrors}
+              isPending={createScheduleMutation.isPending || updateScheduleMutation.isPending}
+              onSubmit={handleScheduleSubmit}
+              onChange={changes => setScheduleForm({ ...scheduleForm, ...changes })}
+              onClearError={field => setScheduleFormErrors({ ...scheduleFormErrors, [field]: undefined })}
+              onCancelEdit={discardScheduleForm}
+            />
           )}
       </AppModal>
     </div>
