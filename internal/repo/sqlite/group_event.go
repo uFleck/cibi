@@ -3,6 +3,7 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -249,58 +250,45 @@ func (r *SqliteGroupEventRepo) GetByFriend(friendID uuid.UUID) ([]GroupEvent, er
 }
 
 func (r *SqliteGroupEventRepo) Update(id uuid.UUID, title *string, date *string, totalAmount *int64, notes *string) error {
-	tx, err := r.db.Begin()
-	if err != nil {
-		return fmt.Errorf("group_event.Update: begin: %w", err)
+	type updateField struct {
+		col string
+		val any
 	}
-	defer tx.Rollback()
-	rowChecked := false
+
+	fields := make([]updateField, 0, 4)
 	if title != nil {
-		res, err := tx.Exec(`UPDATE GroupEvent SET title = ? WHERE id = ?`, *title, id.String())
-		if err != nil {
-			return fmt.Errorf("group_event.Update: title: %w", err)
-		}
-		if n, _ := res.RowsAffected(); n == 0 {
-			return fmt.Errorf("group_event.Update: %w", sql.ErrNoRows)
-		}
-		rowChecked = true
+		fields = append(fields, updateField{col: "title", val: *title})
 	}
 	if date != nil {
-		res, err := tx.Exec(`UPDATE GroupEvent SET date = ? WHERE id = ?`, *date, id.String())
-		if err != nil {
-			return fmt.Errorf("group_event.Update: date: %w", err)
-		}
-		if !rowChecked {
-			if n, _ := res.RowsAffected(); n == 0 {
-				return fmt.Errorf("group_event.Update: %w", sql.ErrNoRows)
-			}
-			rowChecked = true
-		}
+		fields = append(fields, updateField{col: "date", val: *date})
 	}
 	if totalAmount != nil {
-		res, err := tx.Exec(`UPDATE GroupEvent SET total_amount = ? WHERE id = ?`, *totalAmount, id.String())
-		if err != nil {
-			return fmt.Errorf("group_event.Update: total_amount: %w", err)
-		}
-		if !rowChecked {
-			if n, _ := res.RowsAffected(); n == 0 {
-				return fmt.Errorf("group_event.Update: %w", sql.ErrNoRows)
-			}
-			rowChecked = true
-		}
+		fields = append(fields, updateField{col: "total_amount", val: *totalAmount})
 	}
 	if notes != nil {
-		res, err := tx.Exec(`UPDATE GroupEvent SET notes = ? WHERE id = ?`, *notes, id.String())
-		if err != nil {
-			return fmt.Errorf("group_event.Update: notes: %w", err)
-		}
-		if !rowChecked {
-			if n, _ := res.RowsAffected(); n == 0 {
-				return fmt.Errorf("group_event.Update: %w", sql.ErrNoRows)
-			}
-		}
+		fields = append(fields, updateField{col: "notes", val: *notes})
 	}
-	return tx.Commit()
+	if len(fields) == 0 {
+		return fmt.Errorf("group_event.Update: no fields provided")
+	}
+
+	setClauses := make([]string, 0, len(fields))
+	args := make([]any, 0, len(fields)+1)
+	for _, f := range fields {
+		setClauses = append(setClauses, f.col+" = ?")
+		args = append(args, f.val)
+	}
+	args = append(args, id.String())
+
+	query := "UPDATE GroupEvent SET " + strings.Join(setClauses, ", ") + " WHERE id = ?"
+	res, err := r.db.Exec(query, args...)
+	if err != nil {
+		return fmt.Errorf("group_event.Update: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("group_event.Update: %w", sql.ErrNoRows)
+	}
+	return nil
 }
 
 func (r *SqliteGroupEventRepo) DeleteByID(id uuid.UUID) error {

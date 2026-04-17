@@ -32,7 +32,7 @@ func NewPeerDebtService(repo sqlite.PeerDebtRepo) *PeerDebtService {
 
 // ListByFriend returns all debts for a given friend.
 func (s *PeerDebtService) ListByFriend(friendID uuid.UUID) ([]sqlite.PeerDebt, error) {
-	debts, err := s.repo.GetByFriend(friendID)
+	debts, err := s.repo.GetByFriend(friendID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("service.ListByFriend: %w", err)
 	}
@@ -41,7 +41,7 @@ func (s *PeerDebtService) ListByFriend(friendID uuid.UUID) ([]sqlite.PeerDebt, e
 
 // ListByFriendAndAccount returns all debts for a friend scoped by account.
 func (s *PeerDebtService) ListByFriendAndAccount(friendID, accountID uuid.UUID) ([]sqlite.PeerDebt, error) {
-	debts, err := s.repo.GetByFriendAndAccount(friendID, accountID)
+	debts, err := s.repo.GetByFriend(friendID, &accountID)
 	if err != nil {
 		return nil, fmt.Errorf("service.ListByFriendAndAccount: %w", err)
 	}
@@ -50,7 +50,7 @@ func (s *PeerDebtService) ListByFriendAndAccount(friendID, accountID uuid.UUID) 
 
 // ListAll returns all peer debts across all friends.
 func (s *PeerDebtService) ListAll() ([]sqlite.PeerDebt, error) {
-	debts, err := s.repo.GetAll()
+	debts, err := s.repo.GetAll(nil)
 	if err != nil {
 		return nil, fmt.Errorf("service.ListAll: %w", err)
 	}
@@ -59,7 +59,7 @@ func (s *PeerDebtService) ListAll() ([]sqlite.PeerDebt, error) {
 
 // ListAllByAccount returns all peer debts for one account.
 func (s *PeerDebtService) ListAllByAccount(accountID uuid.UUID) ([]sqlite.PeerDebt, error) {
-	debts, err := s.repo.GetAllByAccount(accountID)
+	debts, err := s.repo.GetAll(&accountID)
 	if err != nil {
 		return nil, fmt.Errorf("service.ListAllByAccount: %w", err)
 	}
@@ -105,7 +105,7 @@ func (s *PeerDebtService) ConfirmInstallment(id uuid.UUID) error {
 
 // GetBalanceByFriend returns the balance summary for a specific friend.
 func (s *PeerDebtService) GetBalanceByFriend(friendID uuid.UUID) (sqlite.PeerDebtBalance, error) {
-	b, err := s.repo.GetBalanceByFriend(friendID)
+	b, err := s.repo.GetBalanceByFriend(friendID, nil)
 	if err != nil {
 		return b, fmt.Errorf("service.GetBalanceByFriend: %w", err)
 	}
@@ -114,7 +114,7 @@ func (s *PeerDebtService) GetBalanceByFriend(friendID uuid.UUID) (sqlite.PeerDeb
 
 // GetGlobalBalance returns the aggregated balance summary across all friends.
 func (s *PeerDebtService) GetGlobalBalance() (sqlite.GlobalPeerBalance, error) {
-	b, err := s.repo.GetGlobalBalance()
+	b, err := s.repo.GetGlobalBalance(nil)
 	if err != nil {
 		return b, fmt.Errorf("service.GetGlobalBalance: %w", err)
 	}
@@ -123,7 +123,7 @@ func (s *PeerDebtService) GetGlobalBalance() (sqlite.GlobalPeerBalance, error) {
 
 // GetGlobalBalanceByAccount returns aggregated balance summary scoped to one account.
 func (s *PeerDebtService) GetGlobalBalanceByAccount(accountID uuid.UUID) (sqlite.GlobalPeerBalance, error) {
-	b, err := s.repo.GetGlobalBalanceByAccount(accountID)
+	b, err := s.repo.GetGlobalBalance(&accountID)
 	if err != nil {
 		return b, fmt.Errorf("service.GetGlobalBalanceByAccount: %w", err)
 	}
@@ -133,7 +133,7 @@ func (s *PeerDebtService) GetGlobalBalanceByAccount(accountID uuid.UUID) (sqlite
 // GetFriendDebtBreakdown returns per-debt breakdown of active debts the user owes friends,
 // with computed next payment amount and due date.
 func (s *PeerDebtService) GetFriendDebtBreakdown() ([]FriendDebtItem, error) {
-	rows, err := s.repo.GetActiveUserDebtsWithFriend()
+	rows, err := s.repo.GetActiveUserDebtsWithFriend(nil)
 	if err != nil {
 		return nil, fmt.Errorf("service.GetFriendDebtBreakdown: %w", err)
 	}
@@ -183,7 +183,7 @@ func (s *PeerDebtService) GetFriendDebtBreakdown() ([]FriendDebtItem, error) {
 
 // GetFriendDebtBreakdownByAccount returns breakdown scoped to one account.
 func (s *PeerDebtService) GetFriendDebtBreakdownByAccount(accountID uuid.UUID) ([]FriendDebtItem, error) {
-	rows, err := s.repo.GetActiveUserDebtsWithFriendByAccount(accountID)
+	rows, err := s.repo.GetActiveUserDebtsWithFriend(&accountID)
 	if err != nil {
 		return nil, fmt.Errorf("service.GetFriendDebtBreakdownByAccount: %w", err)
 	}
@@ -234,7 +234,7 @@ func (s *PeerDebtService) GetFriendDebtBreakdownByAccount(accountID uuid.UUID) (
 // SumNextUserPayment returns the sum of the user's next payment for each active debt.
 // For installment debts: one installment amount. For lump-sum debts: full amount.
 func (s *PeerDebtService) SumNextUserPayment() (int64, error) {
-	v, err := s.repo.SumNextUserPayment()
+	v, err := s.repo.SumNextUserPayment(nil)
 	if err != nil {
 		return 0, fmt.Errorf("service.SumNextUserPayment: %w", err)
 	}
@@ -243,7 +243,7 @@ func (s *PeerDebtService) SumNextUserPayment() (int64, error) {
 
 // SumNextUserPaymentByAccount returns next payment sum scoped to one account.
 func (s *PeerDebtService) SumNextUserPaymentByAccount(accountID uuid.UUID) (int64, error) {
-	v, err := s.repo.SumNextUserPaymentByAccount(accountID)
+	v, err := s.repo.SumNextUserPayment(&accountID)
 	if err != nil {
 		return 0, fmt.Errorf("service.SumNextUserPaymentByAccount: %w", err)
 	}
