@@ -32,6 +32,7 @@ export function MobileHeader({ onMenuClick }: MobileHeaderProps) {
           selectedAccountId={selectedAccountId}
           onSelectAccount={setSelectedAccountId}
           fullWidth
+          variant="mobile"
         />
       </div>
     </header>
