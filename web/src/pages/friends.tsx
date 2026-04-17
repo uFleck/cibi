@@ -9,8 +9,8 @@ import { AppModal } from '@/components/AppModal'
 import { CompactEntityTable } from '@/components/CompactEntityTable'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { FriendForm } from '@/components/FriendForm'
-import { DebtForm } from '@/components/DebtForm'
-import { GroupEventForm } from '@/components/GroupEventForm'
+import { DebtForm, type DebtFormState } from '@/components/DebtForm'
+import { GroupEventForm, type GroupEventFormState } from '@/components/GroupEventForm'
 import { ParticipantEditor } from '@/components/ParticipantEditor'
 import {
   listFriends,
@@ -40,25 +40,9 @@ interface CreateFriendFormState {
   pix_key: string
 }
 
-interface CreateEventFormState {
-  title: string
-  date: string
-  total_amount: string
-  notes: string
-}
-
-interface AddDebtFormState {
-  description: string
-  amount: string
-  date: string
-  is_installment: boolean
-  total_installments: string
-  frequency: 'weekly' | 'monthly'
-}
-
 const EMPTY_FRIEND_FORM: CreateFriendFormState = { name: '', notes: '', pix_key: '' }
-const EMPTY_EVENT_FORM: CreateEventFormState = { title: '', date: '', total_amount: '', notes: '' }
-const EMPTY_DEBT_FORM: AddDebtFormState = {
+const EMPTY_EVENT_FORM: GroupEventFormState = { title: '', date: '', total_amount: '', notes: '' }
+const EMPTY_DEBT_FORM: DebtFormState = {
   description: '',
   amount: '',
   date: '',
@@ -152,7 +136,7 @@ function FriendDetailsModal({
   const [nameDraft, setNameDraft] = useState('')
   const [pixKeyDraft, setPixKeyDraft] = useState('')
   const [showAddDebt, setShowAddDebt] = useState(false)
-  const [debtForm, setDebtForm] = useState<AddDebtFormState>(EMPTY_DEBT_FORM)
+  const [debtForm, setDebtForm] = useState<DebtFormState>(EMPTY_DEBT_FORM)
   const [confirmDeleteFriendOpen, setConfirmDeleteFriendOpen] = useState(false)
   const [debtToDelete, setDebtToDelete] = useState<string | null>(null)
 
@@ -814,7 +798,7 @@ export function FriendsPage() {
   const [friendForm, setFriendForm] = useState<CreateFriendFormState>(EMPTY_FRIEND_FORM)
 
   const [showCreateEvent, setShowCreateEvent] = useState(false)
-  const [eventForm, setEventForm] = useState<CreateEventFormState>(EMPTY_EVENT_FORM)
+  const [eventForm, setEventForm] = useState<GroupEventFormState>(EMPTY_EVENT_FORM)
 
   const [activeFriendId, setActiveFriendId] = useState<string | null>(null)
   const [activeEventId, setActiveEventId] = useState<string | null>(null)
