@@ -14,7 +14,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
 
   return (
     <Sheet open={open} onOpenChange={v => { if (!v) onClose() }}>
-      <SheetContent side="left" className="w-72 p-0 gap-0">
+      <SheetContent side="left" className="w-[85vw] max-w-sm p-0 gap-0">
         <div className="px-4 py-5 border-b border-border/50">
           <span className="text-sm font-semibold tracking-[0.18em] text-foreground">CIBI</span>
         </div>

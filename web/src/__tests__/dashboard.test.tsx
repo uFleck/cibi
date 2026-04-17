@@ -17,11 +17,11 @@ describe('formatMoney', () => {
 })
 
 describe('formatDate', () => {
-  it('formats ISO string as DD/MM', () => {
-    expect(formatDate('2026-04-15T12:00:00Z')).toBe('15/04')
+  it('formats ISO string as DD/MM/YYYY', () => {
+    expect(formatDate('2026-04-15T12:00:00Z')).toBe('15/04/2026')
   })
   it('formats January', () => {
-    expect(formatDate('2026-01-01T12:00:00Z')).toBe('01/01')
+    expect(formatDate('2026-01-01T12:00:00Z')).toBe('01/01/2026')
   })
 })
 

@@ -1,11 +1,13 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { RouterProvider, Outlet, useLocation } from '@tanstack/react-router'
 import { Toaster } from '@/components/ui/sonner'
-import { createContext, useState } from 'react'
+import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import { router } from './router'
 import { Sidebar } from '@/components/Sidebar'
 import { MobileHeader } from '@/components/MobileHeader'
 import { MobileDrawer } from '@/components/MobileDrawer'
+import { MobileBottomNav } from '@/components/MobileBottomNav'
+import { fetchAccounts } from '@/lib/api'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,9 +35,10 @@ function RootLayoutWithNav() {
       <Sidebar />
       <MobileHeader onMenuClick={() => setMobileDrawerOpen(true)} />
       <MobileDrawer open={mobileDrawerOpen} onClose={() => setMobileDrawerOpen(false)} />
-      <main className="flex-1 overflow-auto pt-14 lg:pt-0">
+      <main className="flex-1 overflow-auto pt-[calc(5.75rem+env(safe-area-inset-top))] lg:pt-0 pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0">
         <Outlet />
       </main>
+      <MobileBottomNav />
     </div>
   )
 }
@@ -55,15 +58,76 @@ export function RootLayout() {
   return <RootLayoutWithNav />
 }
 
-export default function App() {
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
+const SELECTED_ACCOUNT_STORAGE_KEY = 'cibi.selectedAccountId'
+
+function getInitialSelectedAccountId(): string | null {
+  if (typeof window === 'undefined') return null
+  return window.localStorage.getItem(SELECTED_ACCOUNT_STORAGE_KEY)
+}
+
+function AppShell() {
+  const [selectedAccountId, setSelectedAccountIdState] = useState<string | null>(getInitialSelectedAccountId)
+
+  const setSelectedAccountId = useCallback((id: string | null) => {
+    setSelectedAccountIdState(id)
+
+    if (typeof window === 'undefined') return
+    if (id) {
+      window.localStorage.setItem(SELECTED_ACCOUNT_STORAGE_KEY, id)
+    } else {
+      window.localStorage.removeItem(SELECTED_ACCOUNT_STORAGE_KEY)
+    }
+  }, [])
+
+  const {
+    data: accounts = [],
+    isLoading: accountsLoading,
+  } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: fetchAccounts,
+  })
+
+  useEffect(() => {
+    if (accountsLoading) return
+
+    if (accounts.length === 0) {
+      if (selectedAccountId !== null) {
+        setSelectedAccountId(null)
+      }
+      return
+    }
+
+    const selectedAccountStillExists = !!selectedAccountId && accounts.some(account => account.id === selectedAccountId)
+    if (selectedAccountStillExists) return
+
+    const fallbackAccountId = accounts.find(account => account.is_default)?.id ?? accounts[0]?.id ?? null
+    if (fallbackAccountId && fallbackAccountId !== selectedAccountId) {
+      setSelectedAccountId(fallbackAccountId)
+    }
+  }, [accounts, accountsLoading, selectedAccountId, setSelectedAccountId])
+
+  const accountReady = useMemo(() => {
+    if (accountsLoading) return false
+    if (accounts.length === 0) return true
+    return !!selectedAccountId
+  }, [accounts.length, accountsLoading, selectedAccountId])
+
+  if (!accountReady) {
+    return <div className="min-h-dvh bg-background" />
+  }
 
   return (
+    <AccountContext.Provider value={{ selectedAccountId, setSelectedAccountId }}>
+      <RouterProvider router={router} />
+      <Toaster />
+    </AccountContext.Provider>
+  )
+}
+
+export default function App() {
+  return (
     <QueryClientProvider client={queryClient}>
-      <AccountContext.Provider value={{ selectedAccountId, setSelectedAccountId }}>
-        <RouterProvider router={router} />
-        <Toaster position="bottom-right" />
-      </AccountContext.Provider>
+      <AppShell />
     </QueryClientProvider>
   )
 }

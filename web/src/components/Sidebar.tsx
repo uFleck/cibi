@@ -17,6 +17,7 @@ export function Sidebar() {
           selectedAccountId={selectedAccountId}
           onSelectAccount={setSelectedAccountId}
           fullWidth
+          compact
         />
       </div>
 

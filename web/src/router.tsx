@@ -13,6 +13,7 @@ import { FriendLedgerWidget } from '@/components/FriendLedgerWidget'
 import { AccountsPage } from '@/pages/accounts'
 import { TransactionsPage } from '@/pages/transactions'
 import { FriendsPage } from '@/pages/friends'
+import { SettingsPage } from '@/pages/settings'
 import { FriendPublicPage } from '@/pages/friend-public'
 import { GroupPublicPage } from '@/pages/group-public'
 import { fetchDefaultAccount, fetchAccounts, fetchTransactions, listPaySchedules, fetchFriendBreakdown } from '@/lib/api'
@@ -29,7 +30,7 @@ function PublicLayout() {
 }
 
 function Dashboard() {
-  const { selectedAccountId, setSelectedAccountId } = useContext(AccountContext)
+  const { selectedAccountId } = useContext(AccountContext)
 
   const {
     data: allAccounts = [],
@@ -74,8 +75,9 @@ function Dashboard() {
   const {
     data: friendBreakdown = [],
   } = useQuery({
-    queryKey: ['friend-breakdown'],
-    queryFn: fetchFriendBreakdown,
+    queryKey: ['friend-breakdown', account?.id],
+    queryFn: () => fetchFriendBreakdown(account!.id),
+    enabled: !!account?.id,
   })
 
   const nextPayday = paySchedules.length > 0
@@ -90,13 +92,6 @@ function Dashboard() {
       toast.error('Could not load financial data. Retrying in 30 seconds.')
     }
   }, [accountError, txnsError])
-
-  // Sync default account into context on first load
-  useEffect(() => {
-    if (!selectedAccountId && defaultAccount?.id) {
-      setSelectedAccountId(defaultAccount.id)
-    }
-  }, [defaultAccount?.id, selectedAccountId, setSelectedAccountId])
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
@@ -129,7 +124,7 @@ function Dashboard() {
         </Skeleton>
       )}
 
-      <CheckWidget />
+      <CheckWidget accountId={account?.id} />
 
       <FriendLedgerWidget />
 
@@ -173,6 +168,11 @@ const friendsRoute = createRoute({
   path: '/friends',
   component: FriendsPage,
 })
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings',
+  component: SettingsPage,
+})
 
 const publicRootRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -198,6 +198,7 @@ const routeTree = rootRoute.addChildren([
   accountsRoute,
   transactionsRoute,
   friendsRoute,
+  settingsRoute,
   publicRootRoute.addChildren([publicFriendRoute, publicGroupRoute]),
 ])
 

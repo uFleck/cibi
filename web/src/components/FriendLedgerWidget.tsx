@@ -1,21 +1,27 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
+import { useContext } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { fetchFriendSummary, fetchFriendBreakdown } from '@/lib/api'
 import { formatMoney, formatDate } from '@/lib/format'
+import { AccountContext } from '@/App'
 
 export function FriendLedgerWidget() {
+  const { selectedAccountId } = useContext(AccountContext)
+
   const { data: summary, isLoading: summaryLoading } = useQuery({
-    queryKey: ['friend-summary'],
-    queryFn: fetchFriendSummary,
+    queryKey: ['friend-summary', selectedAccountId],
+    queryFn: () => fetchFriendSummary(selectedAccountId!),
+    enabled: !!selectedAccountId,
   })
 
   const { data: breakdown, isLoading: breakdownLoading } = useQuery({
-    queryKey: ['friend-breakdown'],
-    queryFn: fetchFriendBreakdown,
+    queryKey: ['friend-breakdown', selectedAccountId],
+    queryFn: () => fetchFriendBreakdown(selectedAccountId!),
+    enabled: !!selectedAccountId,
   })
 
   const isLoading = summaryLoading || breakdownLoading
@@ -76,7 +82,7 @@ export function FriendLedgerWidget() {
 
             {breakdown && breakdown.length > 0 && (
               <div className="mt-2 pt-2 border-t border-border/40 flex flex-col gap-1">
-                <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground mb-0.5">
+                <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-0.5">
                   Next payments
                 </span>
                 {breakdown.map((item, i) => (

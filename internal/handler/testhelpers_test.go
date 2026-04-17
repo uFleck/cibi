@@ -120,7 +120,15 @@ func (m *mockTransactionsService) DeleteTransaction(id uuid.UUID) error {
 
 // mockEngineService satisfies the EngineServiceIface for handler tests.
 type mockEngineService struct {
+	canIBuyItFn        func(accountID uuid.UUID, itemPrice int64) (service.EngineResult, error)
 	canIBuyItDefaultFn func(itemPrice int64) (service.EngineResult, error)
+}
+
+func (m *mockEngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (service.EngineResult, error) {
+	if m.canIBuyItFn != nil {
+		return m.canIBuyItFn(accountID, itemPrice)
+	}
+	panic("not implemented")
 }
 
 func (m *mockEngineService) CanIBuyItDefault(itemPrice int64) (service.EngineResult, error) {

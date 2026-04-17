@@ -15,7 +15,9 @@ import (
 // PeerDebtServiceIface defines the service contract used by PeerDebtHandler.
 type PeerDebtServiceIface interface {
 	ListByFriend(friendID uuid.UUID) ([]sqlite.PeerDebt, error)
+	ListByFriendAndAccount(friendID, accountID uuid.UUID) ([]sqlite.PeerDebt, error)
 	ListAll() ([]sqlite.PeerDebt, error)
+	ListAllByAccount(accountID uuid.UUID) ([]sqlite.PeerDebt, error)
 	CreateDebt(d sqlite.PeerDebt) (sqlite.PeerDebt, error)
 	UpdateDebt(id uuid.UUID, amount *int64, description *string) error
 	DeleteDebt(id uuid.UUID) error
@@ -40,6 +42,7 @@ func NewPeerDebtHandler(svc *service.PeerDebtService) *PeerDebtHandler {
 // Request / response types.
 
 type CreatePeerDebtRequest struct {
+	AccountID         string   `json:"account_id"         validate:"required"`
 	FriendID          string   `json:"friend_id"          validate:"required"`
 	Amount            float64  `json:"amount"             validate:"required"` // dollars, sign = direction
 	Description       string   `json:"description"        validate:"required"`
@@ -57,6 +60,7 @@ type PatchPeerDebtRequest struct {
 
 type PeerDebtResponse struct {
 	ID                string  `json:"id"`
+	AccountID         string  `json:"account_id"`
 	FriendID          string  `json:"friend_id"`
 	Amount            float64 `json:"amount"` // dollars
 	Description       string  `json:"description"`
@@ -73,6 +77,7 @@ type PeerDebtResponse struct {
 func peerDebtToResponse(d sqlite.PeerDebt) PeerDebtResponse {
 	return PeerDebtResponse{
 		ID:                d.ID.String(),
+		AccountID:         d.AccountID.String(),
 		FriendID:          d.FriendID.String(),
 		Amount:            float64(d.Amount) / 100.0,
 		Description:       d.Description,
@@ -86,16 +91,24 @@ func peerDebtToResponse(d sqlite.PeerDebt) PeerDebtResponse {
 	}
 }
 
-// List handles GET /peer-debts — optional ?friend_id= query param.
-// If friend_id is present, returns debts for that friend; otherwise returns all debts.
+// List handles GET /peer-debts?account_id=<uuid>[&friend_id=<uuid>].
 func (h *PeerDebtHandler) List(c echo.Context) error {
+	accountIDStr := c.QueryParam("account_id")
+	if accountIDStr == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "account_id query parameter is required")
+	}
+	accountID, err := uuid.Parse(accountIDStr)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid account_id")
+	}
+
 	friendIDStr := c.QueryParam("friend_id")
 	if friendIDStr != "" {
 		friendID, err := uuid.Parse(friendIDStr)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid friend_id")
 		}
-		debts, err := h.svc.ListByFriend(friendID)
+		debts, err := h.svc.ListByFriendAndAccount(friendID, accountID)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
@@ -106,7 +119,7 @@ func (h *PeerDebtHandler) List(c echo.Context) error {
 		return c.JSON(http.StatusOK, resp)
 	}
 
-	debts, err := h.svc.ListAll()
+	debts, err := h.svc.ListAllByAccount(accountID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -134,7 +147,12 @@ func (h *PeerDebtHandler) Create(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid friend_id")
 	}
+	accountID, err := uuid.Parse(req.AccountID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid account_id")
+	}
 	d := sqlite.PeerDebt{
+		AccountID:         accountID,
 		FriendID:          friendID,
 		Amount:            int64(math.Round(req.Amount)),
 		Description:       req.Description,

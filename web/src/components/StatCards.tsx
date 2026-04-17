@@ -25,7 +25,7 @@ function StatCard({ label, value, icon, valueStyle }: StatCardProps) {
   return (
     <div className="rounded-xl border border-border/60 bg-card px-5 py-4 flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
           {label}
         </span>
         <span className="text-muted-foreground/50">{icon}</span>

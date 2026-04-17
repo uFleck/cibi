@@ -1,11 +1,12 @@
 import { Link, useLocation } from '@tanstack/react-router'
-import { LayoutDashboard, Users, FileText, HandCoins } from 'lucide-react'
+import { LayoutDashboard, Users, FileText, HandCoins, Settings } from 'lucide-react'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/accounts', label: 'Accounts', icon: Users },
   { to: '/transactions', label: 'Transactions', icon: FileText },
   { to: '/friends', label: 'Friends', icon: HandCoins },
+  { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
 interface SidebarNavProps {
@@ -24,13 +25,13 @@ export function SidebarNav({ onNavigate }: SidebarNavProps) {
             key={to}
             to={to}
             onClick={onNavigate}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 ${
+            className={`flex items-center gap-3 px-3 py-3 min-h-11 rounded-lg text-sm transition-colors duration-150 ${
               isActive
                 ? 'bg-accent text-accent-foreground font-medium'
                 : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
             }`}
           >
-            <Icon size={16} />
+            <Icon size={18} />
             {label}
           </Link>
         )

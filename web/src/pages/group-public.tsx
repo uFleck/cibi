@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CompactEntityTable } from '@/components/CompactEntityTable'
 import { fetchPublicGroup, type ParticipantResponse } from '@/lib/api'
 import { formatMoney } from '@/lib/format'
+import { copyToClipboard } from '@/lib/clipboard'
 import { publicGroupRoute } from '@/router'
 import { Copy } from 'lucide-react'
 import { toast } from 'sonner'
@@ -62,12 +63,9 @@ export function GroupPublicPage() {
             variant="outline"
             size="sm"
             onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(data.host_pix_key!)
-                toast.success('PIX key copied')
-              } catch {
-                toast.error('Failed to copy PIX key')
-              }
+              const ok = await copyToClipboard(data.host_pix_key!)
+              if (ok) toast.success('PIX key copied')
+              else toast.error('Failed to copy PIX key')
             }}
           >
             <Copy size={14} />
@@ -88,35 +86,16 @@ export function GroupPublicPage() {
           {data.participants.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">No participants set</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-muted-foreground text-xs border-b border-border/40">
-                    <th className="text-left pb-2 pr-3">Participant</th>
-                    <th className="text-right pb-2 pr-3">Share</th>
-                    <th className="text-left pb-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.participants.map((p, i) => (
-                    <tr key={i} className="border-b border-border/20 last:border-0">
-                      <td className="py-2 pr-3 inline-flex items-center gap-1">
-                        {participantLabel(p, i)}
-                        {p.is_host && <Badge variant="secondary">Host</Badge>}
-                      </td>
-                      <td className="py-2 pr-3 text-right tabular-nums">
-                        {formatMoney(p.share_amount)}
-                      </td>
-                      <td className="py-2">
-                        <Badge variant={p.is_confirmed ? 'default' : 'outline'}>
-                          {p.is_confirmed ? 'Confirmed' : 'Pending'}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <CompactEntityTable
+              entityLabel="Participant"
+              secondaryLabel="Share / Status"
+              showActions={false}
+              items={data.participants.map((p, i) => ({
+                id: `${p.friend_id ?? 'host'}-${i}`,
+                primary: `${participantLabel(p, i)}${p.is_host ? ' · Host' : ''}`,
+                secondary: `${formatMoney(p.share_amount)} · ${p.is_confirmed ? 'Confirmed' : 'Pending'}`,
+              }))}
+            />
           )}
         </CardContent>
       </Card>

@@ -15,7 +15,7 @@ export function PayScheduleList({ schedules, currency = 'BRL' }: PayScheduleList
   return (
     <div className="rounded-xl border border-border/60 bg-card flex flex-col">
       <div className="px-5 pt-5 pb-3">
-        <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
           Upcoming Paychecks
         </p>
       </div>
