@@ -19,11 +19,12 @@ func SetIndexHTML(html []byte) { indexHTML = html }
 type PublicFriendTokenSvc interface {
 	GetFriendByToken(token string) (sqlite.Friend, error)
 	GetFriendByID(id uuid.UUID) (sqlite.Friend, error)
+	GetPublicFriendView(token string) (service.PublicFriendView, error)
 }
 
 type PublicPeerDebtSvc interface {
 	GetBalanceByFriend(id uuid.UUID) (sqlite.PeerDebtBalance, error)
-	ListByFriend(id uuid.UUID) ([]sqlite.PeerDebt, error)
+	ListByFriend(friendID uuid.UUID, accountID *uuid.UUID) ([]sqlite.PeerDebt, error)
 }
 
 type PublicProfileSvc interface { Get() (sqlite.UserProfile, error) }
@@ -49,6 +50,7 @@ type PublicHandler struct {
 }
 
 func NewPublicHandler(friendSvc *service.FriendService, peerDebtSvc *service.PeerDebtService, groupSvc *service.GroupEventService, profileSvc *service.ProfileService) *PublicHandler {
+	friendSvc.ConfigurePublicViewDependencies(peerDebtSvc, groupSvc, profileSvc)
 	return &PublicHandler{friendSvc: friendSvc, peerDebtSvc: peerDebtSvc, groupSvc: groupSvc, profileSvc: profileSvc}
 }
 
@@ -140,69 +142,54 @@ func (h *PublicHandler) GetFriendByToken(c echo.Context) error {
 		return c.HTML(http.StatusOK, string(indexHTML))
 	}
 
-	friend, err := h.friendSvc.GetFriendByToken(token)
+	view, err := h.friendSvc.GetPublicFriendView(token)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) { return echo.NewHTTPError(http.StatusNotFound, "friend not found") }
+		if errors.Is(err, sql.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "friend not found")
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	balance, err := h.peerDebtSvc.GetBalanceByFriend(friend.ID)
-	if err != nil { return echo.NewHTTPError(http.StatusInternalServerError, err.Error()) }
-	debts, err := h.peerDebtSvc.ListByFriend(friend.ID)
-	if err != nil { return echo.NewHTTPError(http.StatusInternalServerError, err.Error()) }
-	debtResp := make([]PeerDebtResponse, len(debts))
-	for i, d := range debts { debtResp[i] = peerDebtToResponse(d) }
-
-	events, err := h.groupSvc.ListEventsByFriend(friend.ID)
-	if err != nil { return echo.NewHTTPError(http.StatusInternalServerError, err.Error()) }
-
-	groups := make([]PublicFriendGroupEventResponse, 0, len(events))
-	hostedGroups := make([]HostedGroupResponse, 0)
-
-	for _, e := range events {
-		hostName, hostPixKey, hostFriendID := h.hostInfo(e)
-		parts, err := h.groupSvc.GetParticipants(e.ID)
-		if err != nil { return echo.NewHTTPError(http.StatusInternalServerError, err.Error()) }
-
-		for _, p := range parts {
-			if p.FriendID == nil || *p.FriendID != friend.ID { continue }
-			groups = append(groups, PublicFriendGroupEventResponse{
-				EventID: e.ID.String(), Title: e.Title, Date: e.Date,
-				ShareAmount: float64(p.ShareAmount) / 100.0,
+	debtResp := make([]PeerDebtResponse, len(view.Debts))
+	for i, d := range view.Debts {
+		debtResp[i] = peerDebtToResponse(d)
+	}
+	groups := make([]PublicFriendGroupEventResponse, len(view.Groups))
+	for i, g := range view.Groups {
+		groups[i] = PublicFriendGroupEventResponse{
+			EventID:      g.EventID,
+			Title:        g.Title,
+			Date:         g.Date,
+			ShareAmount:  g.ShareAmount,
+			IsConfirmed:  g.IsConfirmed,
+			HostName:     g.HostName,
+			HostPixKey:   g.HostPixKey,
+			ViewerIsHost: g.ViewerIsHost,
+		}
+	}
+	hostedGroups := make([]HostedGroupResponse, len(view.HostedGroups))
+	for i, hg := range view.HostedGroups {
+		participants := make([]HostedGroupParticipantResponse, len(hg.Participants))
+		for j, p := range hg.Participants {
+			participants[j] = HostedGroupParticipantResponse{
+				FriendID:    p.FriendID,
+				FriendName:  p.FriendName,
+				ShareAmount: p.ShareAmount,
 				IsConfirmed: p.IsConfirmed,
-				HostName: hostName,
-				HostPixKey: hostPixKey,
-				ViewerIsHost: hostFriendID != nil && *hostFriendID == friend.ID,
-			})
-			break
-		}
-
-		if hostFriendID != nil && *hostFriendID == friend.ID {
-			hg := HostedGroupResponse{EventID: e.ID.String(), Title: e.Title, Date: e.Date}
-			for _, p := range parts {
-				if p.FriendID == nil || *p.FriendID == friend.ID { continue }
-				target, ferr := h.friendSvc.GetFriendByID(*p.FriendID)
-				name := "Participant"
-				if ferr == nil && strings.TrimSpace(target.Name) != "" { name = target.Name }
-				hg.Participants = append(hg.Participants, HostedGroupParticipantResponse{
-					FriendID: p.FriendID.String(), FriendName: name,
-					ShareAmount: float64(p.ShareAmount) / 100.0,
-					IsConfirmed: p.IsConfirmed,
-				})
 			}
-			hostedGroups = append(hostedGroups, hg)
 		}
+		hostedGroups[i] = HostedGroupResponse{EventID: hg.EventID, Title: hg.Title, Date: hg.Date, Participants: participants}
 	}
 
 	return c.JSON(http.StatusOK, PublicFriendResponse{
-		Name: friend.Name,
+		Name: view.Name,
 		Balance: PeerDebtBalanceResp{
-			FriendOwesUser: float64(balance.FriendOwesUser) / 100.0,
-			UserOwesFriend: float64(balance.UserOwesFriend) / 100.0,
-			Net: float64(balance.Net) / 100.0,
+			FriendOwesUser: float64(view.Balance.FriendOwesUser) / 100.0,
+			UserOwesFriend: float64(view.Balance.UserOwesFriend) / 100.0,
+			Net:            float64(view.Balance.Net) / 100.0,
 		},
-		Debts: debtResp,
-		Groups: groups,
+		Debts:        debtResp,
+		Groups:       groups,
 		HostedGroups: hostedGroups,
 	})
 }
