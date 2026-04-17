@@ -109,13 +109,13 @@ func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineR
 	// Example: balance=50000, obligations=-20000, threshold=10000 → pp=20000
 
 	// Step 4b: Sum outgoing peer debt obligations (money user owes friends).
-	peerObligations, err := s.peerDebtRepo.SumUpcomingPeerObligationsByAccount(accountID, now, earliestPayday)
+	peerObligations, err := s.peerDebtRepo.SumUpcomingPeerObligations(&accountID, now, earliestPayday)
 	if err != nil {
 		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: sum peer obligations: %w", err)
 	}
 
 	// Step 4c: Sum admin obligations from friend-hosted group events.
-	groupObligations, err := s.groupEventRepo.SumUpcomingAdminObligationsByAccount(accountID, now, earliestPayday)
+	groupObligations, err := s.groupEventRepo.SumUpcomingAdminObligations(&accountID, now, earliestPayday)
 	if err != nil {
 		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: sum group obligations: %w", err)
 	}
