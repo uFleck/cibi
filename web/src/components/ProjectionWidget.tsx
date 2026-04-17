@@ -1,6 +1,7 @@
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import { MoneyValue } from '@/components/ui/money-value'
 import { formatDate, formatMoney } from '@/lib/format'
 import { isInCurrentPayWindow } from '@/lib/financial-window'
 import { earliestPaydayAfter, nextPaydayAfter, parseDateOnlyUTC } from '@/lib/pay-schedule'
@@ -124,11 +125,21 @@ export function ProjectionWidget({
         </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">Incoming</span>
-          <span className="tabular-nums text-green-600">+{formatMoney(incoming, account.currency)}</span>
+          <MoneyValue
+            amount={incoming}
+            currency={account.currency}
+            tone="positive"
+            showSign="always"
+          />
         </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">Obligations</span>
-          <span className="tabular-nums text-red-500">-{formatMoney(nextObligations, account.currency).replace('-', '')}</span>
+          <MoneyValue
+            amount={-nextObligations}
+            currency={account.currency}
+            tone="negative"
+            showSign="always"
+          />
         </div>
         <div className="flex justify-between border-t border-border/40 pt-1.5 mt-1">
           <span className="font-semibold">Projected end balance</span>
