@@ -8,11 +8,12 @@ import { ValueInput } from '@/components/ui/value-input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { AppModal } from '@/components/AppModal'
 import { CompactEntityTable } from '@/components/CompactEntityTable'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { FriendForm } from '@/components/FriendForm'
+import { DebtForm } from '@/components/DebtForm'
 import {
   listFriends,
   createFriend,
@@ -460,71 +461,17 @@ function FriendDetailsModal({
         )}
 
         {showAddDebt ? (
-          <form onSubmit={handleAddDebt} className="border rounded-md p-3 space-y-3">
-            <p className="text-sm font-semibold">Add Debt</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <Input
-                required
-                value={debtForm.description}
-                onChange={e => setDebtForm({ ...debtForm, description: e.target.value })}
-                placeholder="Description"
-              />
-              <ValueInput
-                required
-                value={debtForm.amount}
-                onValueChange={value => setDebtForm({ ...debtForm, amount: value })}
-                placeholder="Amount"
-                allowNegative
-              />
-              <Input
-                required
-                type="date"
-                value={debtForm.date}
-                onChange={e => setDebtForm({ ...debtForm, date: e.target.value })}
-              />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Switch
-                id={`debt-installment-${friend.id}`}
-                checked={debtForm.is_installment}
-                onCheckedChange={checked => setDebtForm({ ...debtForm, is_installment: checked })}
-              />
-              <Label htmlFor={`debt-installment-${friend.id}`} className="cursor-pointer">
-                Paid in installments
-              </Label>
-            </div>
-
-            {debtForm.is_installment && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <Input
-                  required
-                  type="number"
-                  min="1"
-                  value={debtForm.total_installments}
-                  onChange={e => setDebtForm({ ...debtForm, total_installments: e.target.value })}
-                  placeholder="Total installments"
-                />
-                <Select
-                  value={debtForm.frequency}
-                  onValueChange={(value: 'weekly' | 'monthly') => setDebtForm({ ...debtForm, frequency: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Frequency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={addDebtMutation.isPending}>Add</Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => setShowAddDebt(false)}>Cancel</Button>
-            </div>
-          </form>
+          <DebtForm
+            friendId={friend.id}
+            form={debtForm}
+            onChange={setDebtForm}
+            onSubmit={handleAddDebt}
+            onCancel={() => setShowAddDebt(false)}
+            isSubmitting={addDebtMutation.isPending}
+            submitLabel="Add"
+            cancelLabel="Cancel"
+            title="Add Debt"
+          />
         ) : (
           <Button variant="outline" size="sm" onClick={() => setShowAddDebt(true)}>
             <Plus size={14} />
@@ -1266,54 +1213,22 @@ export function FriendsPage() {
         title="New Friend"
         description="Create friend to track debts and share link."
       >
-        <form
-          onSubmit={e => {
-            e.preventDefault()
-            createFriendMutation.mutate()
+        <FriendForm
+          name={friendForm.name}
+          notes={friendForm.notes}
+          pixKey={friendForm.pix_key}
+          onNameChange={value => setFriendForm({ ...friendForm, name: value })}
+          onNotesChange={value => setFriendForm({ ...friendForm, notes: value })}
+          onPixKeyChange={value => setFriendForm({ ...friendForm, pix_key: value })}
+          onSubmit={() => createFriendMutation.mutate()}
+          onCancel={() => {
+            setShowCreateFriend(false)
+            setFriendForm(EMPTY_FRIEND_FORM)
           }}
-          className="flex flex-col gap-4"
-        >
-          <div>
-            <Label className="block text-sm font-medium mb-1">Name</Label>
-            <Input
-              required
-              value={friendForm.name}
-              onChange={e => setFriendForm({ ...friendForm, name: e.target.value })}
-              placeholder="Alice"
-            />
-          </div>
-          <div>
-            <Label className="block text-sm font-medium mb-1">Notes (optional)</Label>
-            <Textarea
-              rows={2}
-              value={friendForm.notes}
-              onChange={e => setFriendForm({ ...friendForm, notes: e.target.value })}
-              placeholder="Optional notes"
-              className="resize-none"
-            />
-          </div>
-          <div>
-            <Label className="block text-sm font-medium mb-1">PIX key (optional)</Label>
-            <Input
-              value={friendForm.pix_key}
-              onChange={e => setFriendForm({ ...friendForm, pix_key: e.target.value })}
-              placeholder="CPF, phone, email, random key"
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button type="submit" disabled={createFriendMutation.isPending}>Create Friend</Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setShowCreateFriend(false)
-                setFriendForm(EMPTY_FRIEND_FORM)
-              }}
-            >
-              Discard
-            </Button>
-          </div>
-        </form>
+          isSubmitting={createFriendMutation.isPending}
+          submitLabel="Create Friend"
+          cancelLabel="Discard"
+        />
       </AppModal>
 
       <FriendDetailsModal
