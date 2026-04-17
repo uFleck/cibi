@@ -5,6 +5,7 @@ status: draft
 shadcn_initialized: true
 preset: new-york
 created: 2026-04-16
+revised: 2026-04-16
 ---
 
 # Phase 10 — UI Design Contract
@@ -54,14 +55,16 @@ Exceptions: Touch targets on mobile must be minimum 44px height per ui-ux-pro-ma
 
 All values are inherited from the existing Geist Variable setup. Extracted components must not introduce new font sizes or weights.
 
+**Permitted weights: exactly 2** — 400 (regular) and 600 (semibold). No other weights are permitted.
+
 | Role | Size | Weight | Line Height | Source |
 |------|------|--------|-------------|--------|
 | Body | 14px | 400 (regular) | 1.5 | Tailwind default / existing pages |
-| Label | 14px | 500 (medium) | 1.4 | Existing form label pattern |
+| Label | 14px | 400 (regular) | 1.4 | Existing form label pattern — uses 400, not 500 |
 | Heading | 20px | 600 (semibold) | 1.2 | Existing StatCards / modal headings |
-| Display | 28px | 700 (bold) | 1.1 | CheckWidget verdict number only |
+| Display | 28px | 600 (semibold) | 1.1 | CheckWidget verdict number only — uses 600, not 700 |
 
-Constraint: Only these 4 sizes and 3 weights are permitted in extracted components. Any new form or modal component must use body (14px/400) for field text and label (14px/500) for field labels.
+Constraint: Only these 4 sizes and 2 weights are permitted in extracted components. Any new form or modal component must use body (14px/400) for field text and label (14px/400) for field labels.
 
 ---
 
@@ -120,24 +123,61 @@ This section defines constraints specific to D-05 (frontend decomposition). All 
 
 Phase 10 introduces no new user-visible copy. The contracts below document existing copy that extracted components must preserve verbatim.
 
+### Primary CTAs
+
 | Element | Copy | Context |
 |---------|------|---------|
 | Primary CTA (transactions) | "Add Transaction" | TransactionForm submit |
 | Primary CTA (accounts) | "Add Account" | AccountForm submit |
-| Primary CTA (friends) | "Add Friend" | FriendForm submit |
-| Primary CTA (peer debt) | "Add Debt" | DebtForm submit |
-| Primary CTA (group event) | "Create Event" | GroupEventForm submit |
-| Delete confirmation | "This action cannot be undone. Are you sure?" | AlertDialog body for all destructive deletes |
-| Delete confirm button | "Delete" | AlertDialog destructive button |
-| Cancel label | "Cancel" | All dialog/sheet cancel buttons |
-| Empty state (no friends) | Preserve existing copy from friends.tsx | Do not change during extraction |
-| Empty state (no debts) | Preserve existing copy from friends.tsx | Do not change during extraction |
-| Error state | Preserve existing sonner toast messages verbatim | Do not change error strings |
+| Primary CTA (friends) | "Add Friend" | FriendForm submit button in page header |
+| Primary CTA (create friend modal) | "Create Friend" | FriendForm modal submit |
+| Primary CTA (peer debt) | "Add" | DebtForm submit (compact inline form) |
+| Primary CTA (group event header) | "New Event" | GroupEventForm trigger in page header |
+| Primary CTA (group event modal) | "Create Event" | GroupEventForm modal submit |
+| Cancel label | "Discard" | Friend and group event create modal cancel buttons |
+| Cancel label | "Cancel" | Inline debt form cancel button |
 
-Destructive actions in this phase:
-- Delete peer debt — confirmed via AlertDialog (existing pattern)
-- Delete group event — confirmed via AlertDialog (existing pattern)
-- Delete transaction — confirmed via AlertDialog (existing pattern, bug fix in D-08 does not change copy)
+### Empty States
+
+| Location | Copy |
+|----------|------|
+| Friends list (no friends) | Heading: `"No friends yet"` / Subtext: `"Add friend to track debts."` |
+| Debts list in FriendDetailsModal (no debts) | `"No debts recorded"` |
+| Participants list in GroupEventDetailsModal (no participants) | `"No participants set"` |
+| Group events list (no events) | Heading: `"No group events yet"` / Subtext: `"Create event to split costs."` |
+
+### Error States (sonner toast messages — preserve verbatim)
+
+| Trigger | Error copy |
+|---------|-----------|
+| createFriend failure | `"Failed to add friend"` |
+| updateFriend failure | `"Failed to update friend"` |
+| deleteFriend failure | `"Failed to delete friend"` |
+| createPeerDebt failure | `"Failed to add debt"` |
+| confirmDebt failure | `"Failed to confirm debt"` |
+| deletePeerDebt failure | `"Failed to delete debt"` |
+| createGroupEvent failure | `"Failed to create group event"` |
+| updateGroupEvent failure | `"Failed to update group event"` |
+| deleteGroupEvent failure | `"Failed to delete group event"` |
+| setParticipants failure | `"Failed to update participants"` |
+| Invalid debt amount | `"Enter valid amount"` |
+| Invalid installments | `"Enter valid installments"` |
+| Invalid event total amount | `"Please enter a valid total amount"` |
+| No account selected | `"Select an account first"` |
+| Friend name empty on save | `"Name required"` |
+| Event title empty on save | `"Title required"` |
+| Remove admin participant | `"You (admin) must always stay in participants"` |
+| Copy public link success | `"Link copied"` |
+| Copy public link failure | `"Failed to copy link"` |
+
+### Destructive Action Confirmations (ConfirmDialog)
+
+| Action | Dialog title | Dialog description | Confirm button |
+|--------|-------------|-------------------|----------------|
+| Delete friend | `Delete "{friend.name}"?` | `"This removes friend and debt history."` | `"Delete"` |
+| Delete peer debt | `Delete debt "{debt.description}"?` | `"This action cannot be undone."` | `"Delete"` |
+| Delete group event | `Delete "{event.title}"?` | `"This removes all participants."` | `"Delete"` |
+| Delete transaction | Per existing pattern in transactions.tsx | Per existing pattern in transactions.tsx | `"Delete"` |
 
 No new destructive actions are added in Phase 10.
 
