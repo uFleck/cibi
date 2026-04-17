@@ -110,7 +110,7 @@
 | SCHEMA-03 | Phase 1 | Complete |
 | SCHEMA-04 | Phase 1 | Complete |
 | SCHEMA-05 | Phase 1 | Complete |
-| ENGINE-01 | Phase 2 | Pending |
+| ENGINE-01 | Phase 2 | Complete |
 | ENGINE-02 | Phase 2 | Pending |
 | ENGINE-03 | Phase 2 | Pending |
 | ENGINE-04 | Phase 2 | Pending |
@@ -131,3 +131,4 @@
 | MCP-01 | Phase 6 | Pending |
 | MCP-02 | Phase 6 | Pending |
 | MCP-03 | Phase 6 | Pending |
+| PEER-04 | Phase 10 | Complete |
