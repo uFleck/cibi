@@ -1,157 +1,299 @@
-# Testing Patterns
+# Testing
 
-**Analysis Date:** 2026-04-11
+**Analysis Date:** 2026-04-16
 
-## Test Framework
+## Test Strategy
 
-**Runner:** None — no tests exist in this codebase.
+The project uses two separate test suites:
 
-No `*_test.go` files were found anywhere under `/c/Projects/cibi-api/`. No test runner configuration exists (`go test` is the standard Go runner and requires no config file, but there are also no `testify`, `gomock`, or similar test library dependencies in `go.mod`).
+1. **Go backend** — stdlib `testing` package with hand-written mocks; no third-party test library
+2. **TypeScript frontend** — Vitest with jsdom; tests focus on pure utility functions and data contracts
 
-**Run Commands:**
+Handler tests are the primary coverage layer on the Go side. They test the full HTTP request/response cycle at the handler boundary using mock service implementations. Pure engine logic (`internal/engine/`) is tested with table-driven unit tests. Several stub test files exist (`t.Skip(...)`) as placeholders for service and repo layers not yet covered.
+
+## Frameworks & Tools
+
+**Go:**
+- Runner: `go test` (stdlib, no config file needed)
+- Assertion: stdlib `t.Errorf`, `t.Fatalf`, `t.Fatal` — no testify or gomock
+- HTTP testing: `net/http/httptest` — `httptest.NewRequest`, `httptest.NewRecorder`
+- Mocks: hand-written function-field structs (see Mocking section)
+
+**TypeScript:**
+- Runner: Vitest 4 (`web/vitest.config.ts`)
+- Environment: jsdom (configured in `web/vitest.config.ts` `test.environment`)
+- Assertion: Vitest built-in `expect`
+- Component testing: `@testing-library/react` + `@testing-library/user-event` (installed, minimal use currently)
+- No snapshot testing
+
+## Test Organization
+
+**Go — Co-located with source:**
+```
+internal/
+  engine/
+    engine.go
+    engine_test.go          # table-driven unit tests for pure engine logic
+  handler/
+    check.go
+    check_test.go           # handler tests via serveRequest helper
+    transactions.go
+    transactions_test.go
+    accounts_test.go
+    errors_test.go
+    testhelpers_test.go     # shared mocks + request helpers (package handler)
+    pay_schedule_test.go    # stub (t.Skip)
+  service/
+    pay_schedule_test.go    # stub (t.Skip) — package service_test
+  repo/sqlite/
+    pay_schedule_test.go    # stub (t.Skip) — package sqlite_test
+```
+
+**TypeScript — Mixed co-located and `__tests__/` directory:**
+```
+web/src/
+  __tests__/
+    dashboard.test.tsx      # formatMoney, formatDate, reserved calculation
+    verdict.test.tsx        # formatMoney edge cases for verdict display
+    financial-window.test.ts # isInCurrentPayWindow logic
+  components/
+    WaitVerdict.test.tsx    # stub (it.skip)
+```
+
+**Package naming:**
+- Handler tests use `package handler` (white-box, same package) to access unexported fields
+- Service and repo stubs use `package service_test` / `package sqlite_test` (black-box)
+
+## Coverage Approach
+
+No coverage thresholds are enforced. No CI pipeline. Coverage is checked manually.
+
+**Current coverage by layer:**
+- `internal/engine/` — well covered: `AddMonthClamped`, `NextPayday` for all frequency types
+- `internal/handler/` — partially covered: `CheckHandler`, `TransactionsHandler`, `AccountsHandler` (via `accounts_test.go`), `errors.go`; `PayScheduleHandler` is stub-only
+- `internal/service/` — stub-only (`t.Skip`)
+- `internal/repo/sqlite/` — stub-only (`t.Skip`)
+- `web/src/lib/format.ts` — fully covered by `dashboard.test.tsx` and `verdict.test.tsx`
+- `web/src/lib/financial-window.ts` — covered by `financial-window.test.ts`
+- React components — effectively uncovered except `WaitVerdict.test.tsx` stub
+
+## How to Run Tests
+
+**Go — all tests:**
 ```bash
-go test ./...          # Would run all tests (none currently exist)
-go test -cover ./...   # With coverage reporting
+go test ./...
 ```
 
-## Test File Organization
-
-**Location:** Not established — no test files exist.
-
-**Go convention to follow when adding tests:**
-- Co-locate test files with the package they test
-- Name test files `<filename>_test.go` (e.g., `accounts_test.go` alongside `accounts.go`)
-- Use the same package name for white-box tests, or `<pkg>_test` suffix for black-box tests
-
-**Recommended structure to establish:**
-```
-repos/
-  accounts.go
-  accounts_test.go       # test SqliteAccRepo methods
-  transactions.go
-  transactions_test.go
-services/
-  accounts.go
-  accounts_test.go       # test AccountsSrvc with mocked repos
-  transactions.go
-  transactions_test.go
-data/
-  accounts.go
-  accounts_test.go       # test NewAccount, AddTransaction, Evaluate
-  transactions.go
-  transactions_test.go
+**Go — specific package:**
+```bash
+go test github.com/ufleck/cibi/internal/handler
+go test github.com/ufleck/cibi/internal/engine
 ```
 
-## Test Structure
-
-**Suite Organization:** Not established — no tests exist.
-
-**Standard Go pattern to follow:**
-```go
-func TestCreateAccount(t *testing.T) {
-    // arrange
-    // act
-    // assert
-}
-
-func TestCreateAccount_WhenRepoFails_ReturnsError(t *testing.T) {
-    // table-driven tests are idiomatic Go
-}
-```
-
-## Mocking
-
-**Framework:** None installed. No mock libraries in `go.mod`.
-
-**What to mock when tests are added:**
-- `repos.AccountsRepo` interface (`repos/accounts.go`) — already an interface, ready for mocking
-- `repos.TransactionsRepo` interface (`repos/transactions.go`) — already an interface, ready for mocking
-- `services.TransactionsSrvc` — referenced as a concrete struct, not an interface; would need to be extracted to an interface to be mockable
-
-**Recommended mock approach:**
-- Use `github.com/stretchr/testify/mock` or hand-written struct mocks implementing the existing interfaces
-- Both repo interfaces (`AccountsRepo`, `TransactionsRepo`) are well-defined and mockable without modification
-
-**Hand-written mock example for `AccountsRepo`:**
-```go
-type MockAccountsRepo struct {
-    InsertFn    func(a data.Account) error
-    GetByIdFn   func(id uuid.UUID) (data.Account, error)
-}
-
-func (m *MockAccountsRepo) Insert(a data.Account) error {
-    return m.InsertFn(a)
-}
-```
-
-## Fixtures and Factories
-
-**Test Data:** Not established — no fixtures or factories exist.
-
-**Pattern to follow based on existing `New*` constructors:**
-```go
-// Use existing constructors as test factories
-acc := data.NewAccount("Test Account", true)
-txn := data.NewTransaction("Test Txn", "desc", 100.0, time.Now())
-```
-
-**Location for shared test helpers (when added):**
-- Place in `testutil/` package at project root, or use `_test.go` helper files per package
-
-## Coverage
-
-**Requirements:** None enforced — no CI, no coverage thresholds configured.
-
-**View Coverage:**
+**Go — with coverage:**
 ```bash
 go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
 ```
 
-## Test Types
+**Go — verbose (see individual test names):**
+```bash
+go test -v ./...
+```
 
-**Unit Tests:**
-- None exist. Priority targets: `data/` package (pure logic, no DB dependency), `services/` package (mockable repo interfaces already defined)
+**TypeScript — all tests:**
+```bash
+cd web && npm test
+# or
+cd web && npx vitest
+```
 
-**Integration Tests:**
-- None exist. Would require a test SQLite database. The global `db.Conn` variable in `db/sqlite.go` makes integration testing harder — tests would need to call `db.Init()` or inject a test DB.
+**TypeScript — watch mode:**
+```bash
+cd web && npx vitest --watch
+```
 
-**E2E Tests:**
-- None exist. No E2E framework in use.
+**TypeScript — coverage:**
+```bash
+cd web && npx vitest --coverage
+```
 
-## Testability Assessment
+## Test Patterns & Examples
 
-**Well-positioned for testing:**
-- `data/accounts.go` — `NewAccount`, `AddTransaction` are pure functions with no external dependencies
-- `data/transactions.go` — `NewTransaction`, `Evaluate` are pure functions
-- `services/` — dependency-injected via interfaces; services can be unit tested with mock repos
+### Go — Table-driven unit test (engine layer)
 
-**Poorly positioned for testing:**
-- `repos/` — implementations directly use global `db.Conn` variable from `db/sqlite.go`; no DB abstraction makes isolated unit testing impossible without a real SQLite file
-- `db/sqlite.go` — exposes a package-level global `var Conn *sql.DB` which cannot be swapped for tests without refactoring
-- `handlers/` — `AccountsHandler.AccSrvc` is a concrete pointer `*services.AccountsSrvc`, not an interface; cannot be mocked without extracting a service interface
+Used in `internal/engine/engine_test.go` for pure functions:
 
-## Common Patterns (to establish)
-
-**Async Testing:** Not applicable — codebase is synchronous.
-
-**Error Testing:**
 ```go
-// Pattern to use when testing error paths
-func TestCreateAccount_InsertFails_ReturnsWrappedError(t *testing.T) {
-    mockRepo := &MockAccountsRepo{
-        InsertFn: func(a data.Account) error {
-            return errors.New("db error")
-        },
+func TestAddMonthClamped(t *testing.T) {
+    tests := []struct {
+        name     string
+        input    time.Time
+        n        int
+        expected time.Time
+    }{
+        {"jan31+1=feb28_nonleap", date(2025, 1, 31), 1, date(2025, 2, 28)},
+        {"jan31+1=feb29_leap",    date(2024, 1, 31), 1, date(2024, 2, 29)},
     }
-    srvc := services.NewAccountsSrvc(mockRepo, mockTxRepo, mockTxnsSrvc)
-    err := srvc.CreateAccount(types.NewAccount{Name: "Test"})
-    if err == nil {
-        t.Fatal("expected error, got nil")
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            got := AddMonthClamped(tt.input, tt.n)
+            if !got.Equal(tt.expected) {
+                t.Errorf("got %v; want %v", got.Format("2006-01-02"), tt.expected.Format("2006-01-02"))
+            }
+        })
     }
 }
 ```
 
+Helper `date()` is defined once per test file to reduce noise:
+```go
+func date(year int, month time.Month, day int) time.Time {
+    return time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+}
+```
+
+### Go — Handler test via `serveRequest` (full middleware chain)
+
+Used in `internal/handler/check_test.go` when the error handler must run:
+
+```go
+func TestCheck(t *testing.T) {
+    mock := &mockEngineService{
+        canIBuyItDefaultFn: func(itemPrice int64) (service.EngineResult, error) {
+            return service.EngineResult{CanBuy: true, PurchasingPower: 5000, RiskLevel: "LOW"}, nil
+        },
+    }
+    h := &CheckHandler{svc: mock}
+    rec := serveRequest(func(c echo.Context) error {
+        return h.Check(c)
+    }, http.MethodPost, "/api/check", `{"amount":75.00}`)
+
+    if rec.Code != http.StatusOK {
+        t.Errorf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+    }
+    var resp CheckResponse
+    if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+        t.Fatalf("failed to decode response: %v", err)
+    }
+    if !resp.CanBuy {
+        t.Errorf("expected can_buy true")
+    }
+}
+```
+
+### Go — Handler test via `makeRequest` (direct method call, no middleware)
+
+Used in `internal/handler/transactions_test.go` when testing happy-path responses without error handler:
+
+```go
+func TestListTransactions(t *testing.T) {
+    accountID := uuid.New()
+    mock := &mockTransactionsService{
+        listFn: func(id uuid.UUID) ([]sqlite.Transaction, error) {
+            return []sqlite.Transaction{{ Amount: -2500 }}, nil
+        },
+    }
+    h := &TransactionsHandler{svc: mock}
+    rec, c := makeRequest(http.MethodGet, "/api/transactions?account_id="+accountID.String(), "")
+    if err := h.List(c); err != nil {
+        t.Fatalf("List returned error: %v", err)
+    }
+    if rec.Code != http.StatusOK {
+        t.Errorf("expected 200, got %d", rec.Code)
+    }
+}
+```
+
+**When to use which:**
+- `serveRequest` — use when testing error paths, validation failures, or any flow where `CustomHTTPErrorHandler` must run; routes through Echo's full `ServeHTTP`
+- `makeRequest` — use for happy-path handler tests where you call the handler method directly
+
+### Go — Mocking pattern
+
+All mocks live in `internal/handler/testhelpers_test.go` (package `handler`). Each mock is a struct with `Fn` fields:
+
+```go
+type mockEngineService struct {
+    canIBuyItFn        func(accountID uuid.UUID, itemPrice int64) (service.EngineResult, error)
+    canIBuyItDefaultFn func(itemPrice int64) (service.EngineResult, error)
+}
+
+func (m *mockEngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (service.EngineResult, error) {
+    if m.canIBuyItFn != nil {
+        return m.canIBuyItFn(accountID, itemPrice)
+    }
+    panic("not implemented")
+}
+```
+
+Rules:
+- Unimplemented methods `panic("not implemented")` — tests that call unexpected methods fail loudly
+- Only set the `Fn` fields relevant to the test case being exercised
+- Mock structs are defined once in `testhelpers_test.go` and reused across all handler test files
+
+### Go — Stub placeholder pattern
+
+Used for layers not yet tested. Always include `t.Skip` with a descriptive message:
+
+```go
+func TestPayScheduleRepo_Stub(t *testing.T) {
+    t.Skip("Wave 0 stub — implement in task")
+}
+```
+
+When implementing a stub, remove `t.Skip` and replace the body with actual test logic.
+
+### TypeScript — Pure function test
+
+Used in `web/src/__tests__/dashboard.test.tsx` and `web/src/__tests__/financial-window.test.ts`:
+
+```typescript
+import { describe, it, expect } from 'vitest'
+import { formatMoney } from '@/lib/format'
+
+describe('formatMoney', () => {
+  it('formats positive BRL amount', () => {
+    expect(formatMoney(75)).toBe('R$\u00a075,00')
+  })
+  it('formats negative BRL amount', () => {
+    expect(formatMoney(-15.99)).toBe('-R$\u00a015,99')
+  })
+})
+```
+
+### TypeScript — Data contract / calculation test
+
+Used in `web/src/__tests__/dashboard.test.tsx` to verify frontend-side aggregation logic:
+
+```typescript
+describe('Reserved calculation', () => {
+  it('sums absolute amounts of recurring transactions with next_occurrence', () => {
+    const txns = [
+      { amount: -15.99, is_recurring: true, next_occurrence: '2026-04-15T00:00:00Z' },
+      { amount: -850.00, is_recurring: true, next_occurrence: '2026-05-01T00:00:00Z' },
+      { amount: -20.00, is_recurring: true, next_occurrence: null },
+    ]
+    const reserved = txns
+      .filter(t => t.next_occurrence !== null)
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+    expect(reserved).toBeCloseTo(865.99, 2)
+  })
+})
+```
+
+### TypeScript — Stub placeholder
+
+Used in `web/src/components/WaitVerdict.test.tsx`:
+
+```typescript
+import { describe, it } from 'vitest'
+
+describe('CheckWidget WAIT verdict', () => {
+  it.skip('Wave 0 stub — implement WAIT verdict rendering tests', () => {})
+})
+```
+
 ---
 
-*Testing analysis: 2026-04-11*
+*Testing analysis: 2026-04-16*

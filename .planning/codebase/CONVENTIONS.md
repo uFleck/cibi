@@ -1,160 +1,188 @@
-# Coding Conventions
+# Conventions
 
-**Analysis Date:** 2026-04-11
-
-## Naming Patterns
-
-**Packages:**
-- Lowercase, single-word: `handlers`, `services`, `repos`, `data`, `types`, `db`
-
-**Files:**
-- Lowercase, domain-named: `accounts.go`, `transactions.go`, `routes.go`, `sqlite.go`
-- One file per domain entity per package layer
-
-**Structs (types):**
-- PascalCase nouns: `Account`, `Transaction`, `AccountsSrvc`, `SqliteAccRepo`, `SqliteTxnsRepo`
-- Service structs use `Srvc` suffix: `AccountsSrvc`, `TransactionsSrvc`
-- Repo structs use `Repo` suffix (interfaces) and `Sqlite` prefix + `Repo` suffix (implementations): `AccountsRepo`, `SqliteAccRepo`
-- Input/request types use `New` prefix: `NewAccount`, `NewTransaction`
-- Update types use `Update` prefix: `UpdateAccount`, `UpdateTransaction`
-
-**Functions and Methods:**
-- PascalCase for exported: `CreateAccount`, `GetAccountById`, `HandleCreateAcc`
-- Handler methods prefixed with `Handle`: `HandleCreateAcc`, `HandleGetAccById`, `HandleDeleteAcc`
-- Constructors use `New` prefix: `NewAccountsSrvc`, `NewTransactionsSrvc`, `NewSqliteTxnsRepo`, `NewAccount`, `NewTransaction`
-
-**Variables:**
-- camelCase: `accId`, `txnsSrvc`, `defAcc`, `newBalance`
-- Short abbreviations common: `acc` (account), `txn`/`tx` (transaction), `srvc` (service), `repo` (repository), `newa` (new account), `newt` (new transaction)
-
-**Type Aliases:**
-- Plural collection types as named slice types: `type Accounts []Account`, `type Transactions []Transaction`
+**Analysis Date:** 2026-04-16
 
 ## Code Style
 
-**Formatting:**
-- Standard `gofmt` formatting (Go default)
-- No explicit formatter config detected — relies on Go toolchain defaults
+**Language:** Go 1.25 (backend), TypeScript 6 + React 19 (frontend)
 
-**Linting:**
-- No `.golangci.yml` or linter config detected
-- No linting enforced
+**Formatting (Go):**
+- Standard `gofmt` formatting; no `.golangci.yml` or explicit linter config
+- Imports grouped in three blocks: stdlib, third-party, internal — separated by blank lines
+- Example from `internal/handler/accounts.go`:
+  ```go
+  import (
+      "database/sql"
+      "errors"
+      "math"
+      "net/http"
 
-## Import Organization
+      "github.com/google/uuid"
+      "github.com/labstack/echo/v4"
+      "github.com/ufleck/cibi/internal/repo/sqlite"
+      "github.com/ufleck/cibi/internal/service"
+  )
+  ```
 
-**Order (standard Go convention):**
-1. Standard library (`database/sql`, `encoding/json`, `fmt`, `net/http`, `time`)
-2. Third-party packages (`github.com/google/uuid`, `github.com/labstack/echo/v4`, `github.com/mattn/go-sqlite3`)
-3. Internal packages (`github.com/ufleck/cibi-api/data`, `github.com/ufleck/cibi-api/db`, etc.)
+**Formatting (TypeScript/React):**
+- ESLint with `typescript-eslint` + `eslint-plugin-react-hooks` + `eslint-plugin-react-refresh`
+- No Prettier config detected; formatting enforced via ESLint only
+- Path alias `@/` maps to `web/src/` (configured in `vite.config.ts` and `tsconfig.json`)
+- Imports use named exports from `@/lib/api`, `@/lib/format`, `@/components/*`
+- Components are `.tsx` files, utilities are `.ts` files
 
-**Example from `handlers/accounts.go`:**
+**UI Skill (`.claude/skills/ui-ux-pro-max`):**
+- Use SVG icons from lucide-react — never emoji as icons
+- Touch targets minimum 44x44px
+- All clickable elements must have `cursor-pointer`
+- Transitions: 150–300ms using `transition-colors`
+- Light/dark mode: use `bg-primary`, `bg-background` theme tokens — not raw colors
+- Glass cards in light mode: `bg-white/80` minimum opacity (not `bg-white/10`)
+
+## Naming Conventions
+
+**Go — Packages:**
+- Lowercase single-word: `handler`, `service`, `sqlite`, `engine`, `config`, `migrations`
+- Repo implementations are under `internal/repo/sqlite/`
+
+**Go — Types and Structs:**
+- PascalCase nouns: `Account`, `Transaction`, `PaySchedule`, `EngineResult`
+- Handler structs: `<Domain>Handler` — e.g., `AccountsHandler`, `CheckHandler`, `TransactionsHandler`
+- Service structs: `<Domain>Service` — e.g., `AccountsService`, `EngineService`, `PayScheduleService`
+- Repo interfaces: `<Domain>Repo` — e.g., `AccountsRepo`, `TransactionsRepo`, `PayScheduleRepo`
+- Repo implementations: `Sqlite<Domain>Repo` — e.g., `SqliteAccountsRepo`, `SqliteTxnsRepo`
+- Service interfaces (for handler mocking): `<Domain>ServiceIface` — e.g., `AccountsServiceIface`, `EngineServiceIface`
+- Request/response types: `<Action><Domain>Request` / `<Domain>Response` — e.g., `CreateAccountRequest`, `AccountResponse`, `CheckResponse`
+- Update types: `Update<Domain>` — e.g., `UpdateTransaction`
+
+**Go — Functions and Methods:**
+- PascalCase for exported: `CreateAccount`, `GetByID`, `ListTransactions`, `CanIBuyIt`
+- Constructors always use `New` prefix: `NewAccountsHandler`, `NewSqliteTxnsRepo`, `NewEngineService`
+- Handler method names match HTTP semantics: `List`, `Create`, `GetByID`, `Update`, `Delete`, `SetDefault`
+
+**Go — Variables:**
+- camelCase: `accRepo`, `txnsRepo`, `psRepo`, `bufferRepo`, `earliestPayday`
+- Short domain abbreviations: `acc` (account), `txn`/`tx` (transaction), `ps` (pay schedule), `buf` (buffer)
+
+**TypeScript:**
+- PascalCase for React components and type aliases: `AccountsPage`, `CheckWidget`, `TransactionResponse`
+- camelCase for functions, variables, hooks: `fetchAccounts`, `postCheck`, `selectedAccountId`
+- Interface names match Go response struct names: `AccountResponse`, `CheckResponse`, `PayScheduleResponse`
+- snake_case JSON field names in interfaces match the Go API exactly: `is_default`, `account_id`, `next_occurrence`
+- File names: `kebab-case.tsx` for pages and components, `camelCase.ts` for utilities
+
+## Error Handling Patterns
+
+**Go — Service layer:**
+- Wrap errors with `fmt.Errorf("context.MethodName: description: %w", err)` — always include caller context
+- Sentinel errors are package-level vars: `var ErrPayScheduleRequired = errors.New("PAY_SCHEDULE_REQUIRED")` in `internal/service/engine.go`
+- Return zero-value struct + error on failure: `return EngineResult{}, fmt.Errorf(...)`
+
+**Go — Handler layer:**
+- Convert service errors to `echo.NewHTTPError(http.StatusXxx, err.Error())`
+- Use `errors.Is(err, sql.ErrNoRows)` to return 404 vs 500
+- All errors flow through `CustomHTTPErrorHandler` in `internal/handler/errors.go` which enforces `{"error": "message"}` JSON shape
+- Special errors with machine-readable codes return `{"error": "...", "code": "PAY_SCHEDULE_REQUIRED"}`
+- Input validation: bind first, then `c.Validate(&req)` using `CustomValidator` (wraps `go-playground/validator`)
+- Struct validation tags: `validate:"required,gt=0"`, `validate:"required"`
+
+**TypeScript — Frontend API:**
+- `apiFetch<T>` in `web/src/lib/api.ts` parses error JSON and throws `Error` with optional `.code` property
+- Components use `@tanstack/react-query` — errors surface via `isError` / `error` from `useQuery`/`useMutation`
+- User-visible error feedback via `sonner` toast: `toast.error(err.message)`
+
+## Common Patterns Used
+
+**Go — Interface compile-time assertion:**
 ```go
-import (
-    "encoding/json"
-    "net/http"
-
-    "github.com/google/uuid"
-    "github.com/labstack/echo/v4"
-    "github.com/ufleck/cibi-api/services"
-    "github.com/ufleck/cibi-api/types"
-)
+// Ensure *service.AccountsService satisfies AccountsServiceIface.
+var _ AccountsServiceIface = (*service.AccountsService)(nil)
 ```
+Every handler file has this pattern immediately after the interface definition.
 
-**Path Aliases:**
-- None used
-
-## Error Handling
-
-**Pattern:**
-- Return errors as the last return value: `(result, error)`
-- Wrap errors with context using `fmt.Errorf("message: %w", err)`: this is consistent across `services/` and `repos/`
-- Handlers return HTTP error responses directly using `c.String(http.StatusXxx, err.Error())`
-- No custom error types — all errors are plain `error` interface with wrapped messages
-
-**Service layer example:**
+**Go — Handler struct with interface dependency:**
 ```go
-err := srvc.repo.Insert(a)
-if err != nil {
-    return fmt.Errorf("Could not create account. Error when inserting: %w", err)
+type CheckHandler struct {
+    svc EngineServiceIface
+}
+
+func NewCheckHandler(svc *service.EngineService) *CheckHandler {
+    return &CheckHandler{svc: svc}
 }
 ```
+Handlers depend on local interfaces (not concrete service types) to allow mocking in tests.
 
-**Handler layer example:**
+**Go — Money representation:**
+- All monetary values stored and computed as `int64` cents internally
+- API request amounts arrive as `float64` dollars; converted with `int64(math.Round(amount * 100))`
+- API response amounts emit as `float64` dollars: `float64(cents) / 100.0`
+- Negative values = debits, positive = credits
+
+**Go — Nullable optional fields via pointer types:**
 ```go
-err = ah.AccSrvc.CreateAccount(acc)
-if err != nil {
-    return c.String(http.StatusInternalServerError, err.Error())
-}
+Frequency   *string    // nullable
+AnchorDate  *time.Time // UTC, nullable
+WaitUntil   *time.Time // non-nil only when RiskLevel == "WAIT"
 ```
 
-**Known deviation:** Error messages in `fmt.Errorf` use title case (e.g., `"Could not create account"`) rather than Go convention of lowercase error strings. This is inconsistent with official Go style.
-
-## Logging
-
-**Framework:** `fmt.Println` (stdlib only — no structured logging library)
-
-**Patterns:**
-- Debug-style `fmt.Println` calls scattered in service and repo code: `services/transactions.go` lines 27, 35; `repos/transactions.go` line 83; `handlers/transactions.go` line 27
-- These appear to be development debugging artifacts, not intentional logging strategy
-- No log levels, no structured output, no log rotation
-
-## Comments
-
-**When to Comment:**
-- No doc comments (`//` above exported types/functions) are present anywhere in the codebase
-- No inline comments found
-- Effectively: zero comments exist
-
-## Function Design
-
-**Size:** Functions are small and single-purpose (typically 5-20 lines)
-
-**Parameters:** Positional, typed. Interfaces used for dependency parameters (e.g., `repos.AccountsRepo`).
-
-**Return Values:**
-- Error-only returns for mutations: `func (srvc *AccountsSrvc) CreateAccount(...) error`
-- Value + error for queries: `func (srvc *AccountsSrvc) GetAccountById(...) (*data.Account, error)`
-- Pointer returns used for nullable/optional single values: `*data.Account`
-- Value returns (non-pointer) used for required results: `data.Account`, `data.Accounts`
-
-## Struct Design
-
-**Dependency injection via constructors:**
-- All service and repo structs expose a `New*` constructor that accepts interface dependencies
-- Fields are unexported (lowercase): `repo`, `txRepo`, `txnsSrvc`, `accRepo`
-- Handler structs use exported fields for injection at `main.go` level: `AccSrvc`, `TxnsSrvc`
-
-**Example:**
+**Go — SQL tx/no-tx duality in repo methods:**
 ```go
-type AccountsSrvc struct {
-    repo     repos.AccountsRepo
-    txRepo   repos.TransactionsRepo
-    txnsSrvc TransactionsSrvc
-}
-
-func NewAccountsSrvc(repo repos.AccountsRepo, txRepo repos.TransactionsRepo, txnsSrvc TransactionsSrvc) AccountsSrvc {
-    return AccountsSrvc{repo: repo, txRepo: txRepo, txnsSrvc: txnsSrvc}
+func (r *SqliteTxnsRepo) Insert(t Transaction, tx *sql.Tx) error {
+    if tx != nil {
+        _, err = tx.Exec(...)
+    } else {
+        _, err = r.db.Exec(...)
+    }
 }
 ```
+Repo methods accept an optional `*sql.Tx` to participate in caller-managed transactions.
 
-## Module Design
+**Go — UTC everywhere:**
+- All `time.Time` stored and compared in UTC: `time.Now().UTC()`, `t.AnchorDate.UTC().Format(time.RFC3339)`
+- SQLite stores timestamps as RFC3339 strings
 
-**Exports:**
-- Types, constructors, and interface definitions are exported
-- Implementation fields are unexported
-- No barrel files (Go does not use them)
+**TypeScript — React Query pattern:**
+```tsx
+const { data: accounts = [], isLoading } = useQuery({
+  queryKey: ['accounts'],
+  queryFn: fetchAccounts,
+})
+```
+Default staleTime and refetchInterval are 30s (set in `web/src/App.tsx` QueryClient config).
 
-**Interface placement:**
-- Interfaces are defined in the `repos/` package alongside implementations (`repos/accounts.go`, `repos/transactions.go`)
-- Services depend on interfaces, not concrete types
+**TypeScript — Context for account selection:**
+- `AccountContext` in `web/src/App.tsx` provides `selectedAccountId` and `setSelectedAccountId`
+- Consumed via `useContext(AccountContext)` in all pages that need the active account
+- Account ID is persisted to `localStorage` under key `cibi.selectedAccountId`
 
-## JSON Tags
+## Anti-patterns to Avoid
 
-**Struct tags used consistently for API types in `types/` and `data/`:**
-- snake_case JSON keys: `json:"is_default"`, `json:"account_id"`, `json:"evaluates_at"`
-- Optional fields use pointer types with `omitempty`: `Balance *float64`, `IsDefault *bool` in `types/types.go`
-- `omitempty` used on embedded slices: `Transactions Transactions \`json:"transactions,omitempty"\``
+**Go:**
+- Do not return `http.StatusInternalServerError` for validation errors — use 400/422
+- Do not use Echo's default error handler (it returns `{"message":"..."}` — the codebase enforces `{"error":"..."}`)
+- Do not use `fmt.Println` for logging — no structured logging is present but debug prints should not be added
+- Do not store monetary values as `float64` in the DB or internal calculations — always use `int64` cents
+- Do not use concrete service types in handler structs — always use the local `*Iface` interface to preserve testability
+- Do not skip the `var _ Interface = (*Impl)(nil)` compile-time check when adding new handlers
+
+**TypeScript:**
+- Do not use emoji as UI icons — use `lucide-react` SVG icons
+- Do not hardcode currency amounts as strings — use `formatMoney()` from `web/src/lib/format.ts`
+- Do not access `localStorage` directly outside of `App.tsx` account-selection logic
+
+## Documentation Style
+
+**Go:**
+- Every exported type and function has a `//` doc comment directly above the declaration
+- Format: `// TypeName does X.` or `// FunctionName verb-phrase.`
+- Multi-step logic uses inline numbered step comments: `// Step 1: Load account.`, `// Step 2: Load pay schedules.`
+- Formula documentation uses multi-line `//` blocks above the function with the formula written out
+- Package-level examples: `// Example: balance=50000, obligations=-20000, threshold=10000 → pp=20000`
+
+**TypeScript:**
+- Minimal inline comments; most logic is self-documenting via TypeScript types
+- Interface fields with non-obvious meaning get inline `// comment` — e.g., `amount: number // dollars`
 
 ---
 
-*Convention analysis: 2026-04-11*
+*Convention analysis: 2026-04-16*

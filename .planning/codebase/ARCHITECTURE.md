@@ -1,156 +1,213 @@
 # Architecture
 
-**Analysis Date:** 2026-04-11
+**Analysis Date:** 2026-04-16
 
-## Pattern Overview
+## System Overview
 
-**Overall:** Layered architecture (Handlers → Services → Repos → DB), manually wired via dependency injection in `main.go`.
+CIBI ("Can I Buy It?") is a personal finance decision engine that answers whether a user can afford a purchase given their current balance, upcoming recurring obligations, and a configured safety buffer.
 
-**Key Characteristics:**
-- Each layer depends only on the layer below it via Go interfaces
-- Repository interfaces (`AccountsRepo`, `TransactionsRepo`) decouple services from SQLite specifics
-- No dependency injection framework — all wiring is explicit in `main.go`
-- Single binary, single SQLite database file
-- No middleware, no auth, no request logging beyond Echo defaults
+**Core equation:**
+```
+purchasing_power = current_balance - sum(upcoming_obligations until next_payday) - safety_buffer
+can_buy = purchasing_power >= item_price
+```
 
-## Layers
+The system is a **layered monolith** compiled to two Go binaries:
+- `cibi-api` — HTTP server serving both the REST API and the embedded React SPA.
+- `cibi` — CLI for direct local usage (bypasses HTTP; wires into the same `App` service graph directly).
 
-**Handler Layer:**
-- Purpose: Parse HTTP requests, delegate to services, return HTTP responses
-- Location: `handlers/`
-- Contains: `AccountsHandler`, `TransactionsHandler`, route setup
-- Depends on: `services` package (via concrete structs), `types` package for request shapes
-- Used by: Echo router (`handlers/routes.go`)
+Both binaries share the same `internal/` domain logic. The CLI calls `app.New(cfg)` in `PersistentPreRunE` and invokes service methods directly — it does not make HTTP calls to itself.
 
-**Service Layer:**
-- Purpose: Orchestrate business logic across repos; enforce domain rules
-- Location: `services/`
-- Contains: `AccountsSrvc`, `TransactionsSrvc`
-- Depends on: `repos` interfaces, `data` package for domain entities
-- Used by: handlers
+## Layers / Components
 
-**Repository Layer:**
-- Purpose: Provide typed interfaces for all database operations; execute SQL
-- Location: `repos/`
-- Contains: `SqliteAccRepo` (implements `AccountsRepo`), `SqliteTxnsRepo` (implements `TransactionsRepo`)
-- Depends on: `db.Conn` global, `data` package for entity types
-- Used by: services
+**`internal/engine` — Pure computation layer**
+- Purpose: Date arithmetic for payday calculations. No I/O, no DB access.
+- Location: `internal/engine/engine.go`
+- Contains: `NextPayday()`, `AddMonthClamped()`, frequency constants (`weekly`, `bi-weekly`, `semi-monthly`, `monthly`, `yearly`)
+- Depends on: standard library only
+- Used by: `internal/service/engine.go`, `internal/service/transactions.go`
 
-**Domain Data Layer:**
-- Purpose: Define core entity structs and their constructors/methods
-- Location: `data/`
-- Contains: `Account`, `Transaction`, `Accounts`, `Transactions`, factory functions (`NewAccount`, `NewTransaction`), domain methods (`Evaluate`, `AddTransaction`)
-- Depends on: nothing in this module
-- Used by: repos and services
+**`internal/repo/sqlite` — Data access layer**
+- Purpose: All SQL queries and domain row structs. Defines repository interfaces for each entity.
+- Location: `internal/repo/sqlite/`
+- Contains: Interface definitions (e.g., `AccountsRepo`, `TransactionsRepo`, `PayScheduleRepo`, `SafetyBufferRepo`, `FriendRepo`, `PeerDebtRepo`, `GroupEventRepo`, `ProfileRepo`) and their `Sqlite*` concrete implementations. Row structs live here (e.g., `sqlite.Account`, `sqlite.Transaction`, `sqlite.Friend`).
+- Depends on: `database/sql`, `modernc.org/sqlite`
+- Used by: `internal/service/`
 
-**Types Layer:**
-- Purpose: Define HTTP request/response shapes (DTOs) separate from domain entities
-- Location: `types/`
-- Contains: `NewAccount`, `UpdateAccount`, `NewTransaction`
-- Depends on: nothing in this module
-- Used by: handlers (decode request bodies) and services (receive from handlers)
+**`internal/service` — Business logic layer**
+- Purpose: Orchestrates repositories, enforces business rules, manages atomic DB transactions.
+- Location: `internal/service/`
+- Services: `AccountsService`, `TransactionsService`, `EngineService`, `PayScheduleService`, `FriendService`, `PeerDebtService`, `GroupEventService`, `ProfileService`
+- Depends on: `internal/repo/sqlite`, `internal/engine`
+- Used by: `internal/handler/`, `cmd/cibi/`
 
-**Database Layer:**
-- Purpose: Initialize SQLite connection and create schema
-- Location: `db/`
-- Contains: `Conn *sql.DB` package-level global, `Init()` function
-- Depends on: `github.com/mattn/go-sqlite3` CGO driver
-- Used by: `main.go` for initialization; `repos` for all queries
+**`internal/handler` — HTTP presentation layer**
+- Purpose: HTTP request binding, validation, response serialization. Zero business logic.
+- Location: `internal/handler/`
+- Contains: Handler structs (one per domain), `SetupRoutes()`, request/response DTOs, `CustomHTTPErrorHandler`, `CustomValidator`
+- Request/response types are separate from repo row structs (API uses float dollars; internals use int64 cents)
+- Depends on: `internal/service`
+- Used by: `internal/app`
+
+**`internal/app` — Application composition root**
+- Purpose: Constructs and wires the entire dependency graph in a single place.
+- Location: `internal/app/app.go`
+- Wiring order: `db.Init` → `migrations.Run` → repo constructors → service constructors → `handler.SetupRoutes`
+- Exposes the `App` struct containing the Echo instance and all services
+- Depends on: all `internal/` packages, `db`
+
+**`internal/config` — Configuration**
+- Purpose: Load config from environment variables via Viper.
+- Location: `internal/config/config.go`
+- Env prefix: `CIBI_` (e.g., `CIBI_DATABASEPATH`, `CIBI_SERVERPORT`, `CIBI_SAFETYBUFFER`)
+- Defaults: `DatabasePath=./db/cibi.db`, `ServerPort=:42069`, `SafetyBuffer=1000` (cents)
+
+**`internal/migrations` — Schema migrations**
+- Purpose: Goose-based migrations embedded as Go source files via `//go:embed *.go`.
+- Location: `internal/migrations/`
+- Runs automatically at every startup via `migrations.Run(db)` called inside `app.New()`.
+- Migration files named `YYYYMMDDNNNNN_description.go`.
+
+**`db` — Database initialization**
+- Purpose: Open SQLite connection with performance/safety pragmas.
+- Location: `db/sqlite.go`
+- Pragmas: WAL journal mode, `busy_timeout=5000`, NORMAL sync, `foreign_keys=ON`
+- Max open connections: 1 (serializes all writes to SQLite)
+
+**`web/` — React SPA**
+- Purpose: Browser dashboard. Calls the Go API via relative paths (`/api/...`, `/public/...`).
+- Location: `web/src/`
+- Built to `web/dist/`, copied to `cmd/cibi-api/web/dist/`, embedded at compile time with `//go:embed`.
+- Router: TanStack Router; state: TanStack Query (30s stale time, 30s refetch interval)
+
+**`cmd/cibi-api` — API server binary**
+- Location: `cmd/cibi-api/main.go`, `cmd/cibi-api/embed.go`
+- Embeds `web/dist` and serves the SPA via Echo `StaticWithConfig` (HTML5 mode for client-side routing)
+- Handles graceful shutdown on SIGINT/SIGTERM with 10s drain
+
+**`cmd/cibi` — CLI binary**
+- Location: `cmd/cibi/`
+- Cobra command tree: `check`, `account`, `tx`, `resolve` subcommands under root
+- Config search: `~/.config/cibi/config.yaml` or `--config` flag; `--db` flag overrides `DatabasePath`
 
 ## Data Flow
 
-**Create Transaction (POST /transactions/):**
+**"Can I Buy It?" decision flow:**
 
-1. Echo routes request to `TransactionsHandler.HandleCreateTxn` (`handlers/transactions.go`)
-2. Handler decodes JSON body into `types.NewTransaction`
-3. Handler calls `TransactionsSrvc.CreateTransaction` (`services/transactions.go`)
-4. Service fetches the target account via `AccountsRepo.GetById`
-5. Service builds a `data.Transaction` via `data.NewTransaction`
-6. Service calls `TransactionsRepo.Insert(t, acc)`
-7. Repo begins a SQLite transaction; if `EvaluatesAt` is in the past, calls `AccountsRepo.UpdateBalance` within the same `*sql.Tx`
-8. Repo calls `t.Evaluate()` to mark the transaction as applied, then inserts it
-9. Repo commits; handler returns 201 No Content
+1. `POST /api/check` with `{ amount, account_id? }` arrives at `handler.CheckHandler.Check()`.
+2. Handler binds/validates, converts float dollars → int64 cents.
+3. Calls `service.EngineService.CanIBuyIt(accountID, cents)`.
+4. Engine loads account balance via `AccountsRepo.GetByID()`.
+5. Loads all pay schedules for account via `PayScheduleRepo.ListByAccountID()`; finds earliest next payday with `engine.NextPayday()`.
+6. Sums recurring transaction obligations in window `[now, earliestPayday]` via `TransactionsRepo.SumUpcomingObligations()`.
+7. Sums outgoing peer debt obligations via `PeerDebtRepo.SumUpcomingPeerObligationsByAccount()`.
+8. Sums group event host obligations via `GroupEventRepo.SumUpcomingAdminObligationsByAccount()`.
+9. Loads `SafetyBuffer.min_threshold` via `SafetyBufferRepo.Get()`.
+10. Calculates: `purchasing_power = balance + obligations + peerObligs + groupObligs - threshold` (obligations are stored as negative values).
+11. Determines `can_buy`, `buffer_remaining`, `risk_level`; if blocked, checks if affordable after payday → `WAIT` verdict.
+12. Handler converts cents → dollars for JSON response.
 
-**Get Account By ID (GET /accounts/:id):**
+**Transaction creation (D-01 atomic balance update):**
 
-1. Handler parses UUID path param, calls `AccountsSrvc.GetAccountById`
-2. Service fetches `Account` via `AccountsRepo.GetById`
-3. Service fetches account's transactions via `TransactionsSrvc.GetAccTransactions`
-4. Service attaches transactions to the account struct (`acc.Transactions = txns`)
-5. Handler returns 200 JSON
+1. `POST /api/transactions` → `service.TransactionsService.CreateTransaction()`
+2. Begins SQL transaction; inserts transaction row; updates `Account.current_balance += amount`
+3. Commits atomically — balance is always consistent with transaction history.
 
-**Update Account Balance (PATCH /accounts/?id=):**
+**Recurring transaction confirmation (D-03):**
 
-1. Handler parses query param `id`, decodes `types.UpdateAccount` body
-2. Service calls `AccountsSrvc.UpdateAccount`
-3. For balance updates: service computes delta, creates a synthetic "Balance Adjust" `data.Transaction`, and inserts it via `txnsSrvc.repo.Insert` — the repo recalculates balance as part of insert
-4. For name/isDefault updates: service calls targeted repo methods directly
+1. `POST /api/transactions/:id/confirm` → `service.TransactionsService.ConfirmRecurring()`
+2. Atomically: debits account balance (`balance += amount` where amount is negative) and advances `next_occurrence` by one period using `advanceOccurrence()` / `engine.AddMonthClamped()`.
 
-**State Management:**
-- All state is persisted in `db/cibi.db` (SQLite file, committed to repo — note: should be gitignored)
-- Account balance is a stored column updated atomically within SQL transactions when a `Transaction` is evaluated
-- No in-memory cache or application-level state beyond the wired service/repo structs
+**Public friend/group token flow:**
 
-## Key Abstractions
+1. User shares URL `/public/friend/<hex-token>` with a friend.
+2. Browser hits the route; if `Accept: text/html`, server returns embedded `index.html`.
+3. React SPA fetches `GET /public/friend/<token>` with `Accept: application/json`.
+4. `PublicHandler.GetFriendByToken()` returns debt balance, peer debts, group events — no authentication required.
+5. If the friend is a group host, `POST /public/friend/:token/groups/:eventID/participants/:friendID/confirm` lets them mark a participant as paid.
 
-**`AccountsRepo` interface (`repos/accounts.go`):**
-- Purpose: Decouple services from SQLite implementation for account operations
-- Implementation: `SqliteAccRepo` struct (zero-value, no fields)
-- Key methods: `Insert`, `GetAll`, `GetDefault`, `GetById`, `UpdateBalance`, `UpdateName`, `UpdateIsDefault`, `DeleteById`, `UnsetDefaults`
+## Key Patterns & Design Decisions
 
-**`TransactionsRepo` interface (`repos/transactions.go`):**
-- Purpose: Decouple services from SQLite implementation for transaction operations
-- Implementation: `SqliteTxnsRepo` (holds an `AccountsRepo` to update balance atomically on insert)
-- Key methods: `Insert`, `GetAccTxns`, `Update`
+**Cents everywhere internally.** All monetary values are stored and processed as `int64` cents. Conversion to/from float64 dollars happens only at the HTTP handler boundary (request parsing and response serialization). The database stores `INTEGER` (cents) for all monetary columns.
 
-**`data.Transaction.Evaluate()` (`data/transactions.go`):**
-- Purpose: Mark a transaction as applied and record evaluation timestamp
-- Called by: `SqliteTxnsRepo.Insert` when `EvaluatesAt` is past or present
+**Interface-driven repositories.** Each repo exposes a Go interface (e.g., `sqlite.AccountsRepo`) in the same package as its implementation. Services accept the interface, not the concrete struct. Compile-time assertion pattern: `var _ AccountsRepo = (*SqliteAccountsRepo)(nil)` verifies satisfaction at build time.
 
-**Constructor Functions:**
-- `data.NewAccount` — creates Account with new UUID, zero balance
-- `data.NewTransaction` — creates Transaction with new UUID, `Evaluated: false`
-- `services.NewAccountsSrvc` — wires service with repo dependencies
-- `services.NewTransactionsSrvc` — wires service with repo dependencies
+**Handler-local service interfaces.** Handlers define minimal service interfaces for their own needs (e.g., `EngineServiceIface` in `internal/handler/check.go`). Same compile-time assertion pattern used. This decouples the handler package from concrete service types in tests.
 
-## Entry Points
+**Goose migrations as embedded Go files.** Migration files are `.go` source files that register themselves via `init()` calling `goose.AddMigrationContext()`. The directory is embedded at compile time via `//go:embed *.go`. No external SQL files or migration tools needed at runtime.
 
-**`main.go`:**
-- Location: `/main.go`
-- Triggers: `go run main.go` or compiled binary
-- Responsibilities:
-  1. Call `db.Init()` — opens SQLite, creates tables if not exist
-  2. Instantiate repos (`SqliteAccRepo`, `SqliteTxnsRepo`)
-  3. Instantiate services (`TransactionsSrvc`, `AccountsSrvc`)
-  4. Instantiate handlers (`AccountsHandler`, `TransactionsHandler`)
-  5. Call `handlers.SetupRoutes` to register all routes
-  6. Start Echo HTTP server on port `:42069`
+**Single-connection SQLite.** `db.SetMaxOpenConns(1)` serializes all writes. WAL mode permits concurrent reads. `busy_timeout=5000` prevents immediate failures under contention.
 
-**`handlers/routes.go`:**
-- Location: `handlers/routes.go`
-- Triggers: called from `main.go` at startup
-- Responsibilities: Register all API route groups (`/accounts`, `/transactions`) and map HTTP methods to handler functions
+**Account-scoped friend ledger.** `PeerDebt` and `GroupEvent` carry `account_id` (added in migration 20260416000005). The engine includes peer and group obligations when computing purchasing power for a specific account.
 
-## Error Handling
+**Public token security.** `Friend` and `GroupEvent` rows have a `public_token` generated as 32 hex chars (128-bit entropy from `crypto/rand`). Unauthenticated `/public/` endpoints resolve records only by this token. There is no session auth — the app is local-first and Tailscale-networked.
 
-**Strategy:** Errors are propagated up via `error` return values. Each layer wraps errors with `fmt.Errorf("context: %w", err)`. Handlers convert errors to HTTP string responses.
+**Risk level classification (ENGINE-04):**
+- `LOW`: `buffer_remaining >= 50%` of `min_threshold` (or `min_threshold == 0`)
+- `MEDIUM`: `buffer_remaining >= 25%` but `< 50%` of threshold
+- `HIGH`: `buffer_remaining < 25%` of threshold
+- `BLOCKED`: cannot afford even ignoring threshold
+- `WAIT`: blocked now but will afford after earliest next payday
 
-**Patterns:**
-- Repos return raw `database/sql` errors, sometimes wrapped with context
-- Services wrap repo errors: `fmt.Errorf("Could not create account. Error when inserting: %w", err)`
-- Handlers return `c.String(http.StatusBadRequest, err.Error())` or `c.String(http.StatusInternalServerError, err.Error())` — no structured error response format
-- SQL transactions use explicit `tx.Rollback()` on error before returning
+**Uniform error response.** All errors return JSON `{"error": "string"}`. Machine-readable domain errors also include `"code"` (e.g., `PAY_SCHEDULE_REQUIRED`). Handled centrally in `handler.CustomHTTPErrorHandler`.
 
-## Cross-Cutting Concerns
+## Database / Storage
 
-**Logging:** `fmt.Println` and `println` used directly in service and repo layers (not structured; debug artifacts left in code)
+**Engine:** `modernc.org/sqlite` (pure Go — no CGO). Single file database. Default path `./db/cibi.db`, configurable via `CIBI_DATABASEPATH`. Production: `/data/cibi.db` via Docker volume.
 
-**Validation:** Minimal — UUID parsing in handlers, JSON decode errors surfaced as 400. No input validation on field values (e.g., empty name, negative balance)
+**Schema tables:**
 
-**Authentication:** None — all endpoints are publicly accessible
+| Table | Key columns | Notes |
+|---|---|---|
+| `Account` | `id TEXT PK`, `current_balance INTEGER`, `is_default BOOLEAN` | One default per account set; balance in cents |
+| `Transaction` | `id`, `account_id`, `amount INTEGER`, `is_recurring`, `frequency`, `anchor_date`, `next_occurrence` | Debit = negative amount; recurring txns track next due date |
+| `PaySchedule` | `id`, `account_id`, `frequency TEXT`, `anchor_date`, `day_of_month2`, `amount INTEGER` | Multiple schedules per account; amount = expected paycheck |
+| `SafetyBuffer` | `min_threshold INTEGER` | Global singleton; single row; no primary key constraint |
+| `Friend` | `id`, `name`, `public_token TEXT UNIQUE`, `pix_key` | Token for shareable public URL |
+| `PeerDebt` | `id`, `friend_id`, `account_id`, `amount`, `is_installment`, `total_installments`, `paid_installments`, `is_confirmed` | Supports recurring installment debts |
+| `GroupEvent` | `id`, `account_id`, `title`, `total_amount`, `public_token UNIQUE`, `host_friend_id` | Shared expense; host can be a Friend or the owner |
+| `GroupEventParticipant` | `event_id`, `friend_id` (nullable = owner), `share_amount`, `is_confirmed` | `NULL friend_id` represents the owner as participant |
+| `UserProfile` | `id INTEGER PK CHECK(id=1)`, `display_name`, `pix_key` | Singleton row; insert-on-conflict-do-nothing |
 
-**Database Transactions:** Used explicitly in repos via `db.Conn.Begin()` / `tx.Commit()` / `tx.Rollback()` for multi-step atomic operations (e.g., insert account + unset defaults, insert transaction + update balance)
+**Balance consistency:** `Account.current_balance` is updated atomically within the same SQL transaction as every `INSERT`/`UPDATE`/`DELETE` on `Transaction`. The balance is a materialized running total, not recomputed from history.
+
+## API Design
+
+**Base:** `/api` — authenticated (no token; local network assumed).
+**Public:** `/public` — unauthenticated, token-addressed.
+
+**Core route summary:**
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/check` | Decision engine query |
+| `GET/POST` | `/api/accounts` | List / create accounts |
+| `GET/PATCH/DELETE` | `/api/accounts/:id` | Read / update / delete account |
+| `POST` | `/api/accounts/:id/set-default` | Set default account |
+| `GET/POST` | `/api/transactions` | List / create transactions |
+| `PATCH/DELETE` | `/api/transactions/:id` | Update / delete transaction |
+| `POST` | `/api/transactions/:id/confirm` | Confirm recurring transaction occurrence |
+| `GET/POST/PATCH/DELETE` | `/api/pay-schedule` / `/:id` | Pay schedule CRUD |
+| `GET/POST/PATCH/DELETE` | `/api/friends` / `/:id` | Friend CRUD |
+| `GET` | `/api/friends/summary` | Aggregate debt totals |
+| `GET` | `/api/friends/breakdown` | Per-friend debt breakdown |
+| `GET/POST/PATCH/DELETE` | `/api/peer-debts` / `/:id` | Peer debt CRUD |
+| `POST` | `/api/peer-debts/:id/confirm` | Confirm peer debt paid |
+| `GET/POST/PATCH/DELETE` | `/api/group-events` / `/:id` | Group event CRUD |
+| `PUT` | `/api/group-events/:id/participants` | Replace full participant list |
+| `GET/PATCH` | `/api/profile` | Owner profile |
+| `GET` | `/api/docs` | Embedded OpenAPI YAML |
+| `GET` | `/public/friend/:token` | Friend's public debt view |
+| `POST` | `/public/friend/:token/groups/:eventID/participants/:friendID/confirm` | Host confirms participant payment |
+| `GET` | `/public/group/:token` | Group event public view |
+
+**Conventions:**
+- Monetary amounts in JSON: `float64` dollars (converted at handler boundary)
+- Timestamps: RFC3339 strings or `YYYY-MM-DD` date strings
+- IDs: UUID strings
+- Error body: `{"error": "message"}` or `{"error": "message", "code": "MACHINE_CODE"}`
+- List endpoints accept `?account_id=<uuid>` query parameter for filtering
 
 ---
 
-*Architecture analysis: 2026-04-11*
+*Architecture analysis: 2026-04-16*
