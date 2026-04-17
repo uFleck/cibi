@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 10-04-PLAN.md
-last_updated: "2026-04-17T01:46:52.899Z"
+stopped_at: Completed 10-05-PLAN.md
+last_updated: "2026-04-17T01:57:34.276Z"
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 25
-  completed_plans: 20
-  percent: 80
+  completed_plans: 21
+  percent: 84
 ---
 
 # Project State
@@ -34,6 +34,8 @@ Next: Docker containerization (ad-hoc) + Phase 06 (MCP Server)
 - Phase 03: All CLI files in cmd/cibi/ as package main — no sub-package
 - [Phase 10]: Keep all API calls, query keys, and mutation invalidations in friends.tsx; extracted components remain pure UI/control surfaces.
 - [Phase 10]: Preserve UI copy contract by passing exact labels from friends.tsx into extracted components.
+- [Phase 10]: Kept React Query hooks/mutations in accounts.tsx and transactions.tsx; extracted components are prop-driven UI only.
+- [Phase 10]: Preserved transaction confirm-payment mutation path and copy strings during component extraction.
 
 ## Performance Metrics
 
@@ -42,6 +44,7 @@ Next: Docker containerization (ad-hoc) + Phase 06 (MCP Server)
 | 01    | 01-01 | ~10m     | 4     | 6     |
 | 03    | 03    | ~5m      | 4     | 8     |
 | Phase 10 P04 | 4 min | 3 tasks | 5 files |
+| Phase 10 P05 | 7 min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -54,4 +57,4 @@ Next: Docker containerization (ad-hoc) + Phase 06 (MCP Server)
 ## Last Session
 
 - **Timestamp:** 2026-04-11T22:35:37Z
-- **Stopped at:** Completed 10-04-PLAN.md
+- **Stopped at:** Completed 10-05-PLAN.md
