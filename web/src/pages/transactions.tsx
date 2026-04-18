@@ -1,13 +1,12 @@
 import { useState, useContext, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Edit2, Trash2, ArrowLeftRight, Check } from 'lucide-react'
+import { Plus, ArrowLeftRight } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { AppModal } from '@/components/AppModal'
-import { MobileActionButton } from '@/components/MobileActionButton'
 import { SharedDebtList } from '@/components/debt/shared-debt-list'
 import { TransactionForm } from '@/components/TransactionForm'
 import { TransactionFilters } from '@/components/TransactionFilters'
@@ -21,7 +20,6 @@ import {
   type TransactionResponse,
 } from '@/lib/api'
 import { formatDate } from '@/lib/format'
-import { MoneyValue } from '@/components/ui/money-value'
 import { AccountContext } from '@/App'
 
 const CATEGORIES = [
@@ -58,8 +56,6 @@ export function TransactionsPage() {
   })
   const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [amountText, setAmountText] = useState('')
-  const [confirmingId, setConfirmingId] = useState<string | null>(null)
-  const [confirmSuccessId, setConfirmSuccessId] = useState<string | null>(null)
   const [sortField, setSortField] = useState<'description' | 'date' | 'amount'>('date')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [filterCategory, setFilterCategory] = useState<string>('all')
@@ -86,9 +82,6 @@ export function TransactionsPage() {
     queryFn: () => fetchTransactions(currentAccountId),
     enabled: !!currentAccountId,
   })
-
-  const recurringTxns = transactions.filter((t: TransactionResponse) => t.is_recurring)
-  const oneTimeTxns = transactions.filter((t: TransactionResponse) => !t.is_recurring)
 
   const filteredAndSortedTxns = useMemo(() => {
     let txns = [...transactions]
@@ -193,25 +186,18 @@ export function TransactionsPage() {
 
   const confirmMutation = useMutation({
     mutationFn: (id: string) => confirmTransaction(id),
-    onSuccess: (_, id) => {
-      setConfirmSuccessId(id)
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
       toast.success('Payment confirmed')
-      setTimeout(() => {
-        setConfirmSuccessId(null)
-        setConfirmingId(null)
-      }, 2000)
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to confirm payment')
-      setConfirmingId(null)
     },
   })
 
   const handleConfirmClick = (id: string) => {
-    setConfirmingId(id)
     confirmMutation.mutate(id)
   }
 
@@ -374,102 +360,34 @@ export function TransactionsPage() {
               </Button>
             </CardContent>
           </Card>
-        ) : 
-          (recurringTxns.length > 0 || oneTimeTxns.length > 0) ? (
-          <>
-            <div className="sm:hidden flex flex-col gap-3">
-              {filteredAndSortedTxns.length === 0 ? (
-                <Card>
-                  <CardContent className="py-8 text-center text-muted-foreground">
-                    No transactions match your filters
-                  </CardContent>
-                </Card>
-              ) : (
-                filteredAndSortedTxns.map((txn: TransactionResponse) => (
-                  <Card key={txn.id}>
-                    <CardContent className="py-4 flex flex-col gap-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="font-medium">{txn.description}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {txn.category} · {txn.is_recurring ? txn.frequency : 'one-time'}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {txn.is_recurring
-                              ? (txn.next_occurrence
-                                ? formatDate(txn.next_occurrence)
-                                : (txn.anchor_date ? formatDate(txn.anchor_date) : '-'))
-                              : formatDate(txn.timestamp)}
-                          </div>
-                        </div>
-                        <MoneyValue
-                          amount={txn.amount}
-                          currency={currentAccountCurrency}
-                          showSign="always"
-                          tone="auto"
-                          className="font-semibold"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2">
-                        {txn.is_recurring ? (
-                          <MobileActionButton
-                            onClick={() => handleConfirmClick(txn.id)}
-                            icon={Check}
-                            label="Confirm"
-                            variant={confirmSuccessId === txn.id ? 'default' : 'outline'}
-                            disabled={confirmingId === txn.id}
-                          />
-                        ) : <div />}
-                        <MobileActionButton
-                          onClick={() => handleEditClick(txn)}
-                          icon={Edit2}
-                          label="Edit"
-                          variant="outline"
-                        />
-                        <MobileActionButton
-                          onClick={() => setConfirmDelete(txn.id)}
-                          icon={Trash2}
-                          label="Delete"
-                          variant="outline"
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
-
-            <div className="hidden sm:block">
-              <SharedDebtList
-                mode="desktop"
-                view="owner"
-                items={filteredAndSortedTxns.map((txn: TransactionResponse) => ({
-                  id: txn.id,
-                  title: txn.description,
-                  subtitle: `${txn.category} · ${txn.is_recurring ? `${txn.frequency} · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : (txn.anchor_date ? formatDate(txn.anchor_date) : '-')}` : formatDate(txn.timestamp)}`,
-                  amount: txn.amount,
-                  currency: currentAccountCurrency,
-                  status: {
-                    label: txn.is_recurring ? 'Recurring' : 'One-time',
-                    tone: txn.is_recurring ? 'default' : 'secondary',
-                  },
-                  canConfirm: txn.is_recurring,
-                  canDelete: true,
-                  canOpen: true,
-                }))}
-                emptyTitle="No transactions match your filters"
-                emptyHint="Adjust filters and try again"
-                onConfirm={handleConfirmClick}
-                onDelete={setConfirmDelete}
-                onOpen={(id) => {
-                  const txn = transactions.find((t: TransactionResponse) => t.id === id)
-                  if (txn) handleEditClick(txn)
-                }}
-              />
-            </div>
-          </>
-        ) : null}
+        ) : (
+          <SharedDebtList
+            mode="auto"
+            view="owner"
+            items={filteredAndSortedTxns.map((txn: TransactionResponse) => ({
+              id: txn.id,
+              title: txn.description,
+              subtitle: `${txn.category} · ${txn.is_recurring ? `${txn.frequency} · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : (txn.anchor_date ? formatDate(txn.anchor_date) : '-')}` : formatDate(txn.timestamp)}`,
+              amount: txn.amount,
+              currency: currentAccountCurrency,
+              status: {
+                label: txn.is_recurring ? 'Recurring' : 'One-time',
+                tone: txn.is_recurring ? 'default' : 'secondary',
+              },
+              canConfirm: txn.is_recurring,
+              canDelete: true,
+              canOpen: true,
+            }))}
+            emptyTitle="No transactions match your filters"
+            emptyHint="Adjust filters and try again"
+            onConfirm={handleConfirmClick}
+            onDelete={setConfirmDelete}
+            onOpen={(id) => {
+              const txn = transactions.find((t: TransactionResponse) => t.id === id)
+              if (txn) handleEditClick(txn)
+            }}
+          />
+        )}
       </Skeleton>
 
       <AppModal
