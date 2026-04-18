@@ -51,7 +51,6 @@ export function AccountForm({
           value={formData.name}
           onChange={e => onNameChange(e.target.value)}
           placeholder="Account name"
-          autoFocus
           aria-invalid={!!formErrors.name || undefined}
           aria-describedby={formErrors.name ? 'account-name-error' : undefined}
         />
