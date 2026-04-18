@@ -137,6 +137,14 @@ func (s *GroupEventService) SetParticipantConfirmed(eventID uuid.UUID, friendID 
 	return nil
 }
 
+// ToggleParticipantConfirmation flips one friend participant payment status.
+func (s *GroupEventService) ToggleParticipantConfirmation(eventID uuid.UUID, friendID uuid.UUID) error {
+	if err := s.repo.ToggleParticipantConfirmed(eventID, friendID); err != nil {
+		return fmt.Errorf("service.ToggleParticipantConfirmation: %w", err)
+	}
+	return nil
+}
+
 // SumUpcomingAdminObligations returns pending admin->host obligations in [after, onOrBefore).
 // Value is negative or zero for direct use in engine purchasing power math.
 func (s *GroupEventService) SumUpcomingAdminObligations(accountID *uuid.UUID, after, onOrBefore time.Time) (int64, error) {

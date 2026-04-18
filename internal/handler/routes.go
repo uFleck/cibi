@@ -70,18 +70,19 @@ func SetupRoutes(
 	friends := api.Group("/friends")
 	friends.GET("", fh.List)
 	friends.POST("", fh.Create)
-	friends.GET("/summary", fh.Summary)       // BEFORE /:id to avoid conflict
-	friends.GET("/breakdown", fh.Breakdown)   // BEFORE /:id to avoid conflict
+	friends.GET("/summary", fh.Summary)     // BEFORE /:id to avoid conflict
+	friends.GET("/breakdown", fh.Breakdown) // BEFORE /:id to avoid conflict
 	friends.GET("/:id", fh.GetByID)
 	friends.PATCH("/:id", fh.Update)
 	friends.DELETE("/:id", fh.Delete)
 
 	peerDebts := api.Group("/peer-debts")
-	peerDebts.GET("", pdh.List)        // optional ?friend_id= query param
+	peerDebts.GET("", pdh.List) // optional ?friend_id= query param
 	peerDebts.POST("", pdh.Create)
 	peerDebts.PATCH("/:id", pdh.Update)
 	peerDebts.DELETE("/:id", pdh.Delete)
 	peerDebts.POST("/:id/confirm", pdh.Confirm)
+	peerDebts.POST("/:id/confirm-toggle", pdh.ToggleConfirm)
 
 	groupEvents := api.Group("/group-events")
 	groupEvents.GET("", geh.List)
@@ -99,5 +100,6 @@ func SetupRoutes(
 	pub := e.Group("/public")
 	pub.GET("/friend/:token", ph.GetFriendByToken)
 	pub.POST("/friend/:token/groups/:eventID/participants/:friendID/confirm", ph.ConfirmHostedGroupPayment)
+	pub.POST("/friend/:token/groups/:eventID/participants/:friendID/confirm-toggle", ph.ToggleHostedGroupPayment)
 	pub.GET("/group/:token", ph.GetGroupByToken)
 }

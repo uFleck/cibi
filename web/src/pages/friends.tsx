@@ -1,14 +1,16 @@
 import { useContext, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Trash2, Check, Save } from 'lucide-react'
+import { Plus, Trash2, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { AppModal } from '@/components/AppModal'
 import { CompactEntityTable } from '@/components/CompactEntityTable'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { MoneyValue } from '@/components/ui/money-value'
+import { SharedDebtList } from '@/components/debt/shared-debt-list'
+import { FriendDebtDetailsModal } from '@/components/debt/friend-debt-details-modal'
+import { mapFriendDebtsToVM, getDisplayAmount } from '@/components/debt/debt-list-mappers'
 import { FriendForm } from '@/components/FriendForm'
 import { DebtForm, type DebtFormState } from '@/components/DebtForm'
 import { GroupEventForm, type GroupEventFormState } from '@/components/GroupEventForm'
@@ -29,7 +31,6 @@ import {
   getGroupEvent,
   setParticipants,
   type FriendResponse,
-  type PeerDebtResponse,
   type GroupEventResponse,
 } from '@/lib/api'
 import { formatDate } from '@/lib/format'
@@ -50,49 +51,6 @@ const EMPTY_DEBT_FORM: DebtFormState = {
   is_installment: false,
   total_installments: '',
   frequency: 'monthly',
-}
-
-function debtStatus(debt: PeerDebtResponse): { label: string; variant: 'default' | 'secondary' | 'outline' } {
-  if (debt.is_confirmed) return { label: 'Paid', variant: 'default' }
-  if (debt.is_installment && debt.total_installments != null) {
-    return { label: `${debt.paid_installments}/${debt.total_installments} paid`, variant: 'secondary' }
-  }
-  return { label: 'Unpaid', variant: 'outline' }
-}
-
-function calculateNextPayDate(debt: PeerDebtResponse): string | null {
-  if (debt.is_confirmed) return null
-
-  if (debt.is_installment && debt.anchor_date && debt.frequency && debt.total_installments) {
-    const anchor = new Date(debt.anchor_date)
-    const nextInstallmentNum = debt.paid_installments + 1
-
-    if (nextInstallmentNum > debt.total_installments) return null
-
-    let nextDate: Date
-    if (debt.frequency === 'monthly') {
-      nextDate = new Date(anchor)
-      nextDate.setMonth(anchor.getMonth() + nextInstallmentNum - 1)
-    } else if (debt.frequency === 'weekly') {
-      nextDate = new Date(anchor)
-      nextDate.setDate(anchor.getDate() + (nextInstallmentNum - 1) * 7)
-    } else {
-      return debt.date
-    }
-
-    return nextDate.toISOString().split('T')[0]
-  }
-
-  return debt.date
-}
-
-function getDisplayAmount(debt: PeerDebtResponse): number {
-  if (debt.is_installment && debt.total_installments && debt.total_installments > 0) {
-    const installmentAmount = debt.amount / debt.total_installments
-    const remainingInstallments = debt.total_installments - debt.paid_installments
-    return installmentAmount * remainingInstallments
-  }
-  return debt.amount
 }
 
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -140,6 +98,7 @@ function FriendDetailsModal({
   const [debtForm, setDebtForm] = useState<DebtFormState>(EMPTY_DEBT_FORM)
   const [confirmDeleteFriendOpen, setConfirmDeleteFriendOpen] = useState(false)
   const [debtToDelete, setDebtToDelete] = useState<string | null>(null)
+  const [activeDebtId, setActiveDebtId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!friend) return
@@ -318,124 +277,28 @@ function FriendDetailsModal({
           </div>
         </div>
 
-        {debtsLoading ? (
-          <div className="flex flex-col gap-2">
-            {[0, 1, 2].map(i => (
-              <div key={i} className="h-10 rounded-lg bg-card/60 animate-pulse border border-border/40" />
-            ))}
-          </div>
-        ) : debts.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">No debts recorded</div>
-        ) : (
-          <>
-            <div className="sm:hidden flex flex-col gap-2">
-              {debts.map((debt: PeerDebtResponse) => {
-                const status = debtStatus(debt)
-                const nextPayDate = calculateNextPayDate(debt)
-                const displayAmount = getDisplayAmount(debt)
+        <SharedDebtList
+          view="owner"
+          items={mapFriendDebtsToVM(debts)}
+          loading={debtsLoading}
+          emptyTitle="No debts recorded"
+          emptyHint="Add Debt to start tracking"
+          onOpen={setActiveDebtId}
+          onConfirm={(id) => confirmMutation.mutate(id)}
+          onDelete={(id) => setDebtToDelete(id)}
+        />
 
-                return (
-                  <div key={debt.id} className="border rounded-md p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="font-medium">{debt.description}</div>
-                        <div className="text-sm text-muted-foreground">{nextPayDate ? formatDate(nextPayDate) : '-'}</div>
-                      </div>
-                      <MoneyValue amount={displayAmount} currency="BRL" showSign="auto" tone="auto" className="font-semibold" />
-                    </div>
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <Badge variant={status.variant}>{status.label}</Badge>
-                      <div className="flex gap-2">
-                        {!debt.is_confirmed && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => confirmMutation.mutate(debt.id)}
-                            disabled={confirmMutation.isPending}
-                            aria-label="Confirm debt"
-                          >
-                            <Check size={14} />
-                            Confirm
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setDebtToDelete(debt.id)}
-                          disabled={deleteDebtMutation.isPending}
-                          aria-label="Delete debt"
-                        >
-                          <Trash2 size={14} />
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            <div className="hidden sm:block border rounded-md overflow-x-auto">
-              <table className="min-w-full w-max text-sm">
-                <thead className="bg-muted/50 text-muted-foreground">
-                  <tr>
-                    <th className="text-left px-3 py-2 font-medium">Date</th>
-                    <th className="text-left px-3 py-2 font-medium">Description</th>
-                    <th className="text-right px-3 py-2 font-medium">Remaining</th>
-                    <th className="text-left px-3 py-2 font-medium">Status</th>
-                    <th className="text-right px-3 py-2 font-medium w-24">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {debts.map((debt: PeerDebtResponse) => {
-                    const status = debtStatus(debt)
-                    const nextPayDate = calculateNextPayDate(debt)
-                    const displayAmount = getDisplayAmount(debt)
-
-                    return (
-                      <tr key={debt.id} className="hover:bg-muted/30">
-                        <td className="px-3 py-2 whitespace-nowrap">
-                          {nextPayDate ? formatDate(nextPayDate) : '-'}
-                        </td>
-                        <td className="px-3 py-2">{debt.description}</td>
-                        <td className="px-3 py-2 text-right font-medium tabular-nums whitespace-nowrap">
-                          <MoneyValue amount={displayAmount} currency="BRL" showSign="auto" tone="auto" className="font-medium" />
-                        </td>
-                        <td className="px-3 py-2">
-                          <Badge variant={status.variant}>{status.label}</Badge>
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex gap-1 justify-end">
-                            {!debt.is_confirmed && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => confirmMutation.mutate(debt.id)}
-                                disabled={confirmMutation.isPending}
-                                aria-label="Confirm debt"
-                              >
-                                <Check size={14} />
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setDebtToDelete(debt.id)}
-                              disabled={deleteDebtMutation.isPending}
-                              aria-label="Delete debt"
-                            >
-                              <Trash2 size={14} />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
+        <FriendDebtDetailsModal
+          debt={debts.find(d => d.id === activeDebtId) ?? null}
+          open={!!activeDebtId}
+          onOpenChange={(next) => {
+            if (!next) setActiveDebtId(null)
+          }}
+          onConfirm={(id) => confirmMutation.mutate(id)}
+          onDelete={(id) => setDebtToDelete(id)}
+          confirming={confirmMutation.isPending}
+          deleting={deleteDebtMutation.isPending}
+        />
 
         {showAddDebt ? (
           <DebtForm

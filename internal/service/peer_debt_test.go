@@ -24,6 +24,7 @@ type mockPeerDebtRepo struct {
 	sumNextUserPaymentFn         func(accountID *uuid.UUID) (int64, error)
 	getActiveUserDebtsWithFriend func(accountID *uuid.UUID) ([]sqlite.ActiveUserDebt, error)
 	confirmInstallmentFn         func(id uuid.UUID) error
+	toggleInstallmentFn          func(id uuid.UUID) error
 }
 
 func (m *mockPeerDebtRepo) Insert(d sqlite.PeerDebt) error {
@@ -106,6 +107,13 @@ func (m *mockPeerDebtRepo) GetActiveUserDebtsWithFriend(accountID *uuid.UUID) ([
 func (m *mockPeerDebtRepo) ConfirmInstallment(id uuid.UUID) error {
 	if m.confirmInstallmentFn != nil {
 		return m.confirmInstallmentFn(id)
+	}
+	return nil
+}
+
+func (m *mockPeerDebtRepo) ToggleInstallmentConfirmation(id uuid.UUID) error {
+	if m.toggleInstallmentFn != nil {
+		return m.toggleInstallmentFn(id)
 	}
 	return nil
 }

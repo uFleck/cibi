@@ -27,7 +27,9 @@ type PublicPeerDebtSvc interface {
 	ListByFriend(friendID uuid.UUID, accountID *uuid.UUID) ([]sqlite.PeerDebt, error)
 }
 
-type PublicProfileSvc interface { Get() (sqlite.UserProfile, error) }
+type PublicProfileSvc interface {
+	Get() (sqlite.UserProfile, error)
+}
 
 type PublicGroupServiceIface interface {
 	GetEventByToken(token string) (sqlite.GroupEvent, error)
@@ -35,6 +37,7 @@ type PublicGroupServiceIface interface {
 	ListEventsByFriend(friendID uuid.UUID) ([]sqlite.GroupEvent, error)
 	GetParticipants(eventID uuid.UUID) ([]sqlite.GroupEventParticipant, error)
 	SetParticipantConfirmed(eventID uuid.UUID, friendID uuid.UUID, isConfirmed bool) error
+	ToggleParticipantConfirmation(eventID uuid.UUID, friendID uuid.UUID) error
 }
 
 var _ PublicFriendTokenSvc = (*service.FriendService)(nil)
@@ -79,10 +82,10 @@ type HostedGroupParticipantResponse struct {
 }
 
 type HostedGroupResponse struct {
-	EventID       string                           `json:"event_id"`
-	Title         string                           `json:"title"`
-	Date          string                           `json:"date"`
-	Participants  []HostedGroupParticipantResponse `json:"participants"`
+	EventID      string                           `json:"event_id"`
+	Title        string                           `json:"title"`
+	Date         string                           `json:"date"`
+	Participants []HostedGroupParticipantResponse `json:"participants"`
 }
 
 type PublicFriendResponse struct {
@@ -102,12 +105,12 @@ type PublicParticipantResponse struct {
 }
 
 type PublicGroupResponse struct {
-	Title        string                    `json:"title"`
-	Date         string                    `json:"date"`
-	TotalAmount  float64                   `json:"total_amount"`
-	Notes        *string                   `json:"notes"`
-	HostName     string                    `json:"host_name"`
-	HostPixKey   *string                   `json:"host_pix_key"`
+	Title        string                      `json:"title"`
+	Date         string                      `json:"date"`
+	TotalAmount  float64                     `json:"total_amount"`
+	Notes        *string                     `json:"notes"`
+	HostName     string                      `json:"host_name"`
+	HostPixKey   *string                     `json:"host_pix_key"`
 	Participants []PublicParticipantResponse `json:"participants"`
 }
 
@@ -198,25 +201,73 @@ func (h *PublicHandler) GetFriendByToken(c echo.Context) error {
 func (h *PublicHandler) ConfirmHostedGroupPayment(c echo.Context) error {
 	token := c.Param("token")
 	eventID, err := uuid.Parse(c.Param("eventID"))
-	if err != nil { return echo.NewHTTPError(http.StatusBadRequest, "invalid event id") }
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid event id")
+	}
 	targetID, err := uuid.Parse(c.Param("friendID"))
-	if err != nil { return echo.NewHTTPError(http.StatusBadRequest, "invalid friend id") }
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid friend id")
+	}
 
 	hostFriend, err := h.friendSvc.GetFriendByToken(token)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) { return echo.NewHTTPError(http.StatusNotFound, "friend not found") }
+		if errors.Is(err, sql.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "friend not found")
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	event, err := h.groupSvc.GetEventByID(eventID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) { return echo.NewHTTPError(http.StatusNotFound, "event not found") }
+		if errors.Is(err, sql.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "event not found")
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	if event.HostFriendID == nil || *event.HostFriendID != hostFriend.ID {
 		return echo.NewHTTPError(http.StatusForbidden, "only event host can confirm payments")
 	}
 	if err := h.groupSvc.SetParticipantConfirmed(eventID, targetID, true); err != nil {
-		if errors.Is(err, sql.ErrNoRows) { return echo.NewHTTPError(http.StatusNotFound, "participant not found in event") }
+		if errors.Is(err, sql.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "participant not found in event")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+// ToggleHostedGroupPayment toggles one participant payment status for host-owned events.
+func (h *PublicHandler) ToggleHostedGroupPayment(c echo.Context) error {
+	token := c.Param("token")
+	eventID, err := uuid.Parse(c.Param("eventID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid event id")
+	}
+	targetID, err := uuid.Parse(c.Param("friendID"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid friend id")
+	}
+
+	hostFriend, err := h.friendSvc.GetFriendByToken(token)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "friend not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	event, err := h.groupSvc.GetEventByID(eventID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "event not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	if event.HostFriendID == nil || *event.HostFriendID != hostFriend.ID {
+		return echo.NewHTTPError(http.StatusForbidden, "only event host can toggle payments")
+	}
+	if err := h.groupSvc.ToggleParticipantConfirmation(eventID, targetID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "participant not found in event")
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.NoContent(http.StatusNoContent)
@@ -229,11 +280,15 @@ func (h *PublicHandler) GetGroupByToken(c echo.Context) error {
 	}
 	event, err := h.groupSvc.GetEventByToken(token)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) { return echo.NewHTTPError(http.StatusNotFound, "group event not found") }
+		if errors.Is(err, sql.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "group event not found")
+		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	participants, err := h.groupSvc.GetParticipants(event.ID)
-	if err != nil { return echo.NewHTTPError(http.StatusInternalServerError, err.Error()) }
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
 	hostName, hostPixKey, hostFriendID := h.hostInfo(event)
 	parts := make([]PublicParticipantResponse, len(participants))

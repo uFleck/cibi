@@ -421,6 +421,14 @@ export function confirmDebt(id: string): Promise<void> {
   })
 }
 
+export function toggleDebtConfirm(id: string): Promise<void> {
+  return apiFetch<void>(`/api/peer-debts/${id}/confirm-toggle`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  })
+}
+
 // Group Events
 export function listGroupEvents(accountId: string): Promise<GroupEventResponse[]> {
   return apiFetch<GroupEventResponse[]>(`/api/group-events?account_id=${accountId}`)
@@ -488,6 +496,12 @@ export function fetchPublicFriend(token: string): Promise<PublicFriendResponse> 
 
 export function confirmPublicFriendGroupPayment(token: string, eventId: string, friendId: string): Promise<void> {
   return apiFetch<void>(`/public/friend/${token}/groups/${eventId}/participants/${friendId}/confirm`, {
+    method: 'POST',
+  })
+}
+
+export function togglePublicFriendGroupPayment(token: string, eventId: string, friendId: string): Promise<void> {
+  return apiFetch<void>(`/public/friend/${token}/groups/${eventId}/participants/${friendId}/confirm-toggle`, {
     method: 'POST',
   })
 }

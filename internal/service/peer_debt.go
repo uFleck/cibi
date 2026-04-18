@@ -12,10 +12,10 @@ import (
 // FriendDebtItem is a computed summary for a single active debt the user owes a friend.
 type FriendDebtItem struct {
 	FriendName        string
-	TotalAmount       int64   // abs cents — full debt amount
-	NextPayment       int64   // abs cents — next installment or full lump-sum
+	TotalAmount       int64 // abs cents — full debt amount
+	NextPayment       int64 // abs cents — next installment or full lump-sum
 	IsInstallment     bool
-	PerInstallAmount  int64   // abs cents — same as NextPayment for installment debts
+	PerInstallAmount  int64 // abs cents — same as NextPayment for installment debts
 	TotalInstallments int64
 	PaidInstallments  int64
 	NextPaymentDate   *string // RFC3339; nil if unparseable
@@ -118,6 +118,14 @@ func (s *PeerDebtService) DeleteDebt(id uuid.UUID) error {
 func (s *PeerDebtService) ConfirmInstallment(id uuid.UUID) error {
 	if err := s.repo.ConfirmInstallment(id); err != nil {
 		return fmt.Errorf("service.ConfirmInstallment: %w", err)
+	}
+	return nil
+}
+
+// ToggleInstallmentConfirmation flips confirmation state with strict rollback semantics.
+func (s *PeerDebtService) ToggleInstallmentConfirmation(id uuid.UUID) error {
+	if err := s.repo.ToggleInstallmentConfirmation(id); err != nil {
+		return fmt.Errorf("service.ToggleInstallmentConfirmation: %w", err)
 	}
 	return nil
 }

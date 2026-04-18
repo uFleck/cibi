@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { CompactEntityTable } from '@/components/CompactEntityTable'
+import { SharedDebtList } from '@/components/debt/shared-debt-list'
+import { mapPublicGroupParticipantsToVM } from '@/components/debt/debt-list-mappers'
 import { fetchPublicGroup, type ParticipantResponse } from '@/lib/api'
 import { MoneyValue } from '@/components/ui/money-value'
 import { copyToClipboard } from '@/lib/clipboard'
@@ -83,23 +84,15 @@ export function GroupPublicPage() {
           <CardTitle className="text-base">Participants</CardTitle>
         </CardHeader>
         <CardContent>
-          {data.participants.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No participants set</p>
-          ) : (
-            <CompactEntityTable
-              entityLabel="Participant"
-              secondaryLabel="Share / Status"
-              showActions={false}
-              items={data.participants.map((p, i) => ({
-                id: `${p.friend_id ?? 'host'}-${i}`,
-                primary: `${participantLabel(p, i)}${p.is_host ? ' · Host' : ''}`,
-                secondary: (
-                  <>
-                    <MoneyValue amount={p.share_amount} currency="BRL" showSign="never" tone="auto" /> · {p.is_confirmed ? 'Confirmed' : 'Pending'}
-                  </>
-                ),              }))}
-            />
-          )}
+          <SharedDebtList
+            view="public-group"
+            items={mapPublicGroupParticipantsToVM(data.participants.map((p, i) => ({
+              ...p,
+              name: participantLabel(p, i),
+            })))}
+            emptyTitle="No participants set"
+            emptyHint="Participants will appear here"
+          />
         </CardContent>
       </Card>
 

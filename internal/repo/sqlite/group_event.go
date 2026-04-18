@@ -54,6 +54,7 @@ type GroupEventRepo interface {
 	DeleteByID(id uuid.UUID) error
 	SetParticipants(eventID uuid.UUID, participants []GroupEventParticipant, hostFriendID *uuid.UUID) error
 	SetParticipantConfirmed(eventID uuid.UUID, friendID uuid.UUID, isConfirmed bool) error
+	ToggleParticipantConfirmed(eventID uuid.UUID, friendID uuid.UUID) error
 	GetParticipants(eventID uuid.UUID) ([]GroupEventParticipant, error)
 	SumUpcomingAdminObligations(accountID *uuid.UUID, after, onOrBefore time.Time) (int64, error)
 	GetAdminPendingExpenses(accountID *uuid.UUID) ([]AdminGroupExpense, error)
@@ -376,6 +377,22 @@ func (r *SqliteGroupEventRepo) SetParticipantConfirmed(eventID uuid.UUID, friend
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return fmt.Errorf("group_event.SetParticipantConfirmed: %w", sql.ErrNoRows)
+	}
+	return nil
+}
+
+func (r *SqliteGroupEventRepo) ToggleParticipantConfirmed(eventID uuid.UUID, friendID uuid.UUID) error {
+	res, err := r.db.Exec(
+		`UPDATE GroupEventParticipant
+		 SET is_confirmed = CASE WHEN is_confirmed = 1 THEN 0 ELSE 1 END
+		 WHERE event_id = ? AND friend_id = ?`,
+		eventID.String(), friendID.String(),
+	)
+	if err != nil {
+		return fmt.Errorf("group_event.ToggleParticipantConfirmed: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("group_event.ToggleParticipantConfirmed: %w", sql.ErrNoRows)
 	}
 	return nil
 }
