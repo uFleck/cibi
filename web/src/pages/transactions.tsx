@@ -415,8 +415,8 @@ export function TransactionsPage() {
 
       <div className="h-24 sm:h-8" />
 
-      <div className="sm:hidden fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] left-4 right-4 z-30">
-        <Button onClick={handleCreateClick} className="h-12 w-full shadow-lg">
+      <div className="sm:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] right-4 z-30">
+        <Button onClick={handleCreateClick} className="h-12 shadow-lg rounded-full px-5">
           <Plus size={18} />
           New Transaction
         </Button>
