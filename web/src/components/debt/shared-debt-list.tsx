@@ -2,11 +2,7 @@ import { Check, Copy, Eye, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { MoneyValue } from '@/components/ui/money-value'
-import type { DebtListItemVM, SharedDebtListProps } from '@/components/debt/shared-debt-list.types'
-
-function itemAllowsOpen(item: DebtListItemVM, onOpen?: (id: string) => void): boolean {
-  return !!onOpen && item.canOpen !== false
-}
+import type { SharedDebtListProps } from '@/components/debt/shared-debt-list.types'
 
 export function SharedDebtList({
   mode = 'auto',
@@ -16,10 +12,10 @@ export function SharedDebtList({
   emptyTitle = 'No items',
   emptyHint = 'Nothing to show yet',
   onRetry,
-  onOpen,
   onConfirm,
   onDelete,
   onCopy,
+  onOpen,
 }: SharedDebtListProps) {
   if (loading) {
     return (
@@ -59,18 +55,8 @@ export function SharedDebtList({
       {showMobile ? (
         <div className={mode === 'auto' ? 'sm:hidden flex flex-col gap-2' : 'flex flex-col gap-2'}>
           {items.map(item => {
-            const canOpen = itemAllowsOpen(item, onOpen)
             return (
-              <div
-                key={item.id}
-                className="border rounded-md p-3"
-                onClick={canOpen ? () => onOpen?.(item.id) : undefined}
-                role={canOpen ? 'button' : undefined}
-                tabIndex={canOpen ? 0 : undefined}
-                onKeyDown={canOpen ? e => {
-                  if (e.key === 'Enter' || e.key === ' ') onOpen?.(item.id)
-                } : undefined}
-              >
+              <div key={item.id} className="border rounded-md p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="font-medium">{item.title}</div>
@@ -91,14 +77,14 @@ export function SharedDebtList({
                         <Check size={14} />
                       </Button>
                     ) : null}
+                    {onOpen && item.canOpen ? (
+                      <Button variant="outline" size="sm" onClick={() => onOpen(item.id)} aria-label="Open">
+                        <Eye size={14} />
+                      </Button>
+                    ) : null}
                     {onDelete && item.canDelete ? (
                       <Button variant="outline" size="sm" onClick={() => onDelete(item.id)} aria-label="Delete">
                         <Trash2 size={14} />
-                      </Button>
-                    ) : null}
-                    {canOpen ? (
-                      <Button variant="outline" size="sm" onClick={() => onOpen?.(item.id)} aria-label="Open">
-                        <Eye size={14} />
                       </Button>
                     ) : null}
                   </div>
@@ -122,13 +108,8 @@ export function SharedDebtList({
             </thead>
             <tbody className="divide-y">
               {items.map(item => {
-                const canOpen = itemAllowsOpen(item, onOpen)
                 return (
-                  <tr
-                    key={item.id}
-                    className={canOpen ? 'hover:bg-muted/30 cursor-pointer' : 'hover:bg-muted/30'}
-                    onClick={canOpen ? () => onOpen?.(item.id) : undefined}
-                  >
+                  <tr key={item.id} className="hover:bg-muted/30">
                     <td className="px-3 py-2">
                       <div className="font-medium">{item.title}</div>
                       <div className="text-xs text-muted-foreground">{item.subtitle}</div>
@@ -151,14 +132,14 @@ export function SharedDebtList({
                             <Check size={14} />
                           </Button>
                         ) : null}
+                        {onOpen && item.canOpen ? (
+                          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => onOpen(item.id)} aria-label="Open">
+                            <Eye size={14} />
+                          </Button>
+                        ) : null}
                         {onDelete && item.canDelete ? (
                           <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => onDelete(item.id)} aria-label="Delete">
                             <Trash2 size={14} />
-                          </Button>
-                        ) : null}
-                        {canOpen ? (
-                          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => onOpen?.(item.id)} aria-label="Open">
-                            <Eye size={14} />
                           </Button>
                         ) : null}
                       </div>

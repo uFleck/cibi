@@ -15,10 +15,10 @@ export interface DebtListItemVM {
   currency: string
   status: DebtListStatusVM
   meta?: string
-  canOpen?: boolean
   canConfirm?: boolean
   canDelete?: boolean
   canCopy?: boolean
+  canOpen?: boolean
 }
 
 export interface SharedDebtListProps {
@@ -31,8 +31,8 @@ export interface SharedDebtListProps {
   emptyHint?: string
   primaryActionLabel?: string
   onRetry?: () => void
-  onOpen?: (id: string) => void
   onConfirm?: (id: string) => void
   onDelete?: (id: string) => void
   onCopy?: (id: string) => void
+  onOpen?: (id: string) => void
 }
