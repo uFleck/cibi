@@ -3,9 +3,7 @@ import { RouterProvider, Outlet, useLocation } from '@tanstack/react-router'
 import { Toaster } from '@/components/ui/sonner'
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import { router } from './router'
-import { Sidebar } from '@/components/Sidebar'
 import { MobileHeader } from '@/components/MobileHeader'
-import { MobileDrawer } from '@/components/MobileDrawer'
 import { MobileBottomNav } from '@/components/MobileBottomNav'
 import { fetchAccounts } from '@/lib/api'
 
@@ -28,14 +26,10 @@ export const AccountContext = createContext<{
 })
 
 function RootLayoutWithNav() {
-  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
-
   return (
     <div className="flex h-dvh bg-background">
-      <Sidebar />
-      <MobileHeader onMenuClick={() => setMobileDrawerOpen(true)} />
-      <MobileDrawer open={mobileDrawerOpen} onClose={() => setMobileDrawerOpen(false)} />
-      <main className="flex-1 overflow-auto pt-[calc(5.75rem+env(safe-area-inset-top))] lg:pt-0 pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0">
+      <MobileHeader />
+      <main className="flex-1 overflow-auto pt-[calc(3.5rem+env(safe-area-inset-top))] pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
         <Outlet />
       </main>
       <MobileBottomNav />

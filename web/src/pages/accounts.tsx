@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Edit2, Trash2, Check, Wallet, DollarSign } from 'lucide-react'
+import { Plus, Wallet, Edit2, Trash2 } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { AppModal } from '@/components/AppModal'
 import { MobileActionButton } from '@/components/MobileActionButton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { SharedDebtList } from '@/components/debt/shared-debt-list'
 import { AccountForm } from '@/components/AccountForm'
 import { AccountScheduleForm, type AccountScheduleFrequency } from '@/components/AccountScheduleForm'
 import {
@@ -229,20 +230,6 @@ export function AccountsPage() {
     setBalanceText('0')
   }
 
-  const openScheduleModal = (accountId: string) => {
-    setScheduleModalAccountId(accountId)
-    setEditingScheduleId(null)
-    setScheduleForm({
-      label: '',
-      frequency: 'monthly',
-      anchor_date: '',
-      amount: '',
-      day_of_month: '',
-      day_of_month_2: '',
-    })
-    setScheduleFormErrors({})
-  }
-
   const closeScheduleModal = () => {
     setScheduleModalAccountId(null)
     setEditingScheduleId(null)
@@ -348,7 +335,7 @@ export function AccountsPage() {
 
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Accounts</h1>
-        <Button onClick={handleCreateClick} size="sm">
+        <Button onClick={handleCreateClick} size="sm" className="hidden sm:inline-flex">
           <Plus size={16} />
           New Account
         </Button>
@@ -379,169 +366,32 @@ export function AccountsPage() {
               </CardContent>
             </Card>
           ) : (
-            <>
-              <div className="sm:hidden flex flex-col gap-3">
-                {accounts.map(account => (
-                  <Card key={account.id}>
-                    <CardContent className="py-4 flex flex-col gap-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="font-medium">{account.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {account.currency}
-                            {account.is_default && ' · Default'}
-                          </div>
-                        </div>
-                        <MoneyValue
-                          amount={account.current_balance}
-                          currency={account.currency}
-                          showSign="never"
-                          tone="auto"
-                          className="font-semibold text-right"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <MobileActionButton
-                          onClick={() => openScheduleModal(account.id)}
-                          icon={DollarSign}
-                          label="Schedules"
-                          variant="outline"
-                        />
-                        {!account.is_default ? (
-                          <MobileActionButton
-                            onClick={() => defaultMutation.mutate(account.id)}
-                            icon={Check}
-                            label="Default"
-                            variant="outline"
-                          />
-                        ) : (
-                          <div />
-                        )}
-                        <MobileActionButton
-                          onClick={() => handleEditClick(account)}
-                          icon={Edit2}
-                          label="Edit"
-                          variant="outline"
-                          aria-label="Edit account"
-                        />
-                        <MobileActionButton
-                          onClick={() => setConfirmDelete(account.id)}
-                          icon={Trash2}
-                          label="Delete"
-                          variant="outline"
-                          aria-label="Delete account"
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              <div className="hidden sm:block border rounded-md overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-muted-foreground">
-                    <tr>
-                      <th className="text-left px-3 py-2 font-medium">Account</th>
-                      <th className="text-right px-3 py-2 font-medium">Balance</th>
-                      <th className="text-right px-3 py-2 font-medium w-20">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {accounts.map(account => (
-                      <tr key={account.id} className="hover:bg-muted/30">
-                        <td className="px-3 py-2">
-                          <div className="font-medium truncate">{account.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {account.currency}
-                            {account.is_default && ' · Default'}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <MoneyValue
-                            amount={account.current_balance}
-                            currency={account.currency}
-                            showSign="never"
-                            tone="auto"
-                            className="font-medium"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex gap-1 justify-end">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  onClick={() => openScheduleModal(account.id)}
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-9 w-9"
-                                  aria-label="Manage pay schedules"
-                                >
-                                  <DollarSign size={14} />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Pay schedules</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            {!account.is_default && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    onClick={() => defaultMutation.mutate(account.id)}
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-9 w-9"
-                                    aria-label="Set as default"
-                                  >
-                                    <Check size={14} />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Set as default</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  onClick={() => handleEditClick(account)}
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-9 w-9"
-                                  aria-label="Edit account"
-                                >
-                                  <Edit2 size={14} />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Edit account</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  onClick={() => setConfirmDelete(account.id)}
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-9 w-9"
-                                  aria-label="Delete account"
-                                >
-                                  <Trash2 size={14} />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Delete account</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
+            <SharedDebtList
+              mode="auto"
+              view="owner"
+              items={accounts.map(account => ({
+                id: account.id,
+                title: account.name,
+                subtitle: `${account.currency}${account.is_default ? ' · Default' : ''}`,
+                amount: account.current_balance,
+                currency: account.currency,
+                status: {
+                  label: account.is_default ? 'Default' : 'Active',
+                  tone: account.is_default ? 'default' : 'secondary',
+                },
+                canConfirm: !account.is_default,
+                canDelete: true,
+                canOpen: true,
+              }))}
+              emptyTitle="No accounts yet"
+              emptyHint="Create an account to get started"
+              onConfirm={(id) => defaultMutation.mutate(id)}
+              onDelete={(id) => setConfirmDelete(id)}
+              onOpen={(id) => {
+                const account = accounts.find(a => a.id === id)
+                if (account) handleEditClick(account)
+              }}
+            />
           )}
         </div>
       </Skeleton>
@@ -570,8 +420,8 @@ export function AccountsPage() {
 
       <div className="h-24 sm:h-8" />
 
-      <div className="sm:hidden fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] left-4 right-4 z-30">
-        <Button onClick={handleCreateClick} className="h-12 w-full shadow-lg">
+      <div className="sm:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] right-4 z-30">
+        <Button onClick={handleCreateClick} className="h-12 shadow-lg rounded-full px-5">
           <Plus size={18} />
           New Account
         </Button>
