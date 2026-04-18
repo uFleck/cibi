@@ -1,14 +1,14 @@
 import { useState, useContext, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Edit2, Trash2, ArrowLeftRight, Check, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, Edit2, Trash2, ArrowLeftRight, Check } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { AppModal } from '@/components/AppModal'
 import { MobileActionButton } from '@/components/MobileActionButton'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { SharedDebtList } from '@/components/debt/shared-debt-list'
 import { TransactionForm } from '@/components/TransactionForm'
 import { TransactionFilters } from '@/components/TransactionFilters'
 import {
@@ -440,160 +440,33 @@ export function TransactionsPage() {
               )}
             </div>
 
-            <div className="hidden sm:block border rounded-md overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-muted-foreground">
-                  <tr>
-                    <th className="text-left px-3 py-2 font-medium">
-                      <button 
-                        onClick={() => {
-                          if (sortField === 'description') {
-                            setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
-                          } else {
-                            setSortField('description')
-                            setSortDir('asc')
-                          }
-                        }}
-                        className="inline-flex items-center gap-1 hover:text-foreground"
-                      >
-                        Description
-                        {sortField === 'description' && (
-                          sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
-                        )}
-                      </button>
-                    </th>
-                    <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">
-                      <button 
-                        onClick={() => {
-                          if (sortField === 'date') {
-                            setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
-                          } else {
-                            setSortField('date')
-                            setSortDir('desc')
-                          }
-                        }}
-                        className="inline-flex items-center gap-1 hover:text-foreground"
-                      >
-                        When
-                        {sortField === 'date' && (
-                          sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
-                        )}
-                      </button>
-                    </th>
-                    <th className="text-right px-3 py-2 font-medium">
-                      <button 
-                        onClick={() => {
-                          if (sortField === 'amount') {
-                            setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
-                          } else {
-                            setSortField('amount')
-                            setSortDir('desc')
-                          }
-                        }}
-                        className="inline-flex items-center gap-1 ml-auto hover:text-foreground"
-                      >
-                        Amount
-                        {sortField === 'amount' && (
-                          sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
-                        )}
-                      </button>
-                    </th>
-                    <th className="text-right px-3 py-2 font-medium w-20">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {filteredAndSortedTxns.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">
-                        No transactions match your filters
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredAndSortedTxns.map((txn: TransactionResponse) => (
-                      <tr key={txn.id} className="hover:bg-muted/30">
-                        <td className="px-3 py-2">
-                          <div className="font-medium truncate max-w-[150px]">{txn.description}</div>
-                          <div className="text-xs text-muted-foreground hidden sm:block">
-                            {txn.category} · {txn.is_recurring ? `${txn.frequency} · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : (txn.anchor_date ? formatDate(txn.anchor_date) : '-')}` : formatDate(txn.timestamp)}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">
-                          {txn.is_recurring 
-                            ? (txn.next_occurrence
-                              ? formatDate(txn.next_occurrence)
-                              : (txn.anchor_date ? formatDate(txn.anchor_date) : '-'))
-                            : formatDate(txn.timestamp)
-                          }
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <MoneyValue
-                            amount={txn.amount}
-                            currency={currentAccountCurrency}
-                            showSign="always"
-                            tone="auto"
-                            className="font-medium"
-                          />
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex gap-1 justify-end">
-                            {txn.is_recurring && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    onClick={() => handleConfirmClick(txn.id)}
-                                    variant={confirmSuccessId === txn.id ? "default" : "ghost"}
-                                    size="icon"
-                                    className="h-9 w-9"
-                                    disabled={confirmingId === txn.id}
-                                    aria-label="Confirm Paid"
-                                  >
-                                    <Check size={14} />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Confirm Paid</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  onClick={() => handleEditClick(txn)}
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-9 w-9"
-                                  aria-label="Edit transaction"
-                                >
-                                  <Edit2 size={14} />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Edit transaction</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  onClick={() => setConfirmDelete(txn.id)}
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-9 w-9"
-                                  aria-label="Delete transaction"
-                                >
-                                  <Trash2 size={14} />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Delete transaction</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+            <div className="hidden sm:block">
+              <SharedDebtList
+                mode="desktop"
+                view="owner"
+                items={filteredAndSortedTxns.map((txn: TransactionResponse) => ({
+                  id: txn.id,
+                  title: txn.description,
+                  subtitle: `${txn.category} · ${txn.is_recurring ? `${txn.frequency} · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : (txn.anchor_date ? formatDate(txn.anchor_date) : '-')}` : formatDate(txn.timestamp)}`,
+                  amount: txn.amount,
+                  currency: currentAccountCurrency,
+                  status: {
+                    label: txn.is_recurring ? 'Recurring' : 'One-time',
+                    tone: txn.is_recurring ? 'default' : 'secondary',
+                  },
+                  canConfirm: txn.is_recurring,
+                  canDelete: true,
+                  canOpen: true,
+                }))}
+                emptyTitle="No transactions match your filters"
+                emptyHint="Adjust filters and try again"
+                onConfirm={handleConfirmClick}
+                onDelete={setConfirmDelete}
+                onOpen={(id) => {
+                  const txn = transactions.find((t: TransactionResponse) => t.id === id)
+                  if (txn) handleEditClick(txn)
+                }}
+              />
             </div>
           </>
         ) : null}
