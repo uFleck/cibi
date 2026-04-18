@@ -13,8 +13,8 @@ import (
 )
 
 type mockPublicFriendService struct {
-	getFriendByTokenFn   func(token string) (sqlite.Friend, error)
-	getFriendByIDFn      func(id uuid.UUID) (sqlite.Friend, error)
+	getFriendByTokenFn    func(token string) (sqlite.Friend, error)
+	getFriendByIDFn       func(id uuid.UUID) (sqlite.Friend, error)
 	getPublicFriendViewFn func(token string) (service.PublicFriendView, error)
 }
 
@@ -61,6 +61,7 @@ type mockPublicGroupService struct {
 	listEventsByFriendFn    func(friendID uuid.UUID) ([]sqlite.GroupEvent, error)
 	getParticipantsFn       func(eventID uuid.UUID) ([]sqlite.GroupEventParticipant, error)
 	setParticipantConfirmFn func(eventID uuid.UUID, friendID uuid.UUID, isConfirmed bool) error
+	toggleParticipantFn     func(eventID uuid.UUID, friendID uuid.UUID) error
 }
 
 func (m *mockPublicGroupService) GetEventByToken(token string) (sqlite.GroupEvent, error) {
@@ -98,13 +99,20 @@ func (m *mockPublicGroupService) SetParticipantConfirmed(eventID uuid.UUID, frie
 	return nil
 }
 
+func (m *mockPublicGroupService) ToggleParticipantConfirmation(eventID uuid.UUID, friendID uuid.UUID) error {
+	if m.toggleParticipantFn != nil {
+		return m.toggleParticipantFn(eventID, friendID)
+	}
+	return nil
+}
+
 func TestGetFriendByToken_ReturnsFriendPayload(t *testing.T) {
 	friendSvc := &mockPublicFriendService{
 		getPublicFriendViewFn: func(token string) (service.PublicFriendView, error) {
 			return service.PublicFriendView{
-				Name: "Ana",
+				Name:    "Ana",
 				Balance: sqlite.PeerDebtBalance{FriendOwesUser: 1000, UserOwesFriend: 400, Net: 600},
-				Debts: []sqlite.PeerDebt{{Description: "Lunch", Amount: -1200}},
+				Debts:   []sqlite.PeerDebt{{Description: "Lunch", Amount: -1200}},
 			}, nil
 		},
 	}

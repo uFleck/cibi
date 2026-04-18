@@ -4,47 +4,14 @@ import { toast } from 'sonner'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { fetchPublicFriend, confirmPublicFriendGroupPayment, type PeerDebtResponse, type PublicFriendGroupResponse } from '@/lib/api'
+import { fetchPublicFriend, togglePublicFriendGroupPayment, type PeerDebtResponse, type PublicFriendGroupResponse } from '@/lib/api'
 import { formatDate } from '@/lib/format'
 import { MoneyValue } from '@/components/ui/money-value'
 import { copyToClipboard } from '@/lib/clipboard'
 import { publicFriendRoute } from '@/router'
+import { SharedDebtList } from '@/components/debt/shared-debt-list'
+import { mapPublicDebtsToVM } from '@/components/debt/debt-list-mappers'
 import { ChevronDown, ChevronUp, Check, Copy } from 'lucide-react'
-
-function debtStatusLabel(debt: PeerDebtResponse): { label: string; variant: 'default' | 'secondary' | 'outline' } {
-  if (debt.is_confirmed) return { label: 'Paid', variant: 'default' }
-  if (debt.is_installment && debt.total_installments != null) {
-    return { label: `${debt.paid_installments}/${debt.total_installments} paid`, variant: 'secondary' }
-  }
-  return { label: 'Unpaid', variant: 'outline' }
-}
-
-function calculateNextPayDate(debt: PeerDebtResponse): string | null {
-  if (debt.is_confirmed) return null
-  
-  if (debt.is_installment && debt.anchor_date && debt.frequency && debt.total_installments) {
-    const anchor = new Date(debt.anchor_date)
-    const nextInstallmentNum = debt.paid_installments + 1
-    
-    if (nextInstallmentNum > debt.total_installments) return null
-    
-    let nextDate: Date
-    if (debt.frequency === 'monthly') {
-      nextDate = new Date(anchor)
-      nextDate.setMonth(anchor.getMonth() + nextInstallmentNum - 1)
-    } else if (debt.frequency === 'weekly') {
-      nextDate = new Date(anchor)
-      nextDate.setDate(anchor.getDate() + (nextInstallmentNum - 1) * 7)
-    } else {
-      return debt.date
-    }
-    
-    return nextDate.toISOString().split('T')[0]
-  }
-  
-  return debt.date
-}
 
 // Generate mock payment history for a debt
 function generatePaymentHistory(debt: PeerDebtResponse): Array<{ date: string; amount: number }> {
@@ -87,12 +54,12 @@ export function FriendPublicPage() {
   const [showPaymentHistory, setShowPaymentHistory] = useState(false)
 
   const confirmGroupPaymentMutation = useMutation({
-    mutationFn: ({ eventId, friendId }: { eventId: string; friendId: string }) => confirmPublicFriendGroupPayment(token, eventId, friendId),
+    mutationFn: ({ eventId, friendId }: { eventId: string; friendId: string }) => togglePublicFriendGroupPayment(token, eventId, friendId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['public-friend', token] })
-      toast.success('Group payment confirmed')
+      toast.success('Group payment updated')
     },
-    onError: () => toast.error('Failed to confirm group payment'),
+    onError: () => toast.error('Failed to update group payment'),
   })
 
   const { data, isLoading, isError } = useQuery({
@@ -278,17 +245,15 @@ export function FriendPublicPage() {
                             <Badge variant={p.is_confirmed ? 'default' : 'outline'}>
                               {p.is_confirmed ? 'Confirmed' : 'Pending'}
                             </Badge>
-                            {!p.is_confirmed && (
-                              <Button
-                                variant="outline"
-                                className="h-9"
-                                onClick={() => confirmGroupPaymentMutation.mutate({ eventId: group.event_id, friendId: p.friend_id })}
-                                disabled={confirmGroupPaymentMutation.isPending}
-                              >
-                                <Check size={14} />
-                                Confirm
-                              </Button>
-                            )}
+                            <Button
+                              variant="outline"
+                              className="h-9"
+                              onClick={() => confirmGroupPaymentMutation.mutate({ eventId: group.event_id, friendId: p.friend_id })}
+                              disabled={confirmGroupPaymentMutation.isPending}
+                            >
+                              <Check size={14} />
+                              {p.is_confirmed ? 'Undo' : 'Confirm'}
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -315,18 +280,16 @@ export function FriendPublicPage() {
                               </Badge>
                             </td>
                             <td className="py-1 text-right">
-                              {!p.is_confirmed && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-9 w-9"
-                                  onClick={() => confirmGroupPaymentMutation.mutate({ eventId: group.event_id, friendId: p.friend_id })}
-                                  disabled={confirmGroupPaymentMutation.isPending}
-                                  aria-label="Confirm participant payment"
-                                >
-                                  <Check size={14} />
-                                </Button>
-                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9"
+                                onClick={() => confirmGroupPaymentMutation.mutate({ eventId: group.event_id, friendId: p.friend_id })}
+                                disabled={confirmGroupPaymentMutation.isPending}
+                                aria-label="Toggle participant payment"
+                              >
+                                <Check size={14} />
+                              </Button>
                             </td>
                           </tr>
                         ))}
@@ -344,106 +307,17 @@ export function FriendPublicPage() {
         <CardHeader>
           <CardTitle className="text-base">Debt History</CardTitle>
         </CardHeader>
-        <CardContent>
-          {data.debts.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No debts recorded</p>
-          ) : (
-            <>
-              <div className="sm:hidden flex flex-col gap-2">
-                {data.debts.map(debt => {
-                  const status = debtStatusLabel(debt)
-                  const nextPayDate = calculateNextPayDate(debt)
-                  let displayAmount = debt.amount
-                  if (debt.is_installment && debt.total_installments && debt.total_installments > 0) {
-                    const installmentAmount = debt.amount / debt.total_installments
-                    const remainingInstallments = debt.total_installments - debt.paid_installments
-                    displayAmount = installmentAmount * remainingInstallments
-                  }
-                  return (
-                    <div key={debt.id} className="border rounded-md p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="font-medium">{debt.description}</div>
-                          <div className="text-sm text-muted-foreground">{nextPayDate ? formatDate(nextPayDate) : '-'}</div>
-                        </div>
-                        <MoneyValue amount={displayAmount} currency="BRL" showSign="auto" tone="auto" className="font-semibold" />
-                      </div>
-                      <div className="mt-2">
-                        <Badge variant={status.variant}>{status.label}</Badge>
-                      </div>
-                    </div>
-                  )
-                })}
-                <div className="flex items-center justify-between border-t border-border/60 pt-2 mt-1">
-                  <span className="font-semibold">Total</span>
-                  <MoneyValue amount={totalAmount} currency="BRL" showSign="auto" tone="auto" className="font-semibold" />                </div>
-              </div>
-
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-muted-foreground text-xs border-b border-border/40">
-                      <th className="text-left pb-2 pr-3">Date</th>
-                      <th className="text-left pb-2 pr-3">Description</th>
-                      <th className="text-right pb-2 pr-3">Remaining</th>
-                      <th className="text-left pb-2">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.debts.map(debt => {
-                      const status = debtStatusLabel(debt)
-                      const nextPayDate = calculateNextPayDate(debt)
-                      let displayAmount = debt.amount
-                      if (debt.is_installment && debt.total_installments && debt.total_installments > 0) {
-                        const installmentAmount = debt.amount / debt.total_installments
-                        const remainingInstallments = debt.total_installments - debt.paid_installments
-                        displayAmount = installmentAmount * remainingInstallments
-                      }
-                      const installmentAmount = debt.is_installment && debt.total_installments
-                        ? debt.amount / debt.total_installments
-                        : null
-                      return (
-                        <tr key={debt.id} className="border-b border-border/20 last:border-0">
-                          <td className="py-2 pr-3 whitespace-nowrap">
-                            {nextPayDate ? formatDate(nextPayDate) : '-'}
-                          </td>
-                          <td className="py-2 pr-3">{debt.description}</td>
-                          <td className="py-2 pr-3 text-right tabular-nums">
-                            {installmentAmount != null ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="cursor-default underline decoration-dotted">
-                                    <MoneyValue amount={displayAmount} currency="BRL" showSign="auto" tone="auto" />
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <MoneyValue amount={installmentAmount} currency="BRL" showSign="never" tone="neutral" /> per installment
-                                </TooltipContent>
-                              </Tooltip>
-                            ) : (
-                              <MoneyValue amount={displayAmount} currency="BRL" showSign="auto" tone="auto" />
-                            )}
-                          </td>
-                          <td className="py-2">
-                            <Badge variant={status.variant}>{status.label}</Badge>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t border-border/60">
-                      <td className="py-3 pr-3 font-semibold" colSpan={2}>Total</td>
-                      <td className="py-3 pr-3 text-right font-semibold tabular-nums">
-                        <MoneyValue amount={totalAmount} currency="BRL" showSign="auto" tone="auto" className="font-semibold" />
-                      </td>
-                      <td />
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </>
-          )}
+        <CardContent className="flex flex-col gap-3">
+          <SharedDebtList
+            view="public-friend"
+            items={mapPublicDebtsToVM(data.debts)}
+            emptyTitle="No debts recorded"
+            emptyHint="Nothing pending right now"
+          />
+          <div className="flex items-center justify-between border-t border-border/60 pt-2 mt-1">
+            <span className="font-semibold">Total</span>
+            <MoneyValue amount={totalAmount} currency="BRL" showSign="auto" tone="auto" className="font-semibold" />
+          </div>
         </CardContent>
       </Card>
 

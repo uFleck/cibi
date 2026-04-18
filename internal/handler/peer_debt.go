@@ -20,6 +20,7 @@ type PeerDebtServiceIface interface {
 	UpdateDebt(id uuid.UUID, amount *int64, description *string) error
 	DeleteDebt(id uuid.UUID) error
 	ConfirmInstallment(id uuid.UUID) error
+	ToggleInstallmentConfirmation(id uuid.UUID) error
 	GetBalanceByFriend(friendID uuid.UUID) (sqlite.PeerDebtBalance, error)
 	GetGlobalBalance(accountID *uuid.UUID) (sqlite.GlobalPeerBalance, error)
 }
@@ -40,15 +41,15 @@ func NewPeerDebtHandler(svc *service.PeerDebtService) *PeerDebtHandler {
 // Request / response types.
 
 type CreatePeerDebtRequest struct {
-	AccountID         string   `json:"account_id"         validate:"required"`
-	FriendID          string   `json:"friend_id"          validate:"required"`
-	Amount            float64  `json:"amount"             validate:"required"` // dollars, sign = direction
-	Description       string   `json:"description"        validate:"required"`
-	Date              string   `json:"date"               validate:"required"` // RFC3339
-	IsInstallment     bool     `json:"is_installment"`
-	TotalInstallments *int64   `json:"total_installments"`
-	Frequency         *string  `json:"frequency"`
-	AnchorDate        *string  `json:"anchor_date"`
+	AccountID         string  `json:"account_id"         validate:"required"`
+	FriendID          string  `json:"friend_id"          validate:"required"`
+	Amount            float64 `json:"amount"             validate:"required"` // dollars, sign = direction
+	Description       string  `json:"description"        validate:"required"`
+	Date              string  `json:"date"               validate:"required"` // RFC3339
+	IsInstallment     bool    `json:"is_installment"`
+	TotalInstallments *int64  `json:"total_installments"`
+	Frequency         *string `json:"frequency"`
+	AnchorDate        *string `json:"anchor_date"`
 }
 
 type PatchPeerDebtRequest struct {
@@ -213,6 +214,21 @@ func (h *PeerDebtHandler) Confirm(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid peer debt id")
 	}
 	if err := h.svc.ConfirmInstallment(id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "peer debt not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+// ToggleConfirm handles POST /peer-debts/:id/confirm-toggle — toggles payment confirmation.
+func (h *PeerDebtHandler) ToggleConfirm(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid peer debt id")
+	}
+	if err := h.svc.ToggleInstallmentConfirmation(id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "peer debt not found")
 		}

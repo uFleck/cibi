@@ -16,9 +16,9 @@ type PeerDebt struct {
 	ID                uuid.UUID
 	AccountID         uuid.UUID
 	FriendID          uuid.UUID
-	Amount            int64   // cents; positive = friend owes user, negative = user owes friend
+	Amount            int64 // cents; positive = friend owes user, negative = user owes friend
 	Description       string
-	Date              string  // RFC3339
+	Date              string // RFC3339
 	IsInstallment     bool
 	TotalInstallments *int64  // nullable
 	PaidInstallments  int64   // default 0
@@ -45,9 +45,9 @@ type GlobalPeerBalance struct {
 // of debts the user owes to friends (amount < 0, still active).
 type ActiveUserDebt struct {
 	FriendName        string
-	Amount            int64   // negative cents
+	Amount            int64 // negative cents
 	IsInstallment     bool
-	TotalInstallments int64   // 0 if not installment
+	TotalInstallments int64 // 0 if not installment
 	PaidInstallments  int64
 	Frequency         string  // "" if not set
 	Date              string  // RFC3339 or date-only due date
@@ -74,6 +74,8 @@ type PeerDebtRepo interface {
 	// ConfirmInstallment atomically increments paid_installments (capped at total_installments)
 	// for installment debts, or sets is_confirmed=1 for non-installment debts.
 	ConfirmInstallment(id uuid.UUID) error
+	// ToggleInstallmentConfirmation toggles confirmation state for installment and non-installment debts.
+	ToggleInstallmentConfirmation(id uuid.UUID) error
 }
 
 // SqlitePeerDebtRepo implements PeerDebtRepo against modernc SQLite.
@@ -332,6 +334,37 @@ func (r *SqlitePeerDebtRepo) ConfirmInstallment(id uuid.UUID) error {
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return fmt.Errorf("peer_debt.ConfirmInstallment: %w", sql.ErrNoRows)
+	}
+	return nil
+}
+
+// ToggleInstallmentConfirmation toggles confirm state with strict reversal semantics.
+//   - non-installment: flips is_confirmed 0<->1
+//   - installment: if currently complete (paid_installments >= total_installments), decrement by 1;
+//     otherwise increment by 1 (capped at total_installments)
+func (r *SqlitePeerDebtRepo) ToggleInstallmentConfirmation(id uuid.UUID) error {
+	res, err := r.db.Exec(`
+		UPDATE PeerDebt
+		SET
+			paid_installments = CASE
+				WHEN is_installment = 1 THEN
+					CASE
+						WHEN paid_installments >= COALESCE(total_installments, paid_installments)
+							THEN MAX(paid_installments - 1, 0)
+						ELSE MIN(paid_installments + 1, COALESCE(total_installments, paid_installments + 1))
+					END
+				ELSE paid_installments
+			END,
+			is_confirmed = CASE
+				WHEN is_installment = 0 THEN CASE WHEN is_confirmed = 1 THEN 0 ELSE 1 END
+				ELSE is_confirmed
+			END
+		WHERE id = ?`, id.String())
+	if err != nil {
+		return fmt.Errorf("peer_debt.ToggleInstallmentConfirmation: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("peer_debt.ToggleInstallmentConfirmation: %w", sql.ErrNoRows)
 	}
 	return nil
 }

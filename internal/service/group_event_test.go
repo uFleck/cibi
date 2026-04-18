@@ -21,6 +21,7 @@ type mockGroupEventRepo struct {
 	deleteByIDFn                func(id uuid.UUID) error
 	setParticipantsFn           func(eventID uuid.UUID, participants []sqlite.GroupEventParticipant, hostFriendID *uuid.UUID) error
 	setParticipantConfirmedFn   func(eventID uuid.UUID, friendID uuid.UUID, isConfirmed bool) error
+	toggleParticipantFn         func(eventID uuid.UUID, friendID uuid.UUID) error
 	getParticipantsFn           func(eventID uuid.UUID) ([]sqlite.GroupEventParticipant, error)
 	sumUpcomingAdminFn          func(accountID *uuid.UUID, after, onOrBefore time.Time) (int64, error)
 	getAdminPendingExpensesFn   func(accountID *uuid.UUID) ([]sqlite.AdminGroupExpense, error)
@@ -86,6 +87,13 @@ func (m *mockGroupEventRepo) SetParticipants(eventID uuid.UUID, participants []s
 func (m *mockGroupEventRepo) SetParticipantConfirmed(eventID uuid.UUID, friendID uuid.UUID, isConfirmed bool) error {
 	if m.setParticipantConfirmedFn != nil {
 		return m.setParticipantConfirmedFn(eventID, friendID, isConfirmed)
+	}
+	return nil
+}
+
+func (m *mockGroupEventRepo) ToggleParticipantConfirmed(eventID uuid.UUID, friendID uuid.UUID) error {
+	if m.toggleParticipantFn != nil {
+		return m.toggleParticipantFn(eventID, friendID)
 	}
 	return nil
 }
