@@ -1,4 +1,4 @@
-import { Check, Copy, Eye, Trash2 } from 'lucide-react'
+import { Check, Copy, Eye, Pencil, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { MoneyValue } from '@/components/ui/money-value'
@@ -16,6 +16,7 @@ export function SharedDebtList({
   onDelete,
   onCopy,
   onOpen,
+  onEdit,
 }: SharedDebtListProps) {
   if (loading) {
     return (
@@ -82,6 +83,11 @@ export function SharedDebtList({
                         <Eye size={14} />
                       </Button>
                     ) : null}
+                    {onEdit && item.canEdit ? (
+                      <Button variant="outline" size="sm" onClick={() => onEdit(item.id)} aria-label="Edit">
+                        <Pencil size={14} />
+                      </Button>
+                    ) : null}
                     {onDelete && item.canDelete ? (
                       <Button variant="outline" size="sm" onClick={() => onDelete(item.id)} aria-label="Delete">
                         <Trash2 size={14} />
@@ -135,6 +141,11 @@ export function SharedDebtList({
                         {onOpen && item.canOpen ? (
                           <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => onOpen(item.id)} aria-label="Open">
                             <Eye size={14} />
+                          </Button>
+                        ) : null}
+                        {onEdit && item.canEdit ? (
+                          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => onEdit(item.id)} aria-label="Edit">
+                            <Pencil size={14} />
                           </Button>
                         ) : null}
                         {onDelete && item.canDelete ? (

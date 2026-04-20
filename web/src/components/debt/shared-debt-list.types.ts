@@ -19,6 +19,7 @@ export interface DebtListItemVM {
   canDelete?: boolean
   canCopy?: boolean
   canOpen?: boolean
+  canEdit?: boolean
 }
 
 export interface SharedDebtListProps {
@@ -35,4 +36,5 @@ export interface SharedDebtListProps {
   onDelete?: (id: string) => void
   onCopy?: (id: string) => void
   onOpen?: (id: string) => void
+  onEdit?: (id: string) => void
 }
