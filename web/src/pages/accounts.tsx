@@ -382,12 +382,14 @@ export function AccountsPage() {
                 canConfirm: !account.is_default,
                 canDelete: true,
                 canOpen: true,
+                canEdit: true,
               }))}
               emptyTitle="No accounts yet"
               emptyHint="Create an account to get started"
               onConfirm={(id) => defaultMutation.mutate(id)}
               onDelete={(id) => setConfirmDelete(id)}
-              onOpen={(id) => {
+              onOpen={(id) => setScheduleModalAccountId(id)}
+              onEdit={(id) => {
                 const account = accounts.find(a => a.id === id)
                 if (account) handleEditClick(account)
               }}
