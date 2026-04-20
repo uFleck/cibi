@@ -36,34 +36,34 @@ func NewPayScheduleHandler(svc *service.PayScheduleService, accSvc AccountsServi
 // Request / response types.
 
 type CreatePayScheduleRequest struct {
-	AccountID   string   `json:"account_id"    validate:"required"`
-	Frequency   string   `json:"frequency"     validate:"required,oneof=weekly bi-weekly semi-monthly monthly"`
-	AnchorDate  string   `json:"anchor_date"   validate:"required"` // YYYY-MM-DD
-	DayOfMonth  *int     `json:"day_of_month"`
-	DayOfMonth2 *int     `json:"day_of_month_2"`
-	Label       *string  `json:"label"`
-	Amount      float64  `json:"amount" validate:"min=0"` // dollars
+	AccountID   string  `json:"account_id"    validate:"required"`
+	Frequency   string  `json:"frequency"     validate:"required,oneof=weekly bi-weekly semi-monthly monthly"`
+	AnchorDate  string  `json:"anchor_date"   validate:"required"` // YYYY-MM-DD
+	DayOfMonth  *int    `json:"day_of_month"`
+	DayOfMonth2 *int    `json:"day_of_month_2"`
+	Label       *string `json:"label"`
+	Amount      float64 `json:"amount" validate:"min=0"` // dollars
 }
 
 type PatchPayScheduleRequest struct {
-	Frequency   string   `json:"frequency"     validate:"required,oneof=weekly bi-weekly semi-monthly monthly"`
-	AnchorDate  string   `json:"anchor_date"   validate:"required"` // YYYY-MM-DD
-	DayOfMonth  *int     `json:"day_of_month"`
-	DayOfMonth2 *int     `json:"day_of_month_2"`
-	Label       *string  `json:"label"`
-	Amount      float64  `json:"amount" validate:"min=0"` // dollars
+	Frequency   string  `json:"frequency"     validate:"required,oneof=weekly bi-weekly semi-monthly monthly"`
+	AnchorDate  string  `json:"anchor_date"   validate:"required"` // YYYY-MM-DD
+	DayOfMonth  *int    `json:"day_of_month"`
+	DayOfMonth2 *int    `json:"day_of_month_2"`
+	Label       *string `json:"label"`
+	Amount      float64 `json:"amount" validate:"min=0"` // dollars
 }
 
 type PayScheduleResponse struct {
-	ID          string   `json:"id"`
-	AccountID   string   `json:"account_id"`
-	Frequency   string   `json:"frequency"`
-	AnchorDate  string   `json:"anchor_date"` // YYYY-MM-DD
-	NextPayday  string   `json:"next_payday"` // YYYY-MM-DD; next occurrence after today
-	Amount      float64  `json:"amount"`      // dollars
-	DayOfMonth  *int     `json:"day_of_month"`
-	DayOfMonth2 *int     `json:"day_of_month_2"`
-	Label       *string  `json:"label"`
+	ID          string  `json:"id"`
+	AccountID   string  `json:"account_id"`
+	Frequency   string  `json:"frequency"`
+	AnchorDate  string  `json:"anchor_date"` // YYYY-MM-DD
+	NextPayday  string  `json:"next_payday"` // YYYY-MM-DD; next occurrence after today
+	Amount      float64 `json:"amount"`      // dollars
+	DayOfMonth  *int    `json:"day_of_month"`
+	DayOfMonth2 *int    `json:"day_of_month_2"`
+	Label       *string `json:"label"`
 }
 
 // payScheduleToResponse converts a sqlite.PaySchedule to PayScheduleResponse.
@@ -74,6 +74,7 @@ func payScheduleToResponse(ps sqlite.PaySchedule) PayScheduleResponse {
 		DayOfMonth2: ps.DayOfMonth2,
 	}
 	nextPayday := engine.NextPayday(ep, time.Now().UTC())
+	dayOfMonth := ps.AnchorDate.Day()
 	return PayScheduleResponse{
 		ID:          ps.ID.String(),
 		AccountID:   ps.AccountID.String(),
@@ -81,6 +82,7 @@ func payScheduleToResponse(ps sqlite.PaySchedule) PayScheduleResponse {
 		AnchorDate:  ps.AnchorDate.Format("2006-01-02"),
 		NextPayday:  nextPayday.Format("2006-01-02"),
 		Amount:      float64(ps.Amount) / 100.0,
+		DayOfMonth:  &dayOfMonth,
 		DayOfMonth2: ps.DayOfMonth2,
 		Label:       ps.Label,
 	}

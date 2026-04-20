@@ -457,7 +457,8 @@ export function AccountsPage() {
                           <div className="font-medium">{ps.label ?? ps.frequency}</div>
                           <div className="text-sm text-muted-foreground">
                             {ps.frequency} · {ps.anchor_date}
-                            {ps.day_of_month_2 ? ` · day ${ps.day_of_month_2}` : ''}
+                            {ps.day_of_month ? ` · day ${ps.day_of_month}` : ''}
+                            {ps.day_of_month_2 ? `/${ps.day_of_month_2}` : ''}
                           </div>
                         </div>
                         <MoneyValue
@@ -494,7 +495,8 @@ export function AccountsPage() {
                             <div className="font-medium">{ps.label ?? ps.frequency}</div>
                             <div className="text-xs text-muted-foreground">
                               {ps.frequency} · {ps.anchor_date}
-                              {ps.day_of_month_2 ? ` · day ${ps.day_of_month_2}` : ''}
+                              {ps.day_of_month ? ` · day ${ps.day_of_month}` : ''}
+                              {ps.day_of_month_2 ? `/${ps.day_of_month_2}` : ''}
                             </div>
                           </td>
                           <td className="px-3 py-2 text-right">
