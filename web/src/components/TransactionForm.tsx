@@ -163,7 +163,7 @@ export function TransactionForm({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="biweekly">Biweekly</SelectItem>
+                <SelectItem value="bi-weekly">Bi-weekly</SelectItem>
                 <SelectItem value="monthly">Monthly</SelectItem>
               </SelectContent>
             </Select>

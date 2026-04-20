@@ -12,9 +12,9 @@ import (
 
 // TransactionsService handles business logic for transactions.
 type TransactionsService struct {
-	db        *sql.DB
-	txnsRepo  sqlite.TransactionsRepo
-	accRepo   sqlite.AccountsRepo
+	db       *sql.DB
+	txnsRepo sqlite.TransactionsRepo
+	accRepo  sqlite.AccountsRepo
 }
 
 // NewTransactionsService creates a new TransactionsService.
@@ -240,7 +240,7 @@ func advanceOccurrence(current time.Time, frequency string) time.Time {
 	switch frequency {
 	case engine.FreqWeekly:
 		return current.AddDate(0, 0, 7)
-	case engine.FreqBiWeekly:
+	case engine.FreqBiWeekly, "biweekly":
 		return current.AddDate(0, 0, 14)
 	case engine.FreqMonthly:
 		return engine.AddMonthClamped(current, 1)

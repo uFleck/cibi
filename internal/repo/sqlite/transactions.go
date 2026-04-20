@@ -12,6 +12,7 @@ import (
 var ValidFrequencies = map[string]bool{
 	"weekly":    true,
 	"bi-weekly": true,
+	"biweekly":  true, // legacy alias from older web clients
 	"monthly":   true,
 	"yearly":    true,
 }
@@ -20,10 +21,10 @@ var ValidFrequencies = map[string]bool{
 type Transaction struct {
 	ID             uuid.UUID
 	AccountID      uuid.UUID
-	Amount         int64      // cents; negative = debit, positive = credit
+	Amount         int64 // cents; negative = debit, positive = credit
 	Description    string
 	Category       string
-	Timestamp      time.Time  // UTC
+	Timestamp      time.Time // UTC
 	IsRecurring    bool
 	Frequency      *string    // nullable
 	AnchorDate     *time.Time // UTC, nullable
