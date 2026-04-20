@@ -59,7 +59,7 @@ export function TransactionsPage() {
   const [sortField, setSortField] = useState<'description' | 'date' | 'amount'>('date')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [filterCategory, setFilterCategory] = useState<string>('all')
-  const [filterType, setFilterType] = useState<'all' | 'recurring' | 'one-time'>('one-time')
+  const [filterType, setFilterType] = useState<'all' | 'recurring' | 'one-time'>('all')
   const [showFilters, setShowFilters] = useState(false)
 
   const {
@@ -118,7 +118,7 @@ export function TransactionsPage() {
     return Array.from(cats).sort()
   }, [transactions])
 
-  const hasActiveFilters = filterCategory !== 'all' || filterType !== 'one-time'
+  const hasActiveFilters = filterCategory !== 'all' || filterType !== 'all'
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => createTransaction(data),
@@ -333,7 +333,7 @@ export function TransactionsPage() {
         onSortDirChange={setSortDir}
         onResetFilters={() => {
           setFilterCategory('all')
-          setFilterType('one-time')
+          setFilterType('all')
         }}
       />
 
