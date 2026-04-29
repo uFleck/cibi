@@ -130,7 +130,7 @@ Plans:
 **Goal:** Deliver complete goals-tracking UX and supporting APIs: Goals tab, dashboard snapshot widget, recurring investment due/confirm flow, and purchase-impact preview across check and goals surfaces.
 **Requirements**: P14-01, P14-02, P14-03, P14-04, P14-05
 **Depends on:** Phase 13
-**Plans:** 2/4 plans executed
+**Plans:** 4/4 plans complete
 
 Success criteria:
 1. Goals tab shows summary cards, urgency-sorted goals list, and recent activity with empty/loading/error/retry states.
@@ -140,7 +140,7 @@ Success criteria:
 5. UI refresh/invalidation shows visible updated cues after goal/ledger mutations.
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 14 to break down)
+- [x] TBD (run /gsd-plan-phase 14 to break down) (completed 2026-04-29)
 
 ### Phase 15: ""
 
