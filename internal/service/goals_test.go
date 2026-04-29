@@ -16,6 +16,7 @@ import (
 type mockGoalsRepo struct {
 	goal                sqlite.Goal
 	entry               sqlite.GoalLedgerEntry
+	recurring           sqlite.GoalRecurringContribution
 	insertLedgerFn      func(e sqlite.GoalLedgerEntry, tx *sql.Tx) error
 	updateGoalFn        func(id uuid.UUID, upd sqlite.UpdateGoal, tx *sql.Tx) error
 	getGoalsByAccountFn func(accountID uuid.UUID) ([]sqlite.Goal, error)
@@ -62,6 +63,31 @@ func (m *mockGoalsRepo) GetLedgerEntryByID(id uuid.UUID) (sqlite.GoalLedgerEntry
 	return m.entry, nil
 }
 func (m *mockGoalsRepo) AddTargetAudit(a sqlite.GoalTargetAudit, tx *sql.Tx) error { return nil }
+func (m *mockGoalsRepo) InsertRecurring(r sqlite.GoalRecurringContribution, tx *sql.Tx) error {
+	m.recurring = r
+	return nil
+}
+func (m *mockGoalsRepo) ListRecurringByAccount(accountID uuid.UUID) ([]sqlite.GoalRecurringContribution, error) {
+	if m.recurring.ID == uuid.Nil {
+		return nil, nil
+	}
+	return []sqlite.GoalRecurringContribution{m.recurring}, nil
+}
+func (m *mockGoalsRepo) GetRecurringByID(id uuid.UUID) (sqlite.GoalRecurringContribution, error) {
+	return m.recurring, nil
+}
+func (m *mockGoalsRepo) UpdateRecurring(id uuid.UUID, upd sqlite.UpdateGoalRecurringContribution, tx *sql.Tx) error {
+	if upd.NextDueUTC != nil {
+		m.recurring.NextDueUTC = *upd.NextDueUTC
+	}
+	if upd.Active != nil {
+		m.recurring.Active = *upd.Active
+	}
+	if upd.UpdatedAtUTC != nil {
+		m.recurring.UpdatedAtUTC = *upd.UpdatedAtUTC
+	}
+	return nil
+}
 
 func TestGoals_AddLedgerEntry_ContributionDebitsBalanceAtomically(t *testing.T) {
 	db := openTestDB(t)

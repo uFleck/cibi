@@ -10,7 +10,7 @@ import (
 
 var ValidGoalStatuses = map[string]bool{"draft": true, "active": true, "completed": true, "archived": true}
 var ValidGoalLedgerTypes = map[string]bool{"contribution": true, "withdrawal": true, "adjustment": true}
-var ValidGoalLedgerSources = map[string]bool{"manual": true, "system": true}
+var ValidGoalLedgerSources = map[string]bool{"manual": true, "system": true, "recurring": true}
 
 type Goal struct {
 	ID                 uuid.UUID
@@ -48,6 +48,10 @@ type GoalsRepo interface {
 	ListLedgerByGoal(goalID uuid.UUID) ([]GoalLedgerEntry, error)
 	GetLedgerEntryByID(id uuid.UUID) (GoalLedgerEntry, error)
 	AddTargetAudit(a GoalTargetAudit, tx *sql.Tx) error
+	InsertRecurring(r GoalRecurringContribution, tx *sql.Tx) error
+	ListRecurringByAccount(accountID uuid.UUID) ([]GoalRecurringContribution, error)
+	GetRecurringByID(id uuid.UUID) (GoalRecurringContribution, error)
+	UpdateRecurring(id uuid.UUID, upd UpdateGoalRecurringContribution, tx *sql.Tx) error
 }
 
 type UpdateGoal struct {
@@ -67,6 +71,24 @@ type GoalTargetAudit struct {
 	NewTargetAmountCents      int64
 	ChangedAtUTC              time.Time
 	Note                      *string
+}
+
+type GoalRecurringContribution struct {
+	ID            uuid.UUID
+	GoalID        uuid.UUID
+	AmountCents   int64
+	Frequency     string
+	AnchorDateUTC time.Time
+	NextDueUTC    time.Time
+	Active        bool
+	CreatedAtUTC  time.Time
+	UpdatedAtUTC  time.Time
+}
+
+type UpdateGoalRecurringContribution struct {
+	NextDueUTC   *time.Time
+	Active       *bool
+	UpdatedAtUTC *time.Time
 }
 
 type SqliteGoalsRepo struct{ db *sql.DB }
@@ -211,6 +233,119 @@ func (r *SqliteGoalsRepo) AddTargetAudit(a GoalTargetAudit, tx *sql.Tx) error {
 		a.ID.String(), a.GoalID.String(), a.PreviousTargetAmountCents, a.NewTargetAmountCents, a.ChangedAtUTC.UTC().Format(time.RFC3339), a.Note,
 	)
 	return err
+}
+
+func (r *SqliteGoalsRepo) InsertRecurring(rec GoalRecurringContribution, tx *sql.Tx) error {
+	exec := r.db.Exec
+	if tx != nil {
+		exec = tx.Exec
+	}
+	_, err := exec(`INSERT INTO GoalRecurringContribution (id, goal_id, amount_cents, frequency, anchor_date_utc, next_due_utc, active, created_at_utc, updated_at_utc)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		rec.ID.String(), rec.GoalID.String(), rec.AmountCents, rec.Frequency,
+		rec.AnchorDateUTC.UTC().Format(time.RFC3339), rec.NextDueUTC.UTC().Format(time.RFC3339), rec.Active,
+		rec.CreatedAtUTC.UTC().Format(time.RFC3339), rec.UpdatedAtUTC.UTC().Format(time.RFC3339),
+	)
+	if err != nil {
+		return fmt.Errorf("goals.InsertRecurring: %w", err)
+	}
+	return nil
+}
+
+func (r *SqliteGoalsRepo) ListRecurringByAccount(accountID uuid.UUID) ([]GoalRecurringContribution, error) {
+	rows, err := r.db.Query(`SELECT grc.id, grc.goal_id, grc.amount_cents, grc.frequency, grc.anchor_date_utc, grc.next_due_utc, grc.active, grc.created_at_utc, grc.updated_at_utc
+FROM GoalRecurringContribution grc
+JOIN Goal g ON g.id = grc.goal_id
+WHERE g.account_id = ? AND grc.active = 1
+ORDER BY grc.next_due_utc ASC`, accountID.String())
+	if err != nil {
+		return nil, fmt.Errorf("goals.ListRecurringByAccount: %w", err)
+	}
+	defer rows.Close()
+	var out []GoalRecurringContribution
+	for rows.Next() {
+		r, err := scanGoalRecurring(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+func (r *SqliteGoalsRepo) GetRecurringByID(id uuid.UUID) (GoalRecurringContribution, error) {
+	row := r.db.QueryRow(`SELECT id, goal_id, amount_cents, frequency, anchor_date_utc, next_due_utc, active, created_at_utc, updated_at_utc FROM GoalRecurringContribution WHERE id = ?`, id.String())
+	return scanGoalRecurringRow(row)
+}
+
+func (r *SqliteGoalsRepo) UpdateRecurring(id uuid.UUID, upd UpdateGoalRecurringContribution, tx *sql.Tx) error {
+	exec := r.db.Exec
+	if tx != nil {
+		exec = tx.Exec
+	}
+	if upd.NextDueUTC != nil {
+		if _, err := exec(`UPDATE GoalRecurringContribution SET next_due_utc = ? WHERE id = ?`, upd.NextDueUTC.UTC().Format(time.RFC3339), id.String()); err != nil {
+			return fmt.Errorf("goals.UpdateRecurring: %w", err)
+		}
+	}
+	if upd.Active != nil {
+		if _, err := exec(`UPDATE GoalRecurringContribution SET active = ? WHERE id = ?`, *upd.Active, id.String()); err != nil {
+			return fmt.Errorf("goals.UpdateRecurring: %w", err)
+		}
+	}
+	if upd.UpdatedAtUTC != nil {
+		if _, err := exec(`UPDATE GoalRecurringContribution SET updated_at_utc = ? WHERE id = ?`, upd.UpdatedAtUTC.UTC().Format(time.RFC3339), id.String()); err != nil {
+			return fmt.Errorf("goals.UpdateRecurring: %w", err)
+		}
+	}
+	return nil
+}
+
+func scanGoalRecurring(rows *sql.Rows) (GoalRecurringContribution, error) {
+	var r GoalRecurringContribution
+	var id, goalID, anchor, due, created, updated string
+	if err := rows.Scan(&id, &goalID, &r.AmountCents, &r.Frequency, &anchor, &due, &r.Active, &created, &updated); err != nil {
+		return r, err
+	}
+	return fillGoalRecurring(r, id, goalID, anchor, due, created, updated)
+}
+
+func scanGoalRecurringRow(row *sql.Row) (GoalRecurringContribution, error) {
+	var r GoalRecurringContribution
+	var id, goalID, anchor, due, created, updated string
+	if err := row.Scan(&id, &goalID, &r.AmountCents, &r.Frequency, &anchor, &due, &r.Active, &created, &updated); err != nil {
+		return r, err
+	}
+	return fillGoalRecurring(r, id, goalID, anchor, due, created, updated)
+}
+
+func fillGoalRecurring(r GoalRecurringContribution, id, goalID, anchor, due, created, updated string) (GoalRecurringContribution, error) {
+	var err error
+	r.ID, err = uuid.Parse(id)
+	if err != nil {
+		return r, err
+	}
+	r.GoalID, err = uuid.Parse(goalID)
+	if err != nil {
+		return r, err
+	}
+	r.AnchorDateUTC, err = time.Parse(time.RFC3339, anchor)
+	if err != nil {
+		return r, err
+	}
+	r.NextDueUTC, err = time.Parse(time.RFC3339, due)
+	if err != nil {
+		return r, err
+	}
+	r.CreatedAtUTC, err = time.Parse(time.RFC3339, created)
+	if err != nil {
+		return r, err
+	}
+	r.UpdatedAtUTC, err = time.Parse(time.RFC3339, updated)
+	if err != nil {
+		return r, err
+	}
+	return r, nil
 }
 
 func scanGoal(rows *sql.Rows) (Goal, error) {
