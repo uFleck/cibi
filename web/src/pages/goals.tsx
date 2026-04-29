@@ -18,16 +18,21 @@ import { MoneyValue } from '@/components/ui/money-value'
 import { formatDate } from '@/lib/format'
 import { LAST_CHECK_RESULT_KEY } from '@/components/CheckWidget'
 
-function sourceVariant(source: string): 'default' | 'secondary' | 'outline' {
+export function sourceVariant(source: string): 'default' | 'secondary' | 'outline' {
   if (source === 'manual') return 'default'
   if (source === 'recurring') return 'outline'
   return 'secondary'
 }
 
-function progressTone(progress: number): string {
+export function progressTone(progress: number): string {
   if (progress >= 80) return 'bg-[var(--color-verdict-yes)]'
   if (progress >= 40) return 'bg-[var(--color-risk-medium)]'
   return 'bg-[var(--color-risk-high)]'
+}
+
+export function formatUpdatedCue(updatedAtUtc?: string): string | null {
+  if (!updatedAtUtc) return null
+  return `Updated ${new Date(updatedAtUtc).toLocaleTimeString()}`
 }
 
 export function GoalsPage() {
@@ -89,9 +94,7 @@ export function GoalsPage() {
     onError: (e: Error & { code?: string }) => toast.error(e.code ? `${e.code}: ${e.message}` : e.message),
   })
 
-  const updatedCue = trackingQuery.data?.updated_at_utc
-    ? `Updated ${new Date(trackingQuery.data.updated_at_utc).toLocaleTimeString()}`
-    : null
+  const updatedCue = formatUpdatedCue(trackingQuery.data?.updated_at_utc)
 
   const emptyState = !trackingQuery.isLoading && !trackingQuery.isError && goals.length === 0
   const latestCheckResult = useMemo<CheckResponse | null>(() => {
