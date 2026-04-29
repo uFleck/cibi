@@ -140,6 +140,53 @@ paths:
       responses:
         "204":
           description: Deleted
+  /goals:
+    get:
+      summary: List goals for an account
+      parameters:
+        - name: account_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Array of goals
+    post:
+      summary: Create a goal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGoalRequest"
+      responses:
+        "201":
+          description: Created goal
+  /goals/{id}/ledger:
+    get:
+      summary: List goal ledger entries
+      responses:
+        "200":
+          description: Array of goal ledger entries
+    post:
+      summary: Create goal ledger entry (contribution/withdrawal/adjustment)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGoalLedgerRequest"
+      responses:
+        "201":
+          description: Created goal ledger entry
+  /goals/{id}/ledger/{entryId}/reverse:
+    post:
+      summary: Reverse goal ledger entry
+      responses:
+        "201":
+          description: Reversal created
   /check:
     post:
       summary: Check if a purchase is affordable
@@ -249,6 +296,37 @@ components:
         risk_level:
           type: string
           enum: [LOW, MEDIUM, HIGH, BLOCKED]
+    Goal:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        account_id: { type: string, format: uuid }
+        name: { type: string }
+        status: { type: string, enum: [draft, active, completed, archived] }
+        target_amount: { type: number, format: float }
+        invested_total: { type: number, format: float }
+        start_date_utc: { type: string, format: date-time }
+        target_date_utc: { type: string, format: date-time, nullable: true }
+        notes: { type: string, nullable: true }
+        currency: { type: string }
+    CreateGoalRequest:
+      type: object
+      required: [account_id, name, target_amount, start_date_utc]
+      properties:
+        account_id: { type: string, format: uuid }
+        name: { type: string }
+        target_amount: { type: number, format: float }
+        start_date_utc: { type: string, format: date-time }
+        target_date_utc: { type: string, format: date-time }
+        notes: { type: string }
+    CreateGoalLedgerRequest:
+      type: object
+      required: [amount, type]
+      properties:
+        amount: { type: number, format: float }
+        type: { type: string, enum: [contribution, withdrawal, adjustment] }
+        source: { type: string, enum: [manual, system] }
+        note: { type: string }
   responses:
     Error:
       description: Error response
