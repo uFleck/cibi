@@ -19,6 +19,30 @@ export interface TransactionResponse {
   next_occurrence: string | null
 }
 
+export interface GoalResponse {
+  id: string
+  account_id: string
+  name: string
+  status: 'draft' | 'active' | 'completed' | 'archived'
+  target_amount: number
+  invested_total: number
+  start_date_utc: string
+  target_date_utc: string | null
+  notes: string | null
+  currency: string
+}
+
+export interface GoalLedgerEntryResponse {
+  id: string
+  goal_id: string
+  amount: number
+  type: 'contribution' | 'withdrawal' | 'adjustment'
+  source: 'manual' | 'system'
+  note: string | null
+  reverses_entry_id: string | null
+  timestamp_utc: string
+}
+
 export interface CheckResponse {
   can_buy: boolean
   purchasing_power: number
@@ -35,7 +59,6 @@ export interface PayScheduleResponse {
   anchor_date: string
   next_payday: string
   amount: number       // dollars
-  day_of_month: number | null
   day_of_month_2: number | null
   label: string | null
 }
@@ -45,7 +68,6 @@ export interface CreatePayScheduleRequest {
   frequency: 'weekly' | 'bi-weekly' | 'semi-monthly' | 'monthly'
   anchor_date: string
   amount: number
-  day_of_month?: number
   day_of_month_2?: number
   label?: string
 }
@@ -72,6 +94,58 @@ export function fetchDefaultAccount(): Promise<AccountResponse> {
 
 export function fetchTransactions(accountId: string): Promise<TransactionResponse[]> {
   return apiFetch<TransactionResponse[]>(`/api/transactions?account_id=${accountId}`)
+}
+
+export function listGoals(accountId: string): Promise<GoalResponse[]> {
+  return apiFetch<GoalResponse[]>(`/api/goals?account_id=${accountId}`)
+}
+
+export function createGoal(data: {
+  account_id: string
+  name: string
+  target_amount: number
+  start_date_utc: string
+  target_date_utc?: string
+  notes?: string
+}): Promise<GoalResponse> {
+  return apiFetch<GoalResponse>('/api/goals', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export function updateGoal(id: string, data: Partial<{ name: string; target_amount: number; target_date_utc: string; notes: string }>): Promise<void> {
+  return apiFetch<void>(`/api/goals/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export function listGoalLedger(goalId: string): Promise<GoalLedgerEntryResponse[]> {
+  return apiFetch<GoalLedgerEntryResponse[]>(`/api/goals/${goalId}/ledger`)
+}
+
+export function addGoalLedgerEntry(goalId: string, data: {
+  amount: number
+  type: 'contribution' | 'withdrawal' | 'adjustment'
+  source?: 'manual' | 'system'
+  note?: string
+}): Promise<GoalLedgerEntryResponse> {
+  return apiFetch<GoalLedgerEntryResponse>(`/api/goals/${goalId}/ledger`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export function reverseGoalLedgerEntry(goalId: string, entryId: string): Promise<GoalLedgerEntryResponse> {
+  return apiFetch<GoalLedgerEntryResponse>(`/api/goals/${goalId}/ledger/${entryId}/reverse`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  })
 }
 
 export function postCheck(amount: number, accountId?: string): Promise<CheckResponse> {
@@ -105,6 +179,12 @@ export function updatePaySchedule(id: string, data: Partial<CreatePayScheduleReq
 export function deletePaySchedule(id: string): Promise<void> {
   return apiFetch<void>(`/api/pay-schedule/${id}`, {
     method: 'DELETE',
+  })
+}
+
+export function confirmPaySchedule(id: string): Promise<PayScheduleResponse> {
+  return apiFetch<PayScheduleResponse>(`/api/pay-schedule/${id}/confirm`, {
+    method: 'POST',
   })
 }
 

@@ -14,6 +14,7 @@ import { AccountsPage } from '@/pages/accounts'
 import { TransactionsPage } from '@/pages/transactions'
 import { FriendsPage } from '@/pages/friends'
 import { SettingsPage } from '@/pages/settings'
+import { GoalsPage } from '@/pages/goals'
 import { FriendPublicPage } from '@/pages/friend-public'
 import { GroupPublicPage } from '@/pages/group-public'
 import { fetchDefaultAccount, fetchAccounts, fetchTransactions, listPaySchedules, fetchFriendBreakdown } from '@/lib/api'
@@ -173,6 +174,11 @@ const settingsRoute = createRoute({
   path: '/settings',
   component: SettingsPage,
 })
+const goalsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/goals',
+  component: GoalsPage,
+})
 
 const publicRootRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -199,6 +205,7 @@ const routeTree = rootRoute.addChildren([
   transactionsRoute,
   friendsRoute,
   settingsRoute,
+  goalsRoute,
   publicRootRoute.addChildren([publicFriendRoute, publicGroupRoute]),
 ])
 
