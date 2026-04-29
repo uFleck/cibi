@@ -19,6 +19,8 @@ type GoalsServiceIface interface {
 	ReverseLedgerEntry(goalID, entryID uuid.UUID, note *string) (sqlite.GoalLedgerEntry, error)
 	ListLedger(goalID uuid.UUID) ([]sqlite.GoalLedgerEntry, error)
 	BuildTracking(accountID uuid.UUID) (service.GoalsTrackingResponse, error)
+	ListRecurringDue(accountID uuid.UUID, now time.Time) ([]service.GoalRecurringDueItem, error)
+	ConfirmRecurringDue(itemID uuid.UUID, timestamp time.Time) error
 }
 
 var _ GoalsServiceIface = (*service.GoalsService)(nil)
@@ -186,7 +188,7 @@ func (h *GoalsHandler) AddLedger(c echo.Context) error {
 	if req.Source == "" {
 		req.Source = "manual"
 	}
-	if req.Source != "manual" && req.Source != "system" {
+	if req.Source != "manual" && req.Source != "system" && req.Source != "recurring" {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid ledger source")
 	}
 	ts := time.Now().UTC()

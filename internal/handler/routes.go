@@ -52,6 +52,8 @@ func SetupRoutes(
 	goals := api.Group("/goals")
 	goals.GET("", gh.List)
 	goals.GET("/tracking", gh.Tracking)
+	goals.GET("/recurring", gh.ListRecurring)
+	goals.POST("/recurring/:id/confirm", gh.ConfirmRecurring)
 	goals.POST("", gh.Create)
 	goals.PATCH("/:id", gh.Update)
 	goals.GET("/:id/ledger", gh.ListLedger)
