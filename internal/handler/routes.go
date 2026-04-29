@@ -17,6 +17,7 @@ func SetupRoutes(
 	e *echo.Echo,
 	accSvc *service.AccountsService,
 	txnsSvc *service.TransactionsService,
+	goalsSvc *service.GoalsService,
 	engineSvc *service.EngineService,
 	psSvc *service.PayScheduleService,
 	friendSvc *service.FriendService,
@@ -26,6 +27,7 @@ func SetupRoutes(
 ) {
 	ah := NewAccountsHandler(accSvc)
 	th := NewTransactionsHandler(txnsSvc)
+	gh := NewGoalsHandler(goalsSvc)
 	ch := NewCheckHandler(engineSvc)
 	psh := NewPayScheduleHandler(psSvc, ah.svc)
 
@@ -47,6 +49,14 @@ func SetupRoutes(
 	txn.DELETE("/:id", th.Delete)
 	txn.POST("/:id/confirm", th.Confirm)
 
+	goals := api.Group("/goals")
+	goals.GET("", gh.List)
+	goals.POST("", gh.Create)
+	goals.PATCH("/:id", gh.Update)
+	goals.GET("/:id/ledger", gh.ListLedger)
+	goals.POST("/:id/ledger", gh.AddLedger)
+	goals.POST("/:id/ledger/:entryId/reverse", gh.ReverseLedger)
+
 	api.POST("/check", ch.Check)
 
 	ps := api.Group("/pay-schedule")
@@ -54,6 +64,7 @@ func SetupRoutes(
 	ps.POST("", psh.Create)
 	ps.PATCH("/:id", psh.Update)
 	ps.DELETE("/:id", psh.Delete)
+	ps.POST("/:id/confirm", psh.Confirm)
 
 	api.GET("/docs", func(c echo.Context) error {
 		return c.Blob(http.StatusOK, "application/yaml", openAPIYAML)
