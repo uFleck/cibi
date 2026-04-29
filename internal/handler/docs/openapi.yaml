@@ -206,6 +206,42 @@ paths:
       responses:
         "201":
           description: Reversal created
+  /goals/recurring:
+    get:
+      summary: List due/overdue recurring goal contributions by account
+      parameters:
+        - name: account_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Due and overdue recurring contributions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GoalRecurringDueItem"
+        "400":
+          $ref: "#/components/responses/Error"
+  /goals/recurring/{id}/confirm:
+    post:
+      summary: Confirm and post one due recurring contribution
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Confirmed
+        "400":
+          $ref: "#/components/responses/Error"
   /check:
     post:
       summary: Check if a purchase is affordable
@@ -365,7 +401,7 @@ components:
       properties:
         amount: { type: number, format: float }
         type: { type: string, enum: [contribution, withdrawal, adjustment] }
-        source: { type: string, enum: [manual, system] }
+        source: { type: string, enum: [manual, system, recurring] }
         note: { type: string }
     GoalsTrackingResponse:
       type: object
@@ -411,8 +447,21 @@ components:
         entry_id: { type: string, format: uuid }
         amount: { type: number, format: float }
         type: { type: string, enum: [contribution, withdrawal, adjustment] }
-        source: { type: string, enum: [manual, system] }
+        source: { type: string, enum: [manual, system, recurring] }
         timestamp_utc: { type: string, format: date-time }
+    GoalRecurringDueItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        goal_id: { type: string, format: uuid }
+        goal_name: { type: string }
+        amount: { type: number, format: float }
+        frequency: { type: string, enum: [weekly, bi-weekly, monthly, yearly] }
+        anchor_date_utc: { type: string, format: date-time }
+        next_due_utc: { type: string, format: date-time }
+        is_overdue: { type: boolean }
+        last_entry_id: { type: string, format: uuid, nullable: true }
+        last_posted_at_utc: { type: string, format: date-time, nullable: true }
   responses:
     Error:
       description: Error response

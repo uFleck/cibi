@@ -37,10 +37,70 @@ export interface GoalLedgerEntryResponse {
   goal_id: string
   amount: number
   type: 'contribution' | 'withdrawal' | 'adjustment'
-  source: 'manual' | 'system'
+  source: 'manual' | 'system' | 'recurring'
   note: string | null
   reverses_entry_id: string | null
   timestamp_utc: string
+}
+
+export interface GoalsTrackingSummaryResponse {
+  goals_count: number
+  completed_count: number
+  total_target: number
+  total_invested: number
+  total_remaining: number
+}
+
+export interface GoalsTrackingGoalResponse {
+  id: string
+  name: string
+  status: 'draft' | 'active' | 'completed' | 'archived'
+  target_amount: number
+  invested_total: number
+  remaining_amount: number
+  progress_pct: number
+  target_date_utc: string | null
+  created_at_utc: string
+}
+
+export interface GoalsTrackingActivityResponse {
+  goal_id: string
+  goal_name: string
+  entry_id: string
+  amount: number
+  type: 'contribution' | 'withdrawal' | 'adjustment'
+  source: 'manual' | 'system' | 'recurring'
+  timestamp_utc: string
+}
+
+export interface GoalsTrackingResponse {
+  summary: GoalsTrackingSummaryResponse
+  top_goals: GoalsTrackingGoalResponse[]
+  recent_activity: GoalsTrackingActivityResponse[]
+  updated_at_utc: string
+}
+
+export interface CheckGoalImpactResponse {
+  goal_id: string
+  goal_name: string
+  remaining_before: number
+  remaining_after: number
+  progress_before_pct: number
+  progress_after_pct: number
+  severity: 'low' | 'medium' | 'high'
+}
+
+export interface GoalRecurringDueItemResponse {
+  id: string
+  goal_id: string
+  goal_name: string
+  amount: number
+  frequency: 'weekly' | 'bi-weekly' | 'monthly' | 'yearly'
+  anchor_date_utc: string
+  next_due_utc: string
+  is_overdue: boolean
+  last_entry_id: string | null
+  last_posted_at_utc: string | null
 }
 
 export interface CheckResponse {
@@ -50,6 +110,7 @@ export interface CheckResponse {
   risk_level: 'LOW' | 'MEDIUM' | 'HIGH' | 'BLOCKED' | 'WAIT'
   will_afford_after_payday: boolean
   wait_until: string | null
+  goal_impacts: CheckGoalImpactResponse[]
 }
 
 export interface PayScheduleResponse {
@@ -100,6 +161,10 @@ export function listGoals(accountId: string): Promise<GoalResponse[]> {
   return apiFetch<GoalResponse[]>(`/api/goals?account_id=${accountId}`)
 }
 
+export function fetchGoalsTracking(accountId: string): Promise<GoalsTrackingResponse> {
+  return apiFetch<GoalsTrackingResponse>(`/api/goals/tracking?account_id=${accountId}`)
+}
+
 export function createGoal(data: {
   account_id: string
   name: string
@@ -145,6 +210,16 @@ export function reverseGoalLedgerEntry(goalId: string, entryId: string): Promise
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({}),
+  })
+}
+
+export function listGoalRecurring(accountId: string): Promise<GoalRecurringDueItemResponse[]> {
+  return apiFetch<GoalRecurringDueItemResponse[]>(`/api/goals/recurring?account_id=${accountId}`)
+}
+
+export function confirmGoalRecurring(id: string): Promise<void> {
+  return apiFetch<void>(`/api/goals/recurring/${id}/confirm`, {
+    method: 'POST',
   })
 }
 
