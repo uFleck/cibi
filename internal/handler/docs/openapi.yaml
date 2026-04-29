@@ -314,7 +314,28 @@ components:
           format: float
         risk_level:
           type: string
-          enum: [LOW, MEDIUM, HIGH, BLOCKED]
+          enum: [LOW, MEDIUM, HIGH, BLOCKED, WAIT]
+        will_afford_after_payday:
+          type: boolean
+        wait_until:
+          type: string
+          format: date
+          nullable: true
+        goal_impacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CheckGoalImpact"
+    CheckGoalImpact:
+      type: object
+      required: [goal_id, goal_name, remaining_before, remaining_after, progress_before_pct, progress_after_pct, severity]
+      properties:
+        goal_id: { type: string, format: uuid }
+        goal_name: { type: string }
+        remaining_before: { type: number, format: float }
+        remaining_after: { type: number, format: float }
+        progress_before_pct: { type: number, format: float }
+        progress_after_pct: { type: number, format: float }
+        severity: { type: string, enum: [low, medium, high] }
     Goal:
       type: object
       properties:

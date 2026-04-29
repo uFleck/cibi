@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -51,6 +52,55 @@ func TestCheck(t *testing.T) {
 	}
 	if resp.RiskLevel != "LOW" {
 		t.Errorf("expected risk_level LOW, got %s", resp.RiskLevel)
+	}
+}
+
+func TestCheck_WAITWithGoalImpacts(t *testing.T) {
+	waitDate := "2026-05-01"
+	goalID := uuid.New()
+	mock := &mockEngineService{
+		canIBuyItDefaultFn: func(itemPrice int64) (service.EngineResult, error) {
+			if itemPrice != 5000 {
+				t.Fatalf("expected 5000 cents, got %d", itemPrice)
+			}
+			return service.EngineResult{
+				CanBuy:                false,
+				PurchasingPower:       -1200,
+				BufferRemaining:       -6200,
+				RiskLevel:             "WAIT",
+				WillAffordAfterPayday: true,
+				WaitUntil:             mustDate(t, waitDate),
+				GoalImpacts: []service.GoalImpact{{
+					GoalID:            goalID,
+					GoalName:          "Emergency Fund",
+					RemainingBefore:   1000,
+					RemainingAfter:    0,
+					ProgressBeforePct: 96,
+					ProgressAfterPct:  100,
+					Severity:          "high",
+				}},
+			}, nil
+		},
+	}
+	h := &CheckHandler{svc: mock}
+	rec := serveRequest(func(c echo.Context) error {
+		return h.Check(c)
+	}, http.MethodPost, "/api/check", `{"amount":50.00}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+	var resp CheckResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.RiskLevel != "WAIT" || !resp.WillAffordAfterPayday || resp.WaitUntil == nil || *resp.WaitUntil != waitDate {
+		t.Fatalf("unexpected WAIT fields: %+v", resp)
+	}
+	if len(resp.GoalImpacts) != 1 {
+		t.Fatalf("expected one goal impact, got %d", len(resp.GoalImpacts))
+	}
+	if resp.GoalImpacts[0].GoalID != goalID.String() || resp.GoalImpacts[0].Severity != "high" {
+		t.Fatalf("unexpected goal impact payload: %+v", resp.GoalImpacts[0])
 	}
 }
 
@@ -118,4 +168,13 @@ func TestCheck_WithAccountID(t *testing.T) {
 	if !usedCustomAccount {
 		t.Errorf("expected check to use account_id path")
 	}
+}
+
+func mustDate(t *testing.T, value string) *time.Time {
+	t.Helper()
+	tm, err := time.Parse("2006-01-02", value)
+	if err != nil {
+		t.Fatalf("parse date: %v", err)
+	}
+	return &tm
 }
