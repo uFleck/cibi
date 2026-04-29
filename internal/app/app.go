@@ -55,7 +55,7 @@ func New(cfg config.Config) (*App, error) {
 	txnsSvc := service.NewTransactionsService(database, iTxnsRepo, iAccRepo)
 	goalsRepo := reposqlite.NewSqliteGoalsRepo(database)
 	goalsSvc := service.NewGoalsService(database, goalsRepo, iAccRepo)
-	engineSvc := service.NewEngineService(iAccRepo, iTxnsRepo, iPsRepo, iBufRepo, iPeerDebtRepo, iGroupEvtRepo)
+	engineSvc := service.NewEngineService(iAccRepo, iTxnsRepo, iPsRepo, iBufRepo, iPeerDebtRepo, iGroupEvtRepo, goalsRepo)
 	payScheduleSvc := service.NewPayScheduleService(database, iPsRepo, iAccRepo)
 	friendSvc := service.NewFriendService(iFriendRepo)
 	peerDebtSvc := service.NewPeerDebtService(iPeerDebtRepo)

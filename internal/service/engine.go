@@ -16,21 +16,33 @@ var ErrPayScheduleRequired = errors.New("PAY_SCHEDULE_REQUIRED")
 // EngineResult holds the output of the CanIBuyIt decision.
 type EngineResult struct {
 	CanBuy                bool
-	PurchasingPower       int64      // cents; balance - obligations - safety_buffer
-	BufferRemaining       int64      // cents; purchasing_power - item_price (may be negative)
-	RiskLevel             string     // "LOW" | "MEDIUM" | "HIGH" | "BLOCKED" | "WAIT"
-	WillAffordAfterPayday bool       // true when WAIT verdict applies
-	WaitUntil             *time.Time // non-nil only when RiskLevel == "WAIT"
+	PurchasingPower       int64        // cents; balance - obligations - safety_buffer
+	BufferRemaining       int64        // cents; purchasing_power - item_price (may be negative)
+	RiskLevel             string       // "LOW" | "MEDIUM" | "HIGH" | "BLOCKED" | "WAIT"
+	WillAffordAfterPayday bool         // true when WAIT verdict applies
+	WaitUntil             *time.Time   // non-nil only when RiskLevel == "WAIT"
+	GoalImpacts           []GoalImpact // projected per-goal impact of this purchase
+}
+
+type GoalImpact struct {
+	GoalID            uuid.UUID
+	GoalName          string
+	RemainingBefore   int64
+	RemainingAfter    int64
+	ProgressBeforePct float64
+	ProgressAfterPct  float64
+	Severity          string // "low" | "medium" | "high"
 }
 
 // EngineService implements the CanIBuyIt decision engine.
 type EngineService struct {
-	accRepo      sqlite.AccountsRepo
-	txnsRepo     sqlite.TransactionsRepo
-	psRepo       sqlite.PayScheduleRepo
-	bufferRepo   sqlite.SafetyBufferRepo
-	peerDebtRepo  sqlite.PeerDebtRepo
+	accRepo        sqlite.AccountsRepo
+	txnsRepo       sqlite.TransactionsRepo
+	psRepo         sqlite.PayScheduleRepo
+	bufferRepo     sqlite.SafetyBufferRepo
+	peerDebtRepo   sqlite.PeerDebtRepo
 	groupEventRepo sqlite.GroupEventRepo
+	goalsRepo      sqlite.GoalsRepo
 }
 
 // NewEngineService creates a new EngineService.
@@ -41,14 +53,16 @@ func NewEngineService(
 	bufferRepo sqlite.SafetyBufferRepo,
 	peerDebtRepo sqlite.PeerDebtRepo,
 	groupEventRepo sqlite.GroupEventRepo,
+	goalsRepo sqlite.GoalsRepo,
 ) *EngineService {
 	return &EngineService{
-		accRepo:       accRepo,
-		txnsRepo:      txnsRepo,
-		psRepo:        psRepo,
-		bufferRepo:    bufferRepo,
-		peerDebtRepo:  peerDebtRepo,
+		accRepo:        accRepo,
+		txnsRepo:       txnsRepo,
+		psRepo:         psRepo,
+		bufferRepo:     bufferRepo,
+		peerDebtRepo:   peerDebtRepo,
 		groupEventRepo: groupEventRepo,
+		goalsRepo:      goalsRepo,
 	}
 }
 
@@ -62,8 +76,9 @@ func NewEngineService(
 //
 // Upcoming obligations: recurring transactions where
 //
-//	next_occurrence > now AND next_occurrence < earliest_next_payday  (D-02)
+//	next_occurrence < earliest_next_payday
 //
+// Due/overdue recurring transactions stay counted until confirmed.
 // The union window approach uses the earliest next payday across all schedules.
 // Must complete in under 100ms.
 func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineResult, error) {
@@ -99,7 +114,7 @@ func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineR
 		}
 	}
 
-	// Step 4: Sum upcoming obligations (next_occurrence > now AND < earliestPayday).
+	// Step 4: Sum obligations due before earliest payday (includes overdue until confirmed).
 	obligations, err := s.txnsRepo.SumUpcomingObligations(accountID, now, earliestPayday)
 	if err != nil {
 		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: sum obligations: %w", err)
@@ -126,6 +141,13 @@ func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineR
 		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: get buffer: %w", err)
 	}
 
+	// Step 5b: Build per-goal impact projection.
+	goals, err := s.goalsRepo.GetGoalsByAccount(accountID)
+	if err != nil {
+		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: list goals: %w", err)
+	}
+	goalImpacts := buildGoalImpacts(goals, itemPrice)
+
 	// Step 6: Calculate purchasing power.
 	// peerObligations and groupObligations are <= 0; adding them reduces purchasing power.
 	purchasingPower := acc.CurrentBalance + obligations + peerObligations + groupObligations - buf.MinThreshold
@@ -141,6 +163,7 @@ func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineR
 			PurchasingPower: purchasingPower,
 			BufferRemaining: bufferRemaining,
 			RiskLevel:       classifyRisk(bufferRemaining, buf.MinThreshold),
+			GoalImpacts:     goalImpacts,
 		}, nil
 	}
 
@@ -157,6 +180,7 @@ func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineR
 		RiskLevel:             "BLOCKED",
 		WillAffordAfterPayday: willAfford,
 		WaitUntil:             nil,
+		GoalImpacts:           goalImpacts,
 	}
 	if willAfford {
 		result.RiskLevel = "WAIT"
@@ -181,6 +205,53 @@ func (s *EngineService) CanIBuyItDefault(itemPrice int64) (EngineResult, error) 
 //	HIGH:    remaining < 25% of min_threshold
 //	MEDIUM:  remaining < 50% of min_threshold
 //	LOW:     remaining >= 50% of min_threshold (or min_threshold == 0)
+func buildGoalImpacts(goals []sqlite.Goal, itemPrice int64) []GoalImpact {
+	if itemPrice <= 0 {
+		return nil
+	}
+	impacts := make([]GoalImpact, 0, len(goals))
+	for _, g := range goals {
+		if g.Status != "active" && g.Status != "draft" {
+			continue
+		}
+		if g.TargetAmountCents <= 0 {
+			continue
+		}
+		remainingBefore := g.TargetAmountCents - g.InvestedTotalCents
+		if remainingBefore <= 0 {
+			continue
+		}
+		remainingAfter := remainingBefore - itemPrice
+		if remainingAfter < 0 {
+			remainingAfter = 0
+		}
+		progressBefore := (float64(g.InvestedTotalCents) / float64(g.TargetAmountCents)) * 100
+		progressAfter := (float64(g.InvestedTotalCents+itemPrice) / float64(g.TargetAmountCents)) * 100
+		if progressAfter > 100 {
+			progressAfter = 100
+		}
+
+		impactPct := (float64(itemPrice) / float64(remainingBefore)) * 100
+		severity := "low"
+		if impactPct >= 25 {
+			severity = "high"
+		} else if impactPct >= 10 {
+			severity = "medium"
+		}
+
+		impacts = append(impacts, GoalImpact{
+			GoalID:            g.ID,
+			GoalName:          g.Name,
+			RemainingBefore:   remainingBefore,
+			RemainingAfter:    remainingAfter,
+			ProgressBeforePct: progressBefore,
+			ProgressAfterPct:  progressAfter,
+			Severity:          severity,
+		})
+	}
+	return impacts
+}
+
 func classifyRisk(bufferRemaining, minThreshold int64) string {
 	if minThreshold == 0 {
 		return "LOW"

@@ -15,13 +15,15 @@ import (
 )
 
 type mockGoalsService struct {
-	createFn   func(in service.CreateGoalInput) (sqlite.Goal, error)
-	listFn     func(accountID uuid.UUID) ([]sqlite.Goal, error)
-	updateFn   func(goalID uuid.UUID, in service.UpdateGoalInput) error
-	addFn      func(in service.AddGoalLedgerInput) (sqlite.GoalLedgerEntry, error)
-	reverseFn  func(goalID, entryID uuid.UUID, note *string) (sqlite.GoalLedgerEntry, error)
-	ledgerFn   func(goalID uuid.UUID) ([]sqlite.GoalLedgerEntry, error)
-	trackingFn func(accountID uuid.UUID) (service.GoalsTrackingResponse, error)
+	createFn           func(in service.CreateGoalInput) (sqlite.Goal, error)
+	listFn             func(accountID uuid.UUID) ([]sqlite.Goal, error)
+	updateFn           func(goalID uuid.UUID, in service.UpdateGoalInput) error
+	addFn              func(in service.AddGoalLedgerInput) (sqlite.GoalLedgerEntry, error)
+	reverseFn          func(goalID, entryID uuid.UUID, note *string) (sqlite.GoalLedgerEntry, error)
+	ledgerFn           func(goalID uuid.UUID) ([]sqlite.GoalLedgerEntry, error)
+	trackingFn         func(accountID uuid.UUID) (service.GoalsTrackingResponse, error)
+	listRecurringFn    func(accountID uuid.UUID, now time.Time) ([]service.GoalRecurringDueItem, error)
+	confirmRecurringFn func(itemID uuid.UUID, timestamp time.Time) error
 }
 
 func (m *mockGoalsService) CreateGoal(in service.CreateGoalInput) (sqlite.Goal, error) {
@@ -44,6 +46,18 @@ func (m *mockGoalsService) ListLedger(goalID uuid.UUID) ([]sqlite.GoalLedgerEntr
 }
 func (m *mockGoalsService) BuildTracking(accountID uuid.UUID) (service.GoalsTrackingResponse, error) {
 	return m.trackingFn(accountID)
+}
+func (m *mockGoalsService) ListRecurringDue(accountID uuid.UUID, now time.Time) ([]service.GoalRecurringDueItem, error) {
+	if m.listRecurringFn == nil {
+		return nil, nil
+	}
+	return m.listRecurringFn(accountID, now)
+}
+func (m *mockGoalsService) ConfirmRecurringDue(itemID uuid.UUID, timestamp time.Time) error {
+	if m.confirmRecurringFn == nil {
+		return nil
+	}
+	return m.confirmRecurringFn(itemID, timestamp)
 }
 
 func TestGoalsCreate_ConvertsDecimalsToServiceBoundary(t *testing.T) {
