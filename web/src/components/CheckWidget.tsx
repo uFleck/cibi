@@ -9,6 +9,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { formatDate } from '@/lib/format'
 import { postCheck, type CheckResponse } from '@/lib/api'
 
+export const LAST_CHECK_RESULT_KEY = 'cibi:last-check-result'
+
 type WidgetState = 'idle' | 'loading' | 'verdict'
 
 const RISK_COLORS: Record<string, string> = {
@@ -36,6 +38,11 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
     try {
       const res = await postCheck(parsed, accountId)
       setResult(res)
+      try {
+        sessionStorage.setItem(LAST_CHECK_RESULT_KEY, JSON.stringify(res))
+      } catch {
+        // ignore storage restrictions
+      }
       setState('verdict')
     } catch (err) {
       const error = err as Error & { code?: string }
@@ -174,6 +181,26 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
                 >
                   {result!.risk_level} RISK
                 </span>
+
+                {result!.goal_impacts.length > 0 ? (
+                  <div className="mt-1 rounded-md border border-border/60 bg-background/50 p-3 flex flex-col gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Goal impact preview</p>
+                    {result!.goal_impacts.map(impact => (
+                      <div key={impact.goal_id} className="text-xs flex flex-col gap-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-foreground">{impact.goal_name}</span>
+                          <span className="rounded px-1.5 py-0.5 border text-[10px] uppercase tracking-wide">{impact.severity}</span>
+                        </div>
+                        <p className="text-muted-foreground">
+                          Remaining: <MoneyValue amount={impact.remaining_before} tone="neutral" showSign="never" className="font-medium" /> → <MoneyValue amount={impact.remaining_after} tone="neutral" showSign="never" className="font-medium" />
+                        </p>
+                        <p className="text-muted-foreground">
+                          Progress: {impact.progress_before_pct.toFixed(1)}% → {impact.progress_after_pct.toFixed(1)}%
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </motion.div>
             )
           })()}
