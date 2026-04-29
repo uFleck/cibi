@@ -14,14 +14,19 @@ import (
 )
 
 type mockGoalsRepo struct {
-	goal           sqlite.Goal
-	entry          sqlite.GoalLedgerEntry
-	insertLedgerFn func(e sqlite.GoalLedgerEntry, tx *sql.Tx) error
-	updateGoalFn   func(id uuid.UUID, upd sqlite.UpdateGoal, tx *sql.Tx) error
+	goal                sqlite.Goal
+	entry               sqlite.GoalLedgerEntry
+	insertLedgerFn      func(e sqlite.GoalLedgerEntry, tx *sql.Tx) error
+	updateGoalFn        func(id uuid.UUID, upd sqlite.UpdateGoal, tx *sql.Tx) error
+	getGoalsByAccountFn func(accountID uuid.UUID) ([]sqlite.Goal, error)
+	listLedgerByGoalFn  func(goalID uuid.UUID) ([]sqlite.GoalLedgerEntry, error)
 }
 
 func (m *mockGoalsRepo) InsertGoal(g sqlite.Goal, tx *sql.Tx) error { m.goal = g; return nil }
 func (m *mockGoalsRepo) GetGoalsByAccount(accountID uuid.UUID) ([]sqlite.Goal, error) {
+	if m.getGoalsByAccountFn != nil {
+		return m.getGoalsByAccountFn(accountID)
+	}
 	return []sqlite.Goal{m.goal}, nil
 }
 func (m *mockGoalsRepo) GetGoalByID(id uuid.UUID) (sqlite.Goal, error) { return m.goal, nil }
@@ -48,6 +53,9 @@ func (m *mockGoalsRepo) InsertLedgerEntry(e sqlite.GoalLedgerEntry, tx *sql.Tx) 
 	return nil
 }
 func (m *mockGoalsRepo) ListLedgerByGoal(goalID uuid.UUID) ([]sqlite.GoalLedgerEntry, error) {
+	if m.listLedgerByGoalFn != nil {
+		return m.listLedgerByGoalFn(goalID)
+	}
 	return []sqlite.GoalLedgerEntry{m.entry}, nil
 }
 func (m *mockGoalsRepo) GetLedgerEntryByID(id uuid.UUID) (sqlite.GoalLedgerEntry, error) {
