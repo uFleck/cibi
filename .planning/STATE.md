@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Milestone complete
-last_updated: "2026-04-18T04:53:05.242Z"
+status: Ready to plan
+last_updated: "2026-04-29T21:05:00.000Z"
 progress:
-  total_phases: 8
-  completed_phases: 6
-  total_plans: 16
-  completed_plans: 16
+  total_phases: 21
+  completed_phases: 4
+  total_plans: 12
+  completed_plans: 12
 ---
 
 # Project State
@@ -19,7 +19,7 @@ progress:
 - **Last completed plan:** 01-05 — friends/public MoneyValue standardization
 - **Next planned phase:** 6 — MCP Server
 - **Health:** Stable (friends/public build + grep cleanup checks green)
-- **Resume file:** `.planning/phases/02-shared-debt-list-components/02-CONTEXT.md`
+- **Resume file:** `.planning/phases/13-goals-foundation-goal-entity-target-amount-and-investment-ledger/13-CONTEXT.md`
 
 ## Decisions
 
@@ -43,6 +43,7 @@ progress:
 - [Phase 01]: CompactEntityTable secondary now accepts ReactNode to carry rich money nodes in compact rows.
 - [Phase 01]: Friends/public surfaces use explicit BRL fallback when rendering MoneyValue.
 - [Phase 01]: Signed balances use MoneyValue auto tone/sign while neutral shares suppress sign.
+- [Phase 13]: Goals foundation decisions captured (goal lifecycle, target semantics, investment ledger types, atomic balance coupling).
 
 ## Performance Metrics (Recent)
 
@@ -74,6 +75,21 @@ progress:
 - Phase 2 added: shared debt list components
 - Phase 11 added: Separate non-recurrent transactions from obligations with dashboard See All
 - Phase 12 added: modal create
+- Phase 13 added: Goals foundation: goal entity, target amount, and investment ledger
+- Phase 14 added: Goals tracking: tab, dashboard widget, recurring investments, and purchase impact
+- Phase 15 added: ""
+- Phase 16 added: ""
+- Phase 17 added: ""
+- Phase 18 added: ""
+- Phase 19 added: ""
+- Phase 20 added: ""
+- Phase 21 added: ""
+- Phase 22 added: ""
+- Phase 23 added: ""
+- Phase 24 added: ""
+- Phase 25 added: ""
+- Phase 26 added: ""
+- Phase 27 added: ""
 
 ### Pending Todos
 
