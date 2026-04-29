@@ -2,13 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Ready to plan
-last_updated: "2026-04-29T20:59:27.354Z"
+status: Executing Phase 14
+last_updated: "2026-04-29T22:29:03.275Z"
 progress:
   total_phases: 21
   completed_phases: 7
-  total_plans: 17
-  completed_plans: 17
+  total_plans: 21
+  completed_plans: 18
+  percent: 86
 ---
 
 # Project State
@@ -19,7 +20,7 @@ progress:
 - **Last completed plan:** 01-05 — friends/public MoneyValue standardization
 - **Next planned phase:** 6 — MCP Server
 - **Health:** Stable (friends/public build + grep cleanup checks green)
-- **Resume file:** `.planning/phases/13-goals-foundation-goal-entity-target-amount-and-investment-ledger/13-CONTEXT.md`
+- **Resume file:** None
 
 ## Decisions
 
@@ -44,6 +45,8 @@ progress:
 - [Phase 01]: Friends/public surfaces use explicit BRL fallback when rendering MoneyValue.
 - [Phase 01]: Signed balances use MoneyValue auto tone/sign while neutral shares suppress sign.
 - [Phase 13]: Goals foundation decisions captured (goal lifecycle, target semantics, investment ledger types, atomic balance coupling).
+- [Phase 14]: Urgency rank combines nearest target date and larger remaining gap with stable tie-breakers.
+- [Phase 14]: Tracking endpoint returns one stable read model payload for goals surfaces.
 
 ## Performance Metrics (Recent)
 
