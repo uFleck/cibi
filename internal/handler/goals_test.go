@@ -15,12 +15,13 @@ import (
 )
 
 type mockGoalsService struct {
-	createFn  func(in service.CreateGoalInput) (sqlite.Goal, error)
-	listFn    func(accountID uuid.UUID) ([]sqlite.Goal, error)
-	updateFn  func(goalID uuid.UUID, in service.UpdateGoalInput) error
-	addFn     func(in service.AddGoalLedgerInput) (sqlite.GoalLedgerEntry, error)
-	reverseFn func(goalID, entryID uuid.UUID, note *string) (sqlite.GoalLedgerEntry, error)
-	ledgerFn  func(goalID uuid.UUID) ([]sqlite.GoalLedgerEntry, error)
+	createFn   func(in service.CreateGoalInput) (sqlite.Goal, error)
+	listFn     func(accountID uuid.UUID) ([]sqlite.Goal, error)
+	updateFn   func(goalID uuid.UUID, in service.UpdateGoalInput) error
+	addFn      func(in service.AddGoalLedgerInput) (sqlite.GoalLedgerEntry, error)
+	reverseFn  func(goalID, entryID uuid.UUID, note *string) (sqlite.GoalLedgerEntry, error)
+	ledgerFn   func(goalID uuid.UUID) ([]sqlite.GoalLedgerEntry, error)
+	trackingFn func(accountID uuid.UUID) (service.GoalsTrackingResponse, error)
 }
 
 func (m *mockGoalsService) CreateGoal(in service.CreateGoalInput) (sqlite.Goal, error) {
@@ -40,6 +41,9 @@ func (m *mockGoalsService) ReverseLedgerEntry(goalID, entryID uuid.UUID, note *s
 }
 func (m *mockGoalsService) ListLedger(goalID uuid.UUID) ([]sqlite.GoalLedgerEntry, error) {
 	return m.ledgerFn(goalID)
+}
+func (m *mockGoalsService) BuildTracking(accountID uuid.UUID) (service.GoalsTrackingResponse, error) {
+	return m.trackingFn(accountID)
 }
 
 func TestGoalsCreate_ConvertsDecimalsToServiceBoundary(t *testing.T) {

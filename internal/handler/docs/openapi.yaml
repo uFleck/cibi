@@ -164,6 +164,25 @@ paths:
       responses:
         "201":
           description: Created goal
+  /goals/tracking:
+    get:
+      summary: Get goals tracking read model for an account
+      parameters:
+        - name: account_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Goals tracking payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoalsTrackingResponse"
+        "400":
+          $ref: "#/components/responses/Error"
   /goals/{id}/ledger:
     get:
       summary: List goal ledger entries
@@ -327,6 +346,52 @@ components:
         type: { type: string, enum: [contribution, withdrawal, adjustment] }
         source: { type: string, enum: [manual, system] }
         note: { type: string }
+    GoalsTrackingResponse:
+      type: object
+      properties:
+        summary:
+          $ref: "#/components/schemas/GoalsTrackingSummary"
+        top_goals:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoalsTrackingGoal"
+        recent_activity:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoalsTrackingActivity"
+        updated_at_utc:
+          type: string
+          format: date-time
+    GoalsTrackingSummary:
+      type: object
+      properties:
+        goals_count: { type: integer }
+        completed_count: { type: integer }
+        total_target: { type: number, format: float }
+        total_invested: { type: number, format: float }
+        total_remaining: { type: number, format: float }
+    GoalsTrackingGoal:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        status: { type: string, enum: [draft, active, completed, archived] }
+        target_amount: { type: number, format: float }
+        invested_total: { type: number, format: float }
+        remaining_amount: { type: number, format: float }
+        progress_pct: { type: number, format: float }
+        target_date_utc: { type: string, format: date-time, nullable: true }
+        created_at_utc: { type: string, format: date-time }
+    GoalsTrackingActivity:
+      type: object
+      properties:
+        goal_id: { type: string, format: uuid }
+        goal_name: { type: string }
+        entry_id: { type: string, format: uuid }
+        amount: { type: number, format: float }
+        type: { type: string, enum: [contribution, withdrawal, adjustment] }
+        source: { type: string, enum: [manual, system] }
+        timestamp_utc: { type: string, format: date-time }
   responses:
     Error:
       description: Error response
