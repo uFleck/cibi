@@ -127,10 +127,17 @@ Plans:
 
 ### Phase 14: Goals tracking: tab, dashboard widget, recurring investments, and purchase impact
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Deliver complete goals-tracking UX and supporting APIs: Goals tab, dashboard snapshot widget, recurring investment due/confirm flow, and purchase-impact preview across check and goals surfaces.
+**Requirements**: P14-01, P14-02, P14-03, P14-04, P14-05
 **Depends on:** Phase 13
-**Plans:** 0 plans
+**Plans:** 1/4 plans executed
+
+Success criteria:
+1. Goals tab shows summary cards, urgency-sorted goals list, and recent activity with empty/loading/error/retry states.
+2. Dashboard widget shows top 3-5 urgent goals with progress %, remaining amount, and quick actions (add contribution + open goals tab).
+3. Recurring goal contributions support due/overdue visibility and manual confirm/post flow with source badges (manual/system/recurring).
+4. Purchase-check flow shows pre-confirm per-goal impact preview with severity tiers (LOW/MEDIUM/HIGH).
+5. UI refresh/invalidation shows visible updated cues after goal/ledger mutations.
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 14 to break down)
