@@ -18,6 +18,7 @@ type GoalsServiceIface interface {
 	AddLedgerEntry(in service.AddGoalLedgerInput) (sqlite.GoalLedgerEntry, error)
 	ReverseLedgerEntry(goalID, entryID uuid.UUID, note *string) (sqlite.GoalLedgerEntry, error)
 	ListLedger(goalID uuid.UUID) ([]sqlite.GoalLedgerEntry, error)
+	BuildTracking(accountID uuid.UUID) (service.GoalsTrackingResponse, error)
 }
 
 var _ GoalsServiceIface = (*service.GoalsService)(nil)
