@@ -1,7 +1,7 @@
 # CIBI — Requirements
 
 **Project:** CIBI (Can I Buy It?)
-**Last updated:** 2026-04-11
+**Last updated:** 2026-04-17
 **Milestone scope:**
 - v1 = Milestone 1: Core (Engine + CLI)
 - v2 = Milestone 2: API + Dashboard; Milestone 3: MCP
@@ -107,28 +107,33 @@
 | ARCH-06 | Phase 1 | Complete |
 | SCHEMA-01 | Phase 1 | Complete |
 | SCHEMA-02 | Phase 1 | Complete |
-| SCHEMA-03 | Phase 1 | Complete |
+| SCHEMA-03 | Phase 1 + 7 | Complete |
 | SCHEMA-04 | Phase 1 | Complete |
 | SCHEMA-05 | Phase 1 | Complete |
 | ENGINE-01 | Phase 2 | Complete |
-| ENGINE-02 | Phase 2 | Pending |
-| ENGINE-03 | Phase 2 | Pending |
-| ENGINE-04 | Phase 2 | Pending |
-| TXN-01 | Phase 2 | Complete |
-| TXN-02 | Phase 2 | Complete |
+| ENGINE-02 | Phase 2 + 7 | Complete |
+| ENGINE-03 | Phase 2 + 7 | Complete |
+| ENGINE-04 | Phase 2 + 7 | Complete |
+| TXN-01 | Phase 2 + 9 | Complete |
+| TXN-02 | Phase 2 + 9 | Complete |
 | TXN-03 | Phase 1 | Complete |
-| CLI-01 | Phase 3 | Pending |
-| CLI-02 | Phase 3 | Pending |
-| CLI-03 | Phase 3 | Pending |
-| CLI-04 | Phase 3 | Pending |
+| CLI-01 | Phase 3 | Complete |
+| CLI-02 | Phase 3 | Complete |
+| CLI-03 | Phase 3 | Complete |
+| CLI-04 | Phase 3 | Complete |
 | API-01 | Phase 4 | Complete |
-| API-02 | Phase 4 | Pending |
-| API-03 | Phase 4 | Pending |
+| API-02 | Phase 4 | Complete |
+| API-03 | Phase 4 | Complete |
 | WEB-01 | Phase 5 | Complete |
 | WEB-02 | Phase 5 | Complete |
-| WEB-03 | Phase 5 | Pending |
-| WEB-04 | Phase 5 | Pending |
+| WEB-03 | Phase 5 | Complete |
+| WEB-04 | Phase 5 + 7 | Complete |
 | MCP-01 | Phase 6 | Pending |
 | MCP-02 | Phase 6 | Pending |
 | MCP-03 | Phase 6 | Pending |
-| PEER-04 | Phase 10 | Complete |
+| PEER-01 | Phase 8 | Complete |
+| PEER-02 | Phase 8 | Complete |
+| PEER-03 | Phase 8 | Complete |
+| PEER-04 | Phase 8 + 10 | Complete |
+| PEER-05 | Phase 8 | Complete |
+| PEER-06 | Phase 8 | Complete |

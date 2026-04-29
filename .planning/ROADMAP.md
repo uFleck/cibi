@@ -1,212 +1,272 @@
-# CIBI — Roadmap
+# CIBI — Roadmap (Cleaned)
 
-**Project:** CIBI (Can I Buy It?)
-**Last updated:** 2026-04-12
-**Granularity:** Coarse
-
----
-
-## Milestones
-
-- **Milestone 1 — Core:** Engine + CLI. No HTTP server. Local binary.
-- **Milestone 2 — API + Dashboard:** Echo REST API + React web dashboard.
-- **Milestone 3 — MCP:** Go MCP server exposing financial tools to Claude.
+**Project:** CIBI (Can I Buy It?)  
+**Last updated:** 2026-04-17  
+**Status:** Milestone complete (all planned implementation phases done except MCP)
 
 ---
 
-## Phases
+## Reality Snapshot
 
-### Milestone 1 — Core
-
-- [x] **Phase 1: Foundation** — Restructure the repo, eliminate the global DB connection, wire migrations, and establish the clean layered architecture that all other phases depend on
-- [x] **Phase 2: Domain + Engine** — Implement the PaySchedule entity, recurring transaction engine with month-end safety, and the Decision Engine that answers "Can I Buy It?"
-- [x] **Phase 3: CLI** — Cobra command tree that mirrors the full domain surface; `cibi check` as the primary user-facing command
-
-### Milestone 2 — API + Dashboard
-
-- [x] **Phase 4: API Layer** — Echo HTTP server exposing all domain operations as JSON endpoints; the API becomes the gateway for web access over Tailscale
-- [x] **Phase 5: Web Dashboard** — React 19 + Vite 6 SPA showing balance, reserved funds, and the animated "Can I Buy It?" verdict card
-
-### Milestone 3 — MCP
-
-- [ ] **Phase 6: MCP Server** — Official Go SDK stdio server exposing financial status and purchase feasibility as Claude tools
+- ✅ Completed phases: **1, 2, 3, 4, 5, 7, 8, 9, 10**
+- ⏳ Remaining planned phase: **6 (MCP Server)**
+- ✅ Phase 10 human/runtime verification completed; project is stable.
 
 ---
 
-## Phase Details
+## Milestones (Current Truth)
 
-### Phase 1: Foundation
-
-**Goal**: Clean monorepo. No global state, pure-Go SQLite, migrations, wired App. Ready for domain logic.
-
-**Depends on**: Nothing
-
-**Requirements**: ARCH-01, ARCH-02, ARCH-03, ARCH-04, ARCH-05, ARCH-06, SCHEMA-01, SCHEMA-02, SCHEMA-03, SCHEMA-04, SCHEMA-05, TXN-03
-
-**Success Criteria**:
-  1. `CGO_ENABLED=0 go build ./...` succeeds — pure-Go SQLite driver
-  2. `internal/app.New(cfg)` returns wired App; no global DB variable
-  3. Binary on fresh machine creates SQLite file, applies migrations; schema matches entities
-  4. Money = `INTEGER`; timestamps = RFC3339 UTC; `PRAGMA foreign_keys` = 1
-
-**Plans**: TBD
+- **Milestone A — Core Product (Done):** Foundation, Engine, CLI, API, Web Dashboard
+- **Milestone B — Product Expansion (Done):** Multi pay schedules, Friend Ledger, balance/recurring fixes, codebase simplification
+- **Milestone C — Integrations (Pending):** MCP server for Claude tools
 
 ---
 
-### Phase 2: Domain + Engine
+## Phase Ledger
 
-**Goal**: Engine calculates obligations. Decision Engine answers "Can I Buy It?" in <100ms.
-
-**Depends on**: Phase 1
-
-**Requirements**: ENGINE-01, ENGINE-02, ENGINE-03, ENGINE-04, TXN-01, TXN-02
-
-**Success Criteria**:
-  1. Jan 31 anchor → Feb 28 occurrence (not Mar 2/3). `AddMonthClamped` prevents overflow.
-  2. `Engine.CanIBuyIt(amount)`: balance - obligations - buffer vs. price. Returns `CanBuy`/`RiskLevel`.
-  3. Only obligations between now and next payday included. Post-payday excluded.
-  4. Debited recurring txn advances one period. No double-count on re-run.
-  5. `NextPayday` for bi-weekly returns correct alternating date from anchor.
-
-**Plans**: TBD
+| Phase | Name | Plans | Status | Completed | Notes |
+|---|---|---:|---|---|---|
+| 1 | Foundation | 1/1 | ✅ Complete | 2026-04-11 | Architecture + app wiring + migrations |
+| 2 | Domain + Engine | 3/3 | ✅ Complete | 2026-04-12 | Core decision engine |
+| 3 | CLI | 1/1 | ✅ Complete | 2026-04-11 | Full CLI surface |
+| 4 | API Layer | 3/3 | ✅ Complete | 2026-04-12 | Echo REST + graceful shutdown |
+| 5 | Web Dashboard | 7/7 | ✅ Complete | 2026-04-17 | Dashboard + full CRUD + pay-schedule follow-ups |
+| 6 | MCP Server | 0/ ? | ⏳ Not started | — | Next major deliverable |
+| 7 | N Payment Schedules per Account | 3/3 | ✅ Complete | 2026-04-17 | Multi-schedule engine + WAIT verdict + settings CRUD |
+| 8 | Friend Ledger | 3/3 | ✅ Complete | 2026-04-14 | Friends, peer debts, group events, public token pages |
+| 9 | Transaction Balance + Recurring Confirm Fixes | 2/2 | ✅ Complete | 2026-04-14 | Atomic balance sync + confirm-paid workflow |
+| 10 | Codebase Simplification + Logic Centralization | 5/5 | ✅ Complete | 2026-04-17 | Refactors + bug fixes + service/tests verified |
 
 ---
 
-### Phase 3: CLI
+## Dependency Map (Corrected)
 
-**Goal**: All domain ops accessible from terminal. `cibi check <amount>` delivers verdict instantly (no server).
-
-**Depends on**: Phase 2
-
-**Requirements**: CLI-01, CLI-02, CLI-03, CLI-04
-
-**Success Criteria**:
-  1. `cibi check 75` prints verdict, purchasing power, buffer, risk within 100ms (no server).
-  2. `cibi tx add --recurring --frequency monthly --anchor 2024-03-01 --amount -850.00 --description "Rent"` creates recurring txn. `cibi tx list` shows correct next occurrence.
-  3. `cibi account list` shows balances (decimal currency). `cibi account set-default <id>` changes active account.
-  4. `cibi --config /path/to/config.yaml check 50` loads config, uses safety buffer and DB path.
-
-**Plans**: 1 plan (4 tasks, Wave 1)
-
-Plans:
-- [x] 03-PLAN.md — AccountsService + App wiring + CLI (root, account, tx, check commands)
+- **1 → 2 → 3 → 4 → 5**
+- **7 depends on 5** (web/settings + engine evolution)
+- **8 depends on 5** (friend ledger UI/API foundations)
+- **9 depends on 8** (post-friend-ledger transaction correctness fixes)
+- **10 depends on 9** (cleanup + centralization after feature expansion)
+- **6 depends on 2** (can be implemented independently of web phases)
 
 ---
 
-### Phase 4: API Layer
+## Phase Scope (Condensed)
 
-**Goal**: All domain ops available as JSON/HTTP. API = gateway for web + Tailscale.
+### Phase 6 — MCP Server (Complete)
+**Goal:** Expose CIBI capabilities via MCP stdio server for Claude.
 
-**Depends on**: Phase 3
+**Requirements:** MCP-01, MCP-02, MCP-03  
+**Depends on:** Phase 2  
+**Plans:** TBD
 
-**Requirements**: API-01, API-02, API-03
-
-**Success Criteria**:
-  1. `POST /check` with `{"amount": 75.00}` returns same `EngineResult` as CLI.
-  2. `GET/POST /accounts`, `/transactions`, `PATCH/DELETE /transactions/:id` return correct JSON + consistent error shape.
-  3. API starts/stops cleanly (graceful SIGTERM). Malformed body = structured JSON error.
-
-**Plans**: 3 plans (Wave 1 → Wave 2 → Wave 3)
-
-Plans:
-- [x] 04-01-PLAN.md — Service gap (GetByID, UpdateAccount) + internal/handler/ scaffold + Wave 0 test stubs
-- [x] 04-02-PLAN.md — All route handlers (accounts, transactions, check) + app.go rewire + legacy package deletion + openapi.yaml
-- [x] 04-03-PLAN.md — Graceful shutdown in cmd/cibi-api/main.go + phase gate verification
+Success criteria:
+1. Claude Desktop connects over stdio.
+2. `get_financial_status` returns current financial summary.
+3. `check_purchase_feasibility(amount)` matches existing engine decisions.
+4. `log_transaction(amount, description)` writes transaction through app/service layer.
 
 ---
 
-### Phase 5: Web Dashboard
+## Artifact Pointers
 
-**Goal**: See financial position at glance. Animated verdict on purchases in browser. Full CRUD feature parity with API and CLI.
+- Full phase artifacts: `.Complete/phases/`
+- Current execution state: `.Complete/STATE.md`
+- Requirements traceability source: `.Complete/REQUIREMENTS.md`
 
-**Depends on**: Phase 4
-
-**Requirements**: WEB-01, WEB-02, WEB-03, WEB-04, WEB-05
-
-**Success Criteria**:
-  1. Dashboard loads, shows balance, reserved funds (upcoming obligations), liquid, recurring txn list (live from API).
-  2. "Can I Buy It?" input + submit = animated verdict card (Motion). YES=green, NO=red + risk level.
-  3. Balance refreshes background (TanStack Query polling), no full reload.
-  4. UI renders mobile (375px) + desktop (1280px) (Tailwind responsive).
-  5. Accounts page: create, read, update, delete, set default — matches API endpoints.
-  6. Transactions page: create, read, update, delete — matches API endpoints.
-  7. Account selector in header — switch active account context; dashboard recalculates.
-
-**Plans**: 7 plans total (05-01..05-05 plus 05.1-01 and 05.2-01 gap/polish follow-ups)
-
-Plans:
-- [x] 05-01-PLAN.md — Go: /api/ route prefix + go:embed web/dist + static middleware in main.go
-- [x] 05-02-PLAN.md — React: Vite scaffold + all deps + shadcn init + data layer (api.ts, format.ts, router.ts, App.tsx) + Wave 0 tests
-- [x] 05-03-PLAN.md — UI components: StatCards + CheckWidget (Motion verdict) + ObligationsList + Dashboard wiring
-- [x] 05-04-PLAN.md — Human verify checkpoint: live browser confirmation of all dashboard behavior
-- [x] 05-05-PLAN.md — Full CRUD: AccountsPage + TransactionsPage + AccountSelector + feature parity
-- [x] 05.1-01-PLAN.md — Gap closure: missing pay schedule handling across API/CLI/UI
-- [x] 05.2-01-PLAN.md — Obsolete/superseded polish plan closed for tracking (no retained code changes)
-
----
-
-### Phase 6: MCP Server
-
-**Goal**: Claude queries CIBI financial state + purchase feasibility via MCP Go SDK.
-
-**Depends on**: Phase 2
-
-**Requirements**: MCP-01, MCP-02, MCP-03
-
-**Success Criteria**:
-  1. Claude Desktop connects via stdio. `get_financial_status` returns balance, reserved, liquid, next payday.
-  2. `check_purchase_feasibility(75.00)` returns same decision as CLI (same service layer).
-  3. `log_transaction(45.50, "Groceries")` creates one-off txn, confirms updated balance.
-  4. MCP server starts cleanly with `cmd/mcp/main.go` via `app.New(cfg)`. No HTTP to API.
-
-**Plans**: TBD
-
-### Phase 7: N Payment Schedules per Account
-
-**Goal**: Each account can have N pay schedules (e.g., $3k on day 10 and $2k on day 20). Engine projects purchasing power using per-schedule obligation windows; returns WAIT verdict when user can afford after next payday. Settings page provides full CRUD for pay schedules.
-
-**Requirements**: SCHEMA-03, ENGINE-02, ENGINE-03, ENGINE-04, API-01
-
-**Depends on**: Phase 6
-
-**Plans**: 3 plans (Wave 1 → Wave 2 → Wave 3)
-
-Plans:
-- [x] 07-01-PLAN.md — Migration (amount column) + repo CRUD refactor + service refactor + engine multi-schedule loop + WAIT verdict
-- [x] 07-02-PLAN.md — Handler full CRUD (List/Create/Update/Delete) + routes update + frequency enum fix + check response WAIT fields
-- [x] 07-03-PLAN.md — React: api.ts CRUD functions + Settings page + CheckWidget WAIT amber card + CSS tokens
-
-### Phase 9: fix transaction balance and recurring payment confirm
-
-**Goal:** Fix transaction balance bugs: non-recurring not deducted on creation, value updates not adjusting balance, recurring need confirmation mechanism
-**Requirements**: TXN-01, TXN-02
-**Depends on:** Phase 8
-**Plans:** 2/2 plans complete
-
-Plans:
-- [x] 09-01-PLAN.md — Backend: atomic balance sync + ConfirmRecurring endpoint
-- [x] 09-02-PLAN.md — Frontend: Confirm Paid button in transactions list
-
-### Phase 10: Codebase simplification and logic centralization
+### Phase 1: UI standardization: shared value
 
 **Goal:** [To be planned]
 **Requirements**: TBD
-**Depends on:** Phase 9
-**Plans:** 5/5 plans complete
+**Depends on:** Phase 0
+**Plans:** 0 plans
 
 Plans:
-- [x] TBD (run /gsd-plan-phase 10 to break down) (completed 2026-04-17)
+- [ ] TBD (run /gsd-plan-phase 1 to break down)
+
+### Phase 2: shared debt list components
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 1
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 2 to break down)
+
+### Phase 11: Separate non-recurrent transactions from obligations with dashboard See All
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 2
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 11 to break down)
+
+### Phase 12: modal create
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 11
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 12 to break down)
+
+### Phase 13: Goals foundation: goal entity, target amount, and investment ledger
+
+**Goal:** Establish account-scoped goals with editable target amounts, immutable investment ledger entries, and atomic account-balance coupling.
+**Requirements**: TBD
+**Depends on:** Phase 12
+**Plans:** 3/3 plans complete
+
+Plans:
+- [x] 13-01-PLAN.md — Backend goals schema/repo/service with atomic ledger+balance rules
+- [x] 13-02-PLAN.md — Goals API handlers/routes/tests and OpenAPI contract
+- [x] 13-03-PLAN.md — Minimal web goal flows (create + ledger entry + reverse) with tests
+
+### Phase 14: Goals tracking: tab, dashboard widget, recurring investments, and purchase impact
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 13
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 14 to break down)
+
+### Phase 15: ""
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 14
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 15 to break down)
+
+### Phase 16: ""
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 15
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 16 to break down)
+
+### Phase 17: ""
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 16
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 17 to break down)
+
+### Phase 18: ""
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 17
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 18 to break down)
+
+### Phase 19: ""
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 18
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 19 to break down)
+
+### Phase 20: ""
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 19
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 20 to break down)
+
+### Phase 21: ""
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 20
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 21 to break down)
+
+### Phase 22: ""
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 21
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 22 to break down)
+
+### Phase 23: ""
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 22
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 23 to break down)
+
+### Phase 24: ""
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 23
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 24 to break down)
+
+### Phase 25: ""
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 24
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 25 to break down)
+
+### Phase 26: ""
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 25
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 26 to break down)
+
+### Phase 27: ""
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 26
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 27 to break down)
 
 ---
 
-## Progress Table
+## Notes
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Foundation | 1/1 | Complete | 2026-04-11 |
-| 2. Domain + Engine | 3/3 | Complete | 2026-04-12 |
-| 3. CLI | 1/1 | Complete | 2026-04-11 |
-| 4. API Layer | 3/3 | Complete | 2026-04-12 |
-| 5. Web Dashboard | 7/7 | Complete | 2026-04-17 |
-| 6. MCP Server | 0/? | Not started | - |
-| 7. N Payment Schedules | 3/3 | Complete | 2026-04-17 |
+This roadmap intentionally removes stale ordering/milestone assumptions and reflects actual delivered phases and dependencies as of 2026-04-17.
