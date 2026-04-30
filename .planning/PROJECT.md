@@ -2,82 +2,70 @@
 
 ## What This Is
 
-CIBI: Personal financial decision engine. Answers instantly: *"If I buy this now, am I okay until next paycheck?"* Calculates purchasing power = balance - recurring obligations - safety buffer. No cloud. Local only.
+CIBI is a local-first personal finance decision system. It answers:
+
+> "Can I buy this now and still be safe until next payday?"
+
+Decision is based on account balance, projected obligations, and safety buffer.
 
 ## Core Value
 
-"Can I Buy It?" must always be correct. If a recurring transaction exists, it's accounted for. No exceptions.
+Decision correctness over everything else.
 
-## Requirements
+## Current Delivery Status (2026-04-17)
 
-### Validated
+### Completed
 
-- ✓ Account model with balance tracking — existing
-- ✓ Transaction model with one-off and evaluation logic — existing
-- ✓ Repository pattern with interface-based DB abstraction — existing
-- ✓ Layered architecture (Handlers → Services → Repos → DB) — existing
-- ✓ SQLite storage via swappable repository interfaces — existing
-- ✓ Echo HTTP server with CRUD routes for accounts and transactions — existing
+- ✅ Core architecture, config, migrations, and SQLite wiring
+- ✅ Decision engine (`CanIBuyIt`) with recurring obligation projection
+- ✅ Full CLI surface (accounts, transactions, check)
+- ✅ REST API + structured validation/error flow
+- ✅ React dashboard with animated verdict card
+- ✅ Multi pay schedules per account + WAIT verdict
+- ✅ Friend Ledger (friends, peer debts, group events, public token views)
+- ✅ Transaction balance synchronization fixes + recurring confirm-paid flow
+- ✅ Codebase simplification, logic centralization, and test hardening
+- ✅ Human verification completed for latest phase
 
-### Active
+### Pending
 
-- [ ] Repo renamed from `cibi-api` to `cibi` with restructured layout (`cmd/`, `internal/`)
-- [ ] Recurring transaction support (weekly, bi-weekly, monthly, yearly) with next-occurrence tracking
-- [ ] Decision Engine — calculates purchasing power: balance minus projected recurring obligations until next payday minus safety buffer
-- [ ] Safety buffer — global config for minimum account threshold
-- [ ] CLI — full CRUD + the "Can I Buy It?" query via Typer-equivalent (Cobra or similar)
-- [ ] MCP server — Go implementation exposing financial status and purchase feasibility to Claude
+- ⏳ MCP server (Phase 6)
+
+## Scope Boundaries
+
+### In Scope
+
+- Local-only operation
+- SQLite persistence
+- API + Web + CLI for personal usage
+- Tailscale-accessible deployment
 
 ### Out of Scope
 
-- Python rewrite — existing Go codebase already has clean architecture and swappable repos; rewrite cost not justified
-- HTMX or server-rendered web — user wants beautifully animated UI; React + Vite is the right fit
-- Cloud sync or multi-user — privacy-first, local-only; just two users on Tailscale with no concurrent write pressure
-- Data import from Google Sheets — user will enter data manually at launch
-- Automated bank sync — out of scope for personal, privacy-first tool
-
-## Context
-
-- Go codebase (`github.com/ufleck/cibi-api`): Echo, SQLite, repo interfaces, Account/Transaction models
-- Repo `cibi-api` → `cibi` (Phase 1 restructure)
-- M1: CLI primary. M2: React + Vite + Framer Motion dashboard. M3: Go MCP server (`mark3labs/mcp-go`)
-- Tailscale accessible, no auth (personal use)
+- Cloud sync / multi-tenant auth
+- Bank integrations
+- Spreadsheet imports
+- Currency conversion
 
 ## Constraints
 
-- **Privacy**: Zero cloud. Local only. SQLite never leaves machine.
-- **DB**: Swappable via repo interfaces. No direct SQLite imports in domain/service.
-- **Interfaces**: CLI, Web, MCP route through API. Decision Engine centralized.
-- **Performance**: "Can I Buy It?" <100ms.
-- **Stack**: Go (backend/CLI/MCP). React + Vite + Framer Motion (web).
+- Privacy-first: no cloud dependency
+- Money stored as integer cents
+- UTC/RFC3339 timestamps
+- Layered architecture (handlers → services → repos)
+- Business rules centralized in services/engine
 
-## Key Decisions
+## Key Decisions (Locked)
 
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| Keep Go (not Python rewrite) | Existing codebase already has clean layered arch + repo pattern; Go single binary is ideal for CLI | — Pending |
-| Repository pattern for DB | Domain and service layers depend only on interfaces; SQLite is the default impl but swappable | — Pending |
-| Monorepo named `cibi` | Houses API, CLI, and MCP — `cibi-api` was too narrow | — Pending |
-| React + Vite + Framer Motion | User wants beautiful animated UI; JS framework ecosystem is far ahead of HTMX for this | — Pending |
-| CLI mirrors full API | Every API operation available in CLI (except graph/visual outputs) | — Pending |
-| MCP in Go | Single language across entire stack; `mcp-go` SDK is solid | — Pending |
-
-## Evolution
-
-This document evolves at phase transitions and milestone boundaries.
-
-**After each phase transition** (via `/gsd-transition`):
-1. Requirements invalidated? → Move to Out of Scope with reason
-2. Requirements validated? → Move to Validated with phase reference
-3. New requirements emerged? → Add to Active
-4. Decisions to log? → Add to Key Decisions
-5. "What This Is" still accurate? → Update if drifted
-
-**After each milestone** (via `/gsd-complete-milestone`):
-1. Full review of all sections
-2. Core Value check — still the right priority?
-3. Audit Out of Scope — reasons still valid?
-4. Update Context with current state
+| Decision | Outcome |
+|---|---|
+| Keep Go stack end-to-end | Accepted |
+| Keep repository abstraction over SQLite | Accepted |
+| Use React + Vite web frontend | Accepted |
+| Keep CLI first-class (no HTTP dependency for check) | Accepted |
+| Add friend-ledger public read-only token pages | Accepted |
+| Add WAIT verdict for near-future affordability | Accepted |
+| Keep MCP as next isolated phase | Accepted |
 
 ---
-*Last updated: 2026-04-11 after initialization*
+*Last updated: 2026-04-17*

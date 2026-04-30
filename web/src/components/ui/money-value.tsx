@@ -21,7 +21,8 @@ function getSignPrefix(amount: number, showSign: MoneySign): string {
     return amount < 0 ? '-' : '+'
   }
 
-  return amount < 0 ? '-' : ''
+  // auto: rely on color semantics only (no explicit + / - signal)
+  return ''
 }
 
 function getToneClass(amount: number, tone: MoneyTone): string {

@@ -25,7 +25,8 @@ func NewTransactionsService(db *sql.DB, txnsRepo sqlite.TransactionsRepo, accRep
 // CreateTransaction validates and inserts a new transaction.
 // anchor_date is required when is_recurring is true.
 // frequency must be one of the defined FreqXxx constants when is_recurring is true.
-// D-01: Atomically updates account balance on creation.
+// D-01: Atomically creates transaction and updates balance when it should
+// impact current cash-on-hand immediately.
 func (s *TransactionsService) CreateTransaction(t sqlite.Transaction) error {
 	if t.IsRecurring {
 		if t.Frequency == nil || !sqlite.ValidFrequencies[*t.Frequency] {
@@ -49,10 +50,23 @@ func (s *TransactionsService) CreateTransaction(t sqlite.Transaction) error {
 		t.Timestamp = now
 	}
 
-	// D-01: Fetch account, begin atomic transaction, insert transaction, update balance.
-	acc, err := s.accRepo.GetByID(t.AccountID)
-	if err != nil {
-		return fmt.Errorf("service.CreateTransaction: get account: %w", err)
+	// If transaction is anchored in the future, keep current balance unchanged.
+	// It will affect purchasing power via obligations and/or explicit confirmation.
+	applyToBalance := true
+	if t.AnchorDate != nil && t.AnchorDate.UTC().After(time.Now().UTC()) {
+		applyToBalance = false
+	}
+
+	// IMPORTANT: with SQLite configured as MaxOpenConns(1), calling repository
+	// methods that use s.db while a tx is open can deadlock waiting for a free
+	// connection. Read account balance before opening the tx.
+	var currentBalance int64
+	if applyToBalance {
+		acc, err := s.accRepo.GetByID(t.AccountID)
+		if err != nil {
+			return fmt.Errorf("service.CreateTransaction: get account: %w", err)
+		}
+		currentBalance = acc.CurrentBalance
 	}
 
 	tx, err := s.db.Begin()
@@ -66,12 +80,14 @@ func (s *TransactionsService) CreateTransaction(t sqlite.Transaction) error {
 		return fmt.Errorf("service.CreateTransaction: insert: %w", err)
 	}
 
-	// Calculate new balance: balance increases for positive amounts (credit), decreases for negative (debit).
-	newBalance := acc.CurrentBalance + t.Amount
+	if applyToBalance {
+		// Calculate new balance: balance increases for positive amounts (credit), decreases for negative (debit).
+		newBalance := currentBalance + t.Amount
 
-	// Update account balance.
-	if err := s.accRepo.UpdateBalance(t.AccountID, newBalance, tx); err != nil {
-		return fmt.Errorf("service.CreateTransaction: update balance: %w", err)
+		// Update account balance.
+		if err := s.accRepo.UpdateBalance(t.AccountID, newBalance, tx); err != nil {
+			return fmt.Errorf("service.CreateTransaction: update balance: %w", err)
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

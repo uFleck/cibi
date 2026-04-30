@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Wallet, Edit2, Trash2 } from 'lucide-react'
+import { Plus, Wallet, Edit2, Trash2, Check } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -22,6 +22,7 @@ import {
   createPaySchedule,
   updatePaySchedule,
   deletePaySchedule,
+  confirmPaySchedule,
   type AccountResponse,
   type PayScheduleResponse,
   type CreatePayScheduleRequest,
@@ -58,7 +59,6 @@ export function AccountsPage() {
     frequency: 'monthly' as AccountScheduleFrequency,
     anchor_date: '',
     amount: '',
-    day_of_month: '',
     day_of_month_2: '',
   })
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null)
@@ -145,7 +145,6 @@ export function AccountsPage() {
         frequency: 'monthly',
         anchor_date: '',
         amount: '',
-        day_of_month: '',
         day_of_month_2: '',
       })
       setScheduleFormErrors({})
@@ -167,7 +166,6 @@ export function AccountsPage() {
         frequency: 'monthly',
         anchor_date: '',
         amount: '',
-        day_of_month: '',
         day_of_month_2: '',
       })
       setScheduleFormErrors({})
@@ -185,6 +183,18 @@ export function AccountsPage() {
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to delete schedule')
+    },
+  })
+
+  const confirmScheduleMutation = useMutation({
+    mutationFn: confirmPaySchedule,
+    onSuccess: () => {
+      toast.success('Schedule confirmed')
+      queryClient.invalidateQueries({ queryKey: ['pay-schedules', scheduleModalAccountId] })
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to confirm schedule')
     },
   })
 
@@ -242,7 +252,6 @@ export function AccountsPage() {
       frequency: ps.frequency,
       anchor_date: ps.anchor_date,
       amount: ps.amount.toFixed(2),
-      day_of_month: ps.day_of_month != null ? String(ps.day_of_month) : '',
       day_of_month_2: ps.day_of_month_2 != null ? String(ps.day_of_month_2) : '',
     })
     setScheduleFormErrors({})
@@ -266,7 +275,6 @@ export function AccountsPage() {
       anchor_date: scheduleForm.anchor_date,
       amount: parseFloat(scheduleForm.amount.replace(',', '.')),
       ...(scheduleForm.label ? { label: scheduleForm.label } : {}),
-      ...(scheduleForm.day_of_month ? { day_of_month: parseInt(scheduleForm.day_of_month, 10) } : {}),
       ...(scheduleForm.day_of_month_2 ? { day_of_month_2: parseInt(scheduleForm.day_of_month_2, 10) } : {}),
     }
 
@@ -281,6 +289,10 @@ export function AccountsPage() {
     deleteScheduleMutation.mutate(id)
   }
 
+  const handleConfirmSchedule = (id: string) => {
+    confirmScheduleMutation.mutate(id)
+  }
+
   const discardScheduleForm = () => {
     setEditingScheduleId(null)
     setScheduleForm({
@@ -288,7 +300,6 @@ export function AccountsPage() {
       frequency: 'monthly',
       anchor_date: '',
       amount: '',
-      day_of_month: '',
       day_of_month_2: '',
     })
     setScheduleFormErrors({})
@@ -459,7 +470,6 @@ export function AccountsPage() {
                           <div className="font-medium">{ps.label ?? ps.frequency}</div>
                           <div className="text-sm text-muted-foreground">
                             {ps.frequency} · {ps.anchor_date}
-                            {ps.day_of_month ? ` · day ${ps.day_of_month}` : ''}
                             {ps.day_of_month_2 ? `/${ps.day_of_month_2}` : ''}
                           </div>
                         </div>
@@ -472,6 +482,7 @@ export function AccountsPage() {
                         />
                       </div>
                       <div className="flex justify-end gap-2 mt-2">
+                        <MobileActionButton onClick={() => handleConfirmSchedule(ps.id)} icon={Check} label="Confirm" disabled={confirmScheduleMutation.isPending} />
                         <MobileActionButton onClick={() => startEditSchedule(ps)} icon={Edit2} label="Edit" variant="outline" />
                         <MobileActionButton onClick={() => handleDeleteSchedule(ps.id)} icon={Trash2} label="Delete" variant="outline" />
                       </div>
@@ -486,7 +497,7 @@ export function AccountsPage() {
                     <tr>
                       <th className="text-left px-3 py-2 font-medium">Schedule</th>
                       <th className="text-right px-3 py-2 font-medium">Amount</th>
-                      <th className="text-right px-3 py-2 font-medium w-20">Actions</th>
+                      <th className="text-right px-3 py-2 font-medium w-32">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -497,7 +508,6 @@ export function AccountsPage() {
                             <div className="font-medium">{ps.label ?? ps.frequency}</div>
                             <div className="text-xs text-muted-foreground">
                               {ps.frequency} · {ps.anchor_date}
-                              {ps.day_of_month ? ` · day ${ps.day_of_month}` : ''}
                               {ps.day_of_month_2 ? `/${ps.day_of_month_2}` : ''}
                             </div>
                           </td>
@@ -512,6 +522,23 @@ export function AccountsPage() {
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex gap-1 justify-end">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    onClick={() => handleConfirmSchedule(ps.id)}
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-9"
+                                    aria-label="Confirm schedule"
+                                    disabled={confirmScheduleMutation.isPending}
+                                  >
+                                    <Check size={14} />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Confirm schedule</p>
+                                </TooltipContent>
+                              </Tooltip>
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button

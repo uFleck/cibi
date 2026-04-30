@@ -11,7 +11,6 @@ const baseItems: DebtListItemVM[] = [
     amount: -500,
     currency: 'BRL',
     status: { label: 'Unpaid', tone: 'outline' },
-    canOpen: true,
     canConfirm: true,
     canDelete: true,
     canCopy: false,
@@ -48,27 +47,4 @@ describe('SharedDebtList', () => {
     expect(screen.queryByLabelText('Copy')).toBeNull()
   })
 
-  it('calls onOpen only for openable rows', () => {
-    const onOpen = vi.fn()
-    const items: DebtListItemVM[] = [
-      ...baseItems,
-      {
-        id: 'd2',
-        title: 'Closed',
-        subtitle: 'none',
-        amount: 10,
-        currency: 'BRL',
-        status: { label: 'Paid', tone: 'default' },
-        canOpen: false,
-      },
-    ]
-
-    render(<SharedDebtList view="owner" items={items} mode="mobile" onOpen={onOpen} />)
-
-    fireEvent.click(screen.getByText('Rent'))
-    expect(onOpen).toHaveBeenCalledWith('d1')
-
-    fireEvent.click(screen.getByText('Closed'))
-    expect(onOpen).toHaveBeenCalledTimes(1)
-  })
 })

@@ -1,22 +1,26 @@
 package service
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/ufleck/cibi/internal/engine"
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 )
 
 // PayScheduleService handles business logic for pay schedules.
 type PayScheduleService struct {
+	db      *sql.DB
 	psRepo  sqlite.PayScheduleRepo
 	accRepo sqlite.AccountsRepo
 }
 
 // NewPayScheduleService creates a new PayScheduleService.
-func NewPayScheduleService(psRepo sqlite.PayScheduleRepo, accRepo sqlite.AccountsRepo) *PayScheduleService {
+func NewPayScheduleService(db *sql.DB, psRepo sqlite.PayScheduleRepo, accRepo sqlite.AccountsRepo) *PayScheduleService {
 	return &PayScheduleService{
+		db:      db,
 		psRepo:  psRepo,
 		accRepo: accRepo,
 	}
@@ -27,7 +31,7 @@ func (s *PayScheduleService) CreatePaySchedule(
 	accountID uuid.UUID,
 	frequency string,
 	anchorDate time.Time,
-	dayOfMonth, dayOfMonth2 *int,
+	dayOfMonth2 *int,
 	label *string,
 	amount int64,
 ) (sqlite.PaySchedule, error) {
@@ -65,7 +69,7 @@ func (s *PayScheduleService) UpdatePaySchedule(
 	id uuid.UUID,
 	frequency string,
 	anchorDate time.Time,
-	dayOfMonth, dayOfMonth2 *int,
+	dayOfMonth2 *int,
 	label *string,
 	amount int64,
 ) error {
@@ -88,4 +92,48 @@ func (s *PayScheduleService) DeletePaySchedule(id uuid.UUID) error {
 		return fmt.Errorf("service.DeletePaySchedule: %w", err)
 	}
 	return nil
+}
+
+// ConfirmPayday confirms a schedule payout: credits account balance by schedule amount
+// and advances schedule anchor_date by one occurrence.
+func (s *PayScheduleService) ConfirmPayday(id uuid.UUID) (sqlite.PaySchedule, error) {
+	ps, err := s.psRepo.GetByID(id)
+	if err != nil {
+		return sqlite.PaySchedule{}, fmt.Errorf("service.ConfirmPayday: get schedule: %w", err)
+	}
+
+	acc, err := s.accRepo.GetByID(ps.AccountID)
+	if err != nil {
+		return sqlite.PaySchedule{}, fmt.Errorf("service.ConfirmPayday: get account: %w", err)
+	}
+
+	ep := engine.PaySchedule{
+		Frequency:   ps.Frequency,
+		AnchorDate:  ps.AnchorDate,
+		DayOfMonth2: ps.DayOfMonth2,
+	}
+	upcoming := engine.NextPayday(ep, time.Now().UTC())
+	nextAfterUpcoming := engine.NextPayday(ep, upcoming)
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return sqlite.PaySchedule{}, fmt.Errorf("service.ConfirmPayday: begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	newBalance := acc.CurrentBalance + ps.Amount
+	if err := s.accRepo.UpdateBalance(acc.ID, newBalance, tx); err != nil {
+		return sqlite.PaySchedule{}, fmt.Errorf("service.ConfirmPayday: update balance: %w", err)
+	}
+
+	if err := s.psRepo.UpdateAnchorDate(ps.ID, nextAfterUpcoming, tx); err != nil {
+		return sqlite.PaySchedule{}, fmt.Errorf("service.ConfirmPayday: update anchor: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return sqlite.PaySchedule{}, fmt.Errorf("service.ConfirmPayday: commit: %w", err)
+	}
+
+	ps.AnchorDate = nextAfterUpcoming
+	return ps, nil
 }

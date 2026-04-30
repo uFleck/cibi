@@ -16,8 +16,8 @@ describe('isInCurrentPayWindow', () => {
     expect(isInCurrentPayWindow('2026-04-15T00:00:00Z', now, '2026-04-20')).toBe(true)
   })
 
-  it('excludes obligations before today', () => {
-    expect(isInCurrentPayWindow('2026-04-10T00:00:00Z', now, '2026-04-20')).toBe(false)
+  it('includes overdue obligations (stay visible until confirmation)', () => {
+    expect(isInCurrentPayWindow('2026-04-10T00:00:00Z', now, '2026-04-20')).toBe(true)
   })
 
   it('includes the current payday day but excludes the next payday day', () => {
@@ -26,7 +26,8 @@ describe('isInCurrentPayWindow', () => {
     expect(isInCurrentPayWindow('2026-05-10T00:00:00Z', payday, '2026-05-10')).toBe(false)
   })
 
-  it('includes any obligation on/after today when there is no payday configured', () => {
+  it('includes obligations regardless of date when there is no payday configured', () => {
     expect(isInCurrentPayWindow('2026-05-10T00:00:00Z', now, null)).toBe(true)
+    expect(isInCurrentPayWindow('2026-01-01T00:00:00Z', now, null)).toBe(true)
   })
 })

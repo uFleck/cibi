@@ -21,7 +21,16 @@
       "Bash(python3:*)",
       "Bash(curl -s http://localhost:8080/api/friends/breakdown)",
       "Read(//usr/local/go/**)",
-      "Read(//usr/**)"
+      "Read(//usr/**)",
+      "Bash(go test:*)",
+      "Skill(gsd-debug)",
+      "Bash(node:*)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(claude:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(ls:*)",
+      "Skill(gsd-pause-work)"
     ]
   }
 }

@@ -10,6 +10,7 @@ import { ObligationsList } from '@/components/ObligationsList'
 import { PayScheduleList } from '@/components/PayScheduleList'
 import { ProjectionWidget } from '@/components/ProjectionWidget'
 import { FriendLedgerWidget } from '@/components/FriendLedgerWidget'
+import { GoalsSnapshotWidget } from '@/components/GoalsSnapshotWidget'
 import { AccountsPage } from '@/pages/accounts'
 import { TransactionsPage } from '@/pages/transactions'
 import { FriendsPage } from '@/pages/friends'
@@ -124,6 +125,8 @@ function Dashboard() {
           {account ? <StatCards account={account} recurringTxns={transactions} nextPayday={nextPayday} friendBreakdown={friendBreakdown} /> : null}
         </Skeleton>
       )}
+
+      <GoalsSnapshotWidget />
 
       <CheckWidget accountId={account?.id} />
 

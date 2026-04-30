@@ -29,7 +29,7 @@ function RootLayoutWithNav() {
   return (
     <div className="flex h-dvh bg-background">
       <MobileHeader />
-      <main className="flex-1 overflow-auto pt-[calc(3.5rem+env(safe-area-inset-top))] pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
+      <main className="flex-1 overflow-auto pt-[calc(4.25rem+env(safe-area-inset-top))] pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
         <Outlet />
       </main>
       <MobileBottomNav />

@@ -54,6 +54,7 @@ export function DebtForm({
           onValueChange={value => onChange({ ...form, amount: value })}
           placeholder="Amount"
           allowNegative
+          showSignToggle
         />
         <Input
           required

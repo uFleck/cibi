@@ -41,9 +41,11 @@ describe('MoneyValue', () => {
     expect(screen.getByText(/US\$/)).toBeTruthy()
   })
 
-  it("keeps '-' sign by default for negative amount", () => {
+  it("hides sign by default for negative amount", () => {
     render(<MoneyValue amount={-120} />)
 
-    expect(screen.getByText(/^-R\$/)).toBeTruthy()
+    const value = screen.getByText(/^R\$/)
+    expect(value.textContent?.startsWith('-')).toBe(false)
+    expect(value.textContent?.startsWith('+')).toBe(false)
   })
 })

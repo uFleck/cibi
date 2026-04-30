@@ -106,7 +106,6 @@ var accountPayScheduleCmd = &cobra.Command{
 		accountID, _ := cmd.Flags().GetString("account-id")
 		frequency, _ := cmd.Flags().GetString("frequency")
 		anchorDateStr, _ := cmd.Flags().GetString("anchor-date")
-		dayOfMonth, _ := cmd.Flags().GetInt("day-of-month")
 		dayOfMonth2, _ := cmd.Flags().GetInt("day-of-month-2")
 
 		var accID uuid.UUID
@@ -138,16 +137,13 @@ var accountPayScheduleCmd = &cobra.Command{
 			return fmt.Errorf("invalid anchor-date format: %w", err)
 		}
 
-		var dom1, dom2 *int
-		if dayOfMonth > 0 {
-			dom1 = &dayOfMonth
-		}
+		var dom2 *int
 		if dayOfMonth2 > 0 {
 			dom2 = &dayOfMonth2
 		}
 
 		psSvc := application.PayScheduleSvc
-		if _, err := psSvc.CreatePaySchedule(accID, frequency, anchorDate, dom1, dom2, nil, 0); err != nil {
+		if _, err := psSvc.CreatePaySchedule(accID, frequency, anchorDate, dom2, nil, 0); err != nil {
 			return fmt.Errorf("failed to create pay schedule: %w", err)
 		}
 
@@ -165,8 +161,7 @@ func init() {
 	accountPayScheduleCmd.Flags().String("account-id", "", "account ID (uses default if not provided)")
 	accountPayScheduleCmd.Flags().String("frequency", "", "pay frequency: weekly, biweekly, monthly (required)")
 	accountPayScheduleCmd.Flags().String("anchor-date", "", "first pay date: YYYY-MM-DD (required)")
-	accountPayScheduleCmd.Flags().Int("day-of-month", 0, "day of month for monthly (1-31)")
-	accountPayScheduleCmd.Flags().Int("day-of-month-2", 0, "second day for biweekly (1-31)")
+	accountPayScheduleCmd.Flags().Int("day-of-month-2", 0, "second day for semi-monthly (1-31)")
 
 	accountCmd.AddCommand(accountListCmd, accountAddCmd, accountSetDefaultCmd, accountDeleteCmd, accountPayScheduleCmd)
 	rootCmd.AddCommand(accountCmd)

@@ -29,7 +29,7 @@ func main() {
 
 	accRepo := reposqlite.NewSqliteAccountsRepo(database)
 	psRepo := reposqlite.NewSqlitePayScheduleRepo(database)
-	psSvc := service.NewPayScheduleService(psRepo, accRepo)
+	psSvc := service.NewPayScheduleService(database, psRepo, accRepo)
 
 	// Get default account
 	acc, err := accRepo.GetDefault()
@@ -53,7 +53,6 @@ func main() {
 		acc.ID,
 		"semi-monthly",
 		time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
-		nil,
 		&dom2,
 		nil,
 		0,
