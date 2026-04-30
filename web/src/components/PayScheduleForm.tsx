@@ -51,7 +51,6 @@ export function PayScheduleForm() {
         frequency,
         anchor_date: anchorDate,
         amount: 0,
-        day_of_month: dayOfMonth ? parseInt(dayOfMonth, 10) : undefined,
         day_of_month_2: dayOfMonth2 ? parseInt(dayOfMonth2, 10) : undefined,
       }
       await createPaySchedule(schedule)

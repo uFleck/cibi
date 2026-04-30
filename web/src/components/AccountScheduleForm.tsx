@@ -12,7 +12,6 @@ export interface AccountScheduleValues {
   frequency: AccountScheduleFrequency
   anchor_date: string
   amount: string
-  day_of_month: string
   day_of_month_2: string
 }
 
@@ -100,19 +99,6 @@ export function AccountScheduleForm({
             <p className="text-xs text-destructive">{scheduleFormErrors.amount}</p>
           )}
         </div>
-        {(scheduleForm.frequency === 'monthly' || scheduleForm.frequency === 'semi-monthly') && (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="schedule-day" className="text-xs">Day of Month</Label>
-            <Input
-              id="schedule-day"
-              type="number"
-              min="1"
-              max="31"
-              value={scheduleForm.day_of_month}
-              onChange={e => onChange({ day_of_month: e.target.value })}
-            />
-          </div>
-        )}
         {scheduleForm.frequency === 'semi-monthly' && (
           <div className="flex flex-col gap-2">
             <Label htmlFor="schedule-day2" className="text-xs">Day of Month 2</Label>

@@ -30,8 +30,8 @@ export function MobileBottomNav() {
               to={to}
               className={`relative flex h-11 min-w-14 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-full px-2 text-[11px] transition-colors ${
                 isActive
-                  ? 'text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+                  ? 'text-white'
+                  : 'text-muted-foreground hover:bg-white/8 hover:text-foreground'
               }`}
             >
               {isActive && (

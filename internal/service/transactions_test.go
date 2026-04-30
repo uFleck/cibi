@@ -219,6 +219,59 @@ func TestCreateTransaction_UpdatesBalanceAtomically(t *testing.T) {
 	}
 }
 
+func TestCreateTransaction_FutureAnchorDate_DoesNotUpdateBalance(t *testing.T) {
+	db := openTestDB(t)
+	accountID := uuid.New()
+	txnAmount := int64(-2500)
+	futureAnchor := time.Now().UTC().Add(24 * time.Hour)
+
+	var insertUsedTx bool
+	var updateBalanceCalled bool
+
+	txnsRepo := &mockTransactionsRepo{
+		insertFn: func(txn sqlite.Transaction, tx *sql.Tx) error {
+			insertUsedTx = tx != nil
+			if txn.Amount != txnAmount {
+				t.Fatalf("expected amount %d, got %d", txnAmount, txn.Amount)
+			}
+			if txn.AnchorDate == nil || !txn.AnchorDate.UTC().Equal(futureAnchor.UTC()) {
+				t.Fatalf("expected anchor_date %v, got %v", futureAnchor.UTC(), txn.AnchorDate)
+			}
+			return nil
+		},
+	}
+	accRepo := &mockAccountsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Account, error) {
+			return sqlite.Account{ID: accountID, CurrentBalance: 10000}, nil
+		},
+		updateBalanceFn: func(id uuid.UUID, balance int64, tx *sql.Tx) error {
+			updateBalanceCalled = true
+			return nil
+		},
+	}
+
+	freq := engine.FreqMonthly
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	err := svc.CreateTransaction(sqlite.Transaction{
+		AccountID:   accountID,
+		Amount:      txnAmount,
+		AnchorDate:  &futureAnchor,
+		IsRecurring: true,
+		Frequency:   &freq,
+		Timestamp:   time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("CreateTransaction error: %v", err)
+	}
+
+	if !insertUsedTx {
+		t.Fatalf("expected insert to use tx")
+	}
+	if updateBalanceCalled {
+		t.Fatalf("expected balance to remain unchanged for future-anchored transaction")
+	}
+}
+
 func TestUpdateTransaction_RecalculatesBalanceWhenAmountChanges(t *testing.T) {
 	db := openTestDB(t)
 	txnID := uuid.New()

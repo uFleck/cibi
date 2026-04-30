@@ -232,10 +232,12 @@ func (r *SqliteTxnsRepo) AdvanceNextOccurrence(id uuid.UUID, next time.Time, tx 
 }
 
 // SumUpcomingObligations returns the sum of amounts (cents) for recurring
-// transactions where next_occurrence is strictly after `after` and strictly before
-// `onOrBefore`. Payday itself starts the next window.
+// transactions where next_occurrence is strictly before `onOrBefore`.
+// This intentionally includes due/overdue recurring obligations so they keep
+// counting until user confirmation advances next_occurrence.
+// Payday itself starts the next window.
 func (r *SqliteTxnsRepo) SumUpcomingObligations(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error) {
-	afterStr := after.UTC().Format(time.RFC3339)
+	_ = after // retained for interface compatibility
 	onOrBeforeStr := onOrBefore.UTC().Format(time.RFC3339)
 
 	var sum int64
@@ -244,10 +246,8 @@ func (r *SqliteTxnsRepo) SumUpcomingObligations(accountID uuid.UUID, after, onOr
 		 FROM "Transaction"
 		 WHERE account_id = ?
 		   AND is_recurring = 1
-		   AND next_occurrence > ?
 		   AND next_occurrence < ?`,
 		accountID.String(),
-		afterStr,
 		onOrBeforeStr,
 	).Scan(&sum)
 	if err != nil {

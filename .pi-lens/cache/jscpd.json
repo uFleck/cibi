@@ -1,0 +1,624 @@
+{
+  "success": true,
+  "clones": [
+    {
+      "fileA": "web/src/components/debt/shared-debt-list.tsx",
+      "startA": 105,
+      "fileB": "web/src/components/debt/shared-debt-list.tsx",
+      "startB": 57,
+      "lines": 49,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/components/debt/debt-list-mappers.ts",
+      "startA": 61,
+      "fileB": "web/src/components/debt/debt-list-mappers.ts",
+      "startB": 47,
+      "lines": 9,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/pages/transactions.tsx",
+      "startA": 150,
+      "fileB": "web/src/pages/transactions.tsx",
+      "startB": 124,
+      "lines": 6,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/pages/transactions.tsx",
+      "startA": 156,
+      "fileB": "web/src/pages/transactions.tsx",
+      "startB": 130,
+      "lines": 15,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/pages/transactions.tsx",
+      "startA": 188,
+      "fileB": "web/src/pages/transactions.tsx",
+      "startB": 124,
+      "lines": 6,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/pages/goals.tsx",
+      "startA": 259,
+      "fileB": "web/src/pages/goals.tsx",
+      "startB": 231,
+      "lines": 8,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/pages/friend-public.tsx",
+      "startA": 254,
+      "fileB": "web/src/pages/friend-public.tsx",
+      "startB": 229,
+      "lines": 60,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/pages/friend-public.tsx",
+      "startA": 67,
+      "fileB": "web/src/pages/group-public.tsx",
+      "startB": 24,
+      "lines": 20,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/pages/accounts.tsx",
+      "startA": 337,
+      "fileB": "web/src/pages/transactions.tsx",
+      "startB": 296,
+      "lines": 7,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/pages/accounts.tsx",
+      "startA": 45,
+      "fileB": "web/src/pages/transactions.tsx",
+      "startB": 44,
+      "lines": 6,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/pages/accounts.tsx",
+      "startA": 163,
+      "fileB": "web/src/pages/accounts.tsx",
+      "startB": 142,
+      "lines": 12,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/components/ProjectionWidget.tsx",
+      "startA": 40,
+      "fileB": "web/src/components/StatCards.tsx",
+      "startB": 48,
+      "lines": 7,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/components/ProjectionWidget.tsx",
+      "startA": 46,
+      "fileB": "web/src/components/StatCards.tsx",
+      "startB": 54,
+      "lines": 9,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/components/ParticipantEditor.tsx",
+      "startA": 155,
+      "fileB": "web/src/components/ParticipantEditor.tsx",
+      "startB": 116,
+      "lines": 57,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/components/GoalsSnapshotWidget.tsx",
+      "startA": 13,
+      "fileB": "web/src/pages/goals.tsx",
+      "startB": 44,
+      "lines": 13,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/components/FriendForm.tsx",
+      "startA": 65,
+      "fileB": "web/src/components/GroupEventForm.tsx",
+      "startB": 72,
+      "lines": 12,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/components/AccountScheduleForm.tsx",
+      "startA": 60,
+      "fileB": "web/src/components/TransactionForm.tsx",
+      "startB": 161,
+      "lines": 7,
+      "tokens": 0
+    },
+    {
+      "fileA": "web/src/components/AccountForm.tsx",
+      "startA": 91,
+      "fileB": "web/src/components/TransactionForm.tsx",
+      "startB": 182,
+      "lines": 23,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/repo/sqlite/transactions.go",
+      "startA": 97,
+      "fileB": "internal/repo/sqlite/transactions.go",
+      "startB": 81,
+      "lines": 17,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/repo/sqlite/transactions.go",
+      "startA": 221,
+      "fileB": "internal/repo/sqlite/transactions.go",
+      "startB": 191,
+      "lines": 9,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/repo/sqlite/transactions.go",
+      "startA": 281,
+      "fileB": "internal/repo/sqlite/transactions.go",
+      "startB": 265,
+      "lines": 11,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/repo/sqlite/peer_debt_test.go",
+      "startA": 65,
+      "fileB": "internal/repo/sqlite/peer_debt_test.go",
+      "startB": 52,
+      "lines": 11,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/repo/sqlite/group_event.go",
+      "startA": 215,
+      "fileB": "internal/repo/sqlite/group_event.go",
+      "startB": 103,
+      "lines": 12,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/repo/sqlite/group_event.go",
+      "startA": 273,
+      "fileB": "internal/repo/sqlite/peer_debt.go",
+      "startB": 241,
+      "lines": 12,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/repo/sqlite/goals.go",
+      "startA": 316,
+      "fileB": "internal/repo/sqlite/goals.go",
+      "startB": 307,
+      "lines": 7,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/repo/sqlite/goals.go",
+      "startA": 364,
+      "fileB": "internal/repo/sqlite/goals.go",
+      "startB": 355,
+      "lines": 6,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/repo/sqlite/goals.go",
+      "startA": 411,
+      "fileB": "internal/repo/sqlite/goals.go",
+      "startB": 402,
+      "lines": 6,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/service/transactions_test.go",
+      "startA": 328,
+      "fileB": "internal/service/transactions_test.go",
+      "startB": 284,
+      "lines": 8,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/service/transactions_test.go",
+      "startA": 372,
+      "fileB": "internal/service/transactions_test.go",
+      "startB": 284,
+      "lines": 11,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/service/goals_tracking_test.go",
+      "startA": 68,
+      "fileB": "internal/service/goals_tracking_test.go",
+      "startB": 29,
+      "lines": 10,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/service/goals_test.go",
+      "startA": 151,
+      "fileB": "internal/service/goals_test.go",
+      "startB": 92,
+      "lines": 7,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/testhelpers_test.go",
+      "startA": 199,
+      "fileB": "internal/handler/testhelpers_test.go",
+      "startB": 164,
+      "lines": 11,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/public.go",
+      "startA": 239,
+      "fileB": "internal/handler/public.go",
+      "startB": 201,
+      "lines": 27,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/public.go",
+      "startA": 267,
+      "fileB": "internal/handler/public.go",
+      "startB": 229,
+      "lines": 10,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/profile.go",
+      "startA": 38,
+      "fileB": "internal/handler/transactions.go",
+      "startB": 118,
+      "lines": 7,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/peer_debt.go",
+      "startA": 94,
+      "fileB": "internal/handler/transactions.go",
+      "startB": 95,
+      "lines": 11,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/peer_debt.go",
+      "startA": 121,
+      "fileB": "internal/handler/peer_debt.go",
+      "startB": 110,
+      "lines": 12,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/peer_debt.go",
+      "startA": 135,
+      "fileB": "internal/handler/transactions.go",
+      "startB": 118,
+      "lines": 7,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/peer_debt.go",
+      "startA": 201,
+      "fileB": "internal/handler/peer_debt.go",
+      "startB": 186,
+      "lines": 10,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/peer_debt.go",
+      "startA": 216,
+      "fileB": "internal/handler/peer_debt.go",
+      "startB": 201,
+      "lines": 10,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/peer_debt.go",
+      "startA": 231,
+      "fileB": "internal/handler/peer_debt.go",
+      "startB": 201,
+      "lines": 8,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/pay_schedule.go",
+      "startA": 113,
+      "fileB": "internal/handler/transactions.go",
+      "startB": 118,
+      "lines": 11,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/pay_schedule.go",
+      "startA": 142,
+      "fileB": "internal/handler/transactions.go",
+      "startB": 118,
+      "lines": 7,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/group_event.go",
+      "startA": 124,
+      "fileB": "internal/handler/transactions.go",
+      "startB": 95,
+      "lines": 10,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/group_event.go",
+      "startA": 147,
+      "fileB": "internal/handler/transactions.go",
+      "startB": 118,
+      "lines": 11,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/group_event.go",
+      "startA": 171,
+      "fileB": "internal/handler/public.go",
+      "startB": 281,
+      "lines": 8,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/group_event.go",
+      "startA": 204,
+      "fileB": "internal/handler/group_event.go",
+      "startB": 169,
+      "lines": 10,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/group_event.go",
+      "startA": 238,
+      "fileB": "internal/handler/transactions.go",
+      "startB": 118,
+      "lines": 7,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/group_event.go",
+      "startA": 270,
+      "fileB": "internal/handler/group_event.go",
+      "startB": 222,
+      "lines": 8,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/goals.go",
+      "startA": 103,
+      "fileB": "internal/handler/transactions.go",
+      "startB": 118,
+      "lines": 11,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/goals.go",
+      "startA": 158,
+      "fileB": "internal/handler/goals.go",
+      "startB": 117,
+      "lines": 8,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/goals.go",
+      "startA": 179,
+      "fileB": "internal/handler/transactions.go",
+      "startB": 118,
+      "lines": 7,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/friend.go",
+      "startA": 123,
+      "fileB": "internal/handler/transactions.go",
+      "startB": 118,
+      "lines": 7,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/friend.go",
+      "startA": 166,
+      "fileB": "internal/handler/friend.go",
+      "startB": 140,
+      "lines": 13,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/friend.go",
+      "startA": 194,
+      "fileB": "internal/handler/transactions.go",
+      "startB": 95,
+      "lines": 11,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/friend.go",
+      "startA": 246,
+      "fileB": "internal/handler/transactions.go",
+      "startB": 95,
+      "lines": 11,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/errors_test.go",
+      "startA": 72,
+      "fileB": "internal/handler/errors_test.go",
+      "startB": 49,
+      "lines": 7,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/check_test.go",
+      "startA": 90,
+      "fileB": "internal/handler/check_test.go",
+      "startB": 35,
+      "lines": 7,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/check_test.go",
+      "startA": 117,
+      "fileB": "internal/handler/transactions_test.go",
+      "startB": 65,
+      "lines": 12,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/check_test.go",
+      "startA": 130,
+      "fileB": "internal/handler/check_test.go",
+      "startB": 109,
+      "lines": 6,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/check_test.go",
+      "startA": 135,
+      "fileB": "internal/handler/check_test.go",
+      "startB": 114,
+      "lines": 15,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/check.go",
+      "startA": 61,
+      "fileB": "internal/handler/transactions.go",
+      "startB": 118,
+      "lines": 7,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/accounts_test.go",
+      "startA": 26,
+      "fileB": "internal/handler/transactions_test.go",
+      "startB": 35,
+      "lines": 8,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/accounts_test.go",
+      "startA": 120,
+      "fileB": "internal/handler/errors_test.go",
+      "startB": 69,
+      "lines": 8,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/accounts_test.go",
+      "startA": 148,
+      "fileB": "internal/handler/transactions_test.go",
+      "startB": 129,
+      "lines": 10,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/accounts_test.go",
+      "startA": 152,
+      "fileB": "internal/handler/accounts_test.go",
+      "startB": 92,
+      "lines": 10,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/accounts_test.go",
+      "startA": 175,
+      "fileB": "internal/handler/transactions_test.go",
+      "startB": 156,
+      "lines": 10,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/accounts.go",
+      "startA": 89,
+      "fileB": "internal/handler/transactions.go",
+      "startB": 118,
+      "lines": 7,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/accounts.go",
+      "startA": 159,
+      "fileB": "internal/handler/accounts.go",
+      "startB": 126,
+      "lines": 11,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/handler/accounts.go",
+      "startA": 190,
+      "fileB": "internal/handler/accounts.go",
+      "startB": 175,
+      "lines": 8,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/engine/engine_test.go",
+      "startA": 82,
+      "fileB": "internal/engine/engine_test.go",
+      "startB": 55,
+      "lines": 8,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/engine/engine_test.go",
+      "startA": 109,
+      "fileB": "internal/engine/engine_test.go",
+      "startB": 55,
+      "lines": 8,
+      "tokens": 0
+    },
+    {
+      "fileA": "internal/engine/engine_test.go",
+      "startA": 143,
+      "fileB": "internal/engine/engine_test.go",
+      "startB": 55,
+      "lines": 8,
+      "tokens": 0
+    },
+    {
+      "fileA": "cmd/cibi/tx.go",
+      "startA": 78,
+      "fileB": "cmd/cibi/tx.go",
+      "startB": 22,
+      "lines": 18,
+      "tokens": 0
+    },
+    {
+      "fileA": "cmd/cibi/tx.go",
+      "startA": 135,
+      "fileB": "cmd/cibi/tx.go",
+      "startB": 26,
+      "lines": 14,
+      "tokens": 0
+    },
+    {
+      "fileA": "cmd/cibi/tx.go",
+      "startA": 178,
+      "fileB": "cmd/cibi/tx.go",
+      "startB": 128,
+      "lines": 25,
+      "tokens": 0
+    },
+    {
+      "fileA": "cmd/cibi/account.go",
+      "startA": 87,
+      "fileB": "cmd/cibi/account.go",
+      "startB": 70,
+      "lines": 8,
+      "tokens": 0
+    }
+  ],
+  "duplicatedLines": 844,
+  "totalLines": 24858,
+  "percentage": 3.4
+}

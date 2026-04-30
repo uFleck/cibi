@@ -1,0 +1,599 @@
+{
+  "files": {
+    "web/src/components/ui/chart.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 55,
+          "end": 55
+        }
+      ],
+      "importsChanged": false,
+      "lastEdit": "2026-04-17T04:18:18.107Z"
+    },
+    "web/src/components/ui/money-value.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 61
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-17T20:26:42.169Z"
+    },
+    "web/src/__tests__/money-value.test.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 50
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-17T20:27:01.457Z"
+    },
+    "web/src/components/StatCards.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 2,
+          "end": 2
+        },
+        {
+          "start": 19,
+          "end": 19
+        },
+        {
+          "start": 21,
+          "end": 21
+        },
+        {
+          "start": 23,
+          "end": 24
+        },
+        {
+          "start": 32,
+          "end": 33
+        },
+        {
+          "start": 69,
+          "end": 77
+        },
+        {
+          "start": 81,
+          "end": 89
+        },
+        {
+          "start": 94,
+          "end": 99
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-17T20:31:04.937Z"
+    },
+    "web/src/components/ObligationsList.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 2
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-17T20:31:15.824Z"
+    },
+    "web/src/components/PayScheduleList.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 2
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-17T20:31:25.825Z"
+    },
+    "web/src/components/ProjectionWidget.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 4,
+          "end": 4
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-17T20:32:31.679Z"
+    },
+    "web/src/components/FriendLedgerWidget.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 7,
+          "end": 7
+        },
+        {
+          "start": 9,
+          "end": 10
+        },
+        {
+          "start": 58,
+          "end": 66
+        },
+        {
+          "start": 68,
+          "end": 82
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-17T20:32:32.852Z"
+    },
+    "web/src/components/CheckWidget.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 6,
+          "end": 6
+        },
+        {
+          "start": 8,
+          "end": 9
+        },
+        {
+          "start": 12,
+          "end": 13
+        },
+        {
+          "start": 41,
+          "end": 45
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-29T22:38:41.406Z"
+    },
+    "web/src/pages/transactions.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 4,
+          "end": 4
+        },
+        {
+          "start": 10,
+          "end": 11
+        },
+        {
+          "start": 24,
+          "end": 24
+        },
+        {
+          "start": 61,
+          "end": 62
+        },
+        {
+          "start": 78,
+          "end": 78
+        },
+        {
+          "start": 90,
+          "end": 92
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-20T14:57:48.580Z"
+    },
+    "web/src/pages/accounts.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 4,
+          "end": 4
+        },
+        {
+          "start": 10,
+          "end": 11
+        },
+        {
+          "start": 25,
+          "end": 25
+        },
+        {
+          "start": 28,
+          "end": 28
+        },
+        {
+          "start": 62,
+          "end": 62
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-20T16:02:09.400Z"
+    },
+    "web/src/components/CompactEntityTable.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 1
+        },
+        {
+          "start": 8,
+          "end": 9
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-17T20:41:56.084Z"
+    },
+    "web/src/pages/friends.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 4,
+          "end": 4
+        },
+        {
+          "start": 7,
+          "end": 7
+        },
+        {
+          "start": 11,
+          "end": 14
+        },
+        {
+          "start": 35,
+          "end": 35
+        },
+        {
+          "start": 55,
+          "end": 97
+        },
+        {
+          "start": 103,
+          "end": 103
+        },
+        {
+          "start": 282,
+          "end": 291
+        },
+        {
+          "start": 293,
+          "end": 303
+        },
+        {
+          "start": 321,
+          "end": 335
+        },
+        {
+          "start": 337,
+          "end": 376
+        },
+        {
+          "start": 378,
+          "end": 439
+        },
+        {
+          "start": 751,
+          "end": 751
+        },
+        {
+          "start": 757,
+          "end": 757
+        },
+        {
+          "start": 922,
+          "end": 927
+        },
+        {
+          "start": 964,
+          "end": 965
+        },
+        {
+          "start": 968,
+          "end": 972
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-18T04:06:05.128Z"
+    },
+    "web/src/pages/group-public.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 4,
+          "end": 7
+        },
+        {
+          "start": 59,
+          "end": 60
+        },
+        {
+          "start": 86,
+          "end": 99
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-18T03:47:57.953Z"
+    },
+    "web/src/components/ParticipantEditor.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 8,
+          "end": 8
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-17T20:42:46.305Z"
+    },
+    "web/src/pages/friend-public.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 7,
+          "end": 10
+        },
+        {
+          "start": 12,
+          "end": 13
+        },
+        {
+          "start": 16,
+          "end": 49
+        },
+        {
+          "start": 90,
+          "end": 91
+        },
+        {
+          "start": 93,
+          "end": 96
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-18T03:54:42.385Z"
+    },
+    "web/src/components/debt/shared-debt-list.types.ts": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 39
+        }
+      ],
+      "importsChanged": false,
+      "lastEdit": "2026-04-18T03:43:43.553Z"
+    },
+    "web/src/components/debt/shared-debt-list.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 176
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-20T15:01:47.561Z"
+    },
+    "web/src/__tests__/shared-debt-list.test.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 75
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-18T03:44:48.488Z"
+    },
+    "web/src/components/debt/shared-debt-list.stories.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 31
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-18T03:45:11.298Z"
+    },
+    "web/src/components/debt/debt-list-mappers.ts": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 106
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-18T04:18:32.837Z"
+    },
+    "web/src/components/debt/friend-debt-details-modal.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 70
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-18T03:46:29.107Z"
+    },
+    "web/src/App.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 6,
+          "end": 7
+        },
+        {
+          "start": 30,
+          "end": 32
+        },
+        {
+          "start": 34,
+          "end": 36
+        },
+        {
+          "start": 38,
+          "end": 38
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-19T04:21:25.932Z"
+    },
+    "web/src/components/MobileHeader.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 2,
+          "end": 2
+        },
+        {
+          "start": 5,
+          "end": 5
+        },
+        {
+          "start": 7,
+          "end": 9
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-19T04:21:23.265Z"
+    },
+    "web/src/components/MobileBottomNav.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 2,
+          "end": 2
+        },
+        {
+          "start": 6,
+          "end": 6
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-19T04:06:08.403Z"
+    },
+    "web/src/components/AccountForm.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 54,
+          "end": 54
+        }
+      ],
+      "importsChanged": false,
+      "lastEdit": "2026-04-18T05:34:56.042Z"
+    },
+    "web/src/lib/financial-window.ts": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 4
+        },
+        {
+          "start": 7,
+          "end": 7
+        },
+        {
+          "start": 9,
+          "end": 9
+        }
+      ],
+      "importsChanged": false,
+      "lastEdit": "2026-04-21T14:55:33.743Z"
+    },
+    "web/src/components/AccountScheduleForm.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 15,
+          "end": 15
+        }
+      ],
+      "importsChanged": false,
+      "lastEdit": "2026-04-20T16:01:06.655Z"
+    },
+    "web/src/lib/api.ts": {
+      "modifiedRanges": [
+        {
+          "start": 22,
+          "end": 99
+        }
+      ],
+      "importsChanged": false,
+      "lastEdit": "2026-04-29T22:38:40.384Z"
+    },
+    "web/src/components/PayScheduleForm.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 54,
+          "end": 54
+        }
+      ],
+      "importsChanged": false,
+      "lastEdit": "2026-04-20T16:04:19.281Z"
+    },
+    "web/src/components/DebtForm.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 57,
+          "end": 57
+        }
+      ],
+      "importsChanged": false,
+      "lastEdit": "2026-04-28T13:24:35.228Z"
+    },
+    "web/src/pages/goals.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 244
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-29T22:43:35.132Z"
+    },
+    "web/src/router.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 13,
+          "end": 13
+        },
+        {
+          "start": 17,
+          "end": 17
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-29T22:33:03.180Z"
+    },
+    "web/src/__tests__/goals.test.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 34
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-29T20:55:04.022Z"
+    },
+    "web/src/components/GoalsSnapshotWidget.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 72
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-29T22:32:41.256Z"
+    },
+    "web/src/components/CheckWidget.test.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 9
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-29T22:39:44.220Z"
+    },
+    "web/src/pages/goals.test.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 22
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-29T22:43:45.533Z"
+    },
+    "web/src/components/goals-widget.test.tsx": {
+      "modifiedRanges": [
+        {
+          "start": 1,
+          "end": 10
+        }
+      ],
+      "importsChanged": true,
+      "lastEdit": "2026-04-29T22:43:46.289Z"
+    }
+  },
+  "turnCycles": 0,
+  "maxCycles": 3,
+  "lastUpdated": "2026-04-29T22:43:46.289Z"
+}

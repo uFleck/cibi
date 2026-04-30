@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -23,7 +24,9 @@ type PaySchedule struct {
 type PayScheduleRepo interface {
 	Insert(ps PaySchedule) error
 	ListByAccountID(accountID uuid.UUID) ([]PaySchedule, error)
+	GetByID(id uuid.UUID) (PaySchedule, error)
 	UpdateByID(id uuid.UUID, ps PaySchedule) error
+	UpdateAnchorDate(id uuid.UUID, anchorDate time.Time, tx *sql.Tx) error
 	DeleteByID(id uuid.UUID) error
 }
 
@@ -117,6 +120,47 @@ func (r *SqlitePayScheduleRepo) ListByAccountID(accountID uuid.UUID) ([]PaySched
 	return schedules, nil
 }
 
+func (r *SqlitePayScheduleRepo) GetByID(id uuid.UUID) (PaySchedule, error) {
+	var ps PaySchedule
+	var idStr, accIDStr, anchorStr string
+	var dom2 sql.NullInt64
+	var label sql.NullString
+
+	err := r.db.QueryRow(
+		`SELECT id, account_id, frequency, anchor_date, day_of_month2, label, amount
+		 FROM PaySchedule WHERE id = ?`,
+		id.String(),
+	).Scan(&idStr, &accIDStr, &ps.Frequency, &anchorStr, &dom2, &label, &ps.Amount)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return PaySchedule{}, sql.ErrNoRows
+		}
+		return PaySchedule{}, fmt.Errorf("pay_schedule.GetByID: query: %w", err)
+	}
+
+	var parseErr error
+	ps.ID, parseErr = uuid.Parse(idStr)
+	if parseErr != nil {
+		return PaySchedule{}, fmt.Errorf("pay_schedule.GetByID: parse id: %w", parseErr)
+	}
+	ps.AccountID, parseErr = uuid.Parse(accIDStr)
+	if parseErr != nil {
+		return PaySchedule{}, fmt.Errorf("pay_schedule.GetByID: parse account_id: %w", parseErr)
+	}
+	ps.AnchorDate, parseErr = time.Parse(time.RFC3339, anchorStr)
+	if parseErr != nil {
+		return PaySchedule{}, fmt.Errorf("pay_schedule.GetByID: parse anchor_date: %w", parseErr)
+	}
+	if dom2.Valid {
+		d := int(dom2.Int64)
+		ps.DayOfMonth2 = &d
+	}
+	if label.Valid {
+		ps.Label = &label.String
+	}
+	return ps, nil
+}
+
 func (r *SqlitePayScheduleRepo) UpdateByID(id uuid.UUID, ps PaySchedule) error {
 	var dom2 interface{}
 	if ps.DayOfMonth2 != nil {
@@ -140,6 +184,19 @@ func (r *SqlitePayScheduleRepo) UpdateByID(id uuid.UUID, ps PaySchedule) error {
 	)
 	if err != nil {
 		return fmt.Errorf("pay_schedule.UpdateByID: %w", err)
+	}
+	return nil
+}
+
+func (r *SqlitePayScheduleRepo) UpdateAnchorDate(id uuid.UUID, anchorDate time.Time, tx *sql.Tx) error {
+	var err error
+	if tx != nil {
+		_, err = tx.Exec(`UPDATE PaySchedule SET anchor_date = ? WHERE id = ?`, anchorDate.UTC().Format(time.RFC3339), id.String())
+	} else {
+		_, err = r.db.Exec(`UPDATE PaySchedule SET anchor_date = ? WHERE id = ?`, anchorDate.UTC().Format(time.RFC3339), id.String())
+	}
+	if err != nil {
+		return fmt.Errorf("pay_schedule.UpdateAnchorDate: %w", err)
 	}
 	return nil
 }

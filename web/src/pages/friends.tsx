@@ -9,7 +9,6 @@ import { CompactEntityTable } from '@/components/CompactEntityTable'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { MoneyValue } from '@/components/ui/money-value'
 import { SharedDebtList } from '@/components/debt/shared-debt-list'
-import { FriendDebtDetailsModal } from '@/components/debt/friend-debt-details-modal'
 import { mapFriendDebtsToVM, getDisplayAmount } from '@/components/debt/debt-list-mappers'
 import { FriendForm } from '@/components/FriendForm'
 import { DebtForm, type DebtFormState } from '@/components/DebtForm'
@@ -98,7 +97,6 @@ function FriendDetailsModal({
   const [debtForm, setDebtForm] = useState<DebtFormState>(EMPTY_DEBT_FORM)
   const [confirmDeleteFriendOpen, setConfirmDeleteFriendOpen] = useState(false)
   const [debtToDelete, setDebtToDelete] = useState<string | null>(null)
-  const [activeDebtId, setActiveDebtId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!friend) return
@@ -283,21 +281,8 @@ function FriendDetailsModal({
           loading={debtsLoading}
           emptyTitle="No debts recorded"
           emptyHint="Add Debt to start tracking"
-          onOpen={setActiveDebtId}
           onConfirm={(id) => confirmMutation.mutate(id)}
           onDelete={(id) => setDebtToDelete(id)}
-        />
-
-        <FriendDebtDetailsModal
-          debt={debts.find(d => d.id === activeDebtId) ?? null}
-          open={!!activeDebtId}
-          onOpenChange={(next) => {
-            if (!next) setActiveDebtId(null)
-          }}
-          onConfirm={(id) => confirmMutation.mutate(id)}
-          onDelete={(id) => setDebtToDelete(id)}
-          confirming={confirmMutation.isPending}
-          deleting={deleteDebtMutation.isPending}
         />
 
         {showAddDebt ? (
