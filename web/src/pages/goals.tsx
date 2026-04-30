@@ -21,7 +21,7 @@ import { Badge } from '@/components/ui/badge'
 import { MoneyValue } from '@/components/ui/money-value'
 import { formatDate } from '@/lib/format'
 import { LAST_CHECK_RESULT_KEY } from '@/components/CheckWidget'
-import { formatUpdatedCue, progressTone, sourceVariant } from './goals-helpers'
+import { formatUpdatedCue, parseContributionAmount, progressTone, sourceVariant } from './goals-helpers'
 
 function parseCreateGoalTarget(raw: string): number | null {
   const trimmed = raw.trim()
@@ -319,21 +319,34 @@ export function GoalsPage() {
                   <span>{g.target_date_utc ? `Target ${formatDate(g.target_date_utc)}` : 'No target date'}</span>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                  <input
-                    value={inputVal}
-                    onChange={e => setQuickAmountByGoal(prev => ({ ...prev, [g.id]: e.target.value }))}
-                    placeholder="Quick contribution"
-                    className="border rounded px-2 py-1 text-sm sm:w-56"
-                  />
+                <form
+                  className="flex flex-col sm:flex-row gap-2 sm:items-end"
+                  onSubmit={e => {
+                    e.preventDefault()
+                    const parsed = parseContributionAmount(inputVal)
+                    if (parsed == null || addMut.isPending) return
+                    addMut.mutate({ goalId: g.id, amount: parsed })
+                  }}
+                >
+                  <div className="flex flex-col gap-1.5 sm:w-56">
+                    <Label htmlFor={`contribution-${g.id}`}>Quick contribution</Label>
+                    <ValueInput
+                      id={`contribution-${g.id}`}
+                      value={inputVal}
+                      onValueChange={val => setQuickAmountByGoal(prev => ({ ...prev, [g.id]: val }))}
+                      placeholder="0,00"
+                      allowNegative={false}
+                      disabled={addMut.isPending && addMut.variables?.goalId === g.id}
+                    />
+                  </div>
                   <Button
+                    type="submit"
                     size="sm"
-                    onClick={() => addMut.mutate({ goalId: g.id, amount: Number(inputVal) })}
-                    disabled={!inputVal}
+                    disabled={parseContributionAmount(inputVal) == null || addMut.isPending}
                   >
-                    Add contribution
+                    {addMut.isPending && addMut.variables?.goalId === g.id ? 'Adding...' : 'Add'}
                   </Button>
-                </div>
+                </form>
 
                 {(activityByGoal[g.id] ?? []).length > 0 ? (
                   <div className="text-xs flex flex-col gap-1">
