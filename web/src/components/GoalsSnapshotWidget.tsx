@@ -112,7 +112,7 @@ export function GoalsSnapshotWidget() {
 
         {trackingQuery.isError ? (
           <Card className="border-destructive/30 bg-destructive/5 py-0 shadow-none" role="alert" aria-label="Goals snapshot error">
-            <CardContent className="py-3 flex items-center justify-between gap-3">
+            <CardContent className="py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 flex flex-col gap-1">
                 <p className="text-sm font-medium text-destructive">Could not load goals.</p>
                 <p className="text-xs text-muted-foreground">Retry goals tracking without changing dashboard data.</p>
@@ -121,7 +121,7 @@ export function GoalsSnapshotWidget() {
                 size="xs"
                 variant="outline"
                 onClick={() => void trackingQuery.refetch()}
-                className="border-destructive/30 text-destructive hover:text-destructive"
+                className="w-fit border-destructive/30 text-destructive hover:text-destructive"
               >
                 Retry
               </Button>

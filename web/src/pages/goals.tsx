@@ -336,7 +336,7 @@ export function GoalsPage() {
                         {targetDateCopy}
                       </p>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-right sm:min-w-80">
+                    <div className="grid grid-cols-1 gap-2 text-left min-[520px]:grid-cols-3 sm:min-w-80 sm:text-right">
                       <div className="rounded-lg bg-muted/40 px-3 py-2">
                         <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Invested</p>
                         <p className="text-sm font-semibold tabular-nums">
@@ -386,12 +386,12 @@ export function GoalsPage() {
                       {goalActivity.length > 0 ? (
                         <div className="flex flex-col gap-2">
                           {goalActivity.map(a => (
-                            <div key={a.entry_id} className="flex items-center justify-between gap-3 rounded-lg bg-background/70 px-3 py-2 text-xs">
+                            <div key={a.entry_id} className="flex flex-col gap-2 rounded-lg bg-background/70 px-3 py-2 text-xs min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between min-[420px]:gap-3">
                               <span className="min-w-0 flex flex-col gap-0.5">
                                 <span className="font-medium capitalize text-foreground">{a.type}</span>
                                 <span className="text-muted-foreground">{formatDate(a.timestamp_utc)}</span>
                               </span>
-                              <span className="flex shrink-0 items-center gap-2">
+                              <span className="flex shrink-0 flex-wrap items-center gap-2 min-[420px]:justify-end">
                                 <Badge variant={sourceVariant(a.source)} className="capitalize">{a.source}</Badge>
                                 <SafeMoneyValue amount={a.amount} currency={currency} tone="neutral" showSign="auto" className="text-foreground" />
                               </span>
@@ -457,9 +457,9 @@ export function GoalsPage() {
               <p className="text-xs text-muted-foreground">No recent entries.</p>
             ) : (
               activities.slice(0, 6).map(a => (
-                <div key={a.entry_id} className="text-xs flex items-center justify-between gap-3">
+                <div key={a.entry_id} className="text-xs flex flex-col gap-2 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between min-[420px]:gap-3">
                   <span className="text-muted-foreground">{a.goal_name} · {a.type} · {formatDate(a.timestamp_utc)}</span>
-                  <span className="flex items-center gap-2">
+                  <span className="flex flex-wrap items-center gap-2 min-[420px]:justify-end">
                     <Badge variant={sourceVariant(a.source)}>{a.source}</Badge>
                     <MoneyValue amount={a.amount} currency={currency} tone="neutral" showSign="auto" />
                   </span>
