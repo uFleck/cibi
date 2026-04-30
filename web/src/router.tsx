@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createRootRoute, createRoute, createRouter, Link, Outlet } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'

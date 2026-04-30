@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatUpdatedCue, progressTone, sourceVariant } from '@/pages/goals'
+import { formatUpdatedCue, progressTone, sourceVariant } from '@/pages/goals-helpers'
 
 describe('goals tracking view helpers', () => {
   it('maps activity source to expected badge variant', () => {

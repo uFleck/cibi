@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AccountContext } from '@/App'
 import { GoalsPage } from '@/pages/goals'
+import { LAST_CHECK_RESULT_KEY } from '@/components/CheckWidget'
 import {
   createGoal,
   fetchAccounts,
@@ -79,7 +80,7 @@ const trackingWithGoalFixture: GoalsTrackingResponse = {
   ],
 }
 
-function renderGoalsPage(tracking: GoalsTrackingResponse = emptyTrackingFixture) {
+function renderGoalsPageWithClient() {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -88,6 +89,18 @@ function renderGoalsPage(tracking: GoalsTrackingResponse = emptyTrackingFixture)
   })
   const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
 
+  render(
+    <QueryClientProvider client={queryClient}>
+      <AccountContext.Provider value={{ selectedAccountId: 'acct-1', setSelectedAccountId: vi.fn() }}>
+        <GoalsPage />
+      </AccountContext.Provider>
+    </QueryClientProvider>
+  )
+
+  return { invalidateSpy, queryClient }
+}
+
+function renderGoalsPage(tracking: GoalsTrackingResponse = emptyTrackingFixture) {
   mockFetchAccounts.mockResolvedValue([accountFixture])
   mockFetchGoalsTracking.mockResolvedValue(tracking)
   mockCreateGoal.mockResolvedValue({
@@ -103,15 +116,7 @@ function renderGoalsPage(tracking: GoalsTrackingResponse = emptyTrackingFixture)
     currency: 'BRL',
   })
 
-  render(
-    <QueryClientProvider client={queryClient}>
-      <AccountContext.Provider value={{ selectedAccountId: 'acct-1', setSelectedAccountId: vi.fn() }}>
-        <GoalsPage />
-      </AccountContext.Provider>
-    </QueryClientProvider>
-  )
-
-  return { invalidateSpy, queryClient }
+  return renderGoalsPageWithClient()
 }
 
 describe('GoalsPage create-goal UI contract', () => {
@@ -148,6 +153,129 @@ describe('GoalsPage create-goal UI contract', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     sessionStorage.clear()
+  })
+
+  it('renders the CIBI shell, summary cards, and create surface with stable accessible copy', async () => {
+    renderGoalsPage(trackingWithGoalFixture)
+
+    expect(await screen.findByRole('heading', { name: 'Goals Tracking' })).toBeTruthy()
+    expect(screen.getByText(/Plan targets, monitor progress/)).toBeTruthy()
+
+    const summary = await screen.findByLabelText('Goals summary')
+    expect(screen.getByText(/^Updated /)).toBeTruthy()
+    expect(within(summary).getByText('Goals')).toBeTruthy()
+    expect(within(summary).getByText('Completed')).toBeTruthy()
+    expect(within(summary).getByText('Invested')).toBeTruthy()
+    expect(within(summary).getByText('Remaining')).toBeTruthy()
+    expect(within(summary).getByText(/R\$\s*100[,.]00/)).toBeTruthy()
+    expect(within(summary).getByText(/R\$\s*400[,.]00/)).toBeTruthy()
+
+    expect(screen.getByLabelText('Goal name')).toBeTruthy()
+    expect(screen.getByLabelText('Target amount')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Create' })).toBeTruthy()
+  })
+
+  it('exposes accessible loading states while the tracking query is pending', async () => {
+    mockFetchAccounts.mockResolvedValue([accountFixture])
+    mockFetchGoalsTracking.mockReturnValue(new Promise(() => {}))
+    mockCreateGoal.mockResolvedValue({
+      id: 'goal-2',
+      account_id: 'acct-1',
+      name: 'Trip',
+      status: 'active',
+      target_amount: 123.45,
+      invested_total: 0,
+      start_date_utc: '2026-04-30T12:00:00.000Z',
+      target_date_utc: null,
+      notes: null,
+      currency: 'BRL',
+    })
+
+    renderGoalsPageWithClient()
+
+    expect(await screen.findByRole('status', { name: 'Loading goals tracking summary' })).toBeTruthy()
+    expect(screen.getByRole('status', { name: 'Loading goals list' })).toBeTruthy()
+    expect(screen.getByRole('status', { name: 'Loading goals activity' })).toBeTruthy()
+  })
+
+  it('localizes tracking query failures and keeps retry explicit', async () => {
+    mockFetchAccounts.mockResolvedValue([accountFixture])
+    mockFetchGoalsTracking
+      .mockRejectedValueOnce(new Error('Network down'))
+      .mockResolvedValueOnce(emptyTrackingFixture)
+    mockCreateGoal.mockResolvedValue({
+      id: 'goal-2',
+      account_id: 'acct-1',
+      name: 'Trip',
+      status: 'active',
+      target_amount: 123.45,
+      invested_total: 0,
+      start_date_utc: '2026-04-30T12:00:00.000Z',
+      target_date_utc: null,
+      notes: null,
+      currency: 'BRL',
+    })
+
+    renderGoalsPageWithClient()
+
+    const errorCard = await screen.findByRole('alert', { name: 'Goals tracking error' })
+    expect(errorCard.textContent).toContain('Could not load goals tracking.')
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+
+    await waitFor(() => {
+      expect(mockFetchGoalsTracking).toHaveBeenCalledTimes(2)
+    })
+    await waitFor(() => {
+      expect(screen.queryByRole('alert', { name: 'Goals tracking error' })).not.toBeTruthy()
+    })
+  })
+
+  it('renders a coherent empty state while keeping create-goal controls available', async () => {
+    renderGoalsPage(emptyTrackingFixture)
+
+    expect(await screen.findByText('No goals yet')).toBeTruthy()
+    expect(screen.getByText(/Create your first goal and CIBI will track/)).toBeTruthy()
+    expect(screen.getByLabelText('Goal name')).toBeTruthy()
+    expect(screen.getByLabelText('Target amount')).toBeTruthy()
+  })
+
+  it('preserves guarded latest-check storage parsing and renders valid impact data', async () => {
+    sessionStorage.setItem(LAST_CHECK_RESULT_KEY, '{not-json')
+    renderGoalsPage(trackingWithGoalFixture)
+
+    await screen.findByRole('heading', { name: 'Goals Tracking' })
+    expect(screen.queryByLabelText('Latest purchase impact')).not.toBeTruthy()
+
+    cleanup()
+    vi.clearAllMocks()
+    sessionStorage.clear()
+    sessionStorage.setItem(LAST_CHECK_RESULT_KEY, JSON.stringify({
+      can_buy: false,
+      purchasing_power: 20,
+      buffer_remaining: 5,
+      risk_level: 'HIGH',
+      will_afford_after_payday: false,
+      wait_until: null,
+      goal_impacts: [
+        {
+          goal_id: 'goal-1',
+          goal_name: 'Emergency fund',
+          remaining_before: 400,
+          remaining_after: 450,
+          progress_before_pct: 20,
+          progress_after_pct: 10,
+          severity: 'high',
+        },
+      ],
+    }))
+
+    renderGoalsPage(trackingWithGoalFixture)
+
+    const latestImpact = await screen.findByLabelText('Latest purchase impact')
+    expect(within(latestImpact).getByText('Emergency fund')).toBeTruthy()
+    expect(within(latestImpact).getByText('high')).toBeTruthy()
+    expect(within(latestImpact).getByText(/R\$\s*400[,.]00/)).toBeTruthy()
+    expect(within(latestImpact).getByText(/R\$\s*450[,.]00/)).toBeTruthy()
   })
 
   it('exposes labelled create controls and blocks invalid targets', async () => {
