@@ -9,10 +9,14 @@ import {
   createGoal,
   addGoalLedgerEntry,
   type GoalsTrackingGoalResponse,
+  type GoalsTrackingActivityResponse,
   type CheckResponse,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { ValueInput } from '@/components/ui/value-input'
 import { Badge } from '@/components/ui/badge'
 import { MoneyValue } from '@/components/ui/money-value'
 import { formatDate } from '@/lib/format'
@@ -35,6 +39,17 @@ export function formatUpdatedCue(updatedAtUtc?: string): string | null {
   return `Updated ${new Date(updatedAtUtc).toLocaleTimeString()}`
 }
 
+function parseCreateGoalTarget(raw: string): number | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  const normalized = trimmed.replace(',', '.')
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+const EMPTY_GOALS: GoalsTrackingGoalResponse[] = []
+const EMPTY_ACTIVITIES: GoalsTrackingActivityResponse[] = []
+
 export function GoalsPage() {
   const { selectedAccountId } = useContext(AccountContext)
   const qc = useQueryClient()
@@ -53,8 +68,10 @@ export function GoalsPage() {
     enabled: !!accountId,
   })
 
-  const goals = trackingQuery.data?.top_goals ?? []
-  const activities = trackingQuery.data?.recent_activity ?? []
+  const goals = trackingQuery.data?.top_goals ?? EMPTY_GOALS
+  const activities = trackingQuery.data?.recent_activity ?? EMPTY_ACTIVITIES
+  const trimmedGoalName = name.trim()
+  const parsedTargetAmount = parseCreateGoalTarget(target)
 
   const activityByGoal = useMemo(() => {
     return activities.reduce<Record<string, typeof activities>>((acc, item) => {
@@ -65,10 +82,10 @@ export function GoalsPage() {
   }, [activities])
 
   const createMut = useMutation({
-    mutationFn: () => createGoal({
+    mutationFn: ({ goalName, targetAmount }: { goalName: string; targetAmount: number }) => createGoal({
       account_id: accountId,
-      name,
-      target_amount: Number(target),
+      name: goalName,
+      target_amount: targetAmount,
       start_date_utc: new Date().toISOString(),
     }),
     onSuccess: async () => {
@@ -95,6 +112,7 @@ export function GoalsPage() {
   })
 
   const updatedCue = formatUpdatedCue(trackingQuery.data?.updated_at_utc)
+  const isCreateDisabled = !accountId || !trimmedGoalName || parsedTargetAmount == null || createMut.isPending
 
   const emptyState = !trackingQuery.isLoading && !trackingQuery.isError && goals.length === 0
   const latestCheckResult = useMemo<CheckResponse | null>(() => {
@@ -172,11 +190,43 @@ export function GoalsPage() {
         </Card>
       ) : null}
 
-      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_220px_120px] gap-2 items-center">
-        <input value={name} onChange={e => setName(e.target.value)} placeholder="Goal name" className="border rounded px-2 py-1.5" />
-        <input value={target} onChange={e => setTarget(e.target.value)} placeholder="Target amount" className="border rounded px-2 py-1.5" />
-        <Button onClick={() => createMut.mutate()} disabled={!accountId || !name || !target}>Create</Button>
-      </div>
+      {/* S01 audit checklist: page shell/header/summary/create form use CIBI primitives here; goal cards and quick contribution controls intentionally stay raw for S02; behavior/API contracts must remain unchanged. */}
+      <Card>
+        <CardContent className="py-5">
+          <form
+            className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_220px_120px] sm:items-end"
+            onSubmit={e => {
+              e.preventDefault()
+              if (isCreateDisabled || parsedTargetAmount == null) return
+              createMut.mutate({ goalName: trimmedGoalName, targetAmount: parsedTargetAmount })
+            }}
+          >
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="goal-name">Goal name</Label>
+              <Input
+                id="goal-name"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Trip, emergency fund, new bike..."
+                disabled={createMut.isPending}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="goal-target">Target amount</Label>
+              <ValueInput
+                id="goal-target"
+                value={target}
+                onValueChange={setTarget}
+                placeholder="123,45"
+                disabled={createMut.isPending}
+              />
+            </div>
+            <Button type="submit" disabled={isCreateDisabled}>
+              {createMut.isPending ? 'Creating...' : 'Create'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       <Skeleton
         name="goals-list"
