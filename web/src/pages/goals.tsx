@@ -56,6 +56,27 @@ function GoalSummaryCard({ label, value, hint }: GoalSummaryCardProps) {
   )
 }
 
+interface SafeMoneyValueProps {
+  amount: number
+  currency: string
+  tone?: 'auto' | 'positive' | 'negative' | 'neutral'
+  showSign?: 'auto' | 'always' | 'never'
+  className?: string
+}
+
+function SafeMoneyValue({ amount, currency, tone = 'neutral', showSign = 'never', className }: SafeMoneyValueProps) {
+  if (!Number.isFinite(amount)) {
+    return <span className={className ?? 'text-muted-foreground'}>—</span>
+  }
+
+  return <MoneyValue amount={amount} currency={currency} tone={tone} showSign={showSign} className={className} />
+}
+
+function clampProgress(progress: number): number {
+  if (!Number.isFinite(progress)) return 0
+  return Math.max(0, Math.min(100, progress))
+}
+
 const EMPTY_GOALS: GoalsTrackingGoalResponse[] = []
 const EMPTY_ACTIVITIES: GoalsTrackingActivityResponse[] = []
 
@@ -246,7 +267,7 @@ export function GoalsPage() {
         </Card>
       ) : null}
 
-      {/* S01 audit checklist: page shell/header/summary/create form use CIBI primitives here; goal cards and quick contribution controls intentionally stay raw for S02; behavior/API contracts must remain unchanged. */}
+      {/* S02 keeps S01 create behavior intact while rendering existing goals as CIBI cards below. */}
       <Card className="border-border/60 shadow-sm">
         <CardContent className="py-5">
           <form
@@ -294,77 +315,129 @@ export function GoalsPage() {
           </div>
         )}
       >
-        <div className="border rounded-lg divide-y">
+        <section className="flex flex-col gap-3" aria-label="Goal progress cards">
           {goals.map((g: GoalsTrackingGoalResponse) => {
-            const progress = Math.max(0, Math.min(100, g.progress_pct))
+            const progress = clampProgress(g.progress_pct)
+            const toneClass = progressTone(progress)
             const inputVal = quickAmountByGoal[g.id] ?? ''
+            const goalActivity = activityByGoal[g.id] ?? []
+            const targetDateCopy = g.target_date_utc ? `Target ${formatDate(g.target_date_utc)}` : 'No target date'
+
             return (
-              <div key={g.id} className="p-3 flex flex-col gap-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <p className="font-medium text-sm">{g.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      <MoneyValue amount={g.invested_total} currency={currency} tone="neutral" showSign="never" /> / <MoneyValue amount={g.target_amount} currency={currency} tone="neutral" showSign="never" /> · Remaining <MoneyValue amount={g.remaining_amount} currency={currency} tone="neutral" showSign="never" />
-                    </p>
-                  </div>
-                  <Badge variant="secondary">{g.status}</Badge>
-                </div>
-
-                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                  <div className={`h-full ${progressTone(progress)}`} style={{ width: `${progress}%` }} />
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{progress.toFixed(1)}%</span>
-                  <span>{g.target_date_utc ? `Target ${formatDate(g.target_date_utc)}` : 'No target date'}</span>
-                </div>
-
-                <form
-                  className="flex flex-col sm:flex-row gap-2 sm:items-end"
-                  onSubmit={e => {
-                    e.preventDefault()
-                    const parsed = parseContributionAmount(inputVal)
-                    if (parsed == null || addMut.isPending) return
-                    addMut.mutate({ goalId: g.id, amount: parsed })
-                  }}
-                >
-                  <div className="flex flex-col gap-1.5 sm:w-56">
-                    <Label htmlFor={`contribution-${g.id}`}>Quick contribution</Label>
-                    <ValueInput
-                      id={`contribution-${g.id}`}
-                      value={inputVal}
-                      onValueChange={val => setQuickAmountByGoal(prev => ({ ...prev, [g.id]: val }))}
-                      placeholder="0,00"
-                      allowNegative={false}
-                      disabled={addMut.isPending && addMut.variables?.goalId === g.id}
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    size="sm"
-                    disabled={parseContributionAmount(inputVal) == null || addMut.isPending}
-                  >
-                    {addMut.isPending && addMut.variables?.goalId === g.id ? 'Adding...' : 'Add'}
-                  </Button>
-                </form>
-
-                {(activityByGoal[g.id] ?? []).length > 0 ? (
-                  <div className="text-xs flex flex-col gap-1">
-                    {(activityByGoal[g.id] ?? []).map(a => (
-                      <div key={a.entry_id} className="flex items-center justify-between gap-2">
-                        <span className="text-muted-foreground">{a.type} · {formatDate(a.timestamp_utc)}</span>
-                        <span className="flex items-center gap-2">
-                          <Badge variant={sourceVariant(a.source)}>{a.source}</Badge>
-                          <MoneyValue amount={a.amount} currency={currency} tone="neutral" showSign="auto" />
-                        </span>
+              <Card key={g.id} className="overflow-hidden border-border/60 bg-card shadow-sm transition-shadow hover:shadow-md">
+                <CardContent className="py-5 flex flex-col gap-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex flex-col gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-base font-semibold tracking-tight text-balance">{g.name}</p>
+                        <Badge variant="secondary" className="capitalize">{g.status}</Badge>
                       </div>
-                    ))}
+                      <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                        {targetDateCopy}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-right sm:min-w-80">
+                      <div className="rounded-lg bg-muted/40 px-3 py-2">
+                        <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Invested</p>
+                        <p className="text-sm font-semibold tabular-nums">
+                          <SafeMoneyValue amount={g.invested_total} currency={currency} tone="neutral" showSign="never" className="text-foreground" />
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-muted/40 px-3 py-2">
+                        <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Target</p>
+                        <p className="text-sm font-semibold tabular-nums">
+                          <SafeMoneyValue amount={g.target_amount} currency={currency} tone="neutral" showSign="never" className="text-foreground" />
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-muted/40 px-3 py-2">
+                        <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Remaining</p>
+                        <p className="text-sm font-semibold tabular-nums">
+                          <SafeMoneyValue amount={g.remaining_amount} currency={currency} tone="neutral" showSign="never" className="text-foreground" />
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                ) : null}
-              </div>
+
+                  <div className="flex flex-col gap-2" aria-label={`${g.name} progress`}>
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <span className="font-medium text-foreground">Progress</span>
+                      <span className="font-semibold tabular-nums text-foreground">{progress.toFixed(1)}%</span>
+                    </div>
+                    <div
+                      className="h-3 w-full overflow-hidden rounded-full bg-muted shadow-inner"
+                      role="progressbar"
+                      aria-label={`${g.name} progress`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Number(progress.toFixed(1))}
+                    >
+                      <div className={`h-full rounded-full ${toneClass}`} style={{ width: `${progress}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] lg:items-start">
+                    <div className="rounded-xl bg-muted/30 p-3">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Recent activity</p>
+                        {goalActivity.length > 0 ? (
+                          <span className="text-[10px] text-muted-foreground">Latest {goalActivity.length}</span>
+                        ) : null}
+                      </div>
+                      {goalActivity.length > 0 ? (
+                        <div className="flex flex-col gap-2">
+                          {goalActivity.map(a => (
+                            <div key={a.entry_id} className="flex items-center justify-between gap-3 rounded-lg bg-background/70 px-3 py-2 text-xs">
+                              <span className="min-w-0 flex flex-col gap-0.5">
+                                <span className="font-medium capitalize text-foreground">{a.type}</span>
+                                <span className="text-muted-foreground">{formatDate(a.timestamp_utc)}</span>
+                              </span>
+                              <span className="flex shrink-0 items-center gap-2">
+                                <Badge variant={sourceVariant(a.source)} className="capitalize">{a.source}</Badge>
+                                <SafeMoneyValue amount={a.amount} currency={currency} tone="neutral" showSign="auto" className="text-foreground" />
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No recent activity for this goal.</p>
+                      )}
+                    </div>
+
+                    <form
+                      className="rounded-xl border border-border/60 bg-background/60 p-3 flex flex-col gap-3"
+                      onSubmit={e => {
+                        e.preventDefault()
+                        const parsed = parseContributionAmount(inputVal)
+                        if (parsed == null || addMut.isPending) return
+                        addMut.mutate({ goalId: g.id, amount: parsed })
+                      }}
+                    >
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor={`contribution-${g.id}`}>Quick contribution</Label>
+                        <ValueInput
+                          id={`contribution-${g.id}`}
+                          value={inputVal}
+                          onValueChange={val => setQuickAmountByGoal(prev => ({ ...prev, [g.id]: val }))}
+                          placeholder="0,00"
+                          allowNegative={false}
+                          disabled={addMut.isPending && addMut.variables?.goalId === g.id}
+                        />
+                      </div>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        className="min-h-10 transition-transform active:scale-[0.96]"
+                        disabled={parseContributionAmount(inputVal) == null || addMut.isPending}
+                      >
+                        {addMut.isPending && addMut.variables?.goalId === g.id ? 'Adding...' : 'Add'}
+                      </Button>
+                    </form>
+                  </div>
+                </CardContent>
+              </Card>
             )
           })}
-        </div>
+        </section>
       </Skeleton>
 
       <Skeleton
