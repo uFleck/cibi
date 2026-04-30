@@ -106,7 +106,7 @@ const trackingWithTwoGoalsFixture: GoalsTrackingResponse = {
     {
       id: 'goal-2',
       name: 'Vacation fund',
-      status: 'paused',
+      status: 'archived',
       target_amount: 2_000,
       invested_total: 500,
       remaining_amount: 1_500,
@@ -593,7 +593,7 @@ describe('GoalsPage progress-card UI contract', () => {
     expect(within(emergencyCard as HTMLElement).getByText('manual')).toBeTruthy()
     expect(within(emergencyCard as HTMLElement).getByText(/R\$\s*75[,.]00/)).toBeTruthy()
 
-    expect(within(vacationCard as HTMLElement).getByText('paused')).toBeTruthy()
+    expect(within(vacationCard as HTMLElement).getByText('archived')).toBeTruthy()
     expect(within(vacationCard as HTMLElement).getByText('Target 15/11/2026')).toBeTruthy()
     expect(within(vacationCard as HTMLElement).getByText('No recent activity for this goal.')).toBeTruthy()
   })
