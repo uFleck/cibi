@@ -63,7 +63,7 @@ describe('CheckWidget impact wiring', () => {
 
     render(<CheckWidget accountId="acct-1" />)
 
-    await user.type(screen.getByPlaceholderText('0.00'), '50,00')
+    await user.type(screen.getByLabelText('Purchase amount'), '50,00')
     await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
 
     await waitFor(() => expect(mockPostCheck).toHaveBeenCalledWith(50, 'acct-1'))
@@ -77,7 +77,7 @@ describe('CheckWidget impact wiring', () => {
 
     render(<CheckWidget />)
 
-    await user.type(screen.getByPlaceholderText('0.00'), '50')
+    await user.type(screen.getByLabelText('Purchase amount'), '50')
     await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
 
     expect(await screen.findByLabelText('Emergency fund purchase impact')).toBeTruthy()
@@ -100,7 +100,7 @@ describe('CheckWidget impact wiring', () => {
 
     render(<CheckWidget />)
 
-    await user.type(screen.getByPlaceholderText('0.00'), '15')
+    await user.type(screen.getByLabelText('Purchase amount'), '15')
     await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
 
     expect(await screen.findByLabelText('Goal impact preview')).toBeTruthy()
@@ -115,11 +115,13 @@ describe('CheckWidget impact wiring', () => {
 
     render(<CheckWidget />)
 
-    await user.type(screen.getByPlaceholderText('0.00'), '25')
+    expect(screen.getByLabelText('Purchase amount')).toBeTruthy()
+    await user.type(screen.getByLabelText('Purchase amount'), '25')
     await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
 
-    const input = screen.getByPlaceholderText('0.00') as HTMLInputElement
+    const input = screen.getByLabelText('Purchase amount') as HTMLInputElement
     const button = screen.getByRole('button', { name: 'Checking purchase impact' }) as HTMLButtonElement
+    expect(screen.getByRole('status').textContent).toContain('Checking this purchase against your cash flow')
     expect(input.disabled).toBe(true)
     expect(button.disabled).toBe(true)
 
@@ -134,11 +136,14 @@ describe('CheckWidget impact wiring', () => {
 
     render(<CheckWidget />)
 
-    await user.type(screen.getByPlaceholderText('0.00'), '25')
+    await user.type(screen.getByLabelText('Purchase amount'), '25')
     await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
 
     await waitFor(() => expect(toastErrorMock).toHaveBeenCalledWith('Something went wrong. Try again.'))
-    expect(screen.getByPlaceholderText('0.00')).toBeTruthy()
+    const alert = screen.getByRole('alert', { name: 'Purchase check error' })
+    expect(alert.textContent).toContain('Could not check purchase impact.')
+    expect(alert.textContent).toContain('Something went wrong. Try again when the connection is ready.')
+    expect(screen.getByLabelText('Purchase amount').getAttribute('aria-invalid')).toBe('true')
     expect(screen.getByRole('button', { name: 'Check purchase impact' })).toBeTruthy()
 
     await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
@@ -153,11 +158,11 @@ describe('CheckWidget impact wiring', () => {
 
     render(<CheckWidget />)
 
-    await user.type(screen.getByPlaceholderText('0.00'), '25')
+    await user.type(screen.getByLabelText('Purchase amount'), '25')
     await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
     await user.click(await screen.findByText('Check another'))
 
-    const input = screen.getByPlaceholderText('0.00') as HTMLInputElement
+    const input = screen.getByLabelText('Purchase amount') as HTMLInputElement
     expect(input.value).toBe('')
     expect(screen.getByRole('button', { name: 'Check purchase impact' })).toBeTruthy()
   })
@@ -167,8 +172,8 @@ describe('CheckWidget impact wiring', () => {
 
     render(<CheckWidget />)
 
-    fireEvent.change(screen.getByPlaceholderText('0.00'), { target: { value: '33' } })
-    fireEvent.keyDown(screen.getByPlaceholderText('0.00'), { key: 'Enter' })
+    fireEvent.change(screen.getByLabelText('Purchase amount'), { target: { value: '33' } })
+    fireEvent.keyDown(screen.getByLabelText('Purchase amount'), { key: 'Enter' })
 
     await waitFor(() => expect(mockPostCheck).toHaveBeenCalledWith(33, undefined))
   })

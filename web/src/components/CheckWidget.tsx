@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MoneyValue } from '@/components/ui/money-value'
 import { ValueInput } from '@/components/ui/value-input'
+import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatDate } from '@/lib/format'
 import { postCheck, type CheckGoalImpactResponse, type CheckResponse } from '@/lib/api'
@@ -107,11 +108,13 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
   const [state, setState] = useState<WidgetState>('idle')
   const [amount, setAmount] = useState('')
   const [result, setResult] = useState<CheckResponse | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   async function handleCheck() {
     const parsed = parseFloat(amount.replace(',', '.'))
     if (isNaN(parsed) || parsed <= 0) return
 
+    setErrorMessage(null)
     setState('loading')
     try {
       const res = await postCheck(parsed, accountId)
@@ -125,8 +128,10 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
     } catch (err) {
       const error = err as Error & { code?: string }
       if (error.code === 'PAY_SCHEDULE_REQUIRED') {
+        setErrorMessage('Set up your pay schedule in Accounts first, then try this check again.')
         toast.error('Set up your pay schedule in Accounts first.')
       } else {
+        setErrorMessage('Something went wrong. Try again when the connection is ready.')
         toast.error('Something went wrong. Try again.')
       }
       setState('idle')
@@ -137,6 +142,7 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
     setState('idle')
     setAmount('')
     setResult(null)
+    setErrorMessage(null)
   }
 
   return (
@@ -150,42 +156,64 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
         </div>
 
         {state !== 'verdict' ? (
-          <div className="flex gap-2 items-stretch" aria-label={state === 'loading' ? 'Checking purchase impact' : 'Check purchase impact'}>
-            <div className="relative flex-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground select-none text-sm">
-                $
-              </span>
-              <ValueInput
-                placeholder="0.00"
-                value={amount}
-                onValueChange={setAmount}
-                onKeyDown={e => e.key === 'Enter' && handleCheck()}
-                disabled={state === 'loading'}
-                inputClassName="pl-7 h-11 bg-muted/50 border-border/60 text-base focus-visible:ring-primary/50"
-                allowNegative={false}
-              />
+          <div className="flex flex-col gap-3" aria-label={state === 'loading' ? 'Checking purchase impact' : 'Check purchase impact'}>
+            <Label htmlFor="check-amount">Purchase amount</Label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground select-none text-sm" aria-hidden="true">
+                  $
+                </span>
+                <ValueInput
+                  id="check-amount"
+                  placeholder="0.00"
+                  value={amount}
+                  onValueChange={setAmount}
+                  onKeyDown={e => e.key === 'Enter' && handleCheck()}
+                  disabled={state === 'loading'}
+                  aria-describedby={errorMessage ? 'check-error' : undefined}
+                  aria-invalid={!!errorMessage}
+                  inputClassName="pl-7 h-11 bg-muted/50 border-border/60 text-base focus-visible:ring-primary/50"
+                  allowNegative={false}
+                />
+              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleCheck}
+                      disabled={state === 'loading'}
+                      className="h-11 w-full px-6 font-semibold tracking-wide cursor-pointer sm:w-auto"
+                      aria-label={state === 'loading' ? 'Checking purchase impact' : 'Check purchase impact'}
+                    >
+                      {state === 'loading' ? (
+                        <>
+                          <Loader2 className="animate-spin" size={15} aria-hidden="true" />
+                          <span>Checking...</span>
+                        </>
+                      ) : (
+                        'CHECK'
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Check if you can afford this purchase</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={handleCheck}
-                    disabled={state === 'loading'}
-                    className="h-11 px-6 font-semibold tracking-wide cursor-pointer"
-                    aria-label={state === 'loading' ? 'Checking purchase impact' : 'Check purchase impact'}
-                  >
-                    {state === 'loading' ? (
-                      <Loader2 className="animate-spin" size={15} aria-hidden="true" />
-                    ) : (
-                      'CHECK'
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Check if you can afford this purchase</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {state === 'loading' ? (
+              <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
+                Checking this purchase against your cash flow, buffer, and active goals...
+              </p>
+            ) : null}
+            {errorMessage ? (
+              <Card className="border-destructive/30 bg-destructive/5 py-0 shadow-none" role="alert" aria-label="Purchase check error">
+                <CardContent id="check-error" className="px-3 py-3">
+                  <p className="text-sm font-medium text-destructive">Could not check purchase impact.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{errorMessage}</p>
+                </CardContent>
+              </Card>
+            ) : null}
           </div>
         ) : result ? (
           <div className="flex flex-col gap-3">
