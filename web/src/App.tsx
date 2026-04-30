@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components, react-hooks/set-state-in-effect */
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { RouterProvider, Outlet, useLocation } from '@tanstack/react-router'
 import { Toaster } from '@/components/ui/sonner'

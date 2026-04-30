@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState } from 'react'
+import { useContext, useMemo, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Skeleton } from 'boneyard-js/react'
 import { toast } from 'sonner'
@@ -21,23 +21,7 @@ import { Badge } from '@/components/ui/badge'
 import { MoneyValue } from '@/components/ui/money-value'
 import { formatDate } from '@/lib/format'
 import { LAST_CHECK_RESULT_KEY } from '@/components/CheckWidget'
-
-export function sourceVariant(source: string): 'default' | 'secondary' | 'outline' {
-  if (source === 'manual') return 'default'
-  if (source === 'recurring') return 'outline'
-  return 'secondary'
-}
-
-export function progressTone(progress: number): string {
-  if (progress >= 80) return 'bg-[var(--color-verdict-yes)]'
-  if (progress >= 40) return 'bg-[var(--color-risk-medium)]'
-  return 'bg-[var(--color-risk-high)]'
-}
-
-export function formatUpdatedCue(updatedAtUtc?: string): string | null {
-  if (!updatedAtUtc) return null
-  return `Updated ${new Date(updatedAtUtc).toLocaleTimeString()}`
-}
+import { formatUpdatedCue, progressTone, sourceVariant } from './goals-helpers'
 
 function parseCreateGoalTarget(raw: string): number | null {
   const trimmed = raw.trim()
@@ -45,6 +29,31 @@ function parseCreateGoalTarget(raw: string): number | null {
   const normalized = trimmed.replace(',', '.')
   const parsed = Number(normalized)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+interface GoalSummaryCardProps {
+  label: string
+  value: ReactNode
+  hint: string
+}
+
+function GoalSummaryCard({ label, value, hint }: GoalSummaryCardProps) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-card px-5 py-4 flex flex-col gap-3 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          {label}
+        </span>
+        <span className="h-2 w-2 rounded-full bg-primary/40" aria-hidden="true" />
+      </div>
+      <p className="text-2xl font-semibold tabular-nums tracking-tight">
+        {value}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {hint}
+      </p>
+    </div>
+  )
 }
 
 const EMPTY_GOALS: GoalsTrackingGoalResponse[] = []
@@ -60,6 +69,7 @@ export function GoalsPage() {
 
   const { data: accounts = [] } = useQuery({ queryKey: ['accounts'], queryFn: fetchAccounts })
   const accountId = selectedAccountId || accounts[0]?.id
+  const accountName = accounts.find(a => a.id === accountId)?.name
   const currency = accounts.find(a => a.id === accountId)?.currency ?? 'BRL'
 
   const trackingQuery = useQuery({
@@ -125,16 +135,31 @@ export function GoalsPage() {
   }, [])
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Goals Tracking</h1>
-        {updatedCue ? <span className="text-xs text-muted-foreground">{updatedCue}</span> : null}
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div className="min-w-0 flex flex-col gap-1">
+          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Savings goals</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-balance">Goals Tracking</h1>
+          <p className="text-sm text-muted-foreground text-pretty">
+            Plan targets, monitor progress, and keep purchase impact visible{accountName ? ` for ${accountName}` : ''}.
+          </p>
+        </div>
+        {updatedCue ? (
+          <span className="w-fit rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground">
+            {updatedCue}
+          </span>
+        ) : null}
       </div>
 
       {trackingQuery.isError ? (
-        <Card>
+        <Card className="border-destructive/30 bg-destructive/5 shadow-sm" role="alert" aria-label="Goals tracking error">
           <CardContent className="py-6 flex flex-col gap-3">
-            <p className="text-sm text-[var(--color-verdict-no)]">Could not load goals tracking.</p>
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-medium text-destructive">Could not load goals tracking.</p>
+              <p className="text-xs text-muted-foreground">
+                Your saved goals were not changed. Retry the tracking query when the connection is ready.
+              </p>
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -142,7 +167,7 @@ export function GoalsPage() {
                 toast.error('Retrying goals tracking...')
                 void trackingQuery.refetch()
               }}
-              className="w-fit"
+              className="w-fit border-destructive/30 text-destructive hover:text-destructive"
             >
               Retry
             </Button>
@@ -153,45 +178,76 @@ export function GoalsPage() {
       <Skeleton
         name="goals-summary"
         loading={trackingQuery.isLoading}
-        fallback={<div className="h-24 rounded-xl border bg-card/50 animate-pulse" aria-label="Skeleton summary" />}
+        fallback={(
+          <div className="space-y-3" role="status" aria-label="Loading goals tracking summary">
+            <div className="h-24 rounded-xl border border-border/40 bg-card/60 animate-pulse" aria-hidden="true" />
+            <span className="sr-only">Loading goals tracking summary...</span>
+          </div>
+        )}
       >
         {trackingQuery.data ? (
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Goals</p><p className="text-lg font-semibold">{trackingQuery.data.summary.goals_count}</p></CardContent></Card>
-            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Completed</p><p className="text-lg font-semibold">{trackingQuery.data.summary.completed_count}</p></CardContent></Card>
-            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Invested</p><p className="text-lg font-semibold"><MoneyValue amount={trackingQuery.data.summary.total_invested} currency={currency} tone="neutral" showSign="never" /></p></CardContent></Card>
-            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Remaining</p><p className="text-lg font-semibold"><MoneyValue amount={trackingQuery.data.summary.total_remaining} currency={currency} tone="neutral" showSign="never" /></p></CardContent></Card>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" aria-label="Goals summary">
+            <GoalSummaryCard
+              label="Goals"
+              value={trackingQuery.data.summary.goals_count}
+              hint="Tracked targets"
+            />
+            <GoalSummaryCard
+              label="Completed"
+              value={trackingQuery.data.summary.completed_count}
+              hint="Finished goals"
+            />
+            <GoalSummaryCard
+              label="Invested"
+              value={<MoneyValue amount={trackingQuery.data.summary.total_invested} currency={currency} tone="neutral" showSign="never" className="text-foreground" />}
+              hint="Already saved"
+            />
+            <GoalSummaryCard
+              label="Remaining"
+              value={<MoneyValue amount={trackingQuery.data.summary.total_remaining} currency={currency} tone="neutral" showSign="never" className="text-foreground" />}
+              hint="Left to fund"
+            />
           </div>
         ) : null}
       </Skeleton>
 
       {emptyState ? (
-        <Card>
-          <CardContent className="py-8 text-center flex flex-col gap-2 items-center">
-            <p className="font-medium">No goals yet</p>
-            <p className="text-sm text-muted-foreground">Create your first goal and start tracking contributions over time.</p>
+        <Card className="border-border/60 bg-card shadow-sm">
+          <CardContent className="py-12 text-center flex flex-col gap-2 items-center">
+            <p className="text-base font-semibold">No goals yet</p>
+            <p className="max-w-sm text-sm text-muted-foreground text-pretty">
+              Create your first goal and CIBI will track contributions, progress, and purchase impact over time.
+            </p>
           </CardContent>
         </Card>
       ) : null}
 
       {latestCheckResult && latestCheckResult.goal_impacts.length > 0 ? (
-        <Card>
-          <CardContent className="py-4 flex flex-col gap-2">
-            <p className="text-sm font-medium">Latest purchase impact</p>
-            {latestCheckResult.goal_impacts.slice(0, 4).map(impact => (
-              <div key={impact.goal_id} className="text-xs flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">{impact.goal_name} · {impact.severity}</span>
-                <span className="font-medium">
-                  <MoneyValue amount={impact.remaining_before} currency={currency} tone="neutral" showSign="never" /> → <MoneyValue amount={impact.remaining_after} currency={currency} tone="neutral" showSign="never" />
-                </span>
-              </div>
-            ))}
+        <Card className="border-border/60 bg-card shadow-sm" aria-label="Latest purchase impact">
+          <CardContent className="py-5 flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Latest purchase impact</p>
+              <p className="text-sm text-muted-foreground">How your last CIBI check would move active goals.</p>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-background/50 p-3 flex flex-col gap-2">
+              {latestCheckResult.goal_impacts.slice(0, 4).map(impact => (
+                <div key={impact.goal_id} className="text-xs flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                  <span className="font-medium text-foreground">{impact.goal_name}</span>
+                  <span className="flex items-center justify-between gap-2 text-muted-foreground sm:justify-end">
+                    <span className="rounded-md border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">{impact.severity}</span>
+                    <span className="font-medium tabular-nums text-foreground">
+                      <MoneyValue amount={impact.remaining_before} currency={currency} tone="neutral" showSign="never" /> → <MoneyValue amount={impact.remaining_after} currency={currency} tone="neutral" showSign="never" />
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       ) : null}
 
       {/* S01 audit checklist: page shell/header/summary/create form use CIBI primitives here; goal cards and quick contribution controls intentionally stay raw for S02; behavior/API contracts must remain unchanged. */}
-      <Card>
+      <Card className="border-border/60 shadow-sm">
         <CardContent className="py-5">
           <form
             className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_220px_120px] sm:items-end"
@@ -231,7 +287,12 @@ export function GoalsPage() {
       <Skeleton
         name="goals-list"
         loading={trackingQuery.isLoading}
-        fallback={<div className="h-48 rounded-xl border bg-card/50 animate-pulse" aria-label="Skeleton list" />}
+        fallback={(
+          <div className="space-y-3" role="status" aria-label="Loading goals list">
+            <div className="h-48 rounded-xl border border-border/40 bg-card/60 animate-pulse" aria-hidden="true" />
+            <span className="sr-only">Loading goals list...</span>
+          </div>
+        )}
       >
         <div className="border rounded-lg divide-y">
           {goals.map((g: GoalsTrackingGoalResponse) => {
@@ -296,9 +357,14 @@ export function GoalsPage() {
       <Skeleton
         name="goals-activity"
         loading={trackingQuery.isLoading}
-        fallback={<div className="h-24 rounded-xl border bg-card/50 animate-pulse" aria-label="Skeleton activity" />}
+        fallback={(
+          <div className="space-y-3" role="status" aria-label="Loading goals activity">
+            <div className="h-24 rounded-xl border border-border/40 bg-card/60 animate-pulse" aria-hidden="true" />
+            <span className="sr-only">Loading goals activity...</span>
+          </div>
+        )}
       >
-        <Card>
+        <Card className="border-border/60 shadow-sm">
           <CardContent className="py-4 flex flex-col gap-2">
             <p className="text-sm font-medium">Recent activity</p>
             {activities.length === 0 ? (
