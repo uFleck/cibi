@@ -82,6 +82,52 @@ const trackingWithGoalFixture: GoalsTrackingResponse = {
   ],
 }
 
+const trackingWithTwoGoalsFixture: GoalsTrackingResponse = {
+  ...emptyTrackingFixture,
+  summary: {
+    goals_count: 2,
+    completed_count: 0,
+    total_target: 2_500,
+    total_invested: 600,
+    total_remaining: 1_900,
+  },
+  top_goals: [
+    {
+      id: 'goal-1',
+      name: 'Emergency fund',
+      status: 'active',
+      target_amount: 500,
+      invested_total: 100,
+      remaining_amount: 400,
+      progress_pct: 20,
+      target_date_utc: null,
+      created_at_utc: '2026-04-01T00:00:00.000Z',
+    },
+    {
+      id: 'goal-2',
+      name: 'Vacation fund',
+      status: 'paused',
+      target_amount: 2_000,
+      invested_total: 500,
+      remaining_amount: 1_500,
+      progress_pct: 25,
+      target_date_utc: '2026-11-15T00:00:00.000Z',
+      created_at_utc: '2026-04-05T00:00:00.000Z',
+    },
+  ],
+  recent_activity: [
+    {
+      goal_id: 'goal-1',
+      goal_name: 'Emergency fund',
+      entry_id: 'entry-goal-1',
+      amount: 75,
+      type: 'contribution',
+      source: 'manual',
+      timestamp_utc: '2026-04-20T00:00:00.000Z',
+    },
+  ],
+}
+
 const trackingWithCardEdgeCasesFixture: GoalsTrackingResponse = {
   ...emptyTrackingFixture,
   summary: {
@@ -526,6 +572,32 @@ describe('GoalsPage progress-card UI contract', () => {
     expect(document.querySelector('.divide-y')).toBeNull()
   })
 
+  it('renders card content for status, money, progress, target copy, and recent activity', async () => {
+    mockFetchGoalsTracking.mockResolvedValue(trackingWithTwoGoalsFixture)
+    renderGoalsPageWithClient()
+
+    const cardsSection = await screen.findByLabelText('Goal progress cards')
+    const emergencyCard = within(cardsSection).getByText('Emergency fund').closest('[data-slot="card"]')
+    const vacationCard = within(cardsSection).getByText('Vacation fund').closest('[data-slot="card"]')
+    expect(emergencyCard).toBeTruthy()
+    expect(vacationCard).toBeTruthy()
+
+    expect(within(emergencyCard as HTMLElement).getByText('active')).toBeTruthy()
+    expect(within(emergencyCard as HTMLElement).getByText('20.0%')).toBeTruthy()
+    expect(within(emergencyCard as HTMLElement).getByText('No target date')).toBeTruthy()
+    expect(within(emergencyCard as HTMLElement).getByText(/R\$\s*100[,.]00/)).toBeTruthy()
+    expect(within(emergencyCard as HTMLElement).getByText(/R\$\s*500[,.]00/)).toBeTruthy()
+    expect(within(emergencyCard as HTMLElement).getByText(/R\$\s*400[,.]00/)).toBeTruthy()
+    expect(within(emergencyCard as HTMLElement).getByText('Latest 1')).toBeTruthy()
+    expect(within(emergencyCard as HTMLElement).getByText('contribution')).toBeTruthy()
+    expect(within(emergencyCard as HTMLElement).getByText('manual')).toBeTruthy()
+    expect(within(emergencyCard as HTMLElement).getByText(/R\$\s*75[,.]00/)).toBeTruthy()
+
+    expect(within(vacationCard as HTMLElement).getByText('paused')).toBeTruthy()
+    expect(within(vacationCard as HTMLElement).getByText('Target 15/11/2026')).toBeTruthy()
+    expect(within(vacationCard as HTMLElement).getByText('No recent activity for this goal.')).toBeTruthy()
+  })
+
   it('clamps progressbar values visually for below-zero and over-100 progress (Q7 negative)', async () => {
     renderGoalsPageWithClient()
 
@@ -592,7 +664,7 @@ describe('GoalsPage quick-contribution UI contract', () => {
     vi.clearAllMocks()
     sessionStorage.clear()
     mockFetchAccounts.mockResolvedValue([accountFixture])
-    mockFetchGoalsTracking.mockResolvedValue(trackingWithGoalFixture)
+    mockFetchGoalsTracking.mockResolvedValue(trackingWithTwoGoalsFixture)
     mockAddGoalLedgerEntry.mockResolvedValue({
       id: 'entry-1',
       goal_id: 'goal-1',
@@ -607,13 +679,15 @@ describe('GoalsPage quick-contribution UI contract', () => {
 
   it('renders a labelled quick-contribution control per goal', async () => {
     renderGoalsPageWithClient()
-    expect(await screen.findByLabelText('Quick contribution')).toBeTruthy()
+    const contributionInputs = await screen.findAllByLabelText('Quick contribution')
+
+    expect(contributionInputs).toHaveLength(2)
   })
 
   it('disables Add button for blank, non-numeric, zero, and non-finite values (Q7 negative tests)', async () => {
     renderGoalsPageWithClient()
-    const addButton = await screen.findByRole('button', { name: 'Add' })
-    const contributionInput = screen.getByLabelText('Quick contribution')
+    const addButton = (await screen.findAllByRole('button', { name: 'Add' }))[0]
+    const contributionInput = (await screen.findAllByLabelText('Quick contribution'))[0]
 
     // blank
     expect(addButton).toHaveProperty('disabled', true)
@@ -635,8 +709,8 @@ describe('GoalsPage quick-contribution UI contract', () => {
 
   it('enables Add button for a valid positive amount', async () => {
     renderGoalsPageWithClient()
-    const addButton = await screen.findByRole('button', { name: 'Add' })
-    const contributionInput = screen.getByLabelText('Quick contribution')
+    const addButton = (await screen.findAllByRole('button', { name: 'Add' }))[0]
+    const contributionInput = (await screen.findAllByLabelText('Quick contribution'))[0]
 
     await userEvent.type(contributionInput, '50')
     expect(addButton).toHaveProperty('disabled', false)
@@ -644,8 +718,8 @@ describe('GoalsPage quick-contribution UI contract', () => {
 
   it('submits comma-decimal contribution as parsed float and invalidates query (Q7 positive)', async () => {
     const { invalidateSpy } = renderGoalsPageWithClient()
-    const addButton = await screen.findByRole('button', { name: 'Add' })
-    const contributionInput = screen.getByLabelText('Quick contribution')
+    const addButton = (await screen.findAllByRole('button', { name: 'Add' }))[0]
+    const contributionInput = (await screen.findAllByLabelText('Quick contribution'))[0]
 
     await userEvent.type(contributionInput, '12,50')
     expect(addButton).toHaveProperty('disabled', false)
@@ -665,33 +739,41 @@ describe('GoalsPage quick-contribution UI contract', () => {
 
   it('clears the input only for the submitted goal after success', async () => {
     renderGoalsPageWithClient()
-    const contributionInput = await screen.findByLabelText('Quick contribution')
+    const contributionInputs = await screen.findAllByLabelText('Quick contribution')
+    const addButtons = await screen.findAllByRole('button', { name: 'Add' })
 
-    await userEvent.type(contributionInput, '25')
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    await userEvent.type(contributionInputs[0], '25')
+    await userEvent.type(contributionInputs[1], '35')
+    fireEvent.click(addButtons[0])
 
     await waitFor(() => {
-      expect(mockAddGoalLedgerEntry).toHaveBeenCalledTimes(1)
+      expect(mockAddGoalLedgerEntry).toHaveBeenCalledWith('goal-1', {
+        amount: 25,
+        type: 'contribution',
+        source: 'manual',
+      })
     })
     await waitFor(() => {
-      expect(contributionInput).toHaveProperty('value', '')
+      expect(contributionInputs[0]).toHaveProperty('value', '')
     })
+    expect(contributionInputs[1]).toHaveProperty('value', '35')
   })
 
   it('keeps the typed value and surface toast when addMut errors', async () => {
     mockAddGoalLedgerEntry.mockRejectedValue(new Error('Server error'))
     renderGoalsPageWithClient()
-    const contributionInput = await screen.findByLabelText('Quick contribution')
+    const contributionInput = (await screen.findAllByLabelText('Quick contribution'))[0]
+    const addButton = (await screen.findAllByRole('button', { name: 'Add' }))[0]
 
     await userEvent.type(contributionInput, '50')
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    fireEvent.click(addButton)
 
     await waitFor(() => {
       expect(mockAddGoalLedgerEntry).toHaveBeenCalledTimes(1)
     })
     // input value is preserved after error (clear-only-submitted contract)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Add' })).toHaveProperty('disabled', false)
+      expect(addButton).toHaveProperty('disabled', false)
     })
     expect(contributionInput).toHaveProperty('value', '50')
   })
@@ -712,10 +794,11 @@ describe('GoalsPage quick-contribution UI contract', () => {
     }))
 
     renderGoalsPageWithClient()
-    const contributionInput = await screen.findByLabelText('Quick contribution')
+    const contributionInput = (await screen.findAllByLabelText('Quick contribution'))[0]
+    const addButton = (await screen.findAllByRole('button', { name: 'Add' }))[0]
 
     await userEvent.type(contributionInput, '50')
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    fireEvent.click(addButton)
 
     const pendingButton = await screen.findByRole('button', { name: 'Adding...' })
     expect(pendingButton).toHaveProperty('disabled', true)
@@ -724,7 +807,7 @@ describe('GoalsPage quick-contribution UI contract', () => {
 
     resolveAdd()
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Add' })).toBeTruthy()
+      expect(screen.getAllByRole('button', { name: 'Add' }).length).toBe(2)
     })
   })
 })
