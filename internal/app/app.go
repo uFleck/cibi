@@ -93,3 +93,11 @@ func (a *App) Start() error {
 func (a *App) Shutdown(ctx context.Context) error {
 	return a.Echo.Shutdown(ctx)
 }
+
+// Close releases owned resources that are not managed by Echo shutdown.
+func (a *App) Close() error {
+	if a.db == nil {
+		return nil
+	}
+	return a.db.Close()
+}
