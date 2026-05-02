@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -46,7 +47,12 @@ func (s *ProfileService) UpdateByAccount(accountID uuid.UUID, displayName string
 		}
 	}
 	if !validThemes[theme] {
-		return fmt.Errorf("invalid theme %q: must be one of green-anchor, neutral-command, teal-bridge, warm-amber, rose-noir", theme)
+		keys := make([]string, 0, len(validThemes))
+		for k := range validThemes {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		return fmt.Errorf("invalid theme %q: must be one of %s", theme, strings.Join(keys, ", "))
 	}
 	if err := s.repo.UpsertByAccount(accountID, name, pixKey, theme); err != nil {
 		return fmt.Errorf("service.Profile.UpdateByAccount: %w", err)
