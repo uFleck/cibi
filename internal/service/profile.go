@@ -4,8 +4,17 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 )
+
+var validThemes = map[string]bool{
+	"green-anchor":    true,
+	"neutral-command": true,
+	"teal-bridge":     true,
+	"warm-amber":      true,
+	"rose-noir":       true,
+}
 
 // ProfileService handles app owner profile settings.
 type ProfileService struct {
@@ -16,15 +25,15 @@ func NewProfileService(repo sqlite.ProfileRepo) *ProfileService {
 	return &ProfileService{repo: repo}
 }
 
-func (s *ProfileService) Get() (sqlite.UserProfile, error) {
-	p, err := s.repo.Get()
+func (s *ProfileService) GetByAccount(accountID uuid.UUID) (sqlite.UserProfile, error) {
+	p, err := s.repo.GetByAccount(accountID)
 	if err != nil {
-		return p, fmt.Errorf("service.Profile.Get: %w", err)
+		return p, fmt.Errorf("service.Profile.GetByAccount: %w", err)
 	}
 	return p, nil
 }
 
-func (s *ProfileService) Update(displayName string, pixKey *string) error {
+func (s *ProfileService) UpdateByAccount(accountID uuid.UUID, displayName string, pixKey *string, theme string) error {
 	name := strings.TrimSpace(displayName)
 	if name == "" {
 		return fmt.Errorf("display_name is required")
@@ -36,8 +45,11 @@ func (s *ProfileService) Update(displayName string, pixKey *string) error {
 			pixKey = nil
 		}
 	}
-	if err := s.repo.Upsert(name, pixKey); err != nil {
-		return fmt.Errorf("service.Profile.Update: %w", err)
+	if !validThemes[theme] {
+		return fmt.Errorf("invalid theme %q: must be one of green-anchor, neutral-command, teal-bridge, warm-amber, rose-noir", theme)
+	}
+	if err := s.repo.UpsertByAccount(accountID, name, pixKey, theme); err != nil {
+		return fmt.Errorf("service.Profile.UpdateByAccount: %w", err)
 	}
 	return nil
 }
