@@ -4,6 +4,7 @@ export interface AccountResponse {
   current_balance: number
   currency: string
   is_default: boolean
+  safety_buffer: number
 }
 
 export interface TransactionResponse {
@@ -26,6 +27,7 @@ export interface GoalResponse {
   status: 'draft' | 'active' | 'completed' | 'archived'
   target_amount: number
   invested_total: number
+  min_contribution_per_window?: number
   start_date_utc: string
   target_date_utc: string | null
   notes: string | null
@@ -59,6 +61,7 @@ export interface GoalsTrackingGoalResponse {
   invested_total: number
   remaining_amount: number
   progress_pct: number
+  min_contribution_per_window?: number
   target_date_utc: string | null
   created_at_utc: string
 }
@@ -87,6 +90,7 @@ export interface CheckGoalImpactResponse {
   remaining_after: number
   progress_before_pct: number
   progress_after_pct: number
+  min_contribution_per_window: number
   severity: 'low' | 'medium' | 'high'
 }
 
@@ -103,6 +107,13 @@ export interface GoalRecurringDueItemResponse {
   last_posted_at_utc: string | null
 }
 
+export interface CheckGoalWindowCoverageResponse {
+  goal_id: string
+  goal_name: string
+  contributed_this_window: number
+  min_contribution_per_window: number
+}
+
 export interface CheckResponse {
   can_buy: boolean
   purchasing_power: number
@@ -111,6 +122,7 @@ export interface CheckResponse {
   will_afford_after_payday: boolean
   wait_until: string | null
   goal_impacts: CheckGoalImpactResponse[]
+  goals_covered_this_window: CheckGoalWindowCoverageResponse[]
 }
 
 export interface PayScheduleResponse {
@@ -169,6 +181,7 @@ export function createGoal(data: {
   account_id: string
   name: string
   target_amount: number
+  min_contribution_per_window?: number
   start_date_utc: string
   target_date_utc?: string
   notes?: string
@@ -180,7 +193,7 @@ export function createGoal(data: {
   })
 }
 
-export function updateGoal(id: string, data: Partial<{ name: string; target_amount: number; target_date_utc: string; notes: string }>): Promise<void> {
+export function updateGoal(id: string, data: Partial<{ name: string; target_amount: number; target_date_utc: string; notes: string; min_contribution_per_window: number }>): Promise<void> {
   return apiFetch<void>(`/api/goals/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -272,6 +285,7 @@ export function createAccount(data: {
   name: string
   current_balance: number
   currency: string
+  safety_buffer?: number
 }): Promise<AccountResponse> {
   return apiFetch<AccountResponse>('/api/accounts', {
     method: 'POST',
@@ -282,7 +296,7 @@ export function createAccount(data: {
 
 export function updateAccount(
   id: string,
-  data: Partial<{ name: string; current_balance: number; currency: string }>
+  data: Partial<{ name: string; current_balance: number; currency: string; safety_buffer: number }>
 ): Promise<AccountResponse> {
   return apiFetch<AccountResponse>(`/api/accounts/${id}`, {
     method: 'PATCH',
@@ -626,14 +640,21 @@ export function setParticipants(eventId: string, data: SetParticipantsRequest): 
 export interface ProfileResponse {
   display_name: string
   pix_key?: string | null
+  theme: string
 }
 
-export function fetchProfile(): Promise<ProfileResponse> {
-  return apiFetch<ProfileResponse>('/api/profile')
+export type UpdateProfileRequest = {
+  display_name: string
+  pix_key?: string | null
+  theme: string
 }
 
-export function updateProfile(data: ProfileResponse): Promise<void> {
-  return apiFetch<void>('/api/profile', {
+export function fetchProfile(accountId: string): Promise<ProfileResponse> {
+  return apiFetch<ProfileResponse>(`/api/profile?account_id=${accountId}`)
+}
+
+export function updateProfile(accountId: string, data: UpdateProfileRequest): Promise<void> {
+  return apiFetch<void>(`/api/profile?account_id=${accountId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
