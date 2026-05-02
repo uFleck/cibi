@@ -6,7 +6,7 @@ import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import { router } from './router'
 import { MobileHeader } from '@/components/MobileHeader'
 import { MobileBottomNav } from '@/components/MobileBottomNav'
-import { fetchAccounts } from '@/lib/api'
+import { fetchAccounts, fetchProfile } from '@/lib/api'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,6 +24,16 @@ export const AccountContext = createContext<{
 }>({
   selectedAccountId: null,
   setSelectedAccountId: () => {},
+})
+
+export type ThemeMode = 'light' | 'dark'
+
+export const ThemeContext = createContext<{
+  theme: ThemeMode
+  toggleTheme: () => void
+}>({
+  theme: 'dark',
+  toggleTheme: () => {},
 })
 
 function RootLayoutWithNav() {
@@ -54,14 +64,25 @@ export function RootLayout() {
 }
 
 const SELECTED_ACCOUNT_STORAGE_KEY = 'cibi.selectedAccountId'
+const THEME_STORAGE_KEY = 'cibi.theme'
 
 function getInitialSelectedAccountId(): string | null {
   if (typeof window === 'undefined') return null
   return window.localStorage.getItem(SELECTED_ACCOUNT_STORAGE_KEY)
 }
 
+function getInitialTheme(): ThemeMode {
+  if (typeof window === 'undefined') return 'dark'
+
+  const saved = window.localStorage.getItem(THEME_STORAGE_KEY)
+  if (saved === 'light' || saved === 'dark') return saved
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
 function AppShell() {
   const [selectedAccountId, setSelectedAccountIdState] = useState<string | null>(getInitialSelectedAccountId)
+  const [theme, setTheme] = useState<ThemeMode>(getInitialTheme)
 
   const setSelectedAccountId = useCallback((id: string | null) => {
     setSelectedAccountIdState(id)
@@ -81,6 +102,30 @@ function AppShell() {
     queryKey: ['accounts'],
     queryFn: fetchAccounts,
   })
+
+  const { data: profile } = useQuery({
+    queryKey: ['profile', selectedAccountId],
+    queryFn: () => fetchProfile(selectedAccountId as string),
+    enabled: !!selectedAccountId,
+  })
+
+  useEffect(() => {
+    const theme = profile?.theme ?? 'neutral-command'
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [profile?.theme])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const root = window.document.documentElement
+    root.classList.toggle('dark', theme === 'dark')
+    root.style.colorScheme = theme
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme)
+  }, [theme])
+
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'))
+  }, [])
 
   useEffect(() => {
     if (accountsLoading) return
@@ -112,10 +157,12 @@ function AppShell() {
   }
 
   return (
-    <AccountContext.Provider value={{ selectedAccountId, setSelectedAccountId }}>
-      <RouterProvider router={router} />
-      <Toaster />
-    </AccountContext.Provider>
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      <AccountContext.Provider value={{ selectedAccountId, setSelectedAccountId }}>
+        <RouterProvider router={router} />
+        <Toaster />
+      </AccountContext.Provider>
+    </ThemeContext.Provider>
   )
 }
 
