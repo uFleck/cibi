@@ -163,7 +163,7 @@ export function SettingsPage() {
           <div>
             <Button
               size="sm"
-              onClick={() => updateProfileMutation.mutate()}
+              onClick={() => updateProfileMutation.mutate({})}
               disabled={updateProfileMutation.isPending || !displayNameDraft.trim() || !selectedAccountId}
             >
               <Save size={14} />
