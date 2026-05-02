@@ -3,18 +3,22 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+
+	"github.com/google/uuid"
 )
 
-// UserProfile stores single-user configuration.
+// UserProfile stores account-scoped profile configuration.
 type UserProfile struct {
+	AccountID   uuid.UUID
 	DisplayName string
 	PixKey      *string
+	Theme       string
 }
 
 // ProfileRepo defines data access for user profile settings.
 type ProfileRepo interface {
-	Get() (UserProfile, error)
-	Upsert(displayName string, pixKey *string) error
+	GetByAccount(accountID uuid.UUID) (UserProfile, error)
+	UpsertByAccount(accountID uuid.UUID, displayName string, pixKey *string, theme string) error
 }
 
 // SqliteProfileRepo implements ProfileRepo against modernc SQLite.
@@ -26,12 +30,16 @@ func NewSqliteProfileRepo(db *sql.DB) *SqliteProfileRepo {
 	return &SqliteProfileRepo{db: db}
 }
 
-func (r *SqliteProfileRepo) Get() (UserProfile, error) {
+func (r *SqliteProfileRepo) GetByAccount(accountID uuid.UUID) (UserProfile, error) {
 	var p UserProfile
+	p.AccountID = accountID
 	var pixKey sql.NullString
-	err := r.db.QueryRow(`SELECT display_name, pix_key FROM UserProfile WHERE id = 1`).Scan(&p.DisplayName, &pixKey)
+	err := r.db.QueryRow(
+		`SELECT display_name, pix_key, theme FROM AccountProfile WHERE account_id = ?`,
+		accountID.String(),
+	).Scan(&p.DisplayName, &pixKey, &p.Theme)
 	if err != nil {
-		return p, fmt.Errorf("profile.Get: %w", err)
+		return p, fmt.Errorf("profile.GetByAccount: %w", err)
 	}
 	if pixKey.Valid {
 		p.PixKey = &pixKey.String
@@ -39,14 +47,17 @@ func (r *SqliteProfileRepo) Get() (UserProfile, error) {
 	return p, nil
 }
 
-func (r *SqliteProfileRepo) Upsert(displayName string, pixKey *string) error {
+func (r *SqliteProfileRepo) UpsertByAccount(accountID uuid.UUID, displayName string, pixKey *string, theme string) error {
 	_, err := r.db.Exec(
-		`INSERT INTO UserProfile (id, display_name, pix_key) VALUES (1, ?, ?)
-		 ON CONFLICT(id) DO UPDATE SET display_name = excluded.display_name, pix_key = excluded.pix_key`,
-		displayName, pixKey,
+		`INSERT INTO AccountProfile (account_id, display_name, pix_key, theme) VALUES (?, ?, ?, ?)
+		 ON CONFLICT(account_id) DO UPDATE SET
+		   display_name = excluded.display_name,
+		   pix_key      = excluded.pix_key,
+		   theme        = excluded.theme`,
+		accountID.String(), displayName, pixKey, theme,
 	)
 	if err != nil {
-		return fmt.Errorf("profile.Upsert: %w", err)
+		return fmt.Errorf("profile.UpsertByAccount: %w", err)
 	}
 	return nil
 }
