@@ -1,10 +1,10 @@
 import { Link, useLocation } from '@tanstack/react-router'
 import { motion, useReducedMotion } from 'motion/react'
-import { LayoutDashboard, Users, FileText, HandCoins, Settings } from 'lucide-react'
+import { LayoutDashboard, Target, FileText, HandCoins, Settings } from 'lucide-react'
 
 const navItems = [
   { to: '/', label: 'Home', icon: LayoutDashboard },
-  { to: '/accounts', label: 'Accts', icon: Users },
+  { to: '/goals', label: 'Goals', icon: Target },
   { to: '/transactions', label: 'Txns', icon: FileText },
   { to: '/friends', label: 'Friends', icon: HandCoins },
   { to: '/settings', label: 'Settings', icon: Settings },
@@ -30,7 +30,7 @@ export function MobileBottomNav() {
               to={to}
               className={`relative flex h-11 min-w-14 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-full px-2 text-[11px] transition-colors ${
                 isActive
-                  ? 'text-white'
+                  ? 'text-primary-foreground'
                   : 'text-muted-foreground hover:bg-white/8 hover:text-foreground'
               }`}
             >
@@ -42,7 +42,7 @@ export function MobileBottomNav() {
                       ? { duration: 0 }
                       : { type: 'spring', stiffness: 560, damping: 42, mass: 0.85 }
                   }
-                  className="absolute inset-0 rounded-full bg-accent"
+                  className="absolute inset-0 rounded-full bg-primary"
                 />
               )}
 
