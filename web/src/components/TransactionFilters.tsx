@@ -4,39 +4,42 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
+export type TransactionPreset =
+  | 'due-now'
+  | 'current-window'
+  | 'next-window'
+  | 'all-recurring'
+  | 'one-time-only'
+
 export interface TransactionFiltersProps {
   showFilters: boolean
   hasActiveFilters: boolean
-  filterCategory: string
-  filterType: 'all' | 'recurring' | 'one-time'
+  preset: TransactionPreset
   categories: string[]
+  filterCategory: string
   sortField: 'description' | 'date' | 'amount'
   sortDir: 'asc' | 'desc'
-  paymentWindow: 'current' | 'all'
   onToggleFilters: () => void
+  onPresetChange: (value: TransactionPreset) => void
   onFilterCategoryChange: (value: string) => void
-  onFilterTypeChange: (value: 'all' | 'recurring' | 'one-time') => void
   onSortFieldChange: (value: 'description' | 'date' | 'amount') => void
   onSortDirChange: (value: 'asc' | 'desc') => void
-  onPaymentWindowChange: (value: 'current' | 'all') => void
   onResetFilters: () => void
 }
 
 export function TransactionFilters({
   showFilters,
   hasActiveFilters,
-  filterCategory,
-  filterType,
+  preset,
   categories,
+  filterCategory,
   sortField,
   sortDir,
-  paymentWindow,
   onToggleFilters,
+  onPresetChange,
   onFilterCategoryChange,
-  onFilterTypeChange,
   onSortFieldChange,
   onSortDirChange,
-  onPaymentWindowChange,
   onResetFilters,
 }: TransactionFiltersProps) {
   return (
@@ -52,7 +55,7 @@ export function TransactionFilters({
           Filters
           {hasActiveFilters && (
             <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
-              {[filterCategory !== 'all', filterType !== 'one-time'].filter(Boolean).length}
+              {[filterCategory !== 'all', preset !== 'current-window'].filter(Boolean).length}
             </span>
           )}
         </Button>
@@ -60,7 +63,7 @@ export function TransactionFilters({
 
       {showFilters && (
         <Card>
-          <CardContent className="py-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto] gap-3 items-end">
+          <CardContent className="py-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-3 items-end">
             <div className="flex flex-col gap-1">
               <Label className="text-xs">Sort By</Label>
               <Select
@@ -108,27 +111,17 @@ export function TransactionFilters({
               </Select>
             </div>
             <div className="flex flex-col gap-1">
-              <Label className="text-xs">Type</Label>
-              <Select value={filterType} onValueChange={v => onFilterTypeChange(v as 'all' | 'recurring' | 'one-time')}>
+              <Label className="text-xs">Preset</Label>
+              <Select value={preset} onValueChange={v => onPresetChange(v as TransactionPreset)}>
                 <SelectTrigger className="w-full h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="recurring">Recurring</SelectItem>
-                  <SelectItem value="one-time">One-time</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">Payment window</Label>
-              <Select value={paymentWindow} onValueChange={v => onPaymentWindowChange(v as 'current' | 'all')}>
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="current">Current window</SelectItem>
-                  <SelectItem value="all">All windows</SelectItem>
+                  <SelectItem value="due-now">Due now</SelectItem>
+                  <SelectItem value="current-window">Current window</SelectItem>
+                  <SelectItem value="next-window">Next window</SelectItem>
+                  <SelectItem value="all-recurring">All recurring</SelectItem>
+                  <SelectItem value="one-time-only">One-time only</SelectItem>
                 </SelectContent>
               </Select>
             </div>
