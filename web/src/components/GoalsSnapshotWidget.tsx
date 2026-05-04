@@ -155,10 +155,6 @@ export function GoalsSnapshotWidget() {
           ) : null}
         </Skeleton>
 
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" onClick={() => navigate({ to: '/goals' })}>Add contribution</Button>
-          <Button size="sm" onClick={() => navigate({ to: '/goals' })}>Open Goals</Button>
-        </div>
       </CardContent>
     </Card>
   )

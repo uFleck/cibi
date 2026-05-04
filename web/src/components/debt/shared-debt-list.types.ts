@@ -5,6 +5,7 @@ export type DebtStatusTone = 'default' | 'secondary' | 'outline'
 export interface DebtListStatusVM {
   label: string
   tone: DebtStatusTone
+  tooltip?: string
 }
 
 export interface DebtListItemVM {

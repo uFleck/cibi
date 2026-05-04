@@ -20,6 +20,7 @@ type mockTransactionsRepo struct {
 	updateFn                func(id uuid.UUID, upd sqlite.UpdateTransaction, tx *sql.Tx) error
 	deleteByIDFn            func(id uuid.UUID, tx *sql.Tx) error
 	advanceNextOccurrenceFn func(id uuid.UUID, next time.Time, tx *sql.Tx) error
+	markConfirmedFn         func(id uuid.UUID, confirmedAt time.Time, tx *sql.Tx) error
 	sumUpcomingFn           func(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error)
 }
 
@@ -65,6 +66,13 @@ func (m *mockTransactionsRepo) AdvanceNextOccurrence(id uuid.UUID, next time.Tim
 	return nil
 }
 
+func (m *mockTransactionsRepo) MarkConfirmed(id uuid.UUID, confirmedAt time.Time, tx *sql.Tx) error {
+	if m.markConfirmedFn != nil {
+		return m.markConfirmedFn(id, confirmedAt, tx)
+	}
+	return nil
+}
+
 func (m *mockTransactionsRepo) SumUpcomingObligations(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error) {
 	if m.sumUpcomingFn != nil {
 		return m.sumUpcomingFn(accountID, after, onOrBefore)
@@ -73,15 +81,16 @@ func (m *mockTransactionsRepo) SumUpcomingObligations(accountID uuid.UUID, after
 }
 
 type mockAccountsRepo struct {
-	insertFn        func(a sqlite.Account) error
-	getAllFn        func() ([]sqlite.Account, error)
-	getDefaultFn    func() (sqlite.Account, error)
-	getByIDFn       func(id uuid.UUID) (sqlite.Account, error)
-	updateBalanceFn func(id uuid.UUID, balance int64, tx *sql.Tx) error
-	updateNameFn    func(id uuid.UUID, name string) error
-	updateDefaultFn func(id uuid.UUID, isDefault bool) error
-	deleteByIDFn    func(id uuid.UUID) error
-	unsetDefaultsFn func(tx *sql.Tx) error
+	insertFn             func(a sqlite.Account) error
+	getAllFn             func() ([]sqlite.Account, error)
+	getDefaultFn         func() (sqlite.Account, error)
+	getByIDFn            func(id uuid.UUID) (sqlite.Account, error)
+	updateBalanceFn      func(id uuid.UUID, balance int64, tx *sql.Tx) error
+	updateNameFn         func(id uuid.UUID, name string) error
+	updateSafetyBufferFn func(id uuid.UUID, safetyBuffer int64) error
+	updateDefaultFn      func(id uuid.UUID, isDefault bool) error
+	deleteByIDFn         func(id uuid.UUID) error
+	unsetDefaultsFn      func(tx *sql.Tx) error
 }
 
 func (m *mockAccountsRepo) Insert(a sqlite.Account) error {
@@ -126,6 +135,13 @@ func (m *mockAccountsRepo) UpdateName(id uuid.UUID, name string) error {
 	return nil
 }
 
+func (m *mockAccountsRepo) UpdateSafetyBuffer(id uuid.UUID, safetyBuffer int64) error {
+	if m.updateSafetyBufferFn != nil {
+		return m.updateSafetyBufferFn(id, safetyBuffer)
+	}
+	return nil
+}
+
 func (m *mockAccountsRepo) UpdateIsDefault(id uuid.UUID, isDefault bool) error {
 	if m.updateDefaultFn != nil {
 		return m.updateDefaultFn(id, isDefault)
@@ -137,6 +153,10 @@ func (m *mockAccountsRepo) DeleteByID(id uuid.UUID) error {
 	if m.deleteByIDFn != nil {
 		return m.deleteByIDFn(id)
 	}
+	return nil
+}
+
+func (m *mockAccountsRepo) IncrementVersion(id uuid.UUID, tx *sql.Tx) error {
 	return nil
 }
 
@@ -205,7 +225,7 @@ func TestCreateTransaction_UpdatesBalanceAtomically(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, &updateUsedTx)
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, nil)
 	err := svc.CreateTransaction(sqlite.Transaction{AccountID: accountID, Amount: txnAmount})
 	if err != nil {
 		t.Fatalf("CreateTransaction error: %v", err)
@@ -251,7 +271,7 @@ func TestCreateTransaction_FutureAnchorDate_DoesNotUpdateBalance(t *testing.T) {
 	}
 
 	freq := engine.FreqMonthly
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, nil)
 	err := svc.CreateTransaction(sqlite.Transaction{
 		AccountID:   accountID,
 		Amount:      txnAmount,
@@ -303,7 +323,7 @@ func TestUpdateTransaction_RecalculatesBalanceWhenAmountChanges(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, nil)
 	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{Amount: &newAmount})
 	if err != nil {
 		t.Fatalf("UpdateTransaction error: %v", err)
@@ -344,7 +364,7 @@ func TestDeleteTransaction_ReversesBalance(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, nil)
 	err := svc.DeleteTransaction(txnID)
 	if err != nil {
 		t.Fatalf("DeleteTransaction error: %v", err)
@@ -396,7 +416,7 @@ func TestConfirmRecurring_UpdatesBalanceAndAdvancesOccurrence(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, nil)
 	next, err := svc.ConfirmRecurring(txnID)
 	if err != nil {
 		t.Fatalf("ConfirmRecurring error: %v", err)

@@ -18,15 +18,11 @@ var rootCmd = &cobra.Command{
 		configPath, _ := cmd.Flags().GetString("config")
 		dbPath, _ := cmd.Flags().GetString("db")
 		serverPort, _ := cmd.Flags().GetString("port")
-		safetyBuffer, _ := cmd.Flags().GetInt64("safety-buffer")
 
 		options := []config.Option{
 			config.WithConfigPath(configPath),
 			config.WithDatabasePath(dbPath),
 			config.WithServerPort(serverPort),
-		}
-		if cmd.Flags().Changed("safety-buffer") {
-			options = append(options, config.WithSafetyBuffer(safetyBuffer))
 		}
 
 		cfg, err := config.LoadConfig(options...)
@@ -53,5 +49,4 @@ func init() {
 	rootCmd.PersistentFlags().String("config", "", "path to config file (overrides default ~/.config/cibi/config.yaml)")
 	rootCmd.PersistentFlags().String("db", "", "path to SQLite database file (overrides config)")
 	rootCmd.PersistentFlags().String("port", "", "HTTP server listen address (overrides config)")
-	rootCmd.PersistentFlags().Int64("safety-buffer", config.DefaultSafetyBuffer, "minimum safety buffer in cents (overrides config)")
 }

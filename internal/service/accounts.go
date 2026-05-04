@@ -28,6 +28,9 @@ func (s *AccountsService) ListAccounts() ([]sqlite.Account, error) {
 
 // CreateAccount inserts a new account.
 func (s *AccountsService) CreateAccount(a sqlite.Account) error {
+	if a.SafetyBuffer == 0 {
+		a.SafetyBuffer = 1000
+	}
 	if err := s.accRepo.Insert(a); err != nil {
 		return fmt.Errorf("service.CreateAccount: %w", err)
 	}
@@ -72,7 +75,7 @@ func (s *AccountsService) GetByID(id uuid.UUID) (sqlite.Account, error) {
 // UpdateAccount patches mutable fields on an account.
 // Pass nil for fields that should not change.
 // name: nil = no change; balance: nil = no change.
-func (s *AccountsService) UpdateAccount(id uuid.UUID, name *string, balance *int64) error {
+func (s *AccountsService) UpdateAccount(id uuid.UUID, name *string, balance *int64, safetyBuffer *int64) error {
 	if name != nil {
 		if err := s.accRepo.UpdateName(id, *name); err != nil {
 			return fmt.Errorf("service.UpdateAccount: name: %w", err)
@@ -81,6 +84,11 @@ func (s *AccountsService) UpdateAccount(id uuid.UUID, name *string, balance *int
 	if balance != nil {
 		if err := s.accRepo.UpdateBalance(id, *balance, nil); err != nil {
 			return fmt.Errorf("service.UpdateAccount: balance: %w", err)
+		}
+	}
+	if safetyBuffer != nil {
+		if err := s.accRepo.UpdateSafetyBuffer(id, *safetyBuffer); err != nil {
+			return fmt.Errorf("service.UpdateAccount: safety_buffer: %w", err)
 		}
 	}
 	return nil

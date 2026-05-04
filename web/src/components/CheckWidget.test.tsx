@@ -29,6 +29,7 @@ const baseResult: CheckResponse = {
   risk_level: 'WAIT',
   will_afford_after_payday: true,
   wait_until: '2026-05-15T00:00:00.000Z',
+  goals_covered_this_window: [],
   goal_impacts: [
     {
       goal_id: 'goal-1',
@@ -37,6 +38,7 @@ const baseResult: CheckResponse = {
       remaining_after: 625,
       progress_before_pct: 42.5,
       progress_after_pct: 37.5,
+      min_contribution_per_window: 200,
       severity: 'high',
     },
   ],
@@ -83,15 +85,11 @@ describe('CheckWidget impact wiring', () => {
     expect(await screen.findByLabelText('Emergency fund purchase impact')).toBeTruthy()
     expect(screen.getByLabelText('Goal impact preview')).toBeTruthy()
     expect(screen.getByText('1 affected')).toBeTruthy()
-    expect(screen.getByText('Purchase impact')).toBeTruthy()
+    expect(screen.getByText('Contribution capacity impact')).toBeTruthy()
     expect(screen.getByText('high')).toBeTruthy()
-    expect(screen.getByText('Before')).toBeTruthy()
-    expect(screen.getByText('After')).toBeTruthy()
-    expect(screen.getByText('42.5% → 37.5%', { exact: false })).toBeTruthy()
-    expect(screen.getByText('Goal progress would drop', { exact: false })).toBeTruthy()
-
-    const progress = screen.getByRole('progressbar', { name: 'Emergency fund progress after purchase' })
-    expect(progress.getAttribute('aria-valuenow')).toBe('37.5')
+    expect(screen.getByText('Min contribution / payment window')).toBeTruthy()
+    expect(screen.getByText('This check does not move goal progress.', { exact: false })).toBeTruthy()
+    expect(screen.getByText('leaves too little for your minimum window contribution', { exact: false })).toBeTruthy()
   })
 
   it('keeps latest-impact semantics explicit when no active goals are affected', async () => {
@@ -106,6 +104,31 @@ describe('CheckWidget impact wiring', () => {
     expect(await screen.findByLabelText('Goal impact preview')).toBeTruthy()
     expect(screen.getByText('No active goals affected.')).toBeTruthy()
     expect(screen.getByText('no goal progress would move', { exact: false })).toBeTruthy()
+  })
+
+  it('shows covered goals when current window minimum was already met', async () => {
+    const user = userEvent.setup()
+    mockPostCheck.mockResolvedValue({
+      ...baseResult,
+      goal_impacts: [],
+      goals_covered_this_window: [
+        {
+          goal_id: 'goal-2',
+          goal_name: 'Vacation fund',
+          contributed_this_window: 250,
+          min_contribution_per_window: 200,
+        },
+      ],
+    })
+
+    render(<CheckWidget />)
+
+    await user.type(screen.getByLabelText('Purchase amount'), '12')
+    await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
+
+    expect(await screen.findByLabelText('Goals already covered this window')).toBeTruthy()
+    expect(screen.getByText('Already covered this window')).toBeTruthy()
+    expect(screen.getByText('Vacation fund')).toBeTruthy()
   })
 
   it('keeps pending state disabled until the API call resolves', async () => {

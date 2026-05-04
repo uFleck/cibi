@@ -10,8 +10,8 @@ import { ValueInput } from '@/components/ui/value-input'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatDate } from '@/lib/format'
+import { parseDecimalInput } from '@/lib/locale'
 import { postCheck, type CheckGoalImpactResponse, type CheckResponse } from '@/lib/api'
-import { progressTone } from '@/pages/goals-helpers'
 
 export const LAST_CHECK_RESULT_KEY = 'cibi:last-check-result'
 
@@ -31,70 +31,35 @@ const SEVERITY_BADGE_CLASS: Record<CheckGoalImpactResponse['severity'], string> 
   high: 'border-[var(--color-risk-high)]/30 bg-[var(--color-risk-high)]/10 text-[var(--color-risk-high)]',
 }
 
-function clampProgress(progress: number): number {
-  if (!Number.isFinite(progress)) return 0
-  return Math.max(0, Math.min(100, progress))
-}
-
 interface GoalImpactCardProps {
   impact: CheckGoalImpactResponse
 }
 
 function GoalImpactCard({ impact }: GoalImpactCardProps) {
-  const progressBefore = clampProgress(impact.progress_before_pct)
-  const progressAfter = clampProgress(impact.progress_after_pct)
-  const progressDelta = impact.progress_after_pct - impact.progress_before_pct
-
   return (
     <article className="rounded-xl border border-border/60 bg-card p-3 shadow-sm" aria-label={`${impact.goal_name} purchase impact`}>
       <div className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex flex-col gap-1">
             <p className="truncate text-sm font-semibold tracking-tight text-foreground">{impact.goal_name}</p>
-            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Purchase impact</p>
+            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Contribution capacity impact</p>
           </div>
           <Badge variant="outline" className={`uppercase tracking-wide ${SEVERITY_BADGE_CLASS[impact.severity]}`}>
             {impact.severity}
           </Badge>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-lg bg-muted/40 px-2.5 py-2">
-            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Before</p>
-            <p className="text-xs font-semibold tabular-nums text-foreground">
-              <MoneyValue amount={impact.remaining_before} tone="neutral" showSign="never" className="text-foreground" />
-            </p>
-          </div>
-          <div className="rounded-lg bg-muted/40 px-2.5 py-2">
-            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">After</p>
-            <p className="text-xs font-semibold tabular-nums text-foreground">
-              <MoneyValue amount={impact.remaining_after} tone="neutral" showSign="never" className="text-foreground" />
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2" aria-label={`${impact.goal_name} purchase progress impact`}>
-          <div className="flex items-center justify-between gap-2 text-xs">
-            <span className="font-medium text-foreground">Progress after purchase</span>
-            <span className="font-semibold tabular-nums text-foreground">
-              {progressBefore.toFixed(1)}% → {progressAfter.toFixed(1)}%
-            </span>
-          </div>
-          <div
-            className="h-2.5 w-full overflow-hidden rounded-full bg-muted shadow-inner"
-            role="progressbar"
-            aria-label={`${impact.goal_name} progress after purchase`}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Number(progressAfter.toFixed(1))}
-          >
-            <div className={`h-full rounded-full ${progressTone(progressAfter)}`} style={{ width: `${progressAfter}%` }} />
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            {progressDelta < 0 ? 'Goal progress would drop' : 'Goal progress would stay on track'} by{' '}
-            <span className="font-medium tabular-nums text-foreground">{Math.abs(progressDelta).toFixed(1)} pts</span>.
+        <div className="rounded-lg bg-muted/40 px-2.5 py-2">
+          <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Min contribution / payment window</p>
+          <p className="text-xs font-semibold tabular-nums text-foreground">
+            <MoneyValue amount={impact.min_contribution_per_window} tone="neutral" showSign="never" className="text-foreground" />
           </p>
         </div>
+
+        <p className="text-xs text-foreground">
+          This check does <span className="font-semibold">not</span> move goal progress.
+          It only flags that this purchase leaves too little for your minimum window contribution.
+        </p>
       </div>
     </article>
   )
@@ -111,8 +76,8 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   async function handleCheck() {
-    const parsed = parseFloat(amount.replace(',', '.'))
-    if (isNaN(parsed) || parsed <= 0) return
+    const parsed = parseDecimalInput(amount)
+    if (parsed == null || parsed <= 0) return
 
     setErrorMessage(null)
     setState('loading')
@@ -275,14 +240,14 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
                   <div className="grid grid-cols-2 gap-2">
                     <div className="rounded-lg bg-background/60 px-2.5 py-2">
                       <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Purchasing power</p>
-                      <p className="text-xs font-semibold tabular-nums text-foreground">
-                        <MoneyValue amount={result.purchasing_power} tone="neutral" showSign="auto" className="text-foreground" />
+                      <p className="text-xs font-semibold tabular-nums">
+                        <MoneyValue amount={result.purchasing_power} tone="auto" showSign="always" />
                       </p>
                     </div>
                     <div className="rounded-lg bg-background/60 px-2.5 py-2">
                       <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Buffer remaining</p>
-                      <p className="text-xs font-semibold tabular-nums text-foreground">
-                        <MoneyValue amount={result.buffer_remaining} tone="neutral" showSign="auto" className="text-foreground" />
+                      <p className="text-xs font-semibold tabular-nums">
+                        <MoneyValue amount={result.buffer_remaining} tone="auto" showSign="always" />
                       </p>
                     </div>
                   </div>
@@ -317,6 +282,27 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
                       </CardContent>
                     </Card>
                   )}
+
+                  {result.goals_covered_this_window.length > 0 ? (
+                    <Card className="border-[var(--color-risk-low)]/30 bg-[var(--color-risk-low)]/5 py-0 shadow-none" aria-label="Goals already covered this window">
+                      <CardContent className="px-3 py-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Already covered this window</p>
+                          <Badge variant="outline" className="uppercase tracking-wide">{result.goals_covered_this_window.length}</Badge>
+                        </div>
+                        <ul className="mt-2 space-y-1.5">
+                          {result.goals_covered_this_window.map(goal => (
+                            <li key={goal.goal_id} className="text-xs flex items-center justify-between gap-2">
+                              <span className="font-medium text-foreground truncate">{goal.goal_name}</span>
+                              <span className="tabular-nums text-muted-foreground">
+                                <MoneyValue amount={goal.contributed_this_window} tone="neutral" showSign="never" /> / <MoneyValue amount={goal.min_contribution_per_window} tone="neutral" showSign="never" />
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  ) : null}
                 </motion.div>
               )
             })()}

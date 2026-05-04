@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CIBI — Design System Directions</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Geist', 'Inter', system-ui, sans-serif;
+    background: #0d0d0f;
+    color: #e8e8f0;
+    padding: 2rem 1rem 4rem;
+    min-height: 100vh;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 0.5rem;
+  }
+
+  .intro {
+    text-align: center;
+    font-size: 0.85rem;
+    color: #555;
+    margin-bottom: 3rem;
+    max-width: 560px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .directions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    max-width: 1300px;
+    margin: 0 auto;
+  }
+
+  .direction {
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #1e1e26;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s;
+    position: relative;
+  }
+
+  .direction:hover {
+    transform: translateY(-2px);
+  }
+
+  .direction.selected {
+    border-color: #888;
+    box-shadow: 0 0 0 2px #888;
+  }
+
+  .direction-header {
+    padding: 1.25rem 1.5rem 1rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    border-bottom: 1px solid #1e1e26;
+  }
+
+  .direction-letter {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .direction-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .direction-tagline {
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 0.2rem;
+  }
+
+  .direction-body {
+    padding: 1.25rem;
+  }
+
+  /* ---- MOCKUP COMPONENTS ---- */
+
+  .mockup-section {
+    margin-bottom: 1rem;
+  }
+
+  .mockup-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #444;
+    margin-bottom: 0.5rem;
+  }
+
+  /* Stat cards row */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .stat-card {
+    border-radius: 10px;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid;
+  }
+
+  .stat-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.35rem;
+  }
+
+  .stat-value {
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Check widget idle */
+  .check-widget {
+    border-radius: 10px;
+    padding: 0.75rem;
+    border: 1px solid;
+    margin-bottom: 0.75rem;
+  }
+
+  .check-widget-heading {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 0.6rem;
+  }
+
+  .check-input-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .check-input {
+    flex: 1;
+    border-radius: 7px;
+    border: 1px solid;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.8rem;
+    background: transparent;
+    font-family: inherit;
+    color: inherit;
+  }
+
+  .check-btn {
+    border-radius: 7px;
+    padding: 0.45rem 0.9rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    border: none;
+    cursor: default;
+    font-family: inherit;
+  }
+
+  /* Verdict card */
+  .verdict-card {
+    border-radius: 10px;
+    padding: 0.85rem;
+    border: 1px solid;
+    margin-bottom: 0.75rem;
+  }
+
+  .verdict-label {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+    letter-spacing: -0.02em;
+  }
+
+  .verdict-detail {
+    font-size: 0.72rem;
+    opacity: 0.7;
+    line-height: 1.5;
+  }
+
+  .verdict-risk-badge {
+    display: inline-block;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    border: 1px solid;
+    margin-top: 0.5rem;
+  }
+
+  /* Palette swatches */
+  .palette {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+  }
+
+  .swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    position: relative;
+  }
+
+  .swatch-label {
+    font-size: 0.6rem;
+    color: #555;
+    margin-top: 0.25rem;
+    text-align: center;
+    width: 28px;
+  }
+
+  .swatch-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .tradeoffs {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #1e1e26;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .tradeoffs-col h4 {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.35rem;
+  }
+
+  .tradeoffs-col.pros h4 { color: #5a8; }
+  .tradeoffs-col.cons h4 { color: #a55; }
+
+  .tradeoffs-col ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .tradeoffs-col li {
+    font-size: 0.7rem;
+    color: #888;
+    padding-left: 0.8rem;
+    position: relative;
+  }
+
+  .tradeoffs-col li::before {
+    content: attr(data-bullet);
+    position: absolute;
+    left: 0;
+  }
+
+  .select-indicator {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1.5px solid #333;
+    background: transparent;
+    transition: all 0.15s;
+  }
+
+  .direction.selected .select-indicator {
+    background: #888;
+    border-color: #888;
+  }
+
+  /* ===== DIRECTION A: GREEN ANCHOR ===== */
+  .dir-a { background: #0a110d; }
+  .dir-a .direction-header { background: #0c140f; }
+  .dir-a .direction-letter { color: oklch(0.72 0.19 142); }
+
+  .dir-a .stat-card {
+    background: oklch(0.13 0.022 145 / 0.6);
+    border-color: oklch(0.22 0.04 145 / 0.5);
+  }
+  .dir-a .stat-label { color: oklch(0.55 0.06 145); }
+  .dir-a .stat-value { color: #e8f0ea; }
+
+  .dir-a .check-widget {
+    background: oklch(0.13 0.022 145 / 0.6);
+    border-color: oklch(0.22 0.04 145 / 0.5);
+  }
+  .dir-a .check-input {
+    border-color: oklch(0.25 0.04 145 / 0.5);
+    color: #e8f0ea;
+  }
+  .dir-a .check-input::placeholder { color: oklch(0.45 0.04 145); }
+  .dir-a .check-btn {
+    background: oklch(0.62 0.19 142);
+    color: oklch(0.10 0.03 142);
+  }
+
+  /* YES verdict */
+  .dir-a .verdict-card.yes {
+    background: oklch(0.13 0.06 142 / 0.8);
+    border-color: oklch(0.72 0.19 142 / 0.4);
+  }
+  .dir-a .verdict-label.yes { color: oklch(0.72 0.19 142); }
+  .dir-a .verdict-risk-badge.low {
+    color: oklch(0.72 0.19 142);
+    border-color: oklch(0.72 0.19 142 / 0.3);
+    background: oklch(0.72 0.19 142 / 0.08);
+  }
+
+  /* ===== DIRECTION B: NEUTRAL COMMAND ===== */
+  .dir-b { background: #090c12; }
+  .dir-b .direction-header { background: #0b0f18; }
+  .dir-b .direction-letter { color: oklch(0.65 0.10 240); }
+
+  .dir-b .stat-card {
+    background: oklch(0.13 0.022 240 / 0.7);
+    border-color: oklch(0.22 0.03 240 / 0.5);
+  }
+  .dir-b .stat-label { color: oklch(0.55 0.05 240); }
+  .dir-b .stat-value { color: #eaeef8; }
+
+  .dir-b .check-widget {
+    background: oklch(0.13 0.022 240 / 0.7);
+    border-color: oklch(0.22 0.03 240 / 0.5);
+  }
+  .dir-b .check-input {
+    border-color: oklch(0.25 0.03 240 / 0.5);
+    color: #eaeef8;
+  }
+  .dir-b .check-input::placeholder { color: oklch(0.45 0.04 240); }
+  .dir-b .check-btn {
+    background: oklch(0.55 0.10 240);
+    color: #fff;
+  }
+
+  /* YES verdict — semantic green, NOT the primary */
+  .dir-b .verdict-card.yes {
+    background: oklch(0.13 0.06 142 / 0.8);
+    border-color: oklch(0.72 0.19 142 / 0.4);
+  }
+  .dir-b .verdict-label.yes { color: oklch(0.72 0.19 142); }
+  .dir-b .verdict-risk-badge.low {
+    color: oklch(0.72 0.19 142);
+    border-color: oklch(0.72 0.19 142 / 0.3);
+    background: oklch(0.72 0.19 142 / 0.08);
+  }
+
+  /* ===== DIRECTION C: TEAL BRIDGE ===== */
+  .dir-c { background: #090e10; }
+  .dir-c .direction-header { background: #0b1214; }
+  .dir-c .direction-letter { color: oklch(0.68 0.14 195); }
+
+  .dir-c .stat-card {
+    background: oklch(0.13 0.022 195 / 0.6);
+    border-color: oklch(0.22 0.04 195 / 0.5);
+  }
+  .dir-c .stat-label { color: oklch(0.55 0.06 195); }
+  .dir-c .stat-value { color: #e8f2f4; }
+
+  .dir-c .check-widget {
+    background: oklch(0.13 0.022 195 / 0.6);
+    border-color: oklch(0.22 0.04 195 / 0.5);
+  }
+  .dir-c .check-input {
+    border-color: oklch(0.25 0.04 195 / 0.5);
+    color: #e8f2f4;
+  }
+  .dir-c .check-input::placeholder { color: oklch(0.45 0.05 195); }
+  .dir-c .check-btn {
+    background: oklch(0.62 0.14 195);
+    color: oklch(0.09 0.03 195);
+  }
+
+  /* YES verdict */
+  .dir-c .verdict-card.yes {
+    background: oklch(0.13 0.06 142 / 0.8);
+    border-color: oklch(0.72 0.19 142 / 0.4);
+  }
+  .dir-c .verdict-label.yes { color: oklch(0.72 0.19 142); }
+  .dir-c .verdict-risk-badge.low {
+    color: oklch(0.72 0.19 142);
+    border-color: oklch(0.72 0.19 142 / 0.3);
+    background: oklch(0.72 0.19 142 / 0.08);
+  }
+
+  /* ===== DIRECTION D: CURRENT (reference) ===== */
+  .dir-d { background: #090912; }
+  .dir-d .direction-header { background: #0b0b16; }
+  .dir-d .direction-letter { color: oklch(0.58 0.22 264); }
+
+  .dir-d .stat-card {
+    background: oklch(0.13 0.022 255 / 0.7);
+    border-color: oklch(0.22 0.030 248 / 0.6);
+  }
+  .dir-d .stat-label { color: oklch(0.58 0.034 228); }
+  .dir-d .stat-value { color: #f0f0f8; }
+
+  .dir-d .check-widget {
+    background: oklch(0.13 0.022 255 / 0.7);
+    border-color: oklch(0.22 0.030 248 / 0.6);
+  }
+  .dir-d .check-input {
+    border-color: oklch(0.25 0.030 248 / 0.5);
+    color: #f0f0f8;
+  }
+  .dir-d .check-input::placeholder { color: oklch(0.45 0.02 240); }
+  .dir-d .check-btn {
+    background: oklch(0.58 0.22 264);
+    color: #fff;
+  }
+
+  /* YES verdict — green BUT primary is purple = incoherence */
+  .dir-d .verdict-card.yes {
+    background: oklch(0.13 0.06 142 / 0.8);
+    border-color: oklch(0.72 0.19 142 / 0.4);
+  }
+  .dir-d .verdict-label.yes { color: oklch(0.72 0.19 142); }
+  .dir-d .verdict-risk-badge.low {
+    color: oklch(0.72 0.19 142);
+    border-color: oklch(0.72 0.19 142 / 0.3);
+    background: oklch(0.72 0.19 142 / 0.08);
+  }
+
+  .conflict-note {
+    font-size: 0.65rem;
+    color: #a55;
+    margin-top: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #a55/0.3;
+    border-radius: 6px;
+    background: #a55/0.06;
+  }
+
+  @media (max-width: 700px) {
+    .directions-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<h1>CIBI — Design System Directions</h1>
+<p class="intro">Current design has purple primary + green accent — two unrelated primaries with no semantic relationship. Three alternatives below. Click to select preference.</p>
+
+<div class="directions-grid">
+
+  <!-- DIRECTION A: GREEN ANCHOR -->
+  <div class="direction dir-a" onclick="toggleSelect(this, 'a')">
+    <div class="select-indicator"></div>
+    <div class="direction-header">
+      <span class="direction-letter">A</span>
+      <div>
+        <div class="direction-name" style="color:#e8f0ea">Green Anchor</div>
+        <div class="direction-tagline">One primary: green owns brand + verdict-yes</div>
+      </div>
+    </div>
+    <div class="direction-body">
+
+      <div class="mockup-section">
+        <div class="mockup-label">Stat cards</div>
+        <div class="stat-row">
+          <div class="stat-card"><div class="stat-label">Balance</div><div class="stat-value">$3,240</div></div>
+          <div class="stat-card"><div class="stat-label">Reserved</div><div class="stat-value">$1,180</div></div>
+          <div class="stat-card"><div class="stat-label">Liquid</div><div class="stat-value">$2,060</div></div>
+        </div>
+      </div>
+
+      <div class="mockup-section">
+        <div class="mockup-label">Check widget</div>
+        <div class="check-widget">
+          <div class="check-widget-heading">Can I Buy It?</div>
+          <div class="check-input-row">
+            <input class="check-input" value="89.00" readonly />
+            <button class="check-btn">CHECK</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mockup-section">
+        <div class="mockup-label">YES verdict</div>
+        <div class="verdict-card yes">
+          <div class="verdict-label yes">YES</div>
+          <div class="verdict-detail">Purchasing power: $2,060.00<br>Buffer remaining: $1,471.00</div>
+          <div class="verdict-risk-badge low">LOW RISK</div>
+        </div>
+      </div>
+
+      <div class="mockup-label" style="margin-top:0.5rem">Palette</div>
+      <div class="palette">
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.62 0.19 142)"></div><div class="swatch-label">primary</div></div>
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.72 0.19 142)"></div><div class="swatch-label">yes</div></div>
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.65 0.22 25)"></div><div class="swatch-label">no</div></div>
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.78 0.17 85)"></div><div class="swatch-label">wait</div></div>
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.68 0.20 40)"></div><div class="swatch-label">high</div></div>
+      </div>
+
+      <div class="tradeoffs">
+        <div class="tradeoffs-col pros">
+          <h4>Strengths</h4>
+          <ul>
+            <li data-bullet="+">One primary = max coherence</li>
+            <li data-bullet="+">Brand tone = optimistic, empowering</li>
+            <li data-bullet="+">Green actions feel inviting</li>
+          </ul>
+        </div>
+        <div class="tradeoffs-col cons">
+          <h4>Risks</h4>
+          <ul>
+            <li data-bullet="-">Green overload dilutes verdict impact</li>
+            <li data-bullet="-">Buttons + YES badge look the same</li>
+            <li data-bullet="-">Less financial/serious feel</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIRECTION B: NEUTRAL COMMAND -->
+  <div class="direction dir-b" onclick="toggleSelect(this, 'b')">
+    <div class="select-indicator"></div>
+    <div class="direction-header">
+      <span class="direction-letter">B</span>
+      <div>
+        <div class="direction-name" style="color:#eaeef8">Neutral Command</div>
+        <div class="direction-tagline">Navy-slate brand. Green/red are ONLY semantic.</div>
+      </div>
+    </div>
+    <div class="direction-body">
+
+      <div class="mockup-section">
+        <div class="mockup-label">Stat cards</div>
+        <div class="stat-row">
+          <div class="stat-card"><div class="stat-label">Balance</div><div class="stat-value">$3,240</div></div>
+          <div class="stat-card"><div class="stat-label">Reserved</div><div class="stat-value">$1,180</div></div>
+          <div class="stat-card"><div class="stat-label">Liquid</div><div class="stat-value">$2,060</div></div>
+        </div>
+      </div>
+
+      <div class="mockup-section">
+        <div class="mockup-label">Check widget</div>
+        <div class="check-widget">
+          <div class="check-widget-heading">Can I Buy It?</div>
+          <div class="check-input-row">
+            <input class="check-input" value="89.00" readonly />
+            <button class="check-btn">CHECK</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mockup-section">
+        <div class="mockup-label">YES verdict — green as pure signal</div>
+        <div class="verdict-card yes">
+          <div class="verdict-label yes">YES</div>
+          <div class="verdict-detail">Purchasing power: $2,060.00<br>Buffer remaining: $1,471.00</div>
+          <div class="verdict-risk-badge low">LOW RISK</div>
+        </div>
+      </div>
+
+      <div class="mockup-label" style="margin-top:0.5rem">Palette</div>
+      <div class="palette">
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.55 0.10 240)"></div><div class="swatch-label">primary</div></div>
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.72 0.19 142)"></div><div class="swatch-label">yes</div></div>
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.65 0.22 25)"></div><div class="swatch-label">no</div></div>
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.78 0.17 85)"></div><div class="swatch-label">wait</div></div>
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.68 0.20 40)"></div><div class="swatch-label">high</div></div>
+      </div>
+
+      <div class="tradeoffs">
+        <div class="tradeoffs-col pros">
+          <h4>Strengths</h4>
+          <ul>
+            <li data-bullet="+">Semantic colors stay pure</li>
+            <li data-bullet="+">Green verdict hits harder</li>
+            <li data-bullet="+">Authoritative, Bloomberg-ish</li>
+          </ul>
+        </div>
+        <div class="tradeoffs-col cons">
+          <h4>Risks</h4>
+          <ul>
+            <li data-bullet="-">Navy feels corporate/cold</li>
+            <li data-bullet="-">Two color "temperatures" in UI</li>
+            <li data-bullet="-">Less personal feel</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIRECTION C: TEAL BRIDGE -->
+  <div class="direction dir-c" onclick="toggleSelect(this, 'c')">
+    <div class="select-indicator"></div>
+    <div class="direction-header">
+      <span class="direction-letter">C</span>
+      <div>
+        <div class="direction-name" style="color:#e8f2f4">Teal Bridge</div>
+        <div class="direction-tagline">Teal primary bridges calm authority + yes-energy</div>
+      </div>
+    </div>
+    <div class="direction-body">
+
+      <div class="mockup-section">
+        <div class="mockup-label">Stat cards</div>
+        <div class="stat-row">
+          <div class="stat-card"><div class="stat-label">Balance</div><div class="stat-value">$3,240</div></div>
+          <div class="stat-card"><div class="stat-label">Reserved</div><div class="stat-value">$1,180</div></div>
+          <div class="stat-card"><div class="stat-label">Liquid</div><div class="stat-value">$2,060</div></div>
+        </div>
+      </div>
+
+      <div class="mockup-section">
+        <div class="mockup-label">Check widget</div>
+        <div class="check-widget">
+          <div class="check-widget-heading">Can I Buy It?</div>
+          <div class="check-input-row">
+            <input class="check-input" value="89.00" readonly />
+            <button class="check-btn">CHECK</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mockup-section">
+        <div class="mockup-label">YES verdict</div>
+        <div class="verdict-card yes">
+          <div class="verdict-label yes">YES</div>
+          <div class="verdict-detail">Purchasing power: $2,060.00<br>Buffer remaining: $1,471.00</div>
+          <div class="verdict-risk-badge low">LOW RISK</div>
+        </div>
+      </div>
+
+      <div class="mockup-label" style="margin-top:0.5rem">Palette</div>
+      <div class="palette">
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.62 0.14 195)"></div><div class="swatch-label">primary</div></div>
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.72 0.19 142)"></div><div class="swatch-label">yes</div></div>
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.65 0.22 25)"></div><div class="swatch-label">no</div></div>
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.78 0.17 85)"></div><div class="swatch-label">wait</div></div>
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.68 0.20 40)"></div><div class="swatch-label">high</div></div>
+      </div>
+
+      <div class="tradeoffs">
+        <div class="tradeoffs-col pros">
+          <h4>Strengths</h4>
+          <ul>
+            <li data-bullet="+">Warm-neutral: personal but trustworthy</li>
+            <li data-bullet="+">Teal hue adjacent to green = harmony</li>
+            <li data-bullet="+">Good contrast with semantic colors</li>
+          </ul>
+        </div>
+        <div class="tradeoffs-col cons">
+          <h4>Risks</h4>
+          <ul>
+            <li data-bullet="-">Still two greens (teal + verdict-yes)</li>
+            <li data-bullet="-">Less common in finance apps</li>
+            <li data-bullet="-">Needs careful hue calibration</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIRECTION D: CURRENT STATE (reference) -->
+  <div class="direction dir-d" onclick="toggleSelect(this, 'current')">
+    <div class="select-indicator"></div>
+    <div class="direction-header">
+      <span class="direction-letter" style="color:#888">REF</span>
+      <div>
+        <div class="direction-name" style="color:#aaa">Current State</div>
+        <div class="direction-tagline" style="color:#555">Purple primary + green accent (reference)</div>
+      </div>
+    </div>
+    <div class="direction-body">
+
+      <div class="mockup-section">
+        <div class="mockup-label">Stat cards</div>
+        <div class="stat-row">
+          <div class="stat-card"><div class="stat-label">Balance</div><div class="stat-value">$3,240</div></div>
+          <div class="stat-card"><div class="stat-label">Reserved</div><div class="stat-value">$1,180</div></div>
+          <div class="stat-card"><div class="stat-label">Liquid</div><div class="stat-value">$2,060</div></div>
+        </div>
+      </div>
+
+      <div class="mockup-section">
+        <div class="mockup-label">Check widget</div>
+        <div class="check-widget">
+          <div class="check-widget-heading">Can I Buy It?</div>
+          <div class="check-input-row">
+            <input class="check-input" value="89.00" readonly />
+            <button class="check-btn">CHECK</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mockup-section">
+        <div class="mockup-label">YES verdict</div>
+        <div class="verdict-card yes">
+          <div class="verdict-label yes">YES</div>
+          <div class="verdict-detail">Purchasing power: $2,060.00<br>Buffer remaining: $1,471.00</div>
+          <div class="verdict-risk-badge low">LOW RISK</div>
+        </div>
+      </div>
+
+      <div class="conflict-note">
+        Problem: purple CTA button, then green YES verdict — two unrelated primaries competing for attention. Purple signals "action" but green signals "good" — no shared logic.
+      </div>
+
+      <div class="mockup-label" style="margin-top:0.75rem">Palette</div>
+      <div class="palette">
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.58 0.22 264)"></div><div class="swatch-label">primary</div></div>
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.72 0.19 142)"></div><div class="swatch-label">accent</div></div>
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.72 0.19 142)"></div><div class="swatch-label">yes</div></div>
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.65 0.22 25)"></div><div class="swatch-label">no</div></div>
+        <div class="swatch-group"><div class="swatch" style="background:oklch(0.78 0.17 85)"></div><div class="swatch-label">wait</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let selected = null;
+  function toggleSelect(el, choice) {
+    document.querySelectorAll('.direction').forEach(d => d.classList.remove('selected'));
+    if (selected !== choice) {
+      el.classList.add('selected');
+      selected = choice;
+    } else {
+      selected = null;
+    }
+  }
+</script>
+</body>
+</html>

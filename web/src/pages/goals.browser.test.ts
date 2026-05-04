@@ -48,6 +48,7 @@ const accountFixture: AccountResponse = {
   current_balance: 1_000,
   currency: 'BRL',
   is_default: true,
+  safety_buffer: 100,
 }
 
 const emptyTrackingFixture: GoalsTrackingResponse = {

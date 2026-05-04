@@ -2,6 +2,7 @@ import { Check, Copy, Eye, Pencil, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { MoneyValue } from '@/components/ui/money-value'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { SharedDebtListProps } from '@/components/debt/shared-debt-list.types'
 
 export function SharedDebtList({
@@ -66,7 +67,18 @@ export function SharedDebtList({
                   <MoneyValue amount={item.amount} currency={item.currency} showSign="auto" tone="auto" className="font-semibold" />
                 </div>
                 <div className="mt-2 flex items-center justify-between gap-2">
-                  <Badge variant={item.status.tone}>{item.status.label}</Badge>
+                  {item.status.tooltip ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant={item.status.tone} className="cursor-help">{item.status.label}</Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{item.status.tooltip}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <Badge variant={item.status.tone}>{item.status.label}</Badge>
+                  )}
                   <div className="flex gap-2">
                     {onCopy && item.canCopy ? (
                       <Button variant="outline" size="sm" onClick={() => onCopy(item.id)} aria-label="Copy">
@@ -124,7 +136,18 @@ export function SharedDebtList({
                       <MoneyValue amount={item.amount} currency={item.currency} showSign="auto" tone="auto" />
                     </td>
                     <td className="px-3 py-2">
-                      <Badge variant={item.status.tone}>{item.status.label}</Badge>
+                      {item.status.tooltip ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant={item.status.tone} className="cursor-help">{item.status.label}</Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{item.status.tooltip}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <Badge variant={item.status.tone}>{item.status.label}</Badge>
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex gap-1 justify-end">

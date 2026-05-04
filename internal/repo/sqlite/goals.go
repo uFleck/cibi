@@ -13,18 +13,19 @@ var ValidGoalLedgerTypes = map[string]bool{"contribution": true, "withdrawal": t
 var ValidGoalLedgerSources = map[string]bool{"manual": true, "system": true, "recurring": true}
 
 type Goal struct {
-	ID                 uuid.UUID
-	AccountID          uuid.UUID
-	Name               string
-	Status             string
-	TargetAmountCents  int64
-	InvestedTotalCents int64
-	StartDateUTC       time.Time
-	TargetDateUTC      *time.Time
-	Notes              *string
-	Currency           string
-	CreatedAtUTC       time.Time
-	UpdatedAtUTC       time.Time
+	ID                               uuid.UUID
+	AccountID                        uuid.UUID
+	Name                             string
+	Status                           string
+	TargetAmountCents                int64
+	InvestedTotalCents               int64
+	MinContributionPerWindowCents    int64
+	StartDateUTC                     time.Time
+	TargetDateUTC                    *time.Time
+	Notes                            *string
+	Currency                         string
+	CreatedAtUTC                     time.Time
+	UpdatedAtUTC                     time.Time
 }
 
 type GoalLedgerEntry struct {
@@ -59,9 +60,10 @@ type UpdateGoal struct {
 	Status             *string
 	TargetAmountCents  *int64
 	InvestedTotalCents *int64
-	TargetDateUTC      *time.Time
-	Notes              *string
-	UpdatedAtUTC       *time.Time
+	TargetDateUTC                   *time.Time
+	Notes                           *string
+	MinContributionPerWindowCents   *int64
+	UpdatedAtUTC                    *time.Time
 }
 
 type GoalTargetAudit struct {
@@ -103,9 +105,9 @@ func (r *SqliteGoalsRepo) InsertGoal(g Goal, tx *sql.Tx) error {
 	if tx != nil {
 		exec = tx.Exec
 	}
-	_, err := exec(`INSERT INTO Goal (id, account_id, name, status, target_amount_cents, invested_total_cents, start_date_utc, target_date_utc, notes, currency, created_at_utc, updated_at_utc)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		g.ID.String(), g.AccountID.String(), g.Name, g.Status, g.TargetAmountCents, g.InvestedTotalCents,
+	_, err := exec(`INSERT INTO Goal (id, account_id, name, status, target_amount_cents, invested_total_cents, min_contribution_per_window_cents, start_date_utc, target_date_utc, notes, currency, created_at_utc, updated_at_utc)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		g.ID.String(), g.AccountID.String(), g.Name, g.Status, g.TargetAmountCents, g.InvestedTotalCents, g.MinContributionPerWindowCents,
 		g.StartDateUTC.UTC().Format(time.RFC3339), nullTime(g.TargetDateUTC), g.Notes, g.Currency,
 		g.CreatedAtUTC.UTC().Format(time.RFC3339), g.UpdatedAtUTC.UTC().Format(time.RFC3339),
 	)
@@ -116,7 +118,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 }
 
 func (r *SqliteGoalsRepo) GetGoalsByAccount(accountID uuid.UUID) ([]Goal, error) {
-	rows, err := r.db.Query(`SELECT id, account_id, name, status, target_amount_cents, invested_total_cents, start_date_utc, target_date_utc, notes, currency, created_at_utc, updated_at_utc FROM Goal WHERE account_id = ?`, accountID.String())
+	rows, err := r.db.Query(`SELECT id, account_id, name, status, target_amount_cents, invested_total_cents, min_contribution_per_window_cents, start_date_utc, target_date_utc, notes, currency, created_at_utc, updated_at_utc FROM Goal WHERE account_id = ?`, accountID.String())
 	if err != nil {
 		return nil, fmt.Errorf("goals.GetGoalsByAccount: %w", err)
 	}
@@ -133,7 +135,7 @@ func (r *SqliteGoalsRepo) GetGoalsByAccount(accountID uuid.UUID) ([]Goal, error)
 }
 
 func (r *SqliteGoalsRepo) GetGoalByID(id uuid.UUID) (Goal, error) {
-	row := r.db.QueryRow(`SELECT id, account_id, name, status, target_amount_cents, invested_total_cents, start_date_utc, target_date_utc, notes, currency, created_at_utc, updated_at_utc FROM Goal WHERE id = ?`, id.String())
+	row := r.db.QueryRow(`SELECT id, account_id, name, status, target_amount_cents, invested_total_cents, min_contribution_per_window_cents, start_date_utc, target_date_utc, notes, currency, created_at_utc, updated_at_utc FROM Goal WHERE id = ?`, id.String())
 	return scanGoalRow(row)
 }
 
@@ -169,6 +171,11 @@ func (r *SqliteGoalsRepo) UpdateGoal(id uuid.UUID, upd UpdateGoal, tx *sql.Tx) e
 	}
 	if upd.Notes != nil {
 		if _, err := exec(`UPDATE Goal SET notes = ? WHERE id = ?`, *upd.Notes, id.String()); err != nil {
+			return err
+		}
+	}
+	if upd.MinContributionPerWindowCents != nil {
+		if _, err := exec(`UPDATE Goal SET min_contribution_per_window_cents = ? WHERE id = ?`, *upd.MinContributionPerWindowCents, id.String()); err != nil {
 			return err
 		}
 	}
@@ -352,7 +359,7 @@ func scanGoal(rows *sql.Rows) (Goal, error) {
 	var g Goal
 	var id, acc, start, created, updated string
 	var target, notes sql.NullString
-	if err := rows.Scan(&id, &acc, &g.Name, &g.Status, &g.TargetAmountCents, &g.InvestedTotalCents, &start, &target, &notes, &g.Currency, &created, &updated); err != nil {
+	if err := rows.Scan(&id, &acc, &g.Name, &g.Status, &g.TargetAmountCents, &g.InvestedTotalCents, &g.MinContributionPerWindowCents, &start, &target, &notes, &g.Currency, &created, &updated); err != nil {
 		return g, err
 	}
 	return fillGoal(g, id, acc, start, target, notes, created, updated)
@@ -361,7 +368,7 @@ func scanGoalRow(row *sql.Row) (Goal, error) {
 	var g Goal
 	var id, acc, start, created, updated string
 	var target, notes sql.NullString
-	if err := row.Scan(&id, &acc, &g.Name, &g.Status, &g.TargetAmountCents, &g.InvestedTotalCents, &start, &target, &notes, &g.Currency, &created, &updated); err != nil {
+	if err := row.Scan(&id, &acc, &g.Name, &g.Status, &g.TargetAmountCents, &g.InvestedTotalCents, &g.MinContributionPerWindowCents, &start, &target, &notes, &g.Currency, &created, &updated); err != nil {
 		return g, err
 	}
 	return fillGoal(g, id, acc, start, target, notes, created, updated)

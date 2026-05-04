@@ -447,22 +447,48 @@ func (r *SqlitePeerDebtRepo) GetActiveUserDebtsWithFriend(accountID *uuid.UUID) 
 	return result, rows.Err()
 }
 
-func (r *SqlitePeerDebtRepo) SumUpcomingPeerObligations(accountID *uuid.UUID, after, onOrBefore time.Time) (int64, error) {
-	afterStr := after.UTC().Format(time.RFC3339)
-	onOrBeforeStr := onOrBefore.UTC().Format(time.RFC3339)
+func parsePeerDebtDate(raw string) (time.Time, error) {
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return t.UTC(), nil
+	}
+	if t, err := time.Parse("2006-01-02", raw); err == nil {
+		return t.UTC(), nil
+	}
+	return time.Time{}, fmt.Errorf("unsupported peer debt date format")
+}
 
-	lumpQuery := `SELECT COALESCE(SUM(amount), 0) FROM PeerDebt
-		 WHERE amount < 0 AND is_installment = 0 AND is_confirmed = 0
-		   AND date > ? AND date < ?`
-	lumpArgs := []any{afterStr, onOrBeforeStr}
+func (r *SqlitePeerDebtRepo) SumUpcomingPeerObligations(accountID *uuid.UUID, after, onOrBefore time.Time) (int64, error) {
+	lumpQuery := `SELECT amount, date FROM PeerDebt
+		 WHERE amount < 0 AND is_installment = 0 AND is_confirmed = 0`
+	lumpArgs := []any{}
 	if accountID != nil {
 		lumpQuery += ` AND account_id = ?`
 		lumpArgs = append(lumpArgs, accountID.String())
 	}
 
+	lumpRows, err := r.db.Query(lumpQuery, lumpArgs...)
+	if err != nil {
+		return 0, fmt.Errorf("peer_debt.SumUpcomingPeerObligations: lump query: %w", err)
+	}
+	defer lumpRows.Close()
+
 	var lumpSum int64
-	if err := r.db.QueryRow(lumpQuery, lumpArgs...).Scan(&lumpSum); err != nil {
-		return 0, fmt.Errorf("peer_debt.SumUpcomingPeerObligations: lump sum: %w", err)
+	for lumpRows.Next() {
+		var amount int64
+		var dateStr string
+		if err := lumpRows.Scan(&amount, &dateStr); err != nil {
+			return 0, fmt.Errorf("peer_debt.SumUpcomingPeerObligations: lump scan: %w", err)
+		}
+		due, err := parsePeerDebtDate(dateStr)
+		if err != nil {
+			continue
+		}
+		if due.After(after) && due.Before(onOrBefore) {
+			lumpSum += amount
+		}
+	}
+	if err := lumpRows.Err(); err != nil {
+		return 0, fmt.Errorf("peer_debt.SumUpcomingPeerObligations: lump rows: %w", err)
 	}
 
 	instQuery := `SELECT id, amount, total_installments, paid_installments, frequency, date
@@ -496,7 +522,7 @@ func (r *SqlitePeerDebtRepo) SumUpcomingPeerObligations(accountID *uuid.UUID, af
 
 		instPayment := amount / totalInst
 
-		firstDue, err := time.Parse(time.RFC3339, dateStr)
+		firstDue, err := parsePeerDebtDate(dateStr)
 		if err != nil {
 			continue
 		}

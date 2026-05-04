@@ -9,18 +9,21 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 # React dependencies - cached unless package.json/package-lock changes
 COPY web/package.json web/package-lock.json* ./web/
-RUN apk add --no-cache nodejs npm && \
-    cd web && npm install --prefer-offline
+RUN --mount=type=cache,target=/root/.npm \
+    apk add --no-cache nodejs npm && \
+    cd web && npm ci --prefer-offline
 
 # Copy source code
 COPY . .
 
 # Build React SPA
-RUN cd web && npm run build && cd .. && \
+RUN --mount=type=cache,target=/root/.npm \
+    cd web && npm run build && cd .. && \
     rm -rf cmd/cibi-api/web/dist && cp -r web/dist cmd/cibi-api/web/dist
 
 # Build Go binaries
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o cibi-api ./cmd/cibi-api && \
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 go build -ldflags="-s -w" -o cibi-api ./cmd/cibi-api && \
     CGO_ENABLED=0 go build -ldflags="-s -w" -o cibi ./cmd/cibi
 
 # Runtime stage: minimal image

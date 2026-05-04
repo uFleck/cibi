@@ -1,5 +1,5 @@
 import type * as React from 'react'
-import { Copy, Eye } from 'lucide-react'
+import { CircleMinus, CirclePlus, Copy, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
@@ -9,8 +9,14 @@ export interface CompactEntityTableItem {
   secondary: React.ReactNode
   onCopy?: () => void | Promise<void>
   onOpen?: () => void
+  onContribute?: () => void
+  onWithdraw?: () => void
   copyAriaLabel?: string
   openAriaLabel?: string
+  contributeAriaLabel?: string
+  withdrawAriaLabel?: string
+  contributeTooltipLabel?: string
+  withdrawTooltipLabel?: string
 }
 
 interface CompactEntityTableProps {
@@ -62,6 +68,44 @@ export function CompactEntityTable({
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>Copy URL</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+
+                    {item.onContribute && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10"
+                            onClick={item.onContribute}
+                            aria-label={item.contributeAriaLabel ?? 'Contribute'}
+                          >
+                            <CirclePlus size={16} />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{item.contributeTooltipLabel ?? 'Add contribution'}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+
+                    {item.onWithdraw && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10"
+                            onClick={item.onWithdraw}
+                            aria-label={item.withdrawAriaLabel ?? 'Withdraw'}
+                          >
+                            <CircleMinus size={16} />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{item.withdrawTooltipLabel ?? 'Remove money'}</p>
                         </TooltipContent>
                       </Tooltip>
                     )}
@@ -130,6 +174,44 @@ export function CompactEntityTable({
                           </TooltipTrigger>
                           <TooltipContent>
                             <p>Copy URL</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+
+                      {item.onContribute && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9"
+                              onClick={item.onContribute}
+                              aria-label={item.contributeAriaLabel ?? 'Contribute'}
+                            >
+                              <CirclePlus size={14} />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{item.contributeTooltipLabel ?? 'Add contribution'}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+
+                      {item.onWithdraw && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9"
+                              onClick={item.onWithdraw}
+                              aria-label={item.withdrawAriaLabel ?? 'Withdraw'}
+                            >
+                              <CircleMinus size={14} />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{item.withdrawTooltipLabel ?? 'Remove money'}</p>
                           </TooltipContent>
                         </Tooltip>
                       )}

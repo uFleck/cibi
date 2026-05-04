@@ -2,6 +2,7 @@ import type * as React from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { parseDecimalInput } from '@/lib/locale'
 
 type ValueInputProps = Omit<React.ComponentProps<typeof Input>, 'type' | 'inputMode' | 'value' | 'onChange'> & {
   value: string
@@ -16,8 +17,7 @@ type ValueInputProps = Omit<React.ComponentProps<typeof Input>, 'type' | 'inputM
 }
 
 function parseAmount(raw: string): number | null {
-  const parsed = parseFloat(raw.replace(',', '.'))
-  return Number.isFinite(parsed) ? parsed : null
+  return parseDecimalInput(raw)
 }
 
 export function ValueInput({

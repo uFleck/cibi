@@ -60,6 +60,7 @@ const accountFixture: AccountResponse = {
   current_balance: 1_000,
   currency: 'BRL',
   is_default: true,
+  safety_buffer: 100,
 }
 
 const emptyTrackingFixture: GoalsTrackingResponse = {
@@ -140,17 +141,17 @@ afterEach(() => {
 })
 
 describe('GoalsSnapshotWidget', () => {
-  it('keeps quick action labels stable and navigates to goals', async () => {
+  it('keeps top action label stable and navigates to goals', async () => {
     mockFetchGoalsTracking.mockResolvedValue(emptyTrackingFixture)
 
     renderWidget()
 
-    fireEvent.click(await screen.findByText('Add contribution'))
-    fireEvent.click(screen.getByText('Open Goals'))
-    fireEvent.click(screen.getByText('View all'))
+    fireEvent.click(await screen.findByText('View all'))
 
-    expect(navigateMock).toHaveBeenCalledTimes(3)
+    expect(navigateMock).toHaveBeenCalledTimes(1)
     expect(navigateMock).toHaveBeenCalledWith({ to: '/goals' })
+    expect(screen.queryByText('Add contribution')).toBeNull()
+    expect(screen.queryByText('Open Goals')).toBeNull()
   })
 
   it('renders compact goal cards with status, money cells, and clamped progress', async () => {

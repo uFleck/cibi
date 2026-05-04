@@ -7,11 +7,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const sqlitePragmas = "_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(ON)"
-
 func Init(dbPath string) (*sql.DB, error) {
-	dsn := fmt.Sprintf("%s?%s", dbPath, sqlitePragmas)
-	database, err := sql.Open("sqlite", dsn)
+	database, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite database: %w", err)
 	}
@@ -21,6 +18,19 @@ func Init(dbPath string) (*sql.DB, error) {
 	if err := database.Ping(); err != nil {
 		database.Close()
 		return nil, fmt.Errorf("ping sqlite database: %w", err)
+	}
+
+	pragmas := []string{
+		"PRAGMA journal_mode=WAL;",
+		"PRAGMA busy_timeout=5000;",
+		"PRAGMA synchronous=NORMAL;",
+		"PRAGMA foreign_keys=ON;",
+	}
+	for _, pragma := range pragmas {
+		if _, err := database.Exec(pragma); err != nil {
+			database.Close()
+			return nil, fmt.Errorf("apply sqlite pragma (%s): %w", pragma, err)
+		}
 	}
 
 	return database, nil

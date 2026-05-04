@@ -13,6 +13,7 @@ import { TransactionFilters } from '@/components/TransactionFilters'
 import {
   fetchAccounts,
   fetchTransactions,
+  listPaySchedules,
   createTransaction,
   updateTransaction,
   deleteTransaction,
@@ -20,6 +21,8 @@ import {
   type TransactionResponse,
 } from '@/lib/api'
 import { formatDate } from '@/lib/format'
+import { fromDateInputValue, toDateInputValue } from '@/lib/locale'
+import { isInCurrentPayWindow } from '@/lib/financial-window'
 import { AccountContext } from '@/App'
 
 const CATEGORIES = [
@@ -35,6 +38,7 @@ interface FormData {
   is_recurring?: boolean
   frequency?: string
   anchor_date?: string
+  requires_confirmation?: boolean
 }
 
 type FormErrors = Partial<Record<keyof FormData, string>>
@@ -53,13 +57,15 @@ export function TransactionsPage() {
     is_recurring: false,
     frequency: 'monthly',
     anchor_date: '',
+    requires_confirmation: false,
   })
   const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [amountText, setAmountText] = useState('')
   const [sortField, setSortField] = useState<'description' | 'date' | 'amount'>('date')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [filterCategory, setFilterCategory] = useState<string>('all')
-  const [filterType, setFilterType] = useState<'all' | 'recurring' | 'one-time'>('all')
+  const [filterType, setFilterType] = useState<'all' | 'recurring' | 'one-time'>('recurring')
+  const [paymentWindow, setPaymentWindow] = useState<'current' | 'all'>('current')
   const [showFilters, setShowFilters] = useState(false)
 
   const {
@@ -83,6 +89,16 @@ export function TransactionsPage() {
     enabled: !!currentAccountId,
   })
 
+  const { data: paySchedules = [] } = useQuery({
+    queryKey: ['pay-schedules', currentAccountId],
+    queryFn: () => listPaySchedules(currentAccountId!),
+    enabled: !!currentAccountId,
+  })
+
+  const nextPayday = paySchedules.length > 0
+    ? paySchedules.reduce((earliest, ps) => (ps.next_payday < earliest ? ps.next_payday : earliest), paySchedules[0].next_payday)
+    : null
+
   const filteredAndSortedTxns = useMemo(() => {
     let txns = [...transactions]
     
@@ -95,7 +111,19 @@ export function TransactionsPage() {
     } else if (filterType === 'one-time') {
       txns = txns.filter((t: TransactionResponse) => !t.is_recurring)
     }
-    
+
+    if (paymentWindow === 'current') {
+      const now = new Date()
+      txns = txns.filter((t: TransactionResponse) => {
+        const windowDate = t.is_recurring
+          ? (t.next_occurrence || t.anchor_date)
+          : t.timestamp
+
+        if (!windowDate) return false
+        return isInCurrentPayWindow(windowDate, now, nextPayday)
+      })
+    }
+
     txns.sort((a: TransactionResponse, b: TransactionResponse) => {
       let cmp = 0
       if (sortField === 'description') {
@@ -111,14 +139,14 @@ export function TransactionsPage() {
     })
     
     return txns
-  }, [transactions, filterCategory, filterType, sortField, sortDir])
+  }, [transactions, filterCategory, filterType, paymentWindow, sortField, sortDir, nextPayday])
 
   const categories = useMemo(() => {
     const cats = new Set(transactions.map((t: TransactionResponse) => t.category))
     return Array.from(cats).sort()
   }, [transactions])
 
-  const hasActiveFilters = filterCategory !== 'all' || filterType !== 'all'
+  const hasActiveFilters = filterCategory !== 'all' || filterType !== 'recurring' || paymentWindow !== 'current'
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => createTransaction(data),
@@ -136,6 +164,7 @@ export function TransactionsPage() {
         is_recurring: false,
         frequency: 'monthly',
         anchor_date: '',
+        requires_confirmation: false,
       })
       setFormErrors({})
       setAmountText('')
@@ -162,6 +191,7 @@ export function TransactionsPage() {
         is_recurring: false,
         frequency: 'monthly',
         anchor_date: '',
+        requires_confirmation: false,
       })
       setFormErrors({})
       setAmountText('')
@@ -214,6 +244,7 @@ export function TransactionsPage() {
       is_recurring: false,
       frequency: 'monthly',
       anchor_date: '',
+      requires_confirmation: false,
     })
   }
 
@@ -228,7 +259,8 @@ export function TransactionsPage() {
       category: txn.category,
       is_recurring: txn.is_recurring,
       frequency: txn.frequency || 'monthly',
-      anchor_date: txn.anchor_date ? txn.anchor_date.slice(0, 10) : '',
+      anchor_date: toDateInputValue(txn.anchor_date),
+      requires_confirmation: txn.requires_confirmation,
     })
   }
 
@@ -244,7 +276,7 @@ export function TransactionsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate()) return
-    const anchorDate = formData.anchor_date ? formData.anchor_date + 'T00:00:00Z' : undefined
+    const anchorDate = fromDateInputValue(formData.anchor_date)
     const payload = { ...formData, anchor_date: anchorDate }
     if (editingId) {
       updateMutation.mutate({ id: editingId, updates: payload })
@@ -266,6 +298,7 @@ export function TransactionsPage() {
       is_recurring: false,
       frequency: 'monthly',
       anchor_date: '',
+      requires_confirmation: false,
     })
   }
 
@@ -326,14 +359,17 @@ export function TransactionsPage() {
         categories={categories}
         sortField={sortField}
         sortDir={sortDir}
+        paymentWindow={paymentWindow}
         onToggleFilters={() => setShowFilters(!showFilters)}
         onFilterCategoryChange={setFilterCategory}
         onFilterTypeChange={setFilterType}
         onSortFieldChange={setSortField}
         onSortDirChange={setSortDir}
+        onPaymentWindowChange={setPaymentWindow}
         onResetFilters={() => {
           setFilterCategory('all')
-          setFilterType('all')
+          setFilterType('recurring')
+          setPaymentWindow('current')
         }}
       />
 
@@ -367,14 +403,14 @@ export function TransactionsPage() {
             items={filteredAndSortedTxns.map((txn: TransactionResponse) => ({
               id: txn.id,
               title: txn.description,
-              subtitle: `${txn.category} · ${txn.is_recurring ? `${txn.frequency} · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : (txn.anchor_date ? formatDate(txn.anchor_date) : '-')}` : formatDate(txn.timestamp)}`,
+              subtitle: `${txn.category} · ${txn.is_recurring ? `${txn.frequency} · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : (txn.anchor_date ? formatDate(txn.anchor_date) : '-')}` : txn.requires_confirmation ? (txn.confirmed_at ? `confirmed ${formatDate(txn.confirmed_at)}` : `due ${formatDate(txn.timestamp)}`) : formatDate(txn.timestamp)}`,
               amount: txn.amount,
               currency: currentAccountCurrency,
               status: {
-                label: txn.is_recurring ? 'Recurring' : 'One-time',
-                tone: txn.is_recurring ? 'default' : 'secondary',
+                label: txn.is_recurring ? 'Recurring' : txn.requires_confirmation ? (txn.confirmed_at ? 'Due bill · paid' : 'Due bill') : 'One-time',
+                tone: txn.is_recurring ? 'default' : txn.requires_confirmation ? 'default' : 'secondary',
               },
-              canConfirm: txn.is_recurring,
+              canConfirm: txn.is_recurring || (txn.requires_confirmation && !txn.confirmed_at),
               canDelete: true,
               canOpen: true,
             }))}

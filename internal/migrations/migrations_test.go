@@ -30,7 +30,7 @@ func TestMigrationsCreateInitialSchemaOnFreshDatabase(t *testing.T) {
 		t.Fatalf("RunContext returned error: %v", err)
 	}
 
-	for _, table := range []string{"Account", "Transaction", "PaySchedule", "SafetyBuffer", "goose_db_version"} {
+	for _, table := range []string{"Account", "Transaction", "PaySchedule", "goose_db_version"} {
 		t.Run(table, func(t *testing.T) {
 			var name string
 			err := database.QueryRowContext(ctx, `SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&name)

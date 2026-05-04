@@ -12,11 +12,13 @@ export interface TransactionFiltersProps {
   categories: string[]
   sortField: 'description' | 'date' | 'amount'
   sortDir: 'asc' | 'desc'
+  paymentWindow: 'current' | 'all'
   onToggleFilters: () => void
   onFilterCategoryChange: (value: string) => void
   onFilterTypeChange: (value: 'all' | 'recurring' | 'one-time') => void
   onSortFieldChange: (value: 'description' | 'date' | 'amount') => void
   onSortDirChange: (value: 'asc' | 'desc') => void
+  onPaymentWindowChange: (value: 'current' | 'all') => void
   onResetFilters: () => void
 }
 
@@ -28,11 +30,13 @@ export function TransactionFilters({
   categories,
   sortField,
   sortDir,
+  paymentWindow,
   onToggleFilters,
   onFilterCategoryChange,
   onFilterTypeChange,
   onSortFieldChange,
   onSortDirChange,
+  onPaymentWindowChange,
   onResetFilters,
 }: TransactionFiltersProps) {
   return (
@@ -56,7 +60,7 @@ export function TransactionFilters({
 
       {showFilters && (
         <Card>
-          <CardContent className="py-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-3 items-end">
+          <CardContent className="py-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto] gap-3 items-end">
             <div className="flex flex-col gap-1">
               <Label className="text-xs">Sort By</Label>
               <Select
@@ -113,6 +117,18 @@ export function TransactionFilters({
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="recurring">Recurring</SelectItem>
                   <SelectItem value="one-time">One-time</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs">Payment window</Label>
+              <Select value={paymentWindow} onValueChange={v => onPaymentWindowChange(v as 'current' | 'all')}>
+                <SelectTrigger className="w-full h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="current">Current window</SelectItem>
+                  <SelectItem value="all">All windows</SelectItem>
                 </SelectContent>
               </Select>
             </div>
