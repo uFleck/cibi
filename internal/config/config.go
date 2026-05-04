@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -13,21 +12,18 @@ import (
 const (
 	DefaultDatabasePath = "db/cibi.db"
 	DefaultServerPort   = ":42069"
-	DefaultSafetyBuffer = int64(1000)
 )
 
 // Config contains runtime settings needed to wire the application.
 type Config struct {
 	DatabasePath string `yaml:"database_path"`
 	ServerPort   string `yaml:"server_port"`
-	SafetyBuffer int64  `yaml:"safety_buffer"`
 }
 
 type loadOptions struct {
 	configPath     string
 	databasePath   *string
 	serverPort     *string
-	safetyBuffer   *int64
 	homeDir        string
 	ignoreNotFound bool
 }
@@ -58,12 +54,6 @@ func WithServerPort(port string) Option {
 	}
 }
 
-func WithSafetyBuffer(buffer int64) Option {
-	return func(o *loadOptions) {
-		o.safetyBuffer = &buffer
-	}
-}
-
 // WithHomeDir is intended for tests that need deterministic default config
 // lookup without depending on the process user's home directory.
 func WithHomeDir(home string) Option {
@@ -84,7 +74,6 @@ func LoadConfig(opts ...Option) (Config, error) {
 	cfg := Config{
 		DatabasePath: DefaultDatabasePath,
 		ServerPort:   DefaultServerPort,
-		SafetyBuffer: DefaultSafetyBuffer,
 	}
 
 	configPath, err := resolveConfigPath(options)
@@ -142,13 +131,6 @@ func applyEnv(cfg *Config) error {
 	if value, ok := os.LookupEnv("CIBI_SERVER_PORT"); ok {
 		cfg.ServerPort = value
 	}
-	if value, ok := os.LookupEnv("CIBI_SAFETY_BUFFER"); ok {
-		parsed, err := strconv.ParseInt(value, 10, 64)
-		if err != nil {
-			return fmt.Errorf("parse CIBI_SAFETY_BUFFER: %w", err)
-		}
-		cfg.SafetyBuffer = parsed
-	}
 	return nil
 }
 
@@ -158,8 +140,5 @@ func applyExplicitOptions(cfg *Config, options loadOptions) {
 	}
 	if options.serverPort != nil {
 		cfg.ServerPort = *options.serverPort
-	}
-	if options.safetyBuffer != nil {
-		cfg.SafetyBuffer = *options.safetyBuffer
 	}
 }

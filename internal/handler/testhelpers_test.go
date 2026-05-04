@@ -21,7 +21,7 @@ type mockAccountsService struct {
 	createFn     func(a sqlite.Account) error
 	getDefaultFn func() (sqlite.Account, error)
 	getByIDFn    func(id uuid.UUID) (sqlite.Account, error)
-	updateFn     func(id uuid.UUID, name *string, balance *int64) error
+	updateFn     func(id uuid.UUID, name *string, balance *int64, safetyBuffer *int64) error
 	deleteFn     func(id uuid.UUID) error
 	setDefaultFn func(id uuid.UUID) error
 }
@@ -54,9 +54,9 @@ func (m *mockAccountsService) GetByID(id uuid.UUID) (sqlite.Account, error) {
 	panic("not implemented")
 }
 
-func (m *mockAccountsService) UpdateAccount(id uuid.UUID, name *string, balance *int64) error {
+func (m *mockAccountsService) UpdateAccount(id uuid.UUID, name *string, balance *int64, safetyBuffer *int64) error {
 	if m.updateFn != nil {
-		return m.updateFn(id, name, balance)
+		return m.updateFn(id, name, balance, safetyBuffer)
 	}
 	panic("not implemented")
 }

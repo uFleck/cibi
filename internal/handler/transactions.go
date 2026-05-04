@@ -39,13 +39,14 @@ func NewTransactionsHandler(svc *service.TransactionsService) *TransactionsHandl
 // Request / response types.
 
 type CreateTransactionRequest struct {
-	AccountID   string  `json:"account_id"  validate:"required"`
-	Amount      float64 `json:"amount"      validate:"required"`
-	Description string  `json:"description" validate:"required"`
-	Category    string  `json:"category"`
-	IsRecurring bool    `json:"is_recurring"`
-	Frequency   *string `json:"frequency"`   // required if is_recurring
-	AnchorDate  *string `json:"anchor_date"` // RFC3339; required if is_recurring
+	AccountID            string  `json:"account_id"  validate:"required"`
+	Amount               float64 `json:"amount"      validate:"required"`
+	Description          string  `json:"description" validate:"required"`
+	Category             string  `json:"category"`
+	IsRecurring          bool    `json:"is_recurring"`
+	Frequency            *string `json:"frequency"`   // required if is_recurring
+	AnchorDate           *string `json:"anchor_date"` // RFC3339; required if is_recurring
+	RequiresConfirmation bool    `json:"requires_confirmation"`
 }
 
 type PatchTransactionRequest struct {
@@ -56,29 +57,32 @@ type PatchTransactionRequest struct {
 }
 
 type TransactionResponse struct {
-	ID             string  `json:"id"`
-	AccountID      string  `json:"account_id"`
-	Amount         float64 `json:"amount"`          // stored as dollars
-	Description    string  `json:"description"`
-	Category       string  `json:"category"`
-	Timestamp      string  `json:"timestamp"`       // RFC3339
-	IsRecurring    bool    `json:"is_recurring"`
-	Frequency      *string `json:"frequency"`
-	AnchorDate     *string `json:"anchor_date"`
-	NextOccurrence *string `json:"next_occurrence"`
+	ID                   string  `json:"id"`
+	AccountID            string  `json:"account_id"`
+	Amount               float64 `json:"amount"` // stored as dollars
+	Description          string  `json:"description"`
+	Category             string  `json:"category"`
+	Timestamp            string  `json:"timestamp"` // RFC3339
+	IsRecurring          bool    `json:"is_recurring"`
+	Frequency            *string `json:"frequency"`
+	AnchorDate           *string `json:"anchor_date"`
+	NextOccurrence       *string `json:"next_occurrence"`
+	RequiresConfirmation bool    `json:"requires_confirmation"`
+	ConfirmedAt          *string `json:"confirmed_at"`
 }
 
 // txnToResponse converts a sqlite.Transaction to TransactionResponse.
 func txnToResponse(t sqlite.Transaction) TransactionResponse {
 	resp := TransactionResponse{
-		ID:          t.ID.String(),
-		AccountID:   t.AccountID.String(),
-		Amount:      float64(t.Amount) / 100.0,
-		Description: t.Description,
-		Category:    t.Category,
-		Timestamp:   t.Timestamp.UTC().Format(time.RFC3339),
-		IsRecurring: t.IsRecurring,
-		Frequency:   t.Frequency,
+		ID:                   t.ID.String(),
+		AccountID:            t.AccountID.String(),
+		Amount:               float64(t.Amount) / 100.0,
+		Description:          t.Description,
+		Category:             t.Category,
+		Timestamp:            t.Timestamp.UTC().Format(time.RFC3339),
+		IsRecurring:          t.IsRecurring,
+		Frequency:            t.Frequency,
+		RequiresConfirmation: t.RequiresConfirmation,
 	}
 	if t.AnchorDate != nil {
 		s := t.AnchorDate.UTC().Format(time.RFC3339)
@@ -87,6 +91,10 @@ func txnToResponse(t sqlite.Transaction) TransactionResponse {
 	if t.NextOccurrence != nil {
 		s := t.NextOccurrence.UTC().Format(time.RFC3339)
 		resp.NextOccurrence = &s
+	}
+	if t.ConfirmedAt != nil {
+		s := t.ConfirmedAt.UTC().Format(time.RFC3339)
+		resp.ConfirmedAt = &s
 	}
 	return resp
 }
@@ -126,14 +134,15 @@ func (h *TransactionsHandler) Create(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid account_id")
 	}
 	t := sqlite.Transaction{
-		ID:          uuid.New(),
-		AccountID:   accountID,
-		Amount:      int64(math.Round(req.Amount * 100)),
-		Description: req.Description,
-		Category:    req.Category,
-		Timestamp:   time.Now().UTC(),
-		IsRecurring: req.IsRecurring,
-		Frequency:   req.Frequency,
+		ID:                   uuid.New(),
+		AccountID:            accountID,
+		Amount:               int64(math.Round(req.Amount * 100)),
+		Description:          req.Description,
+		Category:             req.Category,
+		Timestamp:            time.Now().UTC(),
+		IsRecurring:          req.IsRecurring,
+		Frequency:            req.Frequency,
+		RequiresConfirmation: req.RequiresConfirmation,
 	}
 	if req.AnchorDate != nil && *req.AnchorDate != "" {
 		parsed, err := time.Parse(time.RFC3339, *req.AnchorDate)

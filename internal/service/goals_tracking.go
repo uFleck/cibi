@@ -24,15 +24,16 @@ type GoalsTrackingSummary struct {
 }
 
 type GoalsTrackingGoal struct {
-	ID              string  `json:"id"`
-	Name            string  `json:"name"`
-	Status          string  `json:"status"`
-	TargetAmount    float64 `json:"target_amount"`
-	InvestedTotal   float64 `json:"invested_total"`
-	RemainingAmount float64 `json:"remaining_amount"`
-	ProgressPct     float64 `json:"progress_pct"`
-	TargetDateUTC   *string `json:"target_date_utc"`
-	CreatedAtUTC    string  `json:"created_at_utc"`
+	ID                           string  `json:"id"`
+	Name                         string  `json:"name"`
+	Status                       string  `json:"status"`
+	TargetAmount                 float64 `json:"target_amount"`
+	InvestedTotal                float64 `json:"invested_total"`
+	RemainingAmount              float64 `json:"remaining_amount"`
+	ProgressPct                  float64 `json:"progress_pct"`
+	MinContributionPerWindow     float64 `json:"min_contribution_per_window"`
+	TargetDateUTC                *string `json:"target_date_utc"`
+	CreatedAtUTC                 string  `json:"created_at_utc"`
 }
 
 type GoalsTrackingActivity struct {
@@ -130,15 +131,16 @@ func (s *GoalsService) BuildTracking(accountID uuid.UUID) (GoalsTrackingResponse
 			}
 		}
 		resp.TopGoals = append(resp.TopGoals, GoalsTrackingGoal{
-			ID:              rg.goal.ID.String(),
-			Name:            rg.goal.Name,
-			Status:          rg.goal.Status,
-			TargetAmount:    float64(rg.goal.TargetAmountCents) / 100,
-			InvestedTotal:   float64(rg.goal.InvestedTotalCents) / 100,
-			RemainingAmount: float64(rg.remainingCents) / 100,
-			ProgressPct:     progress,
-			TargetDateUTC:   td,
-			CreatedAtUTC:    rg.goal.CreatedAtUTC.UTC().Format(time.RFC3339),
+			ID:                        rg.goal.ID.String(),
+			Name:                      rg.goal.Name,
+			Status:                    rg.goal.Status,
+			TargetAmount:              float64(rg.goal.TargetAmountCents) / 100,
+			InvestedTotal:             float64(rg.goal.InvestedTotalCents) / 100,
+			RemainingAmount:           float64(rg.remainingCents) / 100,
+			ProgressPct:               progress,
+			MinContributionPerWindow:  float64(rg.goal.MinContributionPerWindowCents) / 100,
+			TargetDateUTC:             td,
+			CreatedAtUTC:              rg.goal.CreatedAtUTC.UTC().Format(time.RFC3339),
 		})
 	}
 

@@ -20,7 +20,7 @@ type AccountsServiceIface interface {
 	GetDefault() (sqlite.Account, error)
 	GetByID(id uuid.UUID) (sqlite.Account, error)
 	SetDefault(id uuid.UUID) error
-	UpdateAccount(id uuid.UUID, name *string, balance *int64) error
+	UpdateAccount(id uuid.UUID, name *string, balance *int64, safetyBuffer *int64) error
 	DeleteAccount(id uuid.UUID) error
 }
 
@@ -44,6 +44,7 @@ type CreateAccountRequest struct {
 	CurrentBalance float64 `json:"current_balance"` // stored as dollars
 	Currency       string  `json:"currency"         validate:"required"`
 	IsDefault      bool    `json:"is_default"`
+	SafetyBuffer   float64 `json:"safety_buffer"`
 }
 
 type AccountResponse struct {
@@ -52,11 +53,13 @@ type AccountResponse struct {
 	CurrentBalance float64 `json:"current_balance"` // stored as dollars
 	Currency       string  `json:"currency"`
 	IsDefault      bool    `json:"is_default"`
+	SafetyBuffer   float64 `json:"safety_buffer"`
 }
 
 type PatchAccountRequest struct {
 	Name           *string  `json:"name"`
 	CurrentBalance *float64 `json:"current_balance"` // nil = no change
+	SafetyBuffer   *float64 `json:"safety_buffer"`
 }
 
 // accountToResponse converts a sqlite.Account to AccountResponse.
@@ -67,6 +70,7 @@ func accountToResponse(a sqlite.Account) AccountResponse {
 		CurrentBalance: float64(a.CurrentBalance) / 100.0,
 		Currency:       a.Currency,
 		IsDefault:      a.IsDefault,
+		SafetyBuffer:   float64(a.SafetyBuffer) / 100.0,
 	}
 }
 
@@ -98,6 +102,7 @@ func (h *AccountsHandler) Create(c echo.Context) error {
 		CurrentBalance: int64(math.Round(req.CurrentBalance * 100)),
 		Currency:       req.Currency,
 		IsDefault:      req.IsDefault,
+		SafetyBuffer:   int64(math.Round(req.SafetyBuffer * 100)),
 	}
 	if err := h.svc.CreateAccount(acc); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -149,7 +154,12 @@ func (h *AccountsHandler) Update(c echo.Context) error {
 		v := int64(math.Round(*req.CurrentBalance * 100))
 		balanceValue = &v
 	}
-	if err := h.svc.UpdateAccount(id, req.Name, balanceValue); err != nil {
+	var safetyBufferValue *int64
+	if req.SafetyBuffer != nil {
+		v := int64(math.Round(*req.SafetyBuffer * 100))
+		safetyBufferValue = &v
+	}
+	if err := h.svc.UpdateAccount(id, req.Name, balanceValue, safetyBufferValue); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "account not found")
 		}

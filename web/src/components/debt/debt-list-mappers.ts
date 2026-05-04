@@ -1,16 +1,24 @@
 import type { DebtListItemVM } from '@/components/debt/shared-debt-list.types'
 import type { ParticipantResponse, PeerDebtResponse, PublicFriendGroupResponse } from '@/lib/api'
+import { formatDate, formatMoney } from '@/lib/format'
 
 export function debtStatus(debt: PeerDebtResponse): DebtListItemVM['status'] {
-  if (debt.is_confirmed) return { label: 'Paid', tone: 'default' }
-  if (debt.is_installment && debt.total_installments != null) {
-    return { label: `${debt.paid_installments}/${debt.total_installments} paid`, tone: 'secondary' }
+  const isEffectivelyPaid = debt.is_confirmed || Math.abs(getDisplayAmount(debt)) <= Number.EPSILON
+  if (isEffectivelyPaid) return { label: 'Paid', tone: 'default' }
+  if (debt.is_installment && debt.total_installments != null && debt.total_installments > 0) {
+    const perInstallment = debt.amount / debt.total_installments
+    return {
+      label: `${debt.paid_installments}/${debt.total_installments} paid`,
+      tone: 'secondary',
+      tooltip: `Per installment: R$ ${perInstallment.toFixed(2)}`,
+    }
   }
   return { label: 'Unpaid', tone: 'outline' }
 }
 
 export function calculateNextPayDate(debt: PeerDebtResponse): string | null {
-  if (debt.is_confirmed) return null
+  const isEffectivelyPaid = debt.is_confirmed || Math.abs(getDisplayAmount(debt)) <= Number.EPSILON
+  if (isEffectivelyPaid) return null
 
   if (debt.is_installment && debt.anchor_date && debt.frequency && debt.total_installments) {
     const anchor = new Date(debt.anchor_date)
@@ -45,17 +53,31 @@ export function getDisplayAmount(debt: PeerDebtResponse): number {
 }
 
 export function mapFriendDebtsToVM(input: PeerDebtResponse[]): DebtListItemVM[] {
-  return input.map((debt) => ({
-    id: debt.id,
-    title: debt.description,
-    subtitle: calculateNextPayDate(debt) ?? '-',
-    amount: getDisplayAmount(debt),
-    currency: 'BRL',
-    status: debtStatus(debt),
-    canConfirm: !debt.is_confirmed,
-    canDelete: true,
-    canCopy: false,
-  }))
+  return input.map((debt) => {
+    const remainingAmount = getDisplayAmount(debt)
+    const nextDate = calculateNextPayDate(debt)
+    const baseSubtitle = nextDate ? `Next payment: ${formatDate(nextDate)}` : 'No pending payment'
+
+    const subtitle = debt.is_installment
+      ? `${baseSubtitle} · Total: ${formatMoney(debt.amount, 'BRL')}`
+      : baseSubtitle
+
+    const canConfirm = debt.is_installment
+      ? !debt.is_confirmed && debt.paid_installments < (debt.total_installments ?? 0)
+      : !debt.is_confirmed
+
+    return {
+      id: debt.id,
+      title: debt.description,
+      subtitle,
+      amount: remainingAmount,
+      currency: 'BRL',
+      status: debtStatus(debt),
+      canConfirm,
+      canDelete: true,
+      canCopy: false,
+    }
+  })
 }
 
 export function mapPublicDebtsToVM(input: PeerDebtResponse[]): DebtListItemVM[] {

@@ -21,19 +21,21 @@ func NewGoalsService(db *sql.DB, goals sqlite.GoalsRepo, accRepo sqlite.Accounts
 }
 
 type CreateGoalInput struct {
-	AccountID     uuid.UUID
-	Name          string
-	TargetAmount  float64
-	StartDateUTC  time.Time
-	TargetDateUTC *time.Time
-	Notes         *string
+	AccountID                    uuid.UUID
+	Name                         string
+	TargetAmount                 float64
+	MinContributionPerWindow     float64
+	StartDateUTC                 time.Time
+	TargetDateUTC                *time.Time
+	Notes                        *string
 }
 
 type UpdateGoalInput struct {
-	Name          *string
-	TargetAmount  *float64
-	TargetDateUTC *time.Time
-	Notes         *string
+	Name                         *string
+	TargetAmount                 *float64
+	TargetDateUTC                *time.Time
+	Notes                        *string
+	MinContributionPerWindow     *float64
 }
 
 type AddGoalLedgerInput struct {
@@ -53,7 +55,7 @@ func (s *GoalsService) CreateGoal(in CreateGoalInput) (sqlite.Goal, error) {
 		return sqlite.Goal{}, fmt.Errorf("goals.CreateGoal: get account: %w", err)
 	}
 	now := time.Now().UTC()
-	goal := sqlite.Goal{ID: uuid.New(), AccountID: in.AccountID, Name: in.Name, Status: "active", TargetAmountCents: toCents(in.TargetAmount), InvestedTotalCents: 0, StartDateUTC: in.StartDateUTC.UTC(), TargetDateUTC: in.TargetDateUTC, Notes: in.Notes, Currency: acc.Currency, CreatedAtUTC: now, UpdatedAtUTC: now}
+	goal := sqlite.Goal{ID: uuid.New(), AccountID: in.AccountID, Name: in.Name, Status: "active", TargetAmountCents: toCents(in.TargetAmount), InvestedTotalCents: 0, MinContributionPerWindowCents: toCents(in.MinContributionPerWindow), StartDateUTC: in.StartDateUTC.UTC(), TargetDateUTC: in.TargetDateUTC, Notes: in.Notes, Currency: acc.Currency, CreatedAtUTC: now, UpdatedAtUTC: now}
 	if goal.TargetAmountCents <= 0 {
 		return sqlite.Goal{}, fmt.Errorf("validation: target amount must be > 0")
 	}
@@ -74,6 +76,13 @@ func (s *GoalsService) UpdateGoal(goalID uuid.UUID, in UpdateGoalInput) error {
 	}
 	now := time.Now().UTC()
 	upd := sqlite.UpdateGoal{Name: in.Name, TargetDateUTC: in.TargetDateUTC, Notes: in.Notes, UpdatedAtUTC: &now}
+	if in.MinContributionPerWindow != nil {
+		minContributionCents := toCents(*in.MinContributionPerWindow)
+		if minContributionCents < 0 {
+			return fmt.Errorf("validation: min contribution per window must be >= 0")
+		}
+		upd.MinContributionPerWindowCents = &minContributionCents
+	}
 	if in.TargetAmount != nil {
 		newTarget := toCents(*in.TargetAmount)
 		if newTarget <= 0 {

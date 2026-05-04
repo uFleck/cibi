@@ -20,7 +20,9 @@ CREATE TABLE "Transaction" (
 	is_recurring BOOLEAN NOT NULL,
 	frequency TEXT,
 	anchor_date TEXT,
-	next_occurrence TEXT
+	next_occurrence TEXT,
+	requires_confirmation BOOLEAN NOT NULL DEFAULT 0,
+	confirmed_at TEXT
 );
 `
 
@@ -35,8 +37,8 @@ func TestSumUpcomingObligations_IncludesOverdueUntilConfirmed(t *testing.T) {
 
 	insert := func(accountID uuid.UUID, amount int64, recurring bool, nextOccurrence string) {
 		_, err := db.Exec(
-			`INSERT INTO "Transaction" (id, account_id, amount, description, category, timestamp, is_recurring, next_occurrence)
-			 VALUES (?, ?, ?, 'x', 'x', '2026-04-01T00:00:00Z', ?, ?)`,
+			`INSERT INTO "Transaction" (id, account_id, amount, description, category, timestamp, is_recurring, next_occurrence, requires_confirmation, confirmed_at)
+			 VALUES (?, ?, ?, 'x', 'x', '2026-04-01T00:00:00Z', ?, ?, 0, NULL)`,
 			uuid.New().String(), accountID.String(), amount, recurring, nextOccurrence,
 		)
 		requireNoErr(t, "insert txn", err)

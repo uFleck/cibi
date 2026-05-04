@@ -15,7 +15,6 @@ func TestAppNewComposesMigratedGraphAndRoutes(t *testing.T) {
 	cfg := config.Config{
 		DatabasePath: filepath.Join(t.TempDir(), "cibi.db"),
 		ServerPort:   ":0",
-		SafetyBuffer: config.DefaultSafetyBuffer,
 	}
 
 	application, err := New(cfg)
@@ -82,7 +81,6 @@ func TestAppNewReturnsStartupErrorForUnopenableDatabase(t *testing.T) {
 	cfg := config.Config{
 		DatabasePath: filepath.Join(t.TempDir(), "missing-parent", "cibi.db"),
 		ServerPort:   ":0",
-		SafetyBuffer: config.DefaultSafetyBuffer,
 	}
 
 	application, err := New(cfg)

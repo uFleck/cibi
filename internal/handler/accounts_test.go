@@ -136,7 +136,7 @@ func TestUpdateAccount(t *testing.T) {
 	id := uuid.New()
 	newName := "Updated"
 	mock := &mockAccountsService{
-		updateFn: func(_ uuid.UUID, name *string, _ *int64) error {
+		updateFn: func(_ uuid.UUID, name *string, _ *int64, _ *int64) error {
 			return nil
 		},
 		getByIDFn: func(_ uuid.UUID) (sqlite.Account, error) {

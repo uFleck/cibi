@@ -29,6 +29,7 @@ const waitVerdictResult: CheckResponse = {
   risk_level: 'WAIT',
   will_afford_after_payday: true,
   wait_until: '2026-05-15T00:00:00.000Z',
+  goals_covered_this_window: [],
   goal_impacts: [
     {
       goal_id: 'goal-wait',
@@ -37,6 +38,7 @@ const waitVerdictResult: CheckResponse = {
       remaining_after: 375,
       progress_before_pct: 70,
       progress_after_pct: 55,
+      min_contribution_per_window: 150,
       severity: 'medium',
     },
   ],
@@ -68,6 +70,6 @@ describe('CheckWidget WAIT verdict', () => {
     expect(screen.getByLabelText('Goal impact preview')).toBeTruthy()
     expect(screen.getByLabelText('Vacation fund purchase impact')).toBeTruthy()
     expect(screen.getByText('70.0% → 55.0%', { exact: false })).toBeTruthy()
-    expect(screen.getByText('Goal progress would drop', { exact: false })).toBeTruthy()
+    expect(screen.getByText('payment-window money left is below this minimum contribution', { exact: false })).toBeTruthy()
   })
 })

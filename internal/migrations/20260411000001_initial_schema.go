@@ -18,7 +18,8 @@ func upInitialSchema(ctx context.Context, tx *sql.Tx) error {
 			name TEXT,
 			current_balance INTEGER,
 			currency TEXT,
-			is_default BOOLEAN
+			is_default BOOLEAN,
+			safety_buffer INTEGER NOT NULL DEFAULT 1000
 		);`,
 		`CREATE TABLE IF NOT EXISTS "Transaction" (
 			id TEXT PRIMARY KEY,
@@ -40,9 +41,6 @@ func upInitialSchema(ctx context.Context, tx *sql.Tx) error {
 			day_of_month2 INTEGER,
 			label TEXT
 		);`,
-		`CREATE TABLE IF NOT EXISTS SafetyBuffer (
-			min_threshold INTEGER
-		);`,
 	}
 
 	for _, query := range queries {
@@ -55,7 +53,6 @@ func upInitialSchema(ctx context.Context, tx *sql.Tx) error {
 
 func downInitialSchema(ctx context.Context, tx *sql.Tx) error {
 	queries := []string{
-		`DROP TABLE IF EXISTS SafetyBuffer;`,
 		`DROP TABLE IF EXISTS PaySchedule;`,
 		`DROP TABLE IF EXISTS Transaction;`,
 		`DROP TABLE IF EXISTS Account;`,

@@ -16,6 +16,7 @@ CREATE TABLE Goal (
 	status TEXT NOT NULL,
 	target_amount_cents INTEGER NOT NULL,
 	invested_total_cents INTEGER NOT NULL,
+	min_contribution_per_window_cents INTEGER NOT NULL DEFAULT 0,
 	start_date_utc TEXT NOT NULL,
 	target_date_utc TEXT,
 	notes TEXT,

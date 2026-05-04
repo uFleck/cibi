@@ -32,8 +32,10 @@ import {
   setParticipants,
   type FriendResponse,
   type GroupEventResponse,
+  type PeerDebtResponse,
 } from '@/lib/api'
 import { formatDate } from '@/lib/format'
+import { parseDecimalInput } from '@/lib/locale'
 import { AccountContext } from '@/App'
 
 interface CreateFriendFormState {
@@ -137,7 +139,7 @@ function FriendDetailsModal({
         account_id: accountId!,
         friend_id: friend!.id,
         description: debtForm.description,
-        amount: Math.round(parseFloat(debtForm.amount.replace(',', '.')) * 100),
+        amount: Math.round((parseDecimalInput(debtForm.amount) ?? 0) * 100),
         date: debtForm.date,
         ...(debtForm.is_installment
           ? {
@@ -182,8 +184,8 @@ function FriendDetailsModal({
     e.preventDefault()
     if (!friend || !accountId) return
 
-    const amount = parseFloat(debtForm.amount.replace(',', '.'))
-    if (Number.isNaN(amount)) {
+    const amount = parseDecimalInput(debtForm.amount)
+    if (amount == null) {
       toast.error('Enter valid amount')
       return
     }
@@ -202,6 +204,8 @@ function FriendDetailsModal({
   if (!friend) return null
 
   const debtTarget = debts.find(d => d.id === debtToDelete)
+  const unpaidDebts = debts.filter((d: PeerDebtResponse) => !d.is_confirmed)
+  const paidDebts = debts.filter((d: PeerDebtResponse) => d.is_confirmed)
 
   return (
     <AppModal
@@ -276,15 +280,32 @@ function FriendDetailsModal({
           </div>
         </div>
 
-        <SharedDebtList
-          view="owner"
-          items={mapFriendDebtsToVM(debts)}
-          loading={debtsLoading}
-          emptyTitle="No debts recorded"
-          emptyHint="Add Debt to start tracking"
-          onConfirm={(id) => confirmMutation.mutate(id)}
-          onDelete={(id) => setDebtToDelete(id)}
-        />
+        <div className="flex flex-col gap-4">
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">Open debts ({unpaidDebts.length})</h3>
+            <SharedDebtList
+              view="owner"
+              items={mapFriendDebtsToVM(unpaidDebts)}
+              loading={debtsLoading}
+              emptyTitle="No open debts"
+              emptyHint="All good for now"
+              onConfirm={(id) => confirmMutation.mutate(id)}
+              onDelete={(id) => setDebtToDelete(id)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">Paid debts ({paidDebts.length})</h3>
+            <SharedDebtList
+              view="owner"
+              items={mapFriendDebtsToVM(paidDebts)}
+              loading={false}
+              emptyTitle="No paid debts yet"
+              emptyHint="Paid debts will appear here"
+              onDelete={(id) => setDebtToDelete(id)}
+            />
+          </div>
+        </div>
 
         {showAddDebt ? (
           <DebtForm
@@ -700,7 +721,7 @@ export function FriendsPage() {
         account_id: selectedAccountId!,
         title: eventForm.title,
         date: eventForm.date,
-        total_amount: parseFloat(eventForm.total_amount.replace(',', '.')),
+        total_amount: parseDecimalInput(eventForm.total_amount) ?? 0,
         ...(eventForm.notes ? { notes: eventForm.notes } : {}),
       }),
     onSuccess: () => {
@@ -718,8 +739,8 @@ export function FriendsPage() {
   function handleCreateEvent(e: FormEvent) {
     e.preventDefault()
 
-    const totalAmount = parseFloat(eventForm.total_amount.replace(',', '.'))
-    if (Number.isNaN(totalAmount)) {
+    const totalAmount = parseDecimalInput(eventForm.total_amount)
+    if (totalAmount == null) {
       toast.error('Please enter a valid total amount')
       return
     }

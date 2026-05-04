@@ -28,7 +28,7 @@ type PublicPeerDebtSvc interface {
 }
 
 type PublicProfileSvc interface {
-	Get() (sqlite.UserProfile, error)
+	GetByAccount(accountID uuid.UUID) (sqlite.UserProfile, error)
 }
 
 type PublicGroupServiceIface interface {
@@ -119,8 +119,8 @@ func (h *PublicHandler) wantsHTML(c echo.Context) bool {
 	return accept != "" && (strings.Contains(accept, "text/html") || accept == "*/*")
 }
 
-func (h *PublicHandler) ownerProfile() sqlite.UserProfile {
-	p, err := h.profileSvc.Get()
+func (h *PublicHandler) ownerProfile(accountID uuid.UUID) sqlite.UserProfile {
+	p, err := h.profileSvc.GetByAccount(accountID)
 	if err != nil || strings.TrimSpace(p.DisplayName) == "" {
 		defaultName := "Host"
 		return sqlite.UserProfile{DisplayName: defaultName}
@@ -135,7 +135,7 @@ func (h *PublicHandler) hostInfo(event sqlite.GroupEvent) (string, *string, *uui
 			return f.Name, f.PixKey, event.HostFriendID
 		}
 	}
-	owner := h.ownerProfile()
+	owner := h.ownerProfile(event.AccountID)
 	return owner.DisplayName, owner.PixKey, nil
 }
 

@@ -36,23 +36,32 @@ type CheckRequest struct {
 
 // CheckResponse is the response body for POST /check.
 type CheckResponse struct {
-	CanBuy                bool              `json:"can_buy"`
-	PurchasingPower       float64           `json:"purchasing_power"` // dollars
-	BufferRemaining       float64           `json:"buffer_remaining"` // dollars
-	RiskLevel             string            `json:"risk_level"`
-	WillAffordAfterPayday bool              `json:"will_afford_after_payday"`
-	WaitUntil             *string           `json:"wait_until"` // RFC3339 date or null
-	GoalImpacts           []CheckGoalImpact `json:"goal_impacts"`
+	CanBuy                bool                     `json:"can_buy"`
+	PurchasingPower       float64                  `json:"purchasing_power"` // dollars
+	BufferRemaining       float64                  `json:"buffer_remaining"` // dollars
+	RiskLevel             string                   `json:"risk_level"`
+	WillAffordAfterPayday bool                     `json:"will_afford_after_payday"`
+	WaitUntil             *string                  `json:"wait_until"` // RFC3339 date or null
+	GoalImpacts           []CheckGoalImpact        `json:"goal_impacts"`
+	GoalsCoveredThisWindow []CheckGoalWindowCoverage `json:"goals_covered_this_window"`
 }
 
 type CheckGoalImpact struct {
-	GoalID            string  `json:"goal_id"`
-	GoalName          string  `json:"goal_name"`
-	RemainingBefore   float64 `json:"remaining_before"`
-	RemainingAfter    float64 `json:"remaining_after"`
-	ProgressBeforePct float64 `json:"progress_before_pct"`
-	ProgressAfterPct  float64 `json:"progress_after_pct"`
-	Severity          string  `json:"severity"`
+	GoalID                   string  `json:"goal_id"`
+	GoalName                 string  `json:"goal_name"`
+	RemainingBefore          float64 `json:"remaining_before"`
+	RemainingAfter           float64 `json:"remaining_after"`
+	ProgressBeforePct        float64 `json:"progress_before_pct"`
+	ProgressAfterPct         float64 `json:"progress_after_pct"`
+	MinContributionPerWindow float64 `json:"min_contribution_per_window"`
+	Severity                 string  `json:"severity"`
+}
+
+type CheckGoalWindowCoverage struct {
+	GoalID                       string  `json:"goal_id"`
+	GoalName                     string  `json:"goal_name"`
+	ContributedThisWindow        float64 `json:"contributed_this_window"`
+	MinContributionPerWindow     float64 `json:"min_contribution_per_window"`
 }
 
 // Check handles POST /check — answers whether a purchase is affordable.
@@ -89,16 +98,27 @@ func (h *CheckHandler) Check(c echo.Context) error {
 			RemainingAfter:    float64(impact.RemainingAfter) / 100.0,
 			ProgressBeforePct: impact.ProgressBeforePct,
 			ProgressAfterPct:  impact.ProgressAfterPct,
+			MinContributionPerWindow: float64(impact.MinContributionPerWindowCents) / 100.0,
 			Severity:          impact.Severity,
 		})
 	}
+	covered := make([]CheckGoalWindowCoverage, 0, len(result.GoalsCoveredThisWindow))
+	for _, goal := range result.GoalsCoveredThisWindow {
+		covered = append(covered, CheckGoalWindowCoverage{
+			GoalID:                   goal.GoalID.String(),
+			GoalName:                 goal.GoalName,
+			ContributedThisWindow:    float64(goal.ContributedThisWindowCents) / 100.0,
+			MinContributionPerWindow: float64(goal.MinContributionPerWindowCents) / 100.0,
+		})
+	}
 	resp := CheckResponse{
-		CanBuy:                result.CanBuy,
-		PurchasingPower:       float64(result.PurchasingPower) / 100.0,
-		BufferRemaining:       float64(result.BufferRemaining) / 100.0,
-		RiskLevel:             result.RiskLevel,
-		WillAffordAfterPayday: result.WillAffordAfterPayday,
-		GoalImpacts:           impacts,
+		CanBuy:                 result.CanBuy,
+		PurchasingPower:        float64(result.PurchasingPower) / 100.0,
+		BufferRemaining:        float64(result.BufferRemaining) / 100.0,
+		RiskLevel:              result.RiskLevel,
+		WillAffordAfterPayday:  result.WillAffordAfterPayday,
+		GoalImpacts:            impacts,
+		GoalsCoveredThisWindow: covered,
 	}
 	if result.WaitUntil != nil {
 		s := result.WaitUntil.Format("2006-01-02")

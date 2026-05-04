@@ -14,6 +14,7 @@ export interface TransactionFormValues {
   is_recurring?: boolean
   frequency?: string
   anchor_date?: string
+  requires_confirmation?: boolean
 }
 
 export type TransactionFormErrors = Partial<Record<keyof TransactionFormValues, string>>
@@ -141,13 +142,23 @@ export function TransactionForm({
             </p>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <Switch
-            id="txn-recurring"
-            checked={!!formData.is_recurring}
-            onCheckedChange={v => onChange({ is_recurring: v })}
-          />
-          <Label htmlFor="txn-recurring" className="text-xs cursor-pointer">Recurring</Label>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <Switch
+              id="txn-recurring"
+              checked={!!formData.is_recurring}
+              onCheckedChange={v => onChange({ is_recurring: v, requires_confirmation: v ? false : formData.requires_confirmation })}
+            />
+            <Label htmlFor="txn-recurring" className="text-xs cursor-pointer">Recurring</Label>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="txn-due-billing"
+              checked={!formData.is_recurring && !!formData.requires_confirmation}
+              onCheckedChange={v => onChange({ requires_confirmation: v, is_recurring: v ? false : formData.is_recurring })}
+            />
+            <Label htmlFor="txn-due-billing" className="text-xs cursor-pointer">Due billing (confirm later)</Label>
+          </div>
         </div>
       </div>
       {formData.is_recurring && (

@@ -51,8 +51,8 @@ func (m *mockPublicPeerDebtService) ListByFriend(friendID uuid.UUID, accountID *
 
 type mockPublicProfileService struct{}
 
-func (m *mockPublicProfileService) Get() (sqlite.UserProfile, error) {
-	return sqlite.UserProfile{DisplayName: "Owner"}, nil
+func (m *mockPublicProfileService) GetByAccount(accountID uuid.UUID) (sqlite.UserProfile, error) {
+	return sqlite.UserProfile{AccountID: accountID, DisplayName: "Owner"}, nil
 }
 
 type mockPublicGroupService struct {

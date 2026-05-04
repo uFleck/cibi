@@ -15,6 +15,8 @@ type Account struct {
 	CurrentBalance int64  // cents
 	Currency       string
 	IsDefault      bool
+	SafetyBuffer   int64 // cents; account-specific reserve threshold
+	Version        int64
 }
 
 // AccountsRepo defines the data access contract for accounts.
@@ -25,9 +27,11 @@ type AccountsRepo interface {
 	GetByID(id uuid.UUID) (Account, error)
 	UpdateBalance(id uuid.UUID, balance int64, tx *sql.Tx) error
 	UpdateName(id uuid.UUID, name string) error
+	UpdateSafetyBuffer(id uuid.UUID, safetyBuffer int64) error
 	UpdateIsDefault(id uuid.UUID, isDefault bool) error
 	DeleteByID(id uuid.UUID) error
 	UnsetDefaults(tx *sql.Tx) error
+	IncrementVersion(id uuid.UUID, tx *sql.Tx) error
 }
 
 // SqliteAccountsRepo implements AccountsRepo against modernc SQLite.
@@ -54,8 +58,8 @@ func (r *SqliteAccountsRepo) Insert(a Account) error {
 	}
 
 	_, err = tx.Exec(
-		`INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES (?, ?, ?, ?, ?)`,
-		a.ID.String(), a.Name, a.CurrentBalance, a.Currency, a.IsDefault,
+		`INSERT INTO Account (id, name, current_balance, currency, is_default, safety_buffer, version) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		a.ID.String(), a.Name, a.CurrentBalance, a.Currency, a.IsDefault, a.SafetyBuffer, 1,
 	)
 	if err != nil {
 		tx.Rollback()
@@ -79,7 +83,7 @@ func (r *SqliteAccountsRepo) UnsetDefaults(tx *sql.Tx) error {
 }
 
 func (r *SqliteAccountsRepo) GetAll() ([]Account, error) {
-	rows, err := r.db.Query(`SELECT id, name, current_balance, currency, is_default FROM Account`)
+	rows, err := r.db.Query(`SELECT id, name, current_balance, currency, is_default, safety_buffer, COALESCE(version,1) FROM Account`)
 	if err != nil {
 		return nil, fmt.Errorf("accounts.GetAll: query: %w", err)
 	}
@@ -89,7 +93,7 @@ func (r *SqliteAccountsRepo) GetAll() ([]Account, error) {
 	for rows.Next() {
 		var a Account
 		var idStr string
-		if err := rows.Scan(&idStr, &a.Name, &a.CurrentBalance, &a.Currency, &a.IsDefault); err != nil {
+		if err := rows.Scan(&idStr, &a.Name, &a.CurrentBalance, &a.Currency, &a.IsDefault, &a.SafetyBuffer, &a.Version); err != nil {
 			return nil, fmt.Errorf("accounts.GetAll: scan: %w", err)
 		}
 		a.ID, err = uuid.Parse(idStr)
@@ -105,8 +109,8 @@ func (r *SqliteAccountsRepo) GetDefault() (Account, error) {
 	var a Account
 	var idStr string
 	err := r.db.QueryRow(
-		`SELECT id, name, current_balance, currency, is_default FROM Account WHERE is_default = 1`,
-	).Scan(&idStr, &a.Name, &a.CurrentBalance, &a.Currency, &a.IsDefault)
+		`SELECT id, name, current_balance, currency, is_default, safety_buffer, COALESCE(version,1) FROM Account WHERE is_default = 1`,
+	).Scan(&idStr, &a.Name, &a.CurrentBalance, &a.Currency, &a.IsDefault, &a.SafetyBuffer, &a.Version)
 	if err != nil {
 		return a, fmt.Errorf("accounts.GetDefault: %w", err)
 	}
@@ -121,9 +125,9 @@ func (r *SqliteAccountsRepo) GetByID(id uuid.UUID) (Account, error) {
 	var a Account
 	var idStr string
 	err := r.db.QueryRow(
-		`SELECT id, name, current_balance, currency, is_default FROM Account WHERE id = ?`,
+		`SELECT id, name, current_balance, currency, is_default, safety_buffer, COALESCE(version,1) FROM Account WHERE id = ?`,
 		id.String(),
-	).Scan(&idStr, &a.Name, &a.CurrentBalance, &a.Currency, &a.IsDefault)
+	).Scan(&idStr, &a.Name, &a.CurrentBalance, &a.Currency, &a.IsDefault, &a.SafetyBuffer, &a.Version)
 	if err != nil {
 		return a, fmt.Errorf("accounts.GetByID: %w", err)
 	}
@@ -155,6 +159,14 @@ func (r *SqliteAccountsRepo) UpdateName(id uuid.UUID, name string) error {
 	return nil
 }
 
+func (r *SqliteAccountsRepo) UpdateSafetyBuffer(id uuid.UUID, safetyBuffer int64) error {
+	_, err := r.db.Exec(`UPDATE Account SET safety_buffer = ? WHERE id = ?`, safetyBuffer, id.String())
+	if err != nil {
+		return fmt.Errorf("accounts.UpdateSafetyBuffer: %w", err)
+	}
+	return nil
+}
+
 func (r *SqliteAccountsRepo) UpdateIsDefault(id uuid.UUID, isDefault bool) error {
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -170,6 +182,19 @@ func (r *SqliteAccountsRepo) UpdateIsDefault(id uuid.UUID, isDefault bool) error
 		return fmt.Errorf("accounts.UpdateIsDefault: exec: %w", err)
 	}
 	return tx.Commit()
+}
+
+func (r *SqliteAccountsRepo) IncrementVersion(id uuid.UUID, tx *sql.Tx) error {
+	var err error
+	if tx != nil {
+		_, err = tx.Exec(`UPDATE Account SET version = COALESCE(version,1) + 1 WHERE id = ?`, id.String())
+	} else {
+		_, err = r.db.Exec(`UPDATE Account SET version = COALESCE(version,1) + 1 WHERE id = ?`, id.String())
+	}
+	if err != nil {
+		return fmt.Errorf("accounts.IncrementVersion: %w", err)
+	}
+	return nil
 }
 
 func (r *SqliteAccountsRepo) DeleteByID(id uuid.UUID) error {

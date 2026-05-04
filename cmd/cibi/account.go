@@ -45,6 +45,7 @@ var accountAddCmd = &cobra.Command{
 		balance, _ := cmd.Flags().GetInt64("balance")
 		currency, _ := cmd.Flags().GetString("currency")
 		isDefault, _ := cmd.Flags().GetBool("default")
+		safetyBuffer, _ := cmd.Flags().GetInt64("safety-buffer")
 
 		if name == "" {
 			return fmt.Errorf("--name is required")
@@ -56,6 +57,7 @@ var accountAddCmd = &cobra.Command{
 			CurrentBalance: balance,
 			Currency:       currency,
 			IsDefault:      isDefault,
+			SafetyBuffer:   safetyBuffer,
 		}
 		if err := application.AccountsSvc.CreateAccount(a); err != nil {
 			return fmt.Errorf("failed to create account: %w", err)
@@ -157,6 +159,7 @@ func init() {
 	accountAddCmd.Flags().Int64("balance", 0, "initial balance in cents (e.g., 150000 = $1500.00)")
 	accountAddCmd.Flags().String("currency", "BRL", "currency code")
 	accountAddCmd.Flags().Bool("default", false, "set as default account")
+	accountAddCmd.Flags().Int64("safety-buffer", 1000, "account safety buffer in cents")
 
 	accountPayScheduleCmd.Flags().String("account-id", "", "account ID (uses default if not provided)")
 	accountPayScheduleCmd.Flags().String("frequency", "", "pay frequency: weekly, biweekly, monthly (required)")

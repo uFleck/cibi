@@ -30,16 +30,17 @@ type GoalsHandler struct{ svc GoalsServiceIface }
 func NewGoalsHandler(svc *service.GoalsService) *GoalsHandler { return &GoalsHandler{svc: svc} }
 
 type GoalResponse struct {
-	ID            string  `json:"id"`
-	AccountID     string  `json:"account_id"`
-	Name          string  `json:"name"`
-	Status        string  `json:"status"`
-	TargetAmount  float64 `json:"target_amount"`
-	InvestedTotal float64 `json:"invested_total"`
-	StartDateUTC  string  `json:"start_date_utc"`
-	TargetDateUTC *string `json:"target_date_utc"`
-	Notes         *string `json:"notes"`
-	Currency      string  `json:"currency"`
+	ID                           string  `json:"id"`
+	AccountID                    string  `json:"account_id"`
+	Name                         string  `json:"name"`
+	Status                       string  `json:"status"`
+	TargetAmount                 float64 `json:"target_amount"`
+	InvestedTotal                float64 `json:"invested_total"`
+	MinContributionPerWindow     float64 `json:"min_contribution_per_window"`
+	StartDateUTC                 string  `json:"start_date_utc"`
+	TargetDateUTC                *string `json:"target_date_utc"`
+	Notes                        *string `json:"notes"`
+	Currency                     string  `json:"currency"`
 }
 
 type GoalLedgerEntryResponse struct {
@@ -54,19 +55,21 @@ type GoalLedgerEntryResponse struct {
 }
 
 type CreateGoalRequest struct {
-	AccountID     string  `json:"account_id" validate:"required"`
-	Name          string  `json:"name" validate:"required"`
-	TargetAmount  float64 `json:"target_amount" validate:"required,gt=0"`
-	StartDateUTC  string  `json:"start_date_utc" validate:"required"`
-	TargetDateUTC *string `json:"target_date_utc"`
-	Notes         *string `json:"notes"`
+	AccountID                    string  `json:"account_id" validate:"required"`
+	Name                         string  `json:"name" validate:"required"`
+	TargetAmount                 float64 `json:"target_amount" validate:"required,gt=0"`
+	MinContributionPerWindow     float64 `json:"min_contribution_per_window"`
+	StartDateUTC                 string  `json:"start_date_utc" validate:"required"`
+	TargetDateUTC                *string `json:"target_date_utc"`
+	Notes                        *string `json:"notes"`
 }
 
 type UpdateGoalRequest struct {
-	Name          *string  `json:"name"`
-	TargetAmount  *float64 `json:"target_amount"`
-	TargetDateUTC *string  `json:"target_date_utc"`
-	Notes         *string  `json:"notes"`
+	Name                         *string  `json:"name"`
+	TargetAmount                 *float64 `json:"target_amount"`
+	TargetDateUTC                *string  `json:"target_date_utc"`
+	Notes                        *string  `json:"notes"`
+	MinContributionPerWindow     *float64 `json:"min_contribution_per_window"`
 }
 
 type AddLedgerRequest struct {
@@ -87,7 +90,7 @@ func goalResp(g sqlite.Goal) GoalResponse {
 		s := g.TargetDateUTC.UTC().Format(time.RFC3339)
 		td = &s
 	}
-	return GoalResponse{ID: g.ID.String(), AccountID: g.AccountID.String(), Name: g.Name, Status: g.Status, TargetAmount: float64(g.TargetAmountCents) / 100, InvestedTotal: float64(g.InvestedTotalCents) / 100, StartDateUTC: g.StartDateUTC.UTC().Format(time.RFC3339), TargetDateUTC: td, Notes: g.Notes, Currency: g.Currency}
+	return GoalResponse{ID: g.ID.String(), AccountID: g.AccountID.String(), Name: g.Name, Status: g.Status, TargetAmount: float64(g.TargetAmountCents) / 100, InvestedTotal: float64(g.InvestedTotalCents) / 100, MinContributionPerWindow: float64(g.MinContributionPerWindowCents) / 100, StartDateUTC: g.StartDateUTC.UTC().Format(time.RFC3339), TargetDateUTC: td, Notes: g.Notes, Currency: g.Currency}
 }
 func ledgerResp(e sqlite.GoalLedgerEntry) GoalLedgerEntryResponse {
 	var rev *string
@@ -123,7 +126,7 @@ func (h *GoalsHandler) Create(c echo.Context) error {
 		u := p.UTC()
 		target = &u
 	}
-	g, err := h.svc.CreateGoal(service.CreateGoalInput{AccountID: accountID, Name: req.Name, TargetAmount: math.Round(req.TargetAmount*100) / 100, StartDateUTC: start.UTC(), TargetDateUTC: target, Notes: req.Notes})
+	g, err := h.svc.CreateGoal(service.CreateGoalInput{AccountID: accountID, Name: req.Name, TargetAmount: math.Round(req.TargetAmount*100) / 100, MinContributionPerWindow: math.Round(req.MinContributionPerWindow*100) / 100, StartDateUTC: start.UTC(), TargetDateUTC: target, Notes: req.Notes})
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -164,7 +167,7 @@ func (h *GoalsHandler) Update(c echo.Context) error {
 		u := p.UTC()
 		td = &u
 	}
-	if err := h.svc.UpdateGoal(goalID, service.UpdateGoalInput{Name: req.Name, TargetAmount: req.TargetAmount, TargetDateUTC: td, Notes: req.Notes}); err != nil {
+	if err := h.svc.UpdateGoal(goalID, service.UpdateGoalInput{Name: req.Name, TargetAmount: req.TargetAmount, TargetDateUTC: td, Notes: req.Notes, MinContributionPerWindow: req.MinContributionPerWindow}); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 	return c.NoContent(http.StatusNoContent)

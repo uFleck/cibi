@@ -19,7 +19,7 @@ type friendPublicGroupSvc interface {
 }
 
 type friendPublicProfileSvc interface {
-	Get() (sqlite.UserProfile, error)
+	GetByAccount(accountID uuid.UUID) (sqlite.UserProfile, error)
 }
 
 // PublicFriendGroupEventView is the service DTO used by public friend endpoint.
@@ -126,12 +126,12 @@ func (s *FriendService) GetFriendByToken(token string) (sqlite.Friend, error) {
 	return f, nil
 }
 
-func (s *FriendService) ownerProfile() sqlite.UserProfile {
+func (s *FriendService) ownerProfile(accountID uuid.UUID) sqlite.UserProfile {
 	if s.profileSvc == nil {
 		defaultName := "Host"
 		return sqlite.UserProfile{DisplayName: defaultName}
 	}
-	p, err := s.profileSvc.Get()
+	p, err := s.profileSvc.GetByAccount(accountID)
 	if err != nil || strings.TrimSpace(p.DisplayName) == "" {
 		defaultName := "Host"
 		return sqlite.UserProfile{DisplayName: defaultName}
@@ -146,7 +146,7 @@ func (s *FriendService) hostInfo(event sqlite.GroupEvent) (string, *string, *uui
 			return f.Name, f.PixKey, event.HostFriendID
 		}
 	}
-	owner := s.ownerProfile()
+	owner := s.ownerProfile(event.AccountID)
 	return owner.DisplayName, owner.PixKey, nil
 }
 

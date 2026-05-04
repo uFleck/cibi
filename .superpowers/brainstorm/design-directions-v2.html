@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CIBI — Design Directions v2</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  background: #111;
+  color: #ddd;
+  padding: 1.5rem 1rem 5rem;
+  min-height: 100vh;
+  transition: background 0.3s, color 0.3s;
+}
+
+body.light-page {
+  background: #f0f0f4;
+  color: #1a1a28;
+}
+
+/* ---- TOP BAR ---- */
+.topbar {
+  max-width: 1400px;
+  margin: 0 auto 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.topbar h1 {
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #666;
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #333;
+}
+body.light-page .mode-toggle { border-color: #ccc; }
+
+.mode-btn {
+  padding: 0.4rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: #555;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+body.light-page .mode-btn { color: #888; }
+
+.mode-btn.active {
+  background: #333;
+  color: #eee;
+}
+body.light-page .mode-btn.active {
+  background: #ddd;
+  color: #222;
+}
+
+/* ---- GRID ---- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ---- CARD ---- */
+.card {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+  position: relative;
+}
+.card:hover { transform: translateY(-3px); }
+.card.selected {
+  border-color: #888 !important;
+  box-shadow: 0 0 0 2px #8888;
+}
+
+.card-header {
+  padding: 1rem 1.25rem 0.85rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.card-letter {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.card-meta { flex: 1; }
+.card-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.card-tagline {
+  font-size: 0.7rem;
+  margin-top: 0.15rem;
+  opacity: 0.55;
+}
+
+.sel-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid #444;
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: all 0.15s;
+}
+.card.selected .sel-dot {
+  background: #888;
+  border-color: #888;
+}
+
+.card-body { padding: 0.85rem 1.1rem 1.1rem; }
+
+/* ---- MOCK ELEMENTS ---- */
+.mock-section { margin-bottom: 0.85rem; }
+.mock-label {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  opacity: 0.4;
+  margin-bottom: 0.45rem;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.stat {
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid;
+}
+.stat-lbl {
+  font-size: 0.56rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.3rem;
+  opacity: 0.6;
+}
+.stat-val {
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.widget {
+  border-radius: 8px;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid;
+  margin-bottom: 0.5rem;
+}
+.widget-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.input-row {
+  display: flex;
+  gap: 0.4rem;
+}
+.mock-input {
+  flex: 1;
+  border-radius: 6px;
+  border: 1px solid;
+  padding: 0.38rem 0.55rem;
+  font-size: 0.75rem;
+  background: transparent;
+  font-family: inherit;
+  color: inherit;
+}
+.mock-btn {
+  border-radius: 6px;
+  padding: 0.38rem 0.8rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: none;
+  cursor: default;
+  font-family: inherit;
+}
+
+.verdict {
+  border-radius: 8px;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid;
+  margin-bottom: 0.5rem;
+}
+.verdict-word {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.3rem;
+}
+.verdict-detail {
+  font-size: 0.67rem;
+  opacity: 0.65;
+  line-height: 1.5;
+}
+.badge {
+  display: inline-block;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid;
+  margin-top: 0.45rem;
+}
+
+/* palette */
+.palette {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid;
+}
+.sw-g { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+.sw {
+  width: 26px; height: 26px;
+  border-radius: 6px;
+}
+.sw-lbl { font-size: 0.55rem; opacity: 0.45; }
+
+/* tradeoffs */
+.trades {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid;
+}
+.trades h4 {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.3rem;
+}
+.trades ul { list-style: none; display: flex; flex-direction: column; gap: 0.18rem; }
+.trades li {
+  font-size: 0.66rem;
+  opacity: 0.65;
+  padding-left: 0.75rem;
+  position: relative;
+}
+.trades li::before { content: attr(data-b); position: absolute; left: 0; }
+
+.conflict-tag {
+  font-size: 0.63rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 5px;
+  margin-top: 0.5rem;
+  line-height: 1.4;
+}
+
+/* ============================================================
+   THEME VARS per direction x mode
+   Convention: [dir]-[dark|light]-[element]
+   ============================================================ */
+
+/* --- helpers shared across both modes --- */
+:root {
+  --yes: oklch(0.72 0.19 142);
+  --yes-tint-dark: oklch(0.14 0.07 142);
+  --yes-tint-light: oklch(0.94 0.05 142);
+  --no: oklch(0.65 0.22 25);
+  --wait: oklch(0.78 0.17 85);
+  --risk-high: oklch(0.68 0.20 40);
+}
+
+/* ====== A — GREEN ANCHOR ====== */
+.dir-a { --accent: oklch(0.62 0.19 142); --accent-fg: oklch(0.09 0.03 142); }
+
+/* dark */
+body:not(.light-page) .dir-a {
+  background: oklch(0.09 0.018 150);
+  border-color: oklch(0.20 0.04 145 / 0.5);
+}
+body:not(.light-page) .dir-a .card-header { background: oklch(0.11 0.022 148); border-bottom: 1px solid oklch(0.20 0.04 145 / 0.4); }
+body:not(.light-page) .dir-a .stat { background: oklch(0.13 0.022 145 / 0.7); border-color: oklch(0.22 0.04 145 / 0.4); }
+body:not(.light-page) .dir-a .widget { background: oklch(0.13 0.022 145 / 0.7); border-color: oklch(0.22 0.04 145 / 0.4); }
+body:not(.light-page) .dir-a .mock-input { border-color: oklch(0.25 0.04 145 / 0.5); }
+body:not(.light-page) .dir-a .verdict { background: oklch(0.14 0.07 142 / 0.9); border-color: oklch(0.72 0.19 142 / 0.35); }
+body:not(.light-page) .dir-a .palette { border-color: oklch(0.20 0.04 145 / 0.4); }
+body:not(.light-page) .dir-a .trades { border-color: oklch(0.20 0.04 145 / 0.4); }
+
+/* light */
+body.light-page .dir-a {
+  background: oklch(0.97 0.012 142);
+  border-color: oklch(0.85 0.05 142 / 0.6);
+}
+body.light-page .dir-a .card-header { background: oklch(0.93 0.03 142); border-bottom: 1px solid oklch(0.85 0.05 142 / 0.5); }
+body.light-page .dir-a .stat { background: oklch(0.96 0.025 142); border-color: oklch(0.80 0.06 142 / 0.5); }
+body.light-page .dir-a .stat-val { color: oklch(0.20 0.05 142); }
+body.light-page .dir-a .widget { background: oklch(0.96 0.025 142); border-color: oklch(0.80 0.06 142 / 0.5); }
+body.light-page .dir-a .mock-input { border-color: oklch(0.75 0.07 142 / 0.6); color: oklch(0.20 0.05 142); }
+body.light-page .dir-a .widget-title { color: oklch(0.20 0.05 142); }
+body.light-page .dir-a .verdict-word { color: var(--yes); }
+body.light-page .dir-a .verdict { background: oklch(0.94 0.05 142); border-color: oklch(0.72 0.19 142 / 0.35); }
+body.light-page .dir-a .palette { border-color: oklch(0.80 0.05 142 / 0.5); }
+body.light-page .dir-a .trades { border-color: oklch(0.80 0.05 142 / 0.5); }
+body.light-page .dir-a .card-name { color: oklch(0.15 0.05 142); }
+body.light-page .dir-a .verdict-detail { color: oklch(0.30 0.04 142); }
+
+/* shared */
+.dir-a .mock-btn { background: var(--accent); color: var(--accent-fg); }
+.dir-a .verdict-word { color: var(--yes); }
+.dir-a .badge { color: var(--yes); border-color: oklch(0.72 0.19 142 / 0.35); background: oklch(0.72 0.19 142 / 0.1); }
+.dir-a .card-letter { color: var(--accent); }
+
+/* ====== B — NEUTRAL COMMAND ====== */
+.dir-b { --accent: oklch(0.55 0.10 240); --accent-fg: #fff; }
+
+body:not(.light-page) .dir-b {
+  background: oklch(0.09 0.018 240);
+  border-color: oklch(0.20 0.03 240 / 0.5);
+}
+body:not(.light-page) .dir-b .card-header { background: oklch(0.11 0.022 240); border-bottom: 1px solid oklch(0.20 0.03 240 / 0.4); }
+body:not(.light-page) .dir-b .stat { background: oklch(0.13 0.022 240 / 0.7); border-color: oklch(0.22 0.03 240 / 0.4); }
+body:not(.light-page) .dir-b .widget { background: oklch(0.13 0.022 240 / 0.7); border-color: oklch(0.22 0.03 240 / 0.4); }
+body:not(.light-page) .dir-b .mock-input { border-color: oklch(0.25 0.03 240 / 0.5); }
+body:not(.light-page) .dir-b .verdict { background: oklch(0.14 0.07 142 / 0.9); border-color: oklch(0.72 0.19 142 / 0.35); }
+body:not(.light-page) .dir-b .palette { border-color: oklch(0.20 0.03 240 / 0.4); }
+body:not(.light-page) .dir-b .trades { border-color: oklch(0.20 0.03 240 / 0.4); }
+
+body.light-page .dir-b {
+  background: oklch(0.97 0.008 240);
+  border-color: oklch(0.85 0.03 240 / 0.6);
+}
+body.light-page .dir-b .card-header { background: oklch(0.93 0.015 240); border-bottom: 1px solid oklch(0.82 0.03 240 / 0.5); }
+body.light-page .dir-b .stat { background: oklch(0.95 0.015 240); border-color: oklch(0.80 0.03 240 / 0.5); }
+body.light-page .dir-b .stat-val { color: oklch(0.18 0.04 240); }
+body.light-page .dir-b .widget { background: oklch(0.95 0.015 240); border-color: oklch(0.80 0.03 240 / 0.5); }
+body.light-page .dir-b .mock-input { border-color: oklch(0.72 0.04 240 / 0.6); color: oklch(0.18 0.04 240); }
+body.light-page .dir-b .widget-title { color: oklch(0.18 0.04 240); }
+body.light-page .dir-b .verdict { background: oklch(0.94 0.05 142); border-color: oklch(0.72 0.19 142 / 0.35); }
+body.light-page .dir-b .palette { border-color: oklch(0.80 0.03 240 / 0.5); }
+body.light-page .dir-b .trades { border-color: oklch(0.80 0.03 240 / 0.5); }
+body.light-page .dir-b .card-name { color: oklch(0.15 0.04 240); }
+body.light-page .dir-b .verdict-detail { color: oklch(0.28 0.03 240); }
+
+.dir-b .mock-btn { background: var(--accent); color: var(--accent-fg); }
+.dir-b .verdict-word { color: var(--yes); }
+.dir-b .badge { color: var(--yes); border-color: oklch(0.72 0.19 142 / 0.35); background: oklch(0.72 0.19 142 / 0.1); }
+.dir-b .card-letter { color: var(--accent); }
+
+/* ====== C — TEAL BRIDGE ====== */
+.dir-c { --accent: oklch(0.60 0.14 195); --accent-fg: oklch(0.09 0.03 195); }
+
+body:not(.light-page) .dir-c {
+  background: oklch(0.09 0.018 195);
+  border-color: oklch(0.20 0.04 195 / 0.5);
+}
+body:not(.light-page) .dir-c .card-header { background: oklch(0.11 0.022 195); border-bottom: 1px solid oklch(0.20 0.04 195 / 0.4); }
+body:not(.light-page) .dir-c .stat { background: oklch(0.13 0.022 195 / 0.7); border-color: oklch(0.22 0.04 195 / 0.4); }
+body:not(.light-page) .dir-c .widget { background: oklch(0.13 0.022 195 / 0.7); border-color: oklch(0.22 0.04 195 / 0.4); }
+body:not(.light-page) .dir-c .mock-input { border-color: oklch(0.25 0.04 195 / 0.5); }
+body:not(.light-page) .dir-c .verdict { background: oklch(0.14 0.07 142 / 0.9); border-color: oklch(0.72 0.19 142 / 0.35); }
+body:not(.light-page) .dir-c .palette { border-color: oklch(0.20 0.04 195 / 0.4); }
+body:not(.light-page) .dir-c .trades { border-color: oklch(0.20 0.04 195 / 0.4); }
+
+body.light-page .dir-c {
+  background: oklch(0.97 0.012 195);
+  border-color: oklch(0.84 0.05 195 / 0.6);
+}
+body.light-page .dir-c .card-header { background: oklch(0.93 0.03 195); border-bottom: 1px solid oklch(0.82 0.05 195 / 0.5); }
+body.light-page .dir-c .stat { background: oklch(0.95 0.025 195); border-color: oklch(0.78 0.06 195 / 0.5); }
+body.light-page .dir-c .stat-val { color: oklch(0.18 0.05 195); }
+body.light-page .dir-c .widget { background: oklch(0.95 0.025 195); border-color: oklch(0.78 0.06 195 / 0.5); }
+body.light-page .dir-c .mock-input { border-color: oklch(0.70 0.07 195 / 0.6); color: oklch(0.18 0.05 195); }
+body.light-page .dir-c .widget-title { color: oklch(0.18 0.05 195); }
+body.light-page .dir-c .verdict { background: oklch(0.94 0.05 142); border-color: oklch(0.72 0.19 142 / 0.35); }
+body.light-page .dir-c .palette { border-color: oklch(0.78 0.05 195 / 0.5); }
+body.light-page .dir-c .trades { border-color: oklch(0.78 0.05 195 / 0.5); }
+body.light-page .dir-c .card-name { color: oklch(0.15 0.05 195); }
+body.light-page .dir-c .verdict-detail { color: oklch(0.28 0.04 195); }
+
+.dir-c .mock-btn { background: var(--accent); color: var(--accent-fg); }
+.dir-c .verdict-word { color: var(--yes); }
+.dir-c .badge { color: var(--yes); border-color: oklch(0.72 0.19 142 / 0.35); background: oklch(0.72 0.19 142 / 0.1); }
+.dir-c .card-letter { color: var(--accent); }
+
+/* ====== D — WARM AMBER ====== */
+.dir-d { --accent: oklch(0.72 0.17 70); --accent-fg: oklch(0.12 0.05 70); }
+
+body:not(.light-page) .dir-d {
+  background: oklch(0.09 0.018 75);
+  border-color: oklch(0.22 0.05 75 / 0.5);
+}
+body:not(.light-page) .dir-d .card-header { background: oklch(0.12 0.025 75); border-bottom: 1px solid oklch(0.22 0.05 75 / 0.4); }
+body:not(.light-page) .dir-d .stat { background: oklch(0.13 0.022 75 / 0.7); border-color: oklch(0.23 0.05 75 / 0.4); }
+body:not(.light-page) .dir-d .widget { background: oklch(0.13 0.022 75 / 0.7); border-color: oklch(0.23 0.05 75 / 0.4); }
+body:not(.light-page) .dir-d .mock-input { border-color: oklch(0.26 0.05 75 / 0.5); }
+body:not(.light-page) .dir-d .verdict { background: oklch(0.14 0.07 142 / 0.9); border-color: oklch(0.72 0.19 142 / 0.35); }
+body:not(.light-page) .dir-d .palette { border-color: oklch(0.22 0.05 75 / 0.4); }
+body:not(.light-page) .dir-d .trades { border-color: oklch(0.22 0.05 75 / 0.4); }
+
+body.light-page .dir-d {
+  background: oklch(0.97 0.015 75);
+  border-color: oklch(0.84 0.07 75 / 0.6);
+}
+body.light-page .dir-d .card-header { background: oklch(0.93 0.04 75); border-bottom: 1px solid oklch(0.82 0.07 75 / 0.5); }
+body.light-page .dir-d .stat { background: oklch(0.95 0.03 75); border-color: oklch(0.78 0.08 75 / 0.5); }
+body.light-page .dir-d .stat-val { color: oklch(0.18 0.07 75); }
+body.light-page .dir-d .widget { background: oklch(0.95 0.03 75); border-color: oklch(0.78 0.08 75 / 0.5); }
+body.light-page .dir-d .mock-input { border-color: oklch(0.70 0.09 75 / 0.6); color: oklch(0.18 0.07 75); }
+body.light-page .dir-d .widget-title { color: oklch(0.18 0.07 75); }
+body.light-page .dir-d .verdict { background: oklch(0.94 0.05 142); border-color: oklch(0.72 0.19 142 / 0.35); }
+body.light-page .dir-d .palette { border-color: oklch(0.78 0.07 75 / 0.5); }
+body.light-page .dir-d .trades { border-color: oklch(0.78 0.07 75 / 0.5); }
+body.light-page .dir-d .card-name { color: oklch(0.14 0.07 75); }
+body.light-page .dir-d .verdict-detail { color: oklch(0.28 0.05 75); }
+
+.dir-d .mock-btn { background: var(--accent); color: var(--accent-fg); }
+.dir-d .verdict-word { color: var(--yes); }
+.dir-d .badge { color: var(--yes); border-color: oklch(0.72 0.19 142 / 0.35); background: oklch(0.72 0.19 142 / 0.1); }
+.dir-d .card-letter { color: var(--accent); }
+
+/* ====== E — ROSE NOIR ====== */
+.dir-e { --accent: oklch(0.60 0.16 340); --accent-fg: #fff; }
+
+body:not(.light-page) .dir-e {
+  background: oklch(0.09 0.018 340);
+  border-color: oklch(0.20 0.04 340 / 0.5);
+}
+body:not(.light-page) .dir-e .card-header { background: oklch(0.11 0.022 340); border-bottom: 1px solid oklch(0.20 0.04 340 / 0.4); }
+body:not(.light-page) .dir-e .stat { background: oklch(0.13 0.022 340 / 0.7); border-color: oklch(0.22 0.04 340 / 0.4); }
+body:not(.light-page) .dir-e .widget { background: oklch(0.13 0.022 340 / 0.7); border-color: oklch(0.22 0.04 340 / 0.4); }
+body:not(.light-page) .dir-e .mock-input { border-color: oklch(0.25 0.04 340 / 0.5); }
+body:not(.light-page) .dir-e .verdict { background: oklch(0.14 0.07 142 / 0.9); border-color: oklch(0.72 0.19 142 / 0.35); }
+body:not(.light-page) .dir-e .palette { border-color: oklch(0.20 0.04 340 / 0.4); }
+body:not(.light-page) .dir-e .trades { border-color: oklch(0.20 0.04 340 / 0.4); }
+
+body.light-page .dir-e {
+  background: oklch(0.97 0.012 340);
+  border-color: oklch(0.84 0.05 340 / 0.6);
+}
+body.light-page .dir-e .card-header { background: oklch(0.93 0.03 340); border-bottom: 1px solid oklch(0.82 0.05 340 / 0.5); }
+body.light-page .dir-e .stat { background: oklch(0.95 0.025 340); border-color: oklch(0.78 0.06 340 / 0.5); }
+body.light-page .dir-e .stat-val { color: oklch(0.20 0.06 340); }
+body.light-page .dir-e .widget { background: oklch(0.95 0.025 340); border-color: oklch(0.78 0.06 340 / 0.5); }
+body.light-page .dir-e .mock-input { border-color: oklch(0.70 0.07 340 / 0.6); color: oklch(0.20 0.06 340); }
+body.light-page .dir-e .widget-title { color: oklch(0.20 0.06 340); }
+body.light-page .dir-e .verdict { background: oklch(0.94 0.05 142); border-color: oklch(0.72 0.19 142 / 0.35); }
+body.light-page .dir-e .palette { border-color: oklch(0.78 0.05 340 / 0.5); }
+body.light-page .dir-e .trades { border-color: oklch(0.78 0.05 340 / 0.5); }
+body.light-page .dir-e .card-name { color: oklch(0.18 0.06 340); }
+body.light-page .dir-e .verdict-detail { color: oklch(0.30 0.04 340); }
+
+.dir-e .mock-btn { background: var(--accent); color: var(--accent-fg); }
+.dir-e .verdict-word { color: var(--yes); }
+.dir-e .badge { color: var(--yes); border-color: oklch(0.72 0.19 142 / 0.35); background: oklch(0.72 0.19 142 / 0.1); }
+.dir-e .card-letter { color: var(--accent); }
+
+/* ====== F — CURRENT (reference) ====== */
+.dir-f { --accent: oklch(0.58 0.22 264); --accent-fg: #fff; }
+
+body:not(.light-page) .dir-f {
+  background: oklch(0.09 0.020 255);
+  border-color: oklch(0.22 0.030 248 / 0.5);
+}
+body:not(.light-page) .dir-f .card-header { background: oklch(0.11 0.022 255); border-bottom: 1px solid oklch(0.22 0.030 248 / 0.4); }
+body:not(.light-page) .dir-f .stat { background: oklch(0.13 0.022 255 / 0.7); border-color: oklch(0.22 0.030 248 / 0.4); }
+body:not(.light-page) .dir-f .widget { background: oklch(0.13 0.022 255 / 0.7); border-color: oklch(0.22 0.030 248 / 0.4); }
+body:not(.light-page) .dir-f .mock-input { border-color: oklch(0.25 0.030 248 / 0.5); }
+body:not(.light-page) .dir-f .verdict { background: oklch(0.14 0.07 142 / 0.9); border-color: oklch(0.72 0.19 142 / 0.35); }
+body:not(.light-page) .dir-f .palette { border-color: oklch(0.22 0.030 248 / 0.4); }
+body:not(.light-page) .dir-f .trades { border-color: oklch(0.22 0.030 248 / 0.4); }
+
+body.light-page .dir-f {
+  background: oklch(0.985 0.003 255);
+  border-color: oklch(0.88 0.010 248 / 0.6);
+}
+body.light-page .dir-f .card-header { background: oklch(0.95 0.008 255); border-bottom: 1px solid oklch(0.88 0.010 248 / 0.5); }
+body.light-page .dir-f .stat { background: oklch(0.97 0.006 250); border-color: oklch(0.85 0.010 248 / 0.5); }
+body.light-page .dir-f .stat-val { color: oklch(0.20 0.020 255); }
+body.light-page .dir-f .widget { background: oklch(0.97 0.006 250); border-color: oklch(0.85 0.010 248 / 0.5); }
+body.light-page .dir-f .mock-input { border-color: oklch(0.78 0.015 248 / 0.6); color: oklch(0.20 0.020 255); }
+body.light-page .dir-f .widget-title { color: oklch(0.20 0.020 255); }
+body.light-page .dir-f .verdict { background: oklch(0.94 0.05 142); border-color: oklch(0.72 0.19 142 / 0.35); }
+body.light-page .dir-f .palette { border-color: oklch(0.85 0.010 248 / 0.5); }
+body.light-page .dir-f .trades { border-color: oklch(0.85 0.010 248 / 0.5); }
+body.light-page .dir-f .card-name { color: oklch(0.20 0.020 255); }
+body.light-page .dir-f .verdict-detail { color: oklch(0.35 0.020 255); }
+
+.dir-f .mock-btn { background: var(--accent); color: var(--accent-fg); }
+.dir-f .verdict-word { color: var(--yes); }
+.dir-f .badge { color: var(--yes); border-color: oklch(0.72 0.19 142 / 0.35); background: oklch(0.72 0.19 142 / 0.1); }
+.dir-f .card-letter { color: var(--accent); opacity: 0.7; }
+
+/* conflict note */
+.conflict-tag {
+  background: oklch(0.65 0.22 25 / 0.08);
+  border: 1px solid oklch(0.65 0.22 25 / 0.3);
+  color: oklch(0.65 0.22 25);
+}
+
+@media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>CIBI — Design Directions</h1>
+  <div class="mode-toggle">
+    <button class="mode-btn active" onclick="setMode('dark')">DARK</button>
+    <button class="mode-btn" onclick="setMode('light')">LIGHT</button>
+  </div>
+</div>
+
+<div class="grid" id="grid">
+
+  <!-- A: GREEN ANCHOR -->
+  <div class="card dir-a" onclick="pick(this,'a')">
+    <div class="sel-dot" style="position:absolute;top:0.9rem;right:0.9rem"></div>
+    <div class="card-header">
+      <div class="card-letter">A</div>
+      <div class="card-meta">
+        <div class="card-name">Green Anchor</div>
+        <div class="card-tagline">Brand = yes-energy. One primary rules all.</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="mock-section">
+        <div class="mock-label">Stats</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-lbl">Balance</div><div class="stat-val">$3,240</div></div>
+          <div class="stat"><div class="stat-lbl">Reserved</div><div class="stat-val">$1,180</div></div>
+          <div class="stat"><div class="stat-lbl">Liquid</div><div class="stat-val">$2,060</div></div>
+        </div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-label">Check widget</div>
+        <div class="widget">
+          <div class="widget-title">Can I Buy It?</div>
+          <div class="input-row">
+            <input class="mock-input" value="89.00" readonly>
+            <button class="mock-btn">CHECK</button>
+          </div>
+        </div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-label">YES verdict</div>
+        <div class="verdict">
+          <div class="verdict-word">YES</div>
+          <div class="verdict-detail">Purchasing power: $2,060.00<br>Buffer remaining: $1,471.00</div>
+          <div class="badge">LOW RISK</div>
+        </div>
+      </div>
+      <div class="palette">
+        <div class="sw-g"><div class="sw" style="background:oklch(0.62 0.19 142)"></div><div class="sw-lbl">primary</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.72 0.19 142)"></div><div class="sw-lbl">yes</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.65 0.22 25)"></div><div class="sw-lbl">no</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.78 0.17 85)"></div><div class="sw-lbl">wait</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.68 0.20 40)"></div><div class="sw-lbl">high</div></div>
+      </div>
+      <div class="trades">
+        <div>
+          <h4 style="color:oklch(0.65 0.15 142)">Strengths</h4>
+          <ul>
+            <li data-b="+">Max coherence</li>
+            <li data-b="+">Optimistic brand tone</li>
+            <li data-b="+">Minimal palette</li>
+          </ul>
+        </div>
+        <div>
+          <h4 style="color:oklch(0.60 0.18 25)">Risks</h4>
+          <ul>
+            <li data-b="-">Green dilutes verdict signal</li>
+            <li data-b="-">Button ≈ YES badge visually</li>
+            <li data-b="-">Less serious feel</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- B: NEUTRAL COMMAND -->
+  <div class="card dir-b" onclick="pick(this,'b')">
+    <div class="sel-dot" style="position:absolute;top:0.9rem;right:0.9rem"></div>
+    <div class="card-header">
+      <div class="card-letter">B</div>
+      <div class="card-meta">
+        <div class="card-name">Neutral Command</div>
+        <div class="card-tagline">Navy chrome. Green/red are ONLY semantic.</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="mock-section">
+        <div class="mock-label">Stats</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-lbl">Balance</div><div class="stat-val">$3,240</div></div>
+          <div class="stat"><div class="stat-lbl">Reserved</div><div class="stat-val">$1,180</div></div>
+          <div class="stat"><div class="stat-lbl">Liquid</div><div class="stat-val">$2,060</div></div>
+        </div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-label">Check widget</div>
+        <div class="widget">
+          <div class="widget-title">Can I Buy It?</div>
+          <div class="input-row">
+            <input class="mock-input" value="89.00" readonly>
+            <button class="mock-btn">CHECK</button>
+          </div>
+        </div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-label">YES verdict — green = pure signal</div>
+        <div class="verdict">
+          <div class="verdict-word">YES</div>
+          <div class="verdict-detail">Purchasing power: $2,060.00<br>Buffer remaining: $1,471.00</div>
+          <div class="badge">LOW RISK</div>
+        </div>
+      </div>
+      <div class="palette">
+        <div class="sw-g"><div class="sw" style="background:oklch(0.55 0.10 240)"></div><div class="sw-lbl">primary</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.72 0.19 142)"></div><div class="sw-lbl">yes</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.65 0.22 25)"></div><div class="sw-lbl">no</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.78 0.17 85)"></div><div class="sw-lbl">wait</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.68 0.20 40)"></div><div class="sw-lbl">high</div></div>
+      </div>
+      <div class="trades">
+        <div>
+          <h4 style="color:oklch(0.65 0.15 142)">Strengths</h4>
+          <ul>
+            <li data-b="+">Semantic colors stay pure</li>
+            <li data-b="+">YES verdict hits harder</li>
+            <li data-b="+">Authoritative, financial feel</li>
+          </ul>
+        </div>
+        <div>
+          <h4 style="color:oklch(0.60 0.18 25)">Risks</h4>
+          <ul>
+            <li data-b="-">Cold / corporate</li>
+            <li data-b="-">Two color temps in UI</li>
+            <li data-b="-">Less personal</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- C: TEAL BRIDGE -->
+  <div class="card dir-c" onclick="pick(this,'c')">
+    <div class="sel-dot" style="position:absolute;top:0.9rem;right:0.9rem"></div>
+    <div class="card-header">
+      <div class="card-letter">C</div>
+      <div class="card-meta">
+        <div class="card-name">Teal Bridge</div>
+        <div class="card-tagline">Teal = calm authority with yes-adjacent warmth</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="mock-section">
+        <div class="mock-label">Stats</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-lbl">Balance</div><div class="stat-val">$3,240</div></div>
+          <div class="stat"><div class="stat-lbl">Reserved</div><div class="stat-val">$1,180</div></div>
+          <div class="stat"><div class="stat-lbl">Liquid</div><div class="stat-val">$2,060</div></div>
+        </div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-label">Check widget</div>
+        <div class="widget">
+          <div class="widget-title">Can I Buy It?</div>
+          <div class="input-row">
+            <input class="mock-input" value="89.00" readonly>
+            <button class="mock-btn">CHECK</button>
+          </div>
+        </div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-label">YES verdict</div>
+        <div class="verdict">
+          <div class="verdict-word">YES</div>
+          <div class="verdict-detail">Purchasing power: $2,060.00<br>Buffer remaining: $1,471.00</div>
+          <div class="badge">LOW RISK</div>
+        </div>
+      </div>
+      <div class="palette">
+        <div class="sw-g"><div class="sw" style="background:oklch(0.60 0.14 195)"></div><div class="sw-lbl">primary</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.72 0.19 142)"></div><div class="sw-lbl">yes</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.65 0.22 25)"></div><div class="sw-lbl">no</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.78 0.17 85)"></div><div class="sw-lbl">wait</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.68 0.20 40)"></div><div class="sw-lbl">high</div></div>
+      </div>
+      <div class="trades">
+        <div>
+          <h4 style="color:oklch(0.65 0.15 142)">Strengths</h4>
+          <ul>
+            <li data-b="+">Warm + trustworthy balance</li>
+            <li data-b="+">Teal/green = natural harmony</li>
+            <li data-b="+">Distinct in finance apps</li>
+          </ul>
+        </div>
+        <div>
+          <h4 style="color:oklch(0.60 0.18 25)">Risks</h4>
+          <ul>
+            <li data-b="-">Two greens (teal + yes)</li>
+            <li data-b="-">Hue calibration critical</li>
+            <li data-b="-">Unfamiliar territory</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- D: WARM AMBER -->
+  <div class="card dir-d" onclick="pick(this,'d')">
+    <div class="sel-dot" style="position:absolute;top:0.9rem;right:0.9rem"></div>
+    <div class="card-header">
+      <div class="card-letter">D</div>
+      <div class="card-meta">
+        <div class="card-name">Warm Amber</div>
+        <div class="card-tagline">"Think before you buy." Deliberation as brand.</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="mock-section">
+        <div class="mock-label">Stats</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-lbl">Balance</div><div class="stat-val">$3,240</div></div>
+          <div class="stat"><div class="stat-lbl">Reserved</div><div class="stat-val">$1,180</div></div>
+          <div class="stat"><div class="stat-lbl">Liquid</div><div class="stat-val">$2,060</div></div>
+        </div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-label">Check widget</div>
+        <div class="widget">
+          <div class="widget-title">Can I Buy It?</div>
+          <div class="input-row">
+            <input class="mock-input" value="89.00" readonly>
+            <button class="mock-btn">CHECK</button>
+          </div>
+        </div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-label">YES verdict</div>
+        <div class="verdict">
+          <div class="verdict-word">YES</div>
+          <div class="verdict-detail">Purchasing power: $2,060.00<br>Buffer remaining: $1,471.00</div>
+          <div class="badge">LOW RISK</div>
+        </div>
+      </div>
+      <div class="palette">
+        <div class="sw-g"><div class="sw" style="background:oklch(0.72 0.17 70)"></div><div class="sw-lbl">primary</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.72 0.19 142)"></div><div class="sw-lbl">yes</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.65 0.22 25)"></div><div class="sw-lbl">no</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.78 0.17 85)"></div><div class="sw-lbl">wait</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.68 0.20 40)"></div><div class="sw-lbl">high</div></div>
+      </div>
+      <div class="trades">
+        <div>
+          <h4 style="color:oklch(0.65 0.15 142)">Strengths</h4>
+          <ul>
+            <li data-b="+">Warm, personal, approachable</li>
+            <li data-b="+">Budget/frugal associations</li>
+            <li data-b="+">Amber ≠ "warning" here</li>
+          </ul>
+        </div>
+        <div>
+          <h4 style="color:oklch(0.60 0.18 25)">Risks</h4>
+          <ul>
+            <li data-b="-">Amber clashes with wait/risk</li>
+            <li data-b="-">Semantic ambiguity</li>
+            <li data-b="-">Needs careful tonal control</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- E: ROSE NOIR -->
+  <div class="card dir-e" onclick="pick(this,'e')">
+    <div class="sel-dot" style="position:absolute;top:0.9rem;right:0.9rem"></div>
+    <div class="card-header">
+      <div class="card-letter">E</div>
+      <div class="card-meta">
+        <div class="card-name">Rose Noir</div>
+        <div class="card-tagline">Personal, emotional finance. Bold personality.</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="mock-section">
+        <div class="mock-label">Stats</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-lbl">Balance</div><div class="stat-val">$3,240</div></div>
+          <div class="stat"><div class="stat-lbl">Reserved</div><div class="stat-val">$1,180</div></div>
+          <div class="stat"><div class="stat-lbl">Liquid</div><div class="stat-val">$2,060</div></div>
+        </div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-label">Check widget</div>
+        <div class="widget">
+          <div class="widget-title">Can I Buy It?</div>
+          <div class="input-row">
+            <input class="mock-input" value="89.00" readonly>
+            <button class="mock-btn">CHECK</button>
+          </div>
+        </div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-label">YES verdict</div>
+        <div class="verdict">
+          <div class="verdict-word">YES</div>
+          <div class="verdict-detail">Purchasing power: $2,060.00<br>Buffer remaining: $1,471.00</div>
+          <div class="badge">LOW RISK</div>
+        </div>
+      </div>
+      <div class="palette">
+        <div class="sw-g"><div class="sw" style="background:oklch(0.60 0.16 340)"></div><div class="sw-lbl">primary</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.72 0.19 142)"></div><div class="sw-lbl">yes</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.65 0.22 25)"></div><div class="sw-lbl">no</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.78 0.17 85)"></div><div class="sw-lbl">wait</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.68 0.20 40)"></div><div class="sw-lbl">high</div></div>
+      </div>
+      <div class="trades">
+        <div>
+          <h4 style="color:oklch(0.65 0.15 142)">Strengths</h4>
+          <ul>
+            <li data-b="+">Distinctive, memorable</li>
+            <li data-b="+">Emotional ≠ corporate</li>
+            <li data-b="+">Rose ≠ red = safe semantics</li>
+          </ul>
+        </div>
+        <div>
+          <h4 style="color:oklch(0.60 0.18 25)">Risks</h4>
+          <ul>
+            <li data-b="-">Polarizing personality</li>
+            <li data-b="-">Less "financial tool" feel</li>
+            <li data-b="-">Gender-coded associations</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- F: CURRENT (reference) -->
+  <div class="card dir-f" onclick="pick(this,'current')">
+    <div class="sel-dot" style="position:absolute;top:0.9rem;right:0.9rem"></div>
+    <div class="card-header">
+      <div class="card-letter" style="opacity:0.5">REF</div>
+      <div class="card-meta">
+        <div class="card-name" style="opacity:0.6">Current State</div>
+        <div class="card-tagline">Purple primary + green accent — reference only</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="mock-section">
+        <div class="mock-label">Stats</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-lbl">Balance</div><div class="stat-val">$3,240</div></div>
+          <div class="stat"><div class="stat-lbl">Reserved</div><div class="stat-val">$1,180</div></div>
+          <div class="stat"><div class="stat-lbl">Liquid</div><div class="stat-val">$2,060</div></div>
+        </div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-label">Check widget</div>
+        <div class="widget">
+          <div class="widget-title">Can I Buy It?</div>
+          <div class="input-row">
+            <input class="mock-input" value="89.00" readonly>
+            <button class="mock-btn">CHECK</button>
+          </div>
+        </div>
+      </div>
+      <div class="mock-section">
+        <div class="mock-label">YES verdict</div>
+        <div class="verdict">
+          <div class="verdict-word">YES</div>
+          <div class="verdict-detail">Purchasing power: $2,060.00<br>Buffer remaining: $1,471.00</div>
+          <div class="badge">LOW RISK</div>
+        </div>
+      </div>
+      <div class="conflict-tag">Purple CTA + green YES = two unrelated primaries. Button says "action" (purple), verdict says "good" (green) — no shared logic.</div>
+      <div class="palette">
+        <div class="sw-g"><div class="sw" style="background:oklch(0.58 0.22 264)"></div><div class="sw-lbl">primary</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.72 0.19 142)"></div><div class="sw-lbl">accent</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.72 0.19 142)"></div><div class="sw-lbl">yes ≡ accent</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.65 0.22 25)"></div><div class="sw-lbl">no</div></div>
+        <div class="sw-g"><div class="sw" style="background:oklch(0.78 0.17 85)"></div><div class="sw-lbl">wait</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let mode = 'dark';
+let selected = null;
+
+function setMode(m) {
+  mode = m;
+  document.body.classList.toggle('light-page', m === 'light');
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.textContent.trim().toLowerCase() === m));
+}
+
+function pick(el, choice) {
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+  if (selected !== choice) {
+    el.classList.add('selected');
+    selected = choice;
+  } else {
+    selected = null;
+  }
+}
+</script>
+</body>
+</html>

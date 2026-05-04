@@ -53,6 +53,7 @@ const accountFixture: AccountResponse = {
   current_balance: 1_000,
   currency: 'BRL',
   is_default: true,
+  safety_buffer: 100,
 }
 
 const emptyTrackingFixture: GoalsTrackingResponse = {
@@ -110,6 +111,7 @@ const checkResultFixture: CheckResponse = {
   risk_level: 'WAIT',
   will_afford_after_payday: true,
   wait_until: '2026-05-15T00:00:00.000Z',
+  goals_covered_this_window: [],
   goal_impacts: [
     {
       goal_id: 'goal-1',
@@ -118,6 +120,7 @@ const checkResultFixture: CheckResponse = {
       remaining_after: 625,
       progress_before_pct: 42.5,
       progress_after_pct: 37.5,
+      min_contribution_per_window: 200,
       severity: 'high',
     },
   ],
@@ -211,10 +214,8 @@ describe('dashboard goals browser contract', () => {
     await user.keyboard('{Enter}')
     expect(navigateMock).toHaveBeenCalledWith({ to: '/goals' })
 
-    await user.tab()
-    expect(document.activeElement).toBe(within(snapshot).getByRole('button', { name: 'Add contribution' }))
-    await user.tab()
-    expect(document.activeElement).toBe(within(snapshot).getByRole('button', { name: 'Open Goals' }))
+    expect(within(snapshot).queryByRole('button', { name: 'Add contribution' })).toBeNull()
+    expect(within(snapshot).queryByRole('button', { name: 'Open Goals' })).toBeNull()
   })
 
   it('surfaces snapshot loading, empty, and retryable error states for future debugging', async () => {
@@ -274,10 +275,8 @@ describe('check-impact browser contract', () => {
     expect(screen.getByLabelText('Goal impact preview')).toBeTruthy()
     expect(screen.getByLabelText('Emergency fund purchase impact')).toBeTruthy()
 
-    const progress = screen.getByRole('progressbar', { name: 'Emergency fund progress after purchase' })
-    expect(progress.getAttribute('aria-valuenow')).toBe('37.5')
-    expect(progress.getAttribute('aria-valuemin')).toBe('0')
-    expect(progress.getAttribute('aria-valuemax')).toBe('100')
+    expect(screen.getByText('Contribution capacity impact')).toBeTruthy()
+    expect(screen.getByText('This check does not move goal progress.', { exact: false })).toBeTruthy()
   })
 
   it('makes check loading and error recovery visible without screenshots', async () => {
