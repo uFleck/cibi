@@ -9,7 +9,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { AppModal } from '@/components/AppModal'
 import { SharedDebtList } from '@/components/debt/shared-debt-list'
 import { TransactionForm } from '@/components/TransactionForm'
-import { TransactionFilters } from '@/components/TransactionFilters'
+import { TransactionFilters, type TransactionPreset } from '@/components/TransactionFilters'
 import {
   fetchAccounts,
   fetchTransactions,
@@ -64,8 +64,7 @@ export function TransactionsPage() {
   const [sortField, setSortField] = useState<'description' | 'date' | 'amount'>('date')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [filterCategory, setFilterCategory] = useState<string>('all')
-  const [filterType, setFilterType] = useState<'all' | 'recurring' | 'one-time'>('recurring')
-  const [paymentWindow, setPaymentWindow] = useState<'current' | 'all'>('current')
+  const [preset, setPreset] = useState<TransactionPreset>('current-window')
   const [showFilters, setShowFilters] = useState(false)
 
   const {
@@ -100,29 +99,114 @@ export function TransactionsPage() {
     : null
 
   const filteredAndSortedTxns = useMemo(() => {
+    const now = new Date()
+
+    const startOfUTCDate = (value: Date): number =>
+      Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate())
+
+    const parseDay = (value?: string | null): number | null => {
+      if (!value) return null
+      const date = new Date(value.includes('T') ? value : `${value}T00:00:00Z`)
+      if (Number.isNaN(date.getTime())) return null
+      return startOfUTCDate(date)
+    }
+
+    const addWindow = (value: string, frequency?: string | null): number | null => {
+      const base = new Date(`${value}T00:00:00Z`)
+      if (Number.isNaN(base.getTime())) return null
+
+      switch (frequency) {
+        case 'weekly':
+          base.setUTCDate(base.getUTCDate() + 7)
+          break
+        case 'bi-weekly':
+          base.setUTCDate(base.getUTCDate() + 14)
+          break
+        case 'semi-monthly':
+          base.setUTCDate(base.getUTCDate() + 15)
+          break
+        case 'monthly':
+          base.setUTCMonth(base.getUTCMonth() + 1)
+          break
+        default:
+          return null
+      }
+      return startOfUTCDate(base)
+    }
+
+    const subtractWindow = (value: string, frequency?: string | null): number | null => {
+      const base = new Date(`${value}T00:00:00Z`)
+      if (Number.isNaN(base.getTime())) return null
+
+      switch (frequency) {
+        case 'weekly':
+          base.setUTCDate(base.getUTCDate() - 7)
+          break
+        case 'bi-weekly':
+          base.setUTCDate(base.getUTCDate() - 14)
+          break
+        case 'semi-monthly':
+          base.setUTCDate(base.getUTCDate() - 15)
+          break
+        case 'monthly':
+          base.setUTCMonth(base.getUTCMonth() - 1)
+          break
+        default:
+          return null
+      }
+      return startOfUTCDate(base)
+    }
+
+    const primarySchedule = paySchedules.length > 0
+      ? paySchedules.reduce((earliest, ps) => (ps.next_payday < earliest.next_payday ? ps : earliest), paySchedules[0])
+      : null
+
+    const nextPaydayDay = nextPayday ? parseDay(nextPayday) : null
+    const followingPaydayDay = primarySchedule ? addWindow(primarySchedule.next_payday, primarySchedule.frequency) : null
+    const previousPaydayDay = primarySchedule ? subtractWindow(primarySchedule.next_payday, primarySchedule.frequency) : null
+
     let txns = [...transactions]
-    
+
     if (filterCategory !== 'all') {
       txns = txns.filter((t: TransactionResponse) => t.category === filterCategory)
     }
-    
-    if (filterType === 'recurring') {
-      txns = txns.filter((t: TransactionResponse) => t.is_recurring)
-    } else if (filterType === 'one-time') {
-      txns = txns.filter((t: TransactionResponse) => !t.is_recurring)
-    }
 
-    if (paymentWindow === 'current') {
-      const now = new Date()
-      txns = txns.filter((t: TransactionResponse) => {
-        const windowDate = t.is_recurring
-          ? (t.next_occurrence || t.anchor_date)
-          : t.timestamp
+    txns = txns.filter((t: TransactionResponse) => {
+      const recurringDate = t.next_occurrence || t.anchor_date
+      const recurringDay = parseDay(recurringDate)
+      const oneTimeDay = parseDay(t.timestamp)
+      const needsConfirm = t.requires_confirmation && !t.confirmed_at
 
-        if (!windowDate) return false
-        return isInCurrentPayWindow(windowDate, now, nextPayday)
-      })
-    }
+      if (preset === 'all-recurring') return t.is_recurring
+      if (preset === 'one-time-only') return !t.is_recurring
+
+      if (preset === 'due-now') {
+        if (t.is_recurring) {
+          if (!recurringDate) return false
+          return isInCurrentPayWindow(recurringDate, now, nextPayday)
+        }
+        if (!needsConfirm || oneTimeDay === null) return false
+        return nextPaydayDay === null ? true : oneTimeDay < nextPaydayDay
+      }
+
+      if (preset === 'next-window') {
+        if (nextPaydayDay === null || followingPaydayDay === null) return false
+        const targetDay = t.is_recurring ? recurringDay : oneTimeDay
+        if (targetDay === null) return false
+        return targetDay >= nextPaydayDay && targetDay < followingPaydayDay
+      }
+
+      // current-window + old one-time cutoff of one payment window
+      if (t.is_recurring) {
+        if (!recurringDate) return false
+        return isInCurrentPayWindow(recurringDate, now, nextPayday)
+      }
+
+      if (!needsConfirm || oneTimeDay === null) return false
+      if (nextPaydayDay !== null && oneTimeDay >= nextPaydayDay) return false
+      if (previousPaydayDay === null) return true
+      return oneTimeDay >= previousPaydayDay
+    })
 
     txns.sort((a: TransactionResponse, b: TransactionResponse) => {
       let cmp = 0
@@ -139,14 +223,14 @@ export function TransactionsPage() {
     })
     
     return txns
-  }, [transactions, filterCategory, filterType, paymentWindow, sortField, sortDir, nextPayday])
+  }, [transactions, filterCategory, preset, sortField, sortDir, nextPayday, paySchedules])
 
   const categories = useMemo(() => {
     const cats = new Set(transactions.map((t: TransactionResponse) => t.category))
     return Array.from(cats).sort()
   }, [transactions])
 
-  const hasActiveFilters = filterCategory !== 'all' || filterType !== 'recurring' || paymentWindow !== 'current'
+  const hasActiveFilters = filterCategory !== 'all' || preset !== 'current-window'
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => createTransaction(data),
@@ -354,22 +438,19 @@ export function TransactionsPage() {
       <TransactionFilters
         showFilters={showFilters}
         hasActiveFilters={hasActiveFilters}
+        preset={preset}
         filterCategory={filterCategory}
-        filterType={filterType}
         categories={categories}
         sortField={sortField}
         sortDir={sortDir}
-        paymentWindow={paymentWindow}
         onToggleFilters={() => setShowFilters(!showFilters)}
+        onPresetChange={setPreset}
         onFilterCategoryChange={setFilterCategory}
-        onFilterTypeChange={setFilterType}
         onSortFieldChange={setSortField}
         onSortDirChange={setSortDir}
-        onPaymentWindowChange={setPaymentWindow}
         onResetFilters={() => {
           setFilterCategory('all')
-          setFilterType('recurring')
-          setPaymentWindow('current')
+          setPreset('current-window')
         }}
       />
 
