@@ -46,3 +46,12 @@ vendor/
 coverage/
 .cache/
 tmp/
+.worktrees/
+
+# Local runtime/session artifacts
+pi-session-*.html
+plan.md
+
+# SQLite runtime sidecars
+data/*.db-wal
+data/*.db-shm

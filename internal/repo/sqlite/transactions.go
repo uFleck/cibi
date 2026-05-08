@@ -210,7 +210,7 @@ func (r *SqliteTxnsRepo) SumUpcomingObligations(accountID uuid.UUID, after, onOr
 		WHERE account_id = ?
 		AND (
 			(is_recurring = 1 AND next_occurrence < ?)
-			OR (is_recurring = 0 AND requires_confirmation = 1 AND confirmed_at IS NULL AND timestamp < ?)
+			OR (is_recurring = 0 AND requires_confirmation = 1 AND confirmed_at IS NULL AND COALESCE(anchor_date, timestamp) < ?)
 		)`, accountID.String(), onOrBeforeStr, onOrBeforeStr).Scan(&sum)
 	if err != nil {
 		return 0, fmt.Errorf("transactions.SumUpcomingObligations: %w", err)

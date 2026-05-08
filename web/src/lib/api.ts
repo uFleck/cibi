@@ -15,6 +15,8 @@ export interface TransactionResponse {
   category: string
   timestamp: string
   is_recurring: boolean
+  requires_confirmation: boolean
+  confirmed_at: string | null
   frequency: string | null
   anchor_date: string | null
   next_occurrence: string | null
@@ -326,6 +328,7 @@ export function createTransaction(data: {
   description: string
   category: string
   is_recurring?: boolean
+  requires_confirmation?: boolean
   frequency?: string
   anchor_date?: string
 }): Promise<TransactionResponse> {
@@ -343,6 +346,7 @@ export function updateTransaction(
     description: string
     category: string
     is_recurring: boolean
+    requires_confirmation: boolean
     frequency: string
     anchor_date: string
   }>

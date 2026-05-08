@@ -16,7 +16,7 @@ func TestRoutesRegistersAPIEndpointsWithInjectedServices(t *testing.T) {
 		service.NewAccountsService(nil),
 		service.NewTransactionsService(nil, nil, nil),
 		service.NewGoalsService(nil, nil, nil),
-		service.NewEngineService(nil, nil, nil, nil, nil, nil, nil),
+		service.NewEngineService(nil, nil, nil, nil, nil, nil),
 		service.NewPayScheduleService(nil, nil, nil),
 		service.NewFriendService(nil),
 		service.NewPeerDebtService(nil),

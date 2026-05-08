@@ -153,34 +153,36 @@ export function TransactionForm({
           </div>
           <div className="flex items-center gap-3">
             <Switch
-              id="txn-due-billing"
+              id="txn-pending-payment"
               checked={!formData.is_recurring && !!formData.requires_confirmation}
               onCheckedChange={v => onChange({ requires_confirmation: v, is_recurring: v ? false : formData.is_recurring })}
             />
-            <Label htmlFor="txn-due-billing" className="text-xs cursor-pointer">Due billing (confirm later)</Label>
+            <Label htmlFor="txn-pending-payment" className="text-xs cursor-pointer">Pending payment (confirm later)</Label>
           </div>
         </div>
       </div>
-      {formData.is_recurring && (
+      {(formData.is_recurring || formData.requires_confirmation) && (
         <>
+          {formData.is_recurring && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="txn-frequency" className="text-xs">Frequency</Label>
+              <Select
+                value={formData.frequency || 'monthly'}
+                onValueChange={v => onChange({ frequency: v })}
+              >
+                <SelectTrigger id="txn-frequency" size="sm" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="bi-weekly">Bi-weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="flex flex-col gap-2">
-            <Label htmlFor="txn-frequency" className="text-xs">Frequency</Label>
-            <Select
-              value={formData.frequency || 'monthly'}
-              onValueChange={v => onChange({ frequency: v })}
-            >
-              <SelectTrigger id="txn-frequency" size="sm" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="bi-weekly">Bi-weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="txn-anchor" className="text-xs">Anchor Date</Label>
+            <Label htmlFor="txn-anchor" className="text-xs">{formData.is_recurring ? 'Anchor Date' : 'Pending date'}</Label>
             <Input
               id="txn-anchor"
               type="date"
