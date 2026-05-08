@@ -81,6 +81,8 @@ function getInitialTheme(): ThemeMode {
 }
 
 function AppShell() {
+  const isPublicView = typeof window !== 'undefined' && window.location.pathname.startsWith('/public/')
+
   const [selectedAccountId, setSelectedAccountIdState] = useState<string | null>(getInitialSelectedAccountId)
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme)
 
@@ -101,12 +103,13 @@ function AppShell() {
   } = useQuery({
     queryKey: ['accounts'],
     queryFn: fetchAccounts,
+    enabled: !isPublicView,
   })
 
   const { data: profile } = useQuery({
     queryKey: ['profile', selectedAccountId],
     queryFn: () => fetchProfile(selectedAccountId as string),
-    enabled: !!selectedAccountId,
+    enabled: !isPublicView && !!selectedAccountId,
   })
 
   useEffect(() => {
@@ -128,6 +131,7 @@ function AppShell() {
   }, [])
 
   useEffect(() => {
+    if (isPublicView) return
     if (accountsLoading) return
 
     if (accounts.length === 0) {
@@ -144,13 +148,14 @@ function AppShell() {
     if (fallbackAccountId && fallbackAccountId !== selectedAccountId) {
       setSelectedAccountId(fallbackAccountId)
     }
-  }, [accounts, accountsLoading, selectedAccountId, setSelectedAccountId])
+  }, [accounts, accountsLoading, selectedAccountId, setSelectedAccountId, isPublicView])
 
   const accountReady = useMemo(() => {
+    if (isPublicView) return true
     if (accountsLoading) return false
     if (accounts.length === 0) return true
     return !!selectedAccountId
-  }, [accounts.length, accountsLoading, selectedAccountId])
+  }, [isPublicView, accounts.length, accountsLoading, selectedAccountId])
 
   if (!accountReady) {
     return <div className="min-h-dvh bg-background" />

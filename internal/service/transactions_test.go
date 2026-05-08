@@ -225,7 +225,7 @@ func TestCreateTransaction_UpdatesBalanceAtomically(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, &updateUsedTx)
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo, nil)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
 	err := svc.CreateTransaction(sqlite.Transaction{AccountID: accountID, Amount: txnAmount})
 	if err != nil {
 		t.Fatalf("CreateTransaction error: %v", err)
@@ -271,7 +271,7 @@ func TestCreateTransaction_FutureAnchorDate_DoesNotUpdateBalance(t *testing.T) {
 	}
 
 	freq := engine.FreqMonthly
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo, nil)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
 	err := svc.CreateTransaction(sqlite.Transaction{
 		AccountID:   accountID,
 		Amount:      txnAmount,
@@ -289,6 +289,57 @@ func TestCreateTransaction_FutureAnchorDate_DoesNotUpdateBalance(t *testing.T) {
 	}
 	if updateBalanceCalled {
 		t.Fatalf("expected balance to remain unchanged for future-anchored transaction")
+	}
+}
+
+func TestCreateTransaction_PendingPayment_DoesNotUpdateBalance(t *testing.T) {
+	db := openTestDB(t)
+	accountID := uuid.New()
+	txnAmount := int64(-2500)
+
+	var insertUsedTx bool
+	var accountReadCalled bool
+	var updateBalanceCalled bool
+
+	txnsRepo := &mockTransactionsRepo{
+		insertFn: func(txn sqlite.Transaction, tx *sql.Tx) error {
+			insertUsedTx = tx != nil
+			if !txn.RequiresConfirmation {
+				t.Fatalf("expected requires_confirmation=true")
+			}
+			return nil
+		},
+	}
+	accRepo := &mockAccountsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Account, error) {
+			accountReadCalled = true
+			return sqlite.Account{ID: accountID, CurrentBalance: 10000}, nil
+		},
+		updateBalanceFn: func(id uuid.UUID, balance int64, tx *sql.Tx) error {
+			updateBalanceCalled = true
+			return nil
+		},
+	}
+
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	err := svc.CreateTransaction(sqlite.Transaction{
+		AccountID:            accountID,
+		Amount:               txnAmount,
+		RequiresConfirmation: true,
+		Timestamp:            time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("CreateTransaction error: %v", err)
+	}
+
+	if !insertUsedTx {
+		t.Fatalf("expected insert to use tx")
+	}
+	if accountReadCalled {
+		t.Fatalf("expected no account read for unconfirmed pending payment")
+	}
+	if updateBalanceCalled {
+		t.Fatalf("expected no balance update for unconfirmed pending payment")
 	}
 }
 
@@ -323,7 +374,7 @@ func TestUpdateTransaction_RecalculatesBalanceWhenAmountChanges(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo, nil)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
 	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{Amount: &newAmount})
 	if err != nil {
 		t.Fatalf("UpdateTransaction error: %v", err)
@@ -334,6 +385,58 @@ func TestUpdateTransaction_RecalculatesBalanceWhenAmountChanges(t *testing.T) {
 	}
 	if gotNewBalance != 7000 {
 		t.Fatalf("expected new balance 7000, got %d", gotNewBalance)
+	}
+}
+
+func TestUpdateTransaction_PendingPaymentAmount_DoesNotAdjustBalanceBeforeConfirmation(t *testing.T) {
+	db := openTestDB(t)
+	txnID := uuid.New()
+	accountID := uuid.New()
+	oldAmount := int64(-2000)
+	newAmount := int64(-5000)
+
+	var updateUsedTx bool
+	var updateBalanceCalled bool
+
+	txnsRepo := &mockTransactionsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Transaction, error) {
+			if id != txnID {
+				t.Fatalf("unexpected txn id: %v", id)
+			}
+			return sqlite.Transaction{ID: txnID, AccountID: accountID, Amount: oldAmount, RequiresConfirmation: true}, nil
+		},
+		updateFn: func(id uuid.UUID, upd sqlite.UpdateTransaction, tx *sql.Tx) error {
+			if id != txnID {
+				t.Fatalf("unexpected txn id on update: %v", id)
+			}
+			if upd.Amount == nil || *upd.Amount != newAmount {
+				t.Fatalf("expected update amount %d", newAmount)
+			}
+			updateUsedTx = tx != nil
+			return nil
+		},
+	}
+	accRepo := &mockAccountsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Account, error) {
+			t.Fatalf("unexpected account read")
+			return sqlite.Account{}, nil
+		},
+		updateBalanceFn: func(id uuid.UUID, balance int64, tx *sql.Tx) error {
+			updateBalanceCalled = true
+			return nil
+		},
+	}
+
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{Amount: &newAmount})
+	if err != nil {
+		t.Fatalf("UpdateTransaction error: %v", err)
+	}
+	if updateUsedTx {
+		t.Fatalf("expected non-atomic update (no balance impact yet)")
+	}
+	if updateBalanceCalled {
+		t.Fatalf("expected no balance change before pending payment confirmation")
 	}
 }
 
@@ -364,7 +467,7 @@ func TestDeleteTransaction_ReversesBalance(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo, nil)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
 	err := svc.DeleteTransaction(txnID)
 	if err != nil {
 		t.Fatalf("DeleteTransaction error: %v", err)
@@ -375,6 +478,54 @@ func TestDeleteTransaction_ReversesBalance(t *testing.T) {
 	}
 	if gotNewBalance != 13000 {
 		t.Fatalf("expected new balance 13000, got %d", gotNewBalance)
+	}
+}
+
+func TestDeleteTransaction_PendingPayment_DoesNotAdjustBalanceBeforeConfirmation(t *testing.T) {
+	db := openTestDB(t)
+	txnID := uuid.New()
+	accountID := uuid.New()
+	txnAmount := int64(-3000)
+
+	var deleteUsedTx bool
+	var updateBalanceCalled bool
+
+	txnsRepo := &mockTransactionsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Transaction, error) {
+			if id != txnID {
+				t.Fatalf("unexpected txn id: %v", id)
+			}
+			return sqlite.Transaction{ID: txnID, AccountID: accountID, Amount: txnAmount, RequiresConfirmation: true}, nil
+		},
+		deleteByIDFn: func(id uuid.UUID, tx *sql.Tx) error {
+			if id != txnID {
+				t.Fatalf("unexpected txn id on delete: %v", id)
+			}
+			deleteUsedTx = tx != nil
+			return nil
+		},
+	}
+	accRepo := &mockAccountsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Account, error) {
+			t.Fatalf("unexpected account read")
+			return sqlite.Account{}, nil
+		},
+		updateBalanceFn: func(id uuid.UUID, balance int64, tx *sql.Tx) error {
+			updateBalanceCalled = true
+			return nil
+		},
+	}
+
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	err := svc.DeleteTransaction(txnID)
+	if err != nil {
+		t.Fatalf("DeleteTransaction error: %v", err)
+	}
+	if deleteUsedTx {
+		t.Fatalf("expected non-atomic delete (no balance impact yet)")
+	}
+	if updateBalanceCalled {
+		t.Fatalf("expected no balance change before pending payment confirmation")
 	}
 }
 
@@ -416,7 +567,7 @@ func TestConfirmRecurring_UpdatesBalanceAndAdvancesOccurrence(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo, nil)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
 	next, err := svc.ConfirmRecurring(txnID)
 	if err != nil {
 		t.Fatalf("ConfirmRecurring error: %v", err)
@@ -434,5 +585,94 @@ func TestConfirmRecurring_UpdatesBalanceAndAdvancesOccurrence(t *testing.T) {
 	}
 	if !next.Equal(expectedNext) {
 		t.Fatalf("expected returned next occurrence %v, got %v", expectedNext, next)
+	}
+}
+
+func TestConfirmRecurring_PendingPayment_UpdatesBalanceAndMarksConfirmed(t *testing.T) {
+	db := openTestDB(t)
+	txnID := uuid.New()
+	accountID := uuid.New()
+	startingBalance := int64(10000)
+	amount := int64(-1200)
+
+	var gotNewBalance int64
+	var markConfirmedCalled bool
+	var markConfirmedUsedTx bool
+
+	txnsRepo := &mockTransactionsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Transaction, error) {
+			if id != txnID {
+				t.Fatalf("unexpected txn id: %v", id)
+			}
+			return sqlite.Transaction{
+				ID:                   txnID,
+				AccountID:            accountID,
+				Amount:               amount,
+				IsRecurring:          false,
+				RequiresConfirmation: true,
+			}, nil
+		},
+		markConfirmedFn: func(id uuid.UUID, confirmedAt time.Time, tx *sql.Tx) error {
+			if id != txnID {
+				t.Fatalf("unexpected txn id on mark confirmed: %v", id)
+			}
+			if confirmedAt.IsZero() {
+				t.Fatalf("expected confirmed timestamp")
+			}
+			markConfirmedCalled = true
+			markConfirmedUsedTx = tx != nil
+			return nil
+		},
+	}
+	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
+
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	next, err := svc.ConfirmRecurring(txnID)
+	if err != nil {
+		t.Fatalf("ConfirmRecurring error: %v", err)
+	}
+
+	if !next.IsZero() {
+		t.Fatalf("expected zero next occurrence for one-time pending payment, got %v", next)
+	}
+	if gotNewBalance != 8800 {
+		t.Fatalf("expected new balance 8800, got %d", gotNewBalance)
+	}
+	if !markConfirmedCalled || !markConfirmedUsedTx {
+		t.Fatalf("expected mark confirmed to be called in tx")
+	}
+}
+
+func TestConfirmRecurring_PendingPaymentAlreadyConfirmed_IsIdempotent(t *testing.T) {
+	db := openTestDB(t)
+	txnID := uuid.New()
+	confirmedAt := time.Now().UTC()
+
+	txnsRepo := &mockTransactionsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Transaction, error) {
+			if id != txnID {
+				t.Fatalf("unexpected txn id: %v", id)
+			}
+			return sqlite.Transaction{ID: txnID, IsRecurring: false, ConfirmedAt: &confirmedAt}, nil
+		},
+	}
+	accRepo := &mockAccountsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Account, error) {
+			t.Fatalf("unexpected account read")
+			return sqlite.Account{}, nil
+		},
+		updateBalanceFn: func(id uuid.UUID, balance int64, tx *sql.Tx) error {
+			t.Fatalf("unexpected balance update")
+			return nil
+		},
+	}
+
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	next, err := svc.ConfirmRecurring(txnID)
+	if err != nil {
+		t.Fatalf("ConfirmRecurring error: %v", err)
+	}
+	if !next.IsZero() {
+		t.Fatalf("expected zero next occurrence, got %v", next)
 	}
 }

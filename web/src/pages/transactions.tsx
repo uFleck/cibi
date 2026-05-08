@@ -5,6 +5,7 @@ import { Plus, ArrowLeftRight } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { MoneyValue } from '@/components/ui/money-value'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { AppModal } from '@/components/AppModal'
 import { SharedDebtList } from '@/components/debt/shared-debt-list'
@@ -14,6 +15,7 @@ import {
   fetchAccounts,
   fetchTransactions,
   listPaySchedules,
+  fetchFriendBreakdown,
   createTransaction,
   updateTransaction,
   deleteTransaction,
@@ -22,7 +24,11 @@ import {
 } from '@/lib/api'
 import { formatDate } from '@/lib/format'
 import { fromDateInputValue, toDateInputValue } from '@/lib/locale'
-import { isInCurrentPayWindow } from '@/lib/financial-window'
+import {
+  buildImpactSummary,
+  computeProjectedBalanceAfterNextWindow,
+  matchesPresetFilter,
+} from '@/lib/transactions-impact'
 import { AccountContext } from '@/App'
 
 const CATEGORIES = [
@@ -94,6 +100,12 @@ export function TransactionsPage() {
     enabled: !!currentAccountId,
   })
 
+  const { data: friendBreakdown = [] } = useQuery({
+    queryKey: ['friend-breakdown', currentAccountId],
+    queryFn: () => fetchFriendBreakdown(currentAccountId!),
+    enabled: !!currentAccountId,
+  })
+
   const nextPayday = paySchedules.length > 0
     ? paySchedules.reduce((earliest, ps) => (ps.next_payday < earliest ? ps.next_payday : earliest), paySchedules[0].next_payday)
     : null
@@ -101,120 +113,31 @@ export function TransactionsPage() {
   const filteredAndSortedTxns = useMemo(() => {
     const now = new Date()
 
-    const startOfUTCDate = (value: Date): number =>
-      Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate())
-
-    const parseDay = (value?: string | null): number | null => {
-      if (!value) return null
-      const date = new Date(value.includes('T') ? value : `${value}T00:00:00Z`)
-      if (Number.isNaN(date.getTime())) return null
-      return startOfUTCDate(date)
-    }
-
-    const addWindow = (value: string, frequency?: string | null): number | null => {
-      const base = new Date(`${value}T00:00:00Z`)
-      if (Number.isNaN(base.getTime())) return null
-
-      switch (frequency) {
-        case 'weekly':
-          base.setUTCDate(base.getUTCDate() + 7)
-          break
-        case 'bi-weekly':
-          base.setUTCDate(base.getUTCDate() + 14)
-          break
-        case 'semi-monthly':
-          base.setUTCDate(base.getUTCDate() + 15)
-          break
-        case 'monthly':
-          base.setUTCMonth(base.getUTCMonth() + 1)
-          break
-        default:
-          return null
-      }
-      return startOfUTCDate(base)
-    }
-
-    const subtractWindow = (value: string, frequency?: string | null): number | null => {
-      const base = new Date(`${value}T00:00:00Z`)
-      if (Number.isNaN(base.getTime())) return null
-
-      switch (frequency) {
-        case 'weekly':
-          base.setUTCDate(base.getUTCDate() - 7)
-          break
-        case 'bi-weekly':
-          base.setUTCDate(base.getUTCDate() - 14)
-          break
-        case 'semi-monthly':
-          base.setUTCDate(base.getUTCDate() - 15)
-          break
-        case 'monthly':
-          base.setUTCMonth(base.getUTCMonth() - 1)
-          break
-        default:
-          return null
-      }
-      return startOfUTCDate(base)
-    }
-
-    const primarySchedule = paySchedules.length > 0
-      ? paySchedules.reduce((earliest, ps) => (ps.next_payday < earliest.next_payday ? ps : earliest), paySchedules[0])
-      : null
-
-    const nextPaydayDay = nextPayday ? parseDay(nextPayday) : null
-    const followingPaydayDay = primarySchedule ? addWindow(primarySchedule.next_payday, primarySchedule.frequency) : null
-    const previousPaydayDay = primarySchedule ? subtractWindow(primarySchedule.next_payday, primarySchedule.frequency) : null
-
     let txns = [...transactions]
 
     if (filterCategory !== 'all') {
       txns = txns.filter((t: TransactionResponse) => t.category === filterCategory)
     }
 
-    txns = txns.filter((t: TransactionResponse) => {
-      const recurringDate = t.next_occurrence || t.anchor_date
-      const recurringDay = parseDay(recurringDate)
-      const oneTimeDay = parseDay(t.timestamp)
-      const needsConfirm = t.requires_confirmation && !t.confirmed_at
-
-      if (preset === 'all-recurring') return t.is_recurring
-      if (preset === 'one-time-only') return !t.is_recurring
-
-      if (preset === 'due-now') {
-        if (t.is_recurring) {
-          if (!recurringDate) return false
-          return isInCurrentPayWindow(recurringDate, now, nextPayday)
-        }
-        if (!needsConfirm || oneTimeDay === null) return false
-        return nextPaydayDay === null ? true : oneTimeDay < nextPaydayDay
-      }
-
-      if (preset === 'next-window') {
-        if (nextPaydayDay === null || followingPaydayDay === null) return false
-        const targetDay = t.is_recurring ? recurringDay : oneTimeDay
-        if (targetDay === null) return false
-        return targetDay >= nextPaydayDay && targetDay < followingPaydayDay
-      }
-
-      // current-window + old one-time cutoff of one payment window
-      if (t.is_recurring) {
-        if (!recurringDate) return false
-        return isInCurrentPayWindow(recurringDate, now, nextPayday)
-      }
-
-      if (!needsConfirm || oneTimeDay === null) return false
-      if (nextPaydayDay !== null && oneTimeDay >= nextPaydayDay) return false
-      if (previousPaydayDay === null) return true
-      return oneTimeDay >= previousPaydayDay
-    })
+    txns = txns.filter((t: TransactionResponse) => matchesPresetFilter({
+      txn: t,
+      preset,
+      now,
+      nextPayday,
+      paySchedules,
+    }))
 
     txns.sort((a: TransactionResponse, b: TransactionResponse) => {
       let cmp = 0
       if (sortField === 'description') {
         cmp = a.description.localeCompare(b.description)
       } else if (sortField === 'date') {
-        const dateA = a.next_occurrence || a.timestamp || a.anchor_date || ''
-        const dateB = b.next_occurrence || b.timestamp || b.anchor_date || ''
+        const dateA = a.is_recurring
+          ? (a.next_occurrence || a.anchor_date || a.timestamp || '')
+          : (a.requires_confirmation ? (a.anchor_date || a.timestamp || '') : (a.timestamp || a.anchor_date || ''))
+        const dateB = b.is_recurring
+          ? (b.next_occurrence || b.anchor_date || b.timestamp || '')
+          : (b.requires_confirmation ? (b.anchor_date || b.timestamp || '') : (b.timestamp || b.anchor_date || ''))
         cmp = dateA.localeCompare(dateB)
       } else if (sortField === 'amount') {
         cmp = a.amount - b.amount
@@ -224,6 +147,25 @@ export function TransactionsPage() {
     
     return txns
   }, [transactions, filterCategory, preset, sortField, sortDir, nextPayday, paySchedules])
+
+  const unconfirmedImpact = useMemo(() => {
+    const currentBalance = accounts.find(a => a.id === currentAccountId)?.current_balance ?? 0
+    const projectedBalanceAfterNextWindow = computeProjectedBalanceAfterNextWindow({
+      currentBalance,
+      transactions,
+      paySchedules,
+      friendBreakdown,
+      nextPayday,
+    })
+
+    return buildImpactSummary({
+      transactions,
+      paySchedules,
+      nextPayday,
+      currentBalance,
+      projectedBalanceAfterNextWindow,
+    })
+  }, [accounts, currentAccountId, friendBreakdown, nextPayday, paySchedules, transactions])
 
   const categories = useMemo(() => {
     const cats = new Set(transactions.map((t: TransactionResponse) => t.category))
@@ -435,6 +377,23 @@ export function TransactionsPage() {
         </Button>
       </div>
 
+      <Card>
+        <CardContent className="py-3 space-y-2">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Unconfirmed payment impact</p>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+            <p>Current: <MoneyValue amount={unconfirmedImpact.currentAmount} currency={currentAccountCurrency} tone="negative" showSign="never" /> <span className="text-xs text-muted-foreground">({unconfirmedImpact.currentCount})</span></p>
+            <p>Next: <MoneyValue amount={unconfirmedImpact.nextAmount} currency={currentAccountCurrency} tone="negative" showSign="never" /> <span className="text-xs text-muted-foreground">({unconfirmedImpact.nextCount})</span></p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Balance if paid: <MoneyValue amount={unconfirmedImpact.currentProjectedBalance} currency={currentAccountCurrency} tone="auto" showSign="always" /> now · <MoneyValue amount={unconfirmedImpact.nextProjectedBalance} currency={currentAccountCurrency} tone="auto" showSign="always" /> after next.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            <Button size="sm" variant="outline" onClick={() => setPreset('due-now')}>Due now</Button>
+            <Button size="sm" variant="outline" onClick={() => setPreset('next-window')}>Next window</Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <TransactionFilters
         showFilters={showFilters}
         hasActiveFilters={hasActiveFilters}
@@ -484,11 +443,11 @@ export function TransactionsPage() {
             items={filteredAndSortedTxns.map((txn: TransactionResponse) => ({
               id: txn.id,
               title: txn.description,
-              subtitle: `${txn.category} · ${txn.is_recurring ? `${txn.frequency} · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : (txn.anchor_date ? formatDate(txn.anchor_date) : '-')}` : txn.requires_confirmation ? (txn.confirmed_at ? `confirmed ${formatDate(txn.confirmed_at)}` : `due ${formatDate(txn.timestamp)}`) : formatDate(txn.timestamp)}`,
+              subtitle: `${txn.category} · ${txn.is_recurring ? `${txn.frequency} · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : (txn.anchor_date ? formatDate(txn.anchor_date) : '-')}` : txn.requires_confirmation ? (txn.confirmed_at ? `confirmed ${formatDate(txn.confirmed_at)}` : `pending ${formatDate(txn.anchor_date || txn.timestamp)}`) : formatDate(txn.timestamp)}`,
               amount: txn.amount,
               currency: currentAccountCurrency,
               status: {
-                label: txn.is_recurring ? 'Recurring' : txn.requires_confirmation ? (txn.confirmed_at ? 'Due bill · paid' : 'Due bill') : 'One-time',
+                label: txn.is_recurring ? 'Recurring' : txn.requires_confirmation ? (txn.confirmed_at ? 'Pending payment · confirmed' : 'Pending payment') : 'One-time',
                 tone: txn.is_recurring ? 'default' : txn.requires_confirmation ? 'default' : 'secondary',
               },
               canConfirm: txn.is_recurring || (txn.requires_confirmation && !txn.confirmed_at),

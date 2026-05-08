@@ -50,12 +50,7 @@ func (s *TransactionsService) CreateTransaction(t sqlite.Transaction) error {
 		t.Timestamp = now
 	}
 
-	// If transaction is anchored in the future, keep current balance unchanged.
-	// It will affect purchasing power via obligations and/or explicit confirmation.
-	applyToBalance := true
-	if t.AnchorDate != nil && t.AnchorDate.UTC().After(time.Now().UTC()) {
-		applyToBalance = false
-	}
+	applyToBalance := shouldApplyBalanceOnCreate(t, time.Now().UTC())
 
 	// IMPORTANT: with SQLite configured as MaxOpenConns(1), calling repository
 	// methods that use s.db while a tx is open can deadlock waiting for a free
@@ -118,35 +113,38 @@ func (s *TransactionsService) GetTransaction(id uuid.UUID) (sqlite.Transaction, 
 // UpdateTransaction patches the mutable fields of a transaction.
 // D-02: Recalculates account balance if amount changes.
 func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateTransaction) error {
-	// D-02: If amount is being changed, recalculate balance atomically.
+	// D-02: If amount is being changed, recalculate balance atomically when
+	// this transaction has already impacted account balance.
 	if upd.Amount != nil {
-		// Fetch old transaction to get old amount.
 		oldTxn, err := s.txnsRepo.GetByID(id)
 		if err != nil {
 			return fmt.Errorf("service.UpdateTransaction: get old transaction: %w", err)
 		}
-		// Fetch account to get current balance.
+
+		if !hasAppliedToBalance(oldTxn, time.Now().UTC()) {
+			if err := s.txnsRepo.Update(id, upd, nil); err != nil {
+				return fmt.Errorf("service.UpdateTransaction: %w", err)
+			}
+			return nil
+		}
+
 		acc, err := s.accRepo.GetByID(oldTxn.AccountID)
 		if err != nil {
 			return fmt.Errorf("service.UpdateTransaction: get account: %w", err)
 		}
 
-		// Begin atomic transaction.
 		tx, err := s.db.Begin()
 		if err != nil {
 			return fmt.Errorf("service.UpdateTransaction: begin tx: %w", err)
 		}
 		defer tx.Rollback()
 
-		// Update transaction with tx.
 		if err := s.txnsRepo.Update(id, upd, tx); err != nil {
 			return fmt.Errorf("service.UpdateTransaction: update: %w", err)
 		}
 
 		// Calculate new balance: new = old_balance - old_amount + new_amount.
 		newBalance := acc.CurrentBalance - oldTxn.Amount + *upd.Amount
-
-		// Update account balance.
 		if err := s.accRepo.UpdateBalance(oldTxn.AccountID, newBalance, tx); err != nil {
 			return fmt.Errorf("service.UpdateTransaction: update balance: %w", err)
 		}
@@ -170,6 +168,13 @@ func (s *TransactionsService) DeleteTransaction(id uuid.UUID) error {
 	t, err := s.txnsRepo.GetByID(id)
 	if err != nil {
 		return fmt.Errorf("service.DeleteTransaction: get transaction: %w", err)
+	}
+
+	if !hasAppliedToBalance(t, time.Now().UTC()) {
+		if err := s.txnsRepo.DeleteByID(id, nil); err != nil {
+			return fmt.Errorf("service.DeleteTransaction: delete: %w", err)
+		}
+		return nil
 	}
 
 	acc, err := s.accRepo.GetByID(t.AccountID)
@@ -199,48 +204,51 @@ func (s *TransactionsService) DeleteTransaction(id uuid.UUID) error {
 	return nil
 }
 
-// ConfirmRecurring confirms a recurring transaction, applies the debit to account
-// balance, and advances next_occurrence. D-03: User must explicitly confirm before debiting.
-// Returns the new next_occurrence time for UI update.
+// ConfirmRecurring confirms a recurring or one-time due transaction and applies
+// its amount to account balance. For recurring transactions, it also advances
+// next_occurrence. D-03: User must explicitly confirm before debiting.
 func (s *TransactionsService) ConfirmRecurring(transactionID uuid.UUID) (time.Time, error) {
-	// Fetch transaction.
 	t, err := s.txnsRepo.GetByID(transactionID)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("service.ConfirmRecurring: get transaction: %w", err)
 	}
 
-	// Verify it's recurring.
-	if !t.IsRecurring {
-		return time.Time{}, fmt.Errorf("service.ConfirmRecurring: transaction %v is not recurring", transactionID)
+	if !t.IsRecurring && t.ConfirmedAt != nil {
+		// Idempotent for already confirmed one-time pending payments.
+		return time.Time{}, nil
 	}
 
-	// Fetch account.
+	isOneTimeDue := !t.IsRecurring && t.RequiresConfirmation && t.ConfirmedAt == nil
+	if !t.IsRecurring && !isOneTimeDue {
+		return time.Time{}, fmt.Errorf("service.ConfirmRecurring: transaction %v is not confirmable", transactionID)
+	}
+
 	acc, err := s.accRepo.GetByID(t.AccountID)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("service.ConfirmRecurring: get account: %w", err)
 	}
 
-	// Begin atomic transaction.
 	tx, err := s.db.Begin()
 	if err != nil {
 		return time.Time{}, fmt.Errorf("service.ConfirmRecurring: begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
-	// Calculate new balance: amount is negative for debit, so adding it decreases balance.
 	newBalance := acc.CurrentBalance + t.Amount
-
-	// Update account balance.
 	if err := s.accRepo.UpdateBalance(t.AccountID, newBalance, tx); err != nil {
 		return time.Time{}, fmt.Errorf("service.ConfirmRecurring: update balance: %w", err)
 	}
 
-	// Calculate next occurrence.
 	var next time.Time
-	if t.NextOccurrence != nil && t.Frequency != nil {
+	if t.IsRecurring && t.NextOccurrence != nil && t.Frequency != nil {
 		next = advanceOccurrence(*t.NextOccurrence, *t.Frequency)
 		if err := s.txnsRepo.AdvanceNextOccurrence(transactionID, next, tx); err != nil {
 			return time.Time{}, fmt.Errorf("service.ConfirmRecurring: advance next_occurrence: %w", err)
+		}
+	}
+	if isOneTimeDue {
+		if err := s.txnsRepo.MarkConfirmed(transactionID, time.Now().UTC(), tx); err != nil {
+			return time.Time{}, fmt.Errorf("service.ConfirmRecurring: mark confirmed: %w", err)
 		}
 	}
 
@@ -249,6 +257,30 @@ func (s *TransactionsService) ConfirmRecurring(transactionID uuid.UUID) (time.Ti
 	}
 
 	return next, nil
+}
+
+// shouldApplyBalanceOnCreate reports whether a transaction should impact the
+// account balance immediately when created.
+func shouldApplyBalanceOnCreate(t sqlite.Transaction, now time.Time) bool {
+	if t.RequiresConfirmation && t.ConfirmedAt == nil {
+		return false
+	}
+	if t.IsRecurring && t.AnchorDate != nil && t.AnchorDate.UTC().After(now.UTC()) {
+		return false
+	}
+	return true
+}
+
+// hasAppliedToBalance reports whether this stored transaction is currently
+// represented in account balance.
+func hasAppliedToBalance(t sqlite.Transaction, now time.Time) bool {
+	if t.RequiresConfirmation && t.ConfirmedAt == nil {
+		return false
+	}
+	if t.IsRecurring && t.AnchorDate != nil && t.AnchorDate.UTC().After(now.UTC()) {
+		return false
+	}
+	return true
 }
 
 // advanceOccurrence computes the next occurrence after current based on frequency.
