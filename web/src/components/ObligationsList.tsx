@@ -1,3 +1,5 @@
+import { Link } from '@tanstack/react-router'
+import { ArrowRight } from 'lucide-react'
 import { MoneyValue } from '@/components/ui/money-value'
 import { formatDate } from '@/lib/format'
 import { isInCurrentPayWindow } from '@/lib/financial-window'
@@ -7,16 +9,27 @@ interface ObligationsListProps {
   transactions: TransactionResponse[]
   currency?: string
   nextPayday: string | null
+  linkTo?: string
 }
 
-export function ObligationsList({ transactions, currency = 'BRL', nextPayday }: ObligationsListProps) {
+export function ObligationsList({ transactions, currency = 'BRL', nextPayday, linkTo }: ObligationsListProps) {
   const now = new Date()
 
   const obligations = transactions
-    .filter(
-      t => t.is_recurring && t.next_occurrence !== null
-        && isInCurrentPayWindow(t.next_occurrence, now, nextPayday),
-    )
+    .filter(t => {
+      if (t.is_installment) {
+        return (
+          t.next_occurrence !== null &&
+          (t.paid_installments ?? 0) < (t.total_installments ?? 0) &&
+          isInCurrentPayWindow(t.next_occurrence, now, nextPayday)
+        )
+      }
+      return (
+        t.is_recurring &&
+        t.next_occurrence !== null &&
+        isInCurrentPayWindow(t.next_occurrence, now, nextPayday)
+      )
+    })
     .sort((a, b) =>
       new Date(a.next_occurrence!).getTime() - new Date(b.next_occurrence!).getTime()
     )
@@ -43,6 +56,11 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday }: 
               className="flex items-center px-5 py-2.5 gap-4 hover:bg-muted/30 transition-colors"
             >
               <span className="flex-1 text-sm">{t.description}</span>
+              {t.is_installment && (
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {t.paid_installments ?? 0}/{t.total_installments ?? '?'}
+                </span>
+              )}
               <MoneyValue
                 amount={t.amount}
                 currency={currency}
@@ -68,6 +86,16 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday }: 
               className="text-sm font-semibold"
             />
           </div>
+        </div>
+      )}
+      {linkTo && (
+        <div className="px-5 pb-4 pt-1">
+          <Link
+            to={linkTo}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            View all <ArrowRight size={12} />
+          </Link>
         </div>
       )}
     </div>
