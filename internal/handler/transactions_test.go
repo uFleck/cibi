@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
@@ -172,7 +174,6 @@ func TestConfirmInstallment_HappyPath(t *testing.T) {
 	paid := int64(1)
 	freq := "monthly"
 	anchor := now.AddDate(0, -1, 0) // one month ago
-	anchorStr := anchor.UTC().Format(time.RFC3339)
 
 	mock := &mockTransactionsService{
 		confirmInstallmentFn: func(txnID uuid.UUID) error {
@@ -221,18 +222,53 @@ func TestConfirmInstallment_HappyPath(t *testing.T) {
 	if resp.NextOccurrence == nil {
 		t.Errorf("expected next_occurrence to be set for incomplete installment")
 	}
-	_ = anchorStr
 }
 
 func TestConfirmInstallment_InvalidID_Returns400(t *testing.T) {
 	mock := &mockTransactionsService{}
 	h := &TransactionsHandler{svc: mock}
-	rec, c := makeRequest(http.MethodPost, "/api/transactions/not-a-uuid/confirm-installment", "")
+	_, c := makeRequest(http.MethodPost, "/api/transactions/not-a-uuid/confirm-installment", "")
 	c.SetParamNames("id")
 	c.SetParamValues("not-a-uuid")
 	if err := h.ConfirmInstallment(c); err == nil {
 		t.Fatal("expected error for invalid id")
-	} else {
-		_ = rec
+	}
+}
+
+func TestConfirmInstallment_NotFound_Returns404(t *testing.T) {
+	id := uuid.New()
+	mock := &mockTransactionsService{
+		confirmInstallmentFn: func(_ uuid.UUID) error {
+			return sql.ErrNoRows
+		},
+	}
+	h := &TransactionsHandler{svc: mock}
+	rec := serveRequest(func(c echo.Context) error {
+		c.SetParamNames("id")
+		c.SetParamValues(id.String())
+		return h.ConfirmInstallment(c)
+	}, http.MethodPost, "/api/transactions/"+id.String()+"/confirm-installment", "")
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", rec.Code)
+	}
+}
+
+func TestConfirmInstallment_ServiceError_Returns400(t *testing.T) {
+	id := uuid.New()
+	mock := &mockTransactionsService{
+		confirmInstallmentFn: func(_ uuid.UUID) error {
+			return errors.New("db error")
+		},
+	}
+	h := &TransactionsHandler{svc: mock}
+	rec := serveRequest(func(c echo.Context) error {
+		c.SetParamNames("id")
+		c.SetParamValues(id.String())
+		return h.ConfirmInstallment(c)
+	}, http.MethodPost, "/api/transactions/"+id.String()+"/confirm-installment", "")
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", rec.Code)
 	}
 }
