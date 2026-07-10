@@ -31,6 +31,9 @@ type Transaction struct {
 	NextOccurrence       *time.Time // UTC, nullable
 	RequiresConfirmation bool
 	ConfirmedAt          *time.Time // UTC, nullable
+	IsInstallment        bool
+	TotalInstallments    *int64
+	PaidInstallments     int64
 }
 
 // TransactionsRepo defines the data access contract for transactions.
@@ -43,6 +46,7 @@ type TransactionsRepo interface {
 	AdvanceNextOccurrence(id uuid.UUID, next time.Time, tx *sql.Tx) error
 	MarkConfirmed(id uuid.UUID, confirmedAt time.Time, tx *sql.Tx) error
 	SumUpcomingObligations(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error)
+	IncrementPaidInstallments(id uuid.UUID, tx *sql.Tx) error
 }
 
 // UpdateTransaction holds the fields that can be updated on a transaction.
@@ -74,11 +78,20 @@ func (r *SqliteTxnsRepo) Insert(t Transaction, tx *sql.Tx) error {
 	if t.NextOccurrence != nil {
 		nextStr = t.NextOccurrence.UTC().Format(time.RFC3339)
 	}
+	var totalInst interface{}
+	if t.TotalInstallments != nil {
+		totalInst = *t.TotalInstallments
+	}
 	var err error
 	q := `INSERT INTO "Transaction"
-			(id, account_id, amount, description, category, timestamp, is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	args := []any{t.ID.String(), t.AccountID.String(), t.Amount, t.Description, t.Category, t.Timestamp.UTC().Format(time.RFC3339), t.IsRecurring, freq, anchorStr, nextStr, t.RequiresConfirmation, nil}
+			(id, account_id, amount, description, category, timestamp, is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at, is_installment, total_installments, paid_installments)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	args := []any{
+		t.ID.String(), t.AccountID.String(), t.Amount, t.Description, t.Category,
+		t.Timestamp.UTC().Format(time.RFC3339), t.IsRecurring, freq, anchorStr, nextStr,
+		t.RequiresConfirmation, nil,
+		t.IsInstallment, totalInst, t.PaidInstallments,
+	}
 	if tx != nil {
 		_, err = tx.Exec(q, args...)
 	} else {
@@ -92,7 +105,8 @@ func (r *SqliteTxnsRepo) Insert(t Transaction, tx *sql.Tx) error {
 
 func (r *SqliteTxnsRepo) GetByAccount(accountID uuid.UUID) ([]Transaction, error) {
 	rows, err := r.db.Query(`SELECT id, account_id, amount, description, category, timestamp,
-			is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at
+			is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at,
+			is_installment, total_installments, paid_installments
 		FROM "Transaction" WHERE account_id = ?`, accountID.String())
 	if err != nil {
 		return nil, fmt.Errorf("transactions.GetByAccount: %w", err)
@@ -111,7 +125,8 @@ func (r *SqliteTxnsRepo) GetByAccount(accountID uuid.UUID) ([]Transaction, error
 
 func (r *SqliteTxnsRepo) GetByID(id uuid.UUID) (Transaction, error) {
 	row := r.db.QueryRow(`SELECT id, account_id, amount, description, category, timestamp,
-			is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at
+			is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at,
+			is_installment, total_installments, paid_installments
 		FROM "Transaction" WHERE id = ?`, id.String())
 	t, err := scanTransactionRow(row)
 	if err != nil {
@@ -201,6 +216,20 @@ func (r *SqliteTxnsRepo) MarkConfirmed(id uuid.UUID, confirmedAt time.Time, tx *
 	return nil
 }
 
+func (r *SqliteTxnsRepo) IncrementPaidInstallments(id uuid.UUID, tx *sql.Tx) error {
+	var err error
+	q := `UPDATE "Transaction" SET paid_installments = paid_installments + 1 WHERE id = ?`
+	if tx != nil {
+		_, err = tx.Exec(q, id.String())
+	} else {
+		_, err = r.db.Exec(q, id.String())
+	}
+	if err != nil {
+		return fmt.Errorf("transactions.IncrementPaidInstallments: %w", err)
+	}
+	return nil
+}
+
 func (r *SqliteTxnsRepo) SumUpcomingObligations(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error) {
 	_ = after
 	onOrBeforeStr := onOrBefore.UTC().Format(time.RFC3339)
@@ -222,9 +251,17 @@ func scanTransaction(rows *sql.Rows) (Transaction, error) {
 	var t Transaction
 	var idStr, accIDStr, tsStr string
 	var freq, anchorStr, nextStr, confirmedStr sql.NullString
-	err := rows.Scan(&idStr, &accIDStr, &t.Amount, &t.Description, &t.Category, &tsStr, &t.IsRecurring, &freq, &anchorStr, &nextStr, &t.RequiresConfirmation, &confirmedStr)
+	var totalInst sql.NullInt64
+	err := rows.Scan(
+		&idStr, &accIDStr, &t.Amount, &t.Description, &t.Category, &tsStr,
+		&t.IsRecurring, &freq, &anchorStr, &nextStr, &t.RequiresConfirmation, &confirmedStr,
+		&t.IsInstallment, &totalInst, &t.PaidInstallments,
+	)
 	if err != nil {
 		return t, err
+	}
+	if totalInst.Valid {
+		t.TotalInstallments = &totalInst.Int64
 	}
 	return populateTransaction(t, idStr, accIDStr, tsStr, freq, anchorStr, nextStr, confirmedStr)
 }
@@ -233,9 +270,17 @@ func scanTransactionRow(row *sql.Row) (Transaction, error) {
 	var t Transaction
 	var idStr, accIDStr, tsStr string
 	var freq, anchorStr, nextStr, confirmedStr sql.NullString
-	err := row.Scan(&idStr, &accIDStr, &t.Amount, &t.Description, &t.Category, &tsStr, &t.IsRecurring, &freq, &anchorStr, &nextStr, &t.RequiresConfirmation, &confirmedStr)
+	var totalInst sql.NullInt64
+	err := row.Scan(
+		&idStr, &accIDStr, &t.Amount, &t.Description, &t.Category, &tsStr,
+		&t.IsRecurring, &freq, &anchorStr, &nextStr, &t.RequiresConfirmation, &confirmedStr,
+		&t.IsInstallment, &totalInst, &t.PaidInstallments,
+	)
 	if err != nil {
 		return t, err
+	}
+	if totalInst.Valid {
+		t.TotalInstallments = &totalInst.Int64
 	}
 	return populateTransaction(t, idStr, accIDStr, tsStr, freq, anchorStr, nextStr, confirmedStr)
 }
