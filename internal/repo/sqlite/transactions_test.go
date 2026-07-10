@@ -22,7 +22,10 @@ CREATE TABLE "Transaction" (
 	anchor_date TEXT,
 	next_occurrence TEXT,
 	requires_confirmation BOOLEAN NOT NULL DEFAULT 0,
-	confirmed_at TEXT
+	confirmed_at TEXT,
+	is_installment BOOLEAN NOT NULL DEFAULT FALSE,
+	total_installments INTEGER,
+	paid_installments INTEGER NOT NULL DEFAULT 0
 );
 `
 
@@ -70,4 +73,25 @@ func TestSumUpcomingObligations_IncludesOverdueUntilConfirmed(t *testing.T) {
 	sum, err := repo.SumUpcomingObligations(accountID, now, nextPayday)
 	requireNoErr(t, "sum obligations", err)
 	requireI64(t, "sum", sum, -9000)
+}
+
+func TestIncrementPaidInstallments(t *testing.T) {
+	db := openSQLiteTestDB(t, txnSchema)
+	repo := sqlite.NewSqliteTxnsRepo(db)
+
+	accountID := uuid.New()
+	id := uuid.New()
+	total := int64(6)
+	_, err := db.Exec(
+		`INSERT INTO "Transaction" (id, account_id, amount, description, category, timestamp, is_recurring, requires_confirmation, is_installment, total_installments, paid_installments)
+		 VALUES (?, ?, -5000, 'Phone', 'Electronics', '2026-07-10T00:00:00Z', 0, 0, 1, ?, 0)`,
+		id.String(), accountID.String(), total,
+	)
+	requireNoErr(t, "insert", err)
+
+	requireNoErr(t, "increment", repo.IncrementPaidInstallments(id, nil))
+
+	var paid int64
+	requireNoErr(t, "query", db.QueryRow(`SELECT paid_installments FROM "Transaction" WHERE id = ?`, id.String()).Scan(&paid))
+	requireI64(t, "paid_installments", paid, 1)
 }
