@@ -3,9 +3,10 @@ import { createRootRoute, createRoute, createRouter, Link, Outlet } from '@tanst
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useEffect, useContext } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, ArrowDown } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { StatCards } from '@/components/StatCards'
+import { PayWindowBar } from '@/components/PayWindowBar'
 import { CheckWidget } from '@/components/CheckWidget'
 import { ObligationsList } from '@/components/ObligationsList'
 import { PayScheduleList } from '@/components/PayScheduleList'
@@ -112,40 +113,76 @@ function Dashboard() {
         </Card>
       ) : (
         <Skeleton
-          name="stat-cards"
+          name="dashboard"
           loading={!account}
           fallback={
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="status" aria-label="Loading dashboard">
-              {[0, 1, 2].map(i => (
-                <div key={i} className="h-[88px] rounded-xl bg-card/60 animate-pulse border border-border/40" />
-              ))}
+            <div className="flex flex-col gap-4" role="status" aria-label="Loading dashboard">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="h-[88px] rounded-xl bg-card/60 animate-pulse border border-border/40" />
+                ))}
+              </div>
+              <div className="h-[76px] rounded-xl bg-card/60 animate-pulse border border-border/40" />
+              <div className="h-[120px] rounded-xl bg-card/60 animate-pulse border border-border/40" />
+              <div className="h-28 rounded-xl bg-card/60 animate-pulse border border-border/40" />
+              <div className="h-[180px] rounded-xl bg-card/60 animate-pulse border border-border/40" />
+              <div className="h-[200px] rounded-xl bg-card/60 animate-pulse border border-border/40" />
               <span className="sr-only">Loading...</span>
             </div>
           }
         >
-          {account ? <StatCards account={account} recurringTxns={transactions} nextPayday={nextPayday} friendBreakdown={friendBreakdown} /> : null}
+          {account ? (
+            <div className="flex flex-col gap-4">
+              <StatCards account={account} recurringTxns={transactions} nextPayday={nextPayday} friendBreakdown={friendBreakdown} safetyBuffer={account.safety_buffer ?? 0} />
+
+              {transactions.length === 0 && paySchedules.length === 0 && (
+                <Card>
+                  <CardContent className="py-6 text-center">
+                    <p className="font-semibold mb-2">Set up your finances</p>
+                    <div className="text-sm text-muted-foreground text-left space-y-1 max-w-xs mx-auto">
+                      <p>&#9312; <Link to="/settings" className="underline">Add a pay schedule</Link> — tell us when you get paid</p>
+                      <p>&#9313; <Link to="/transactions" className="underline">Create recurring bills</Link> — subscriptions, rent, etc.</p>
+                      <p>&#9314; <span>Check what you can afford</span> — use "Can I Buy It?" above</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <PayWindowBar nextPayday={nextPayday} paySchedules={paySchedules} />
+
+              <GoalsSnapshotWidget />
+
+              <CheckWidget accountId={account.id} />
+
+              <FriendLedgerWidget />
+
+              <ObligationsList transactions={transactions} currency={account.currency} nextPayday={nextPayday} />
+
+              <ProjectionWidget
+                account={account}
+                transactions={transactions}
+                paySchedules={paySchedules}
+                friendBreakdown={friendBreakdown}
+                nextPayday={nextPayday}
+              />
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  onClick={() => {
+                    document.getElementById('pay-schedules')?.scrollIntoView({ behavior: 'smooth' })
+                  }}
+                >
+                  Based on your pay schedule <ArrowDown size={12} />
+                </button>
+              </div>
+
+              <PayScheduleList schedules={paySchedules} currency={account.currency} nextPayday={nextPayday} />
+            </div>
+          ) : null}
         </Skeleton>
       )}
-
-      <GoalsSnapshotWidget />
-
-      <CheckWidget accountId={account?.id} />
-
-      <FriendLedgerWidget />
-
-      <ObligationsList transactions={transactions} currency={account?.currency} nextPayday={nextPayday} />
-
-      {account ? (
-        <ProjectionWidget
-          account={account}
-          transactions={transactions}
-          paySchedules={paySchedules}
-          friendBreakdown={friendBreakdown}
-          nextPayday={nextPayday}
-        />
-      ) : null}
-
-      <PayScheduleList schedules={paySchedules} currency={account?.currency} />
 
       <div className="h-8" />
     </div>
