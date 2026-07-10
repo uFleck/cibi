@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/ufleck/cibi/internal/engine"
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 	"github.com/ufleck/cibi/internal/service"
 )
@@ -21,6 +22,7 @@ type TransactionsServiceIface interface {
 	UpdateTransaction(id uuid.UUID, upd sqlite.UpdateTransaction) error
 	DeleteTransaction(id uuid.UUID) error
 	ConfirmRecurring(transactionID uuid.UUID) (time.Time, error)
+	ConfirmInstallment(transactionID uuid.UUID) error
 }
 
 // Ensure *service.TransactionsService satisfies TransactionsServiceIface.
@@ -47,6 +49,8 @@ type CreateTransactionRequest struct {
 	Frequency            *string `json:"frequency"`   // required if is_recurring
 	AnchorDate           *string `json:"anchor_date"` // RFC3339; required if is_recurring
 	RequiresConfirmation bool    `json:"requires_confirmation"`
+	IsInstallment        bool    `json:"is_installment"`
+	TotalInstallments    *int64  `json:"total_installments"`
 }
 
 type PatchTransactionRequest struct {
@@ -69,6 +73,9 @@ type TransactionResponse struct {
 	NextOccurrence       *string `json:"next_occurrence"`
 	RequiresConfirmation bool    `json:"requires_confirmation"`
 	ConfirmedAt          *string `json:"confirmed_at"`
+	IsInstallment        bool    `json:"is_installment"`
+	TotalInstallments    *int64  `json:"total_installments"`
+	PaidInstallments     int64   `json:"paid_installments"`
 }
 
 // txnToResponse converts a sqlite.Transaction to TransactionResponse.
@@ -83,6 +90,9 @@ func txnToResponse(t sqlite.Transaction) TransactionResponse {
 		IsRecurring:          t.IsRecurring,
 		Frequency:            t.Frequency,
 		RequiresConfirmation: t.RequiresConfirmation,
+		IsInstallment:        t.IsInstallment,
+		TotalInstallments:    t.TotalInstallments,
+		PaidInstallments:     t.PaidInstallments,
 	}
 	if t.AnchorDate != nil {
 		s := t.AnchorDate.UTC().Format(time.RFC3339)
@@ -95,6 +105,16 @@ func txnToResponse(t sqlite.Transaction) TransactionResponse {
 	if t.ConfirmedAt != nil {
 		s := t.ConfirmedAt.UTC().Format(time.RFC3339)
 		resp.ConfirmedAt = &s
+	}
+	// For installment txns, compute next_occurrence from anchor + paid count.
+	// Overrides stored next_occurrence (which is null for installments).
+	if t.IsInstallment && t.AnchorDate != nil && t.Frequency != nil {
+		if t.TotalInstallments == nil || t.PaidInstallments < *t.TotalInstallments {
+			next := engine.NextInstallmentDue(*t.AnchorDate, t.PaidInstallments, *t.Frequency)
+			s := next.UTC().Format(time.RFC3339)
+			resp.NextOccurrence = &s
+		}
+		// When paid == total, next_occurrence stays nil (installment complete).
 	}
 	return resp
 }
@@ -143,6 +163,8 @@ func (h *TransactionsHandler) Create(c echo.Context) error {
 		IsRecurring:          req.IsRecurring,
 		Frequency:            req.Frequency,
 		RequiresConfirmation: req.RequiresConfirmation,
+		IsInstallment:        req.IsInstallment,
+		TotalInstallments:    req.TotalInstallments,
 	}
 	if req.AnchorDate != nil && *req.AnchorDate != "" {
 		parsed, err := time.Parse(time.RFC3339, *req.AnchorDate)
@@ -240,6 +262,28 @@ func (h *TransactionsHandler) Confirm(c echo.Context) error {
 	}
 
 	// Return updated transaction with new next_occurrence.
+	txn, err := h.svc.GetTransaction(id)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(http.StatusOK, txnToResponse(txn))
+}
+
+// ConfirmInstallment handles POST /transactions/:id/confirm-installment —
+// confirms one installment payment, debits balance, increments paid count.
+func (h *TransactionsHandler) ConfirmInstallment(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid transaction id")
+	}
+
+	if err := h.svc.ConfirmInstallment(id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, "transaction not found")
+		}
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
 	txn, err := h.svc.GetTransaction(id)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())

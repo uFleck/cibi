@@ -77,12 +77,13 @@ func (m *mockAccountsService) SetDefault(id uuid.UUID) error {
 
 // mockTransactionsService satisfies the TransactionsServiceIface for handler tests.
 type mockTransactionsService struct {
-	listFn             func(accountID uuid.UUID) ([]sqlite.Transaction, error)
-	createFn           func(t sqlite.Transaction) error
-	getByIDFn          func(id uuid.UUID) (sqlite.Transaction, error)
-	updateFn           func(id uuid.UUID, upd sqlite.UpdateTransaction) error
-	deleteFn           func(id uuid.UUID) error
-	confirmRecurringFn func(id uuid.UUID) (time.Time, error)
+	listFn               func(accountID uuid.UUID) ([]sqlite.Transaction, error)
+	createFn             func(t sqlite.Transaction) error
+	getByIDFn            func(id uuid.UUID) (sqlite.Transaction, error)
+	updateFn             func(id uuid.UUID, upd sqlite.UpdateTransaction) error
+	deleteFn             func(id uuid.UUID) error
+	confirmRecurringFn   func(id uuid.UUID) (time.Time, error)
+	confirmInstallmentFn func(id uuid.UUID) error
 }
 
 func (m *mockTransactionsService) ListTransactions(accountID uuid.UUID) ([]sqlite.Transaction, error) {
@@ -123,6 +124,13 @@ func (m *mockTransactionsService) DeleteTransaction(id uuid.UUID) error {
 func (m *mockTransactionsService) ConfirmRecurring(id uuid.UUID) (time.Time, error) {
 	if m.confirmRecurringFn != nil {
 		return m.confirmRecurringFn(id)
+	}
+	panic("not implemented")
+}
+
+func (m *mockTransactionsService) ConfirmInstallment(id uuid.UUID) error {
+	if m.confirmInstallmentFn != nil {
+		return m.confirmInstallmentFn(id)
 	}
 	panic("not implemented")
 }

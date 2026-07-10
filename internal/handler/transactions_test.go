@@ -163,3 +163,76 @@ func TestDeleteTransaction(t *testing.T) {
 		t.Errorf("expected 204, got %d", rec.Code)
 	}
 }
+
+func TestConfirmInstallment_HappyPath(t *testing.T) {
+	id := uuid.New()
+	accountID := uuid.New()
+	now := time.Now().UTC()
+	total := int64(6)
+	paid := int64(1)
+	freq := "monthly"
+	anchor := now.AddDate(0, -1, 0) // one month ago
+	anchorStr := anchor.UTC().Format(time.RFC3339)
+
+	mock := &mockTransactionsService{
+		confirmInstallmentFn: func(txnID uuid.UUID) error {
+			if txnID != id {
+				t.Fatalf("unexpected id: %v", txnID)
+			}
+			return nil
+		},
+		getByIDFn: func(_ uuid.UUID) (sqlite.Transaction, error) {
+			return sqlite.Transaction{
+				ID:                id,
+				AccountID:         accountID,
+				Amount:            -5000,
+				Description:       "Phone",
+				Category:          "Electronics",
+				Timestamp:         now,
+				IsInstallment:     true,
+				TotalInstallments: &total,
+				PaidInstallments:  paid,
+				Frequency:         &freq,
+				AnchorDate:        &anchor,
+			}, nil
+		},
+	}
+	h := &TransactionsHandler{svc: mock}
+	rec, c := makeRequest(http.MethodPost, "/api/transactions/"+id.String()+"/confirm-installment", "")
+	c.SetParamNames("id")
+	c.SetParamValues(id.String())
+	if err := h.ConfirmInstallment(c); err != nil {
+		t.Fatalf("ConfirmInstallment returned error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rec.Code)
+	}
+	var resp TransactionResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if !resp.IsInstallment {
+		t.Errorf("expected is_installment=true")
+	}
+	if resp.PaidInstallments != 1 {
+		t.Errorf("expected paid_installments=1, got %d", resp.PaidInstallments)
+	}
+	// next_occurrence should be computed (anchor + 1 month for paid=1)
+	if resp.NextOccurrence == nil {
+		t.Errorf("expected next_occurrence to be set for incomplete installment")
+	}
+	_ = anchorStr
+}
+
+func TestConfirmInstallment_InvalidID_Returns400(t *testing.T) {
+	mock := &mockTransactionsService{}
+	h := &TransactionsHandler{svc: mock}
+	rec, c := makeRequest(http.MethodPost, "/api/transactions/not-a-uuid/confirm-installment", "")
+	c.SetParamNames("id")
+	c.SetParamValues("not-a-uuid")
+	if err := h.ConfirmInstallment(c); err == nil {
+		t.Fatal("expected error for invalid id")
+	} else {
+		_ = rec
+	}
+}

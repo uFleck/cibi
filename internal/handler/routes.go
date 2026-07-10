@@ -24,6 +24,7 @@ func SetupRoutes(
 	peerDebtSvc *service.PeerDebtService,
 	groupEventSvc *service.GroupEventService,
 	profileSvc *service.ProfileService,
+	publicBaseURL string,
 ) {
 	ah := NewAccountsHandler(accSvc)
 	th := NewTransactionsHandler(txnsSvc)
@@ -48,6 +49,7 @@ func SetupRoutes(
 	txn.PATCH("/:id", th.Update)
 	txn.DELETE("/:id", th.Delete)
 	txn.POST("/:id/confirm", th.Confirm)
+	txn.POST("/:id/confirm-installment", th.ConfirmInstallment)
 
 	goals := api.Group("/goals")
 	goals.GET("", gh.List)
@@ -105,14 +107,25 @@ func SetupRoutes(
 	groupEvents.PATCH("/:id", geh.Update)
 	groupEvents.DELETE("/:id", geh.Delete)
 	groupEvents.PUT("/:id/participants", geh.SetParticipants)
+	groupEvents.POST("/:id/transactions", geh.AddTransaction)
+	groupEvents.DELETE("/:id/transactions/:tid", geh.RemoveTransaction)
+	groupEvents.GET("/:id/transactions", geh.ListTransactions)
 
 	profile := api.Group("/profile")
 	profile.GET("", prh.Get)
 	profile.PATCH("", prh.Patch)
 
+	// Config endpoint — exposes non-sensitive public config to frontend.
+	api.GET("/config", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, echo.Map{
+			"public_base_url": publicBaseURL,
+		})
+	})
+
 	// Public unauthenticated endpoints — no middleware.
 	pub := e.Group("/public")
 	pub.GET("/friend/:token", ph.GetFriendByToken)
+	pub.PATCH("/friend/:token/pix-key", ph.UpdatePixKey)
 	pub.POST("/friend/:token/groups/:eventID/participants/:friendID/confirm", ph.ConfirmHostedGroupPayment)
 	pub.POST("/friend/:token/groups/:eventID/participants/:friendID/confirm-toggle", ph.ToggleHostedGroupPayment)
 	pub.GET("/group/:token", ph.GetGroupByToken)
