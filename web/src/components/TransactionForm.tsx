@@ -1,4 +1,5 @@
 import type { FormEvent } from 'react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ValueInput } from '@/components/ui/value-input'
@@ -15,6 +16,8 @@ export interface TransactionFormValues {
   frequency?: string
   anchor_date?: string
   requires_confirmation?: boolean
+  is_installment?: boolean
+  total_installments?: number
 }
 
 export type TransactionFormErrors = Partial<Record<keyof TransactionFormValues, string>>
@@ -32,6 +35,7 @@ export interface TransactionFormProps {
   isPending: boolean
   categories: string[]
   accounts: TransactionFormAccountOption[]
+  categoryAutofilled?: boolean
   onSubmit: (e: FormEvent) => void
   onCancel: () => void
   onChange: (changes: Partial<TransactionFormValues>) => void
@@ -48,6 +52,7 @@ export function TransactionForm({
   isPending,
   categories,
   accounts,
+  categoryAutofilled = false,
   onSubmit,
   onCancel,
   onChange,
@@ -77,7 +82,9 @@ export function TransactionForm({
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="txn-amount" className="text-xs">Amount *</Label>
+          <Label htmlFor="txn-amount" className="text-xs">
+            {formData.is_installment ? 'Per installment amount *' : 'Amount *'}
+          </Label>
           <ValueInput
             id="txn-amount"
             value={amountText}
@@ -127,7 +134,7 @@ export function TransactionForm({
               if (formErrors.category) onClearError('category')
             }}
           >
-            <SelectTrigger id="txn-category" size="sm" className="w-full" aria-invalid={!!formErrors.category || undefined}>
+            <SelectTrigger id="txn-category" size="sm" className={cn('w-full', categoryAutofilled && 'ring-2 ring-primary/30 transition-all duration-300')} aria-invalid={!!formErrors.category || undefined}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -147,21 +154,83 @@ export function TransactionForm({
             <Switch
               id="txn-recurring"
               checked={!!formData.is_recurring}
-              onCheckedChange={v => onChange({ is_recurring: v, requires_confirmation: v ? false : formData.requires_confirmation })}
+              onCheckedChange={v => onChange({
+                is_recurring: v,
+                is_installment: v ? false : formData.is_installment,
+                requires_confirmation: v ? false : formData.requires_confirmation,
+              })}
             />
             <Label htmlFor="txn-recurring" className="text-xs cursor-pointer">Recurring</Label>
           </div>
           <div className="flex items-center gap-3">
             <Switch
               id="txn-pending-payment"
-              checked={!formData.is_recurring && !!formData.requires_confirmation}
-              onCheckedChange={v => onChange({ requires_confirmation: v, is_recurring: v ? false : formData.is_recurring })}
+              checked={!formData.is_recurring && !formData.is_installment && !!formData.requires_confirmation}
+              onCheckedChange={v => onChange({
+                requires_confirmation: v,
+                is_recurring: v ? false : formData.is_recurring,
+                is_installment: v ? false : formData.is_installment,
+              })}
             />
             <Label htmlFor="txn-pending-payment" className="text-xs cursor-pointer">Pending payment (confirm later)</Label>
           </div>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="txn-installment"
+              checked={!!formData.is_installment}
+              onCheckedChange={v => onChange({
+                is_installment: v,
+                is_recurring: v ? false : formData.is_recurring,
+                requires_confirmation: v ? false : formData.requires_confirmation,
+              })}
+            />
+            <Label htmlFor="txn-installment" className="text-xs cursor-pointer">Installment plan</Label>
+          </div>
         </div>
       </div>
-      {(formData.is_recurring || formData.requires_confirmation) && (
+      {formData.is_installment && (
+        <>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="txn-total-installments" className="text-xs">Total installments</Label>
+            <Input
+              id="txn-total-installments"
+              type="number"
+              min={1}
+              value={formData.total_installments ?? ''}
+              onChange={e => {
+                const v = parseInt(e.target.value, 10)
+                onChange({ total_installments: isNaN(v) ? undefined : v })
+              }}
+              placeholder="12"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="txn-frequency" className="text-xs">Frequency</Label>
+            <Select
+              value={formData.frequency || 'monthly'}
+              onValueChange={v => onChange({ frequency: v })}
+            >
+              <SelectTrigger id="txn-frequency" size="sm" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="txn-anchor" className="text-xs">First payment date</Label>
+            <Input
+              id="txn-anchor"
+              type="date"
+              value={formData.anchor_date || ''}
+              onChange={e => onChange({ anchor_date: e.target.value })}
+            />
+          </div>
+        </>
+      )}
+      {!formData.is_installment && (formData.is_recurring || formData.requires_confirmation) && (
         <>
           {formData.is_recurring && (
             <div className="flex flex-col gap-2">
