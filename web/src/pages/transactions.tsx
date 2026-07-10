@@ -390,10 +390,25 @@ export function TransactionsPage() {
 
   const confirmInstallmentMutation = useMutation({
     mutationFn: (id: string) => confirmInstallmentTransaction(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['transactions', currentAccountId] })
+      await queryClient.cancelQueries({ queryKey: ['accounts'] })
+      await queryClient.cancelQueries({ queryKey: ['account', currentAccountId] })
+      const prevTxns = queryClient.getQueryData<TransactionResponse[]>(['transactions', currentAccountId])
+      const prevAccounts = queryClient.getQueryData(['accounts'])
+      const prevAccount = queryClient.getQueryData(['account', currentAccountId])
+      queryClient.setQueryData<TransactionResponse[]>(['transactions', currentAccountId], old =>
+        old?.map(t => t.id === id ? { ...t, paid_installments: (t.paid_installments ?? 0) + 1 } : t) ?? []
+      )
+      return { prevTxns, prevAccounts, prevAccount }
+    },
     onSuccess: () => {
       toast.success('Installment confirmed')
     },
-    onError: (error) => {
+    onError: (error, _id, ctx) => {
+      if (ctx?.prevTxns) queryClient.setQueryData(['transactions', currentAccountId], ctx.prevTxns)
+      if (ctx?.prevAccounts) queryClient.setQueryData(['accounts'], ctx.prevAccounts)
+      if (ctx?.prevAccount) queryClient.setQueryData(['account', currentAccountId], ctx.prevAccount)
       toast.error((error as Error).message || 'Failed to confirm installment')
     },
     onSettled: () => {

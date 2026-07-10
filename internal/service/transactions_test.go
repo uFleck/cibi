@@ -448,6 +448,59 @@ func TestUpdateTransaction_PendingPaymentAmount_DoesNotAdjustBalanceBeforeConfir
 	}
 }
 
+func TestUpdateTransaction_InstallmentWithPaidInstallments_UsesCorrectBalanceDelta(t *testing.T) {
+	// Scenario: installment transaction, amount per installment changes from -5000 to -6000,
+	// with 3 installments already paid. The balance impact already applied is 3 * (-5000) = -15000.
+	// After the update the correct new impact is 3 * (-6000) = -18000.
+	// So the balance should decrease by an extra 3000 (delta = 3 * 1000).
+	db := openTestDB(t)
+	txnID := uuid.New()
+	accountID := uuid.New()
+	oldAmount := int64(-5000)
+	newAmount := int64(-6000)
+	paidInstallments := int64(3)
+	total := int64(12)
+	startingBalance := int64(100000) // after 3 installments of 5000 already applied
+
+	var gotNewBalance int64
+
+	txnsRepo := &mockTransactionsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Transaction, error) {
+			return sqlite.Transaction{
+				ID:                txnID,
+				AccountID:         accountID,
+				Amount:            oldAmount,
+				IsInstallment:     true,
+				TotalInstallments: &total,
+				PaidInstallments:  paidInstallments,
+			}, nil
+		},
+		updateFn: func(id uuid.UUID, upd sqlite.UpdateTransaction, tx *sql.Tx) error {
+			return nil
+		},
+	}
+	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
+
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{Amount: &newAmount})
+	if err != nil {
+		t.Fatalf("UpdateTransaction error: %v", err)
+	}
+
+	// Expected: 100000 - (3 * -5000) + (3 * -6000) = 100000 - (-15000) + (-18000) = 100000 + 15000 - 18000 = 97000
+	// Delta from old balance: -3000 (paid 3000 more than before)
+	expectedBalance := startingBalance - (oldAmount * paidInstallments) + (newAmount * paidInstallments)
+	if gotNewBalance != expectedBalance {
+		t.Fatalf("expected new balance %d, got %d", expectedBalance, gotNewBalance)
+	}
+	// Sanity check: balance delta is 3 * (newAmount - oldAmount) = 3 * (-1000) = -3000
+	balanceDelta := gotNewBalance - startingBalance
+	expectedDelta := paidInstallments * (newAmount - oldAmount) // 3 * (-6000 - -5000) = 3 * -1000 = -3000
+	if balanceDelta != expectedDelta {
+		t.Fatalf("expected balance delta %d, got %d", expectedDelta, balanceDelta)
+	}
+}
+
 func TestDeleteTransaction_ReversesBalance(t *testing.T) {
 	db := openTestDB(t)
 	txnID := uuid.New()

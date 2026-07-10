@@ -159,7 +159,12 @@ func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateT
 		}
 
 		// Calculate new balance: new = old_balance - old_amount + new_amount.
+		// For installments, only the paid portion has already hit the balance,
+		// so we reverse/apply PaidInstallments * perInstallmentAmount.
 		newBalance := acc.CurrentBalance - oldTxn.Amount + *upd.Amount
+		if oldTxn.IsInstallment {
+			newBalance = acc.CurrentBalance - (oldTxn.Amount * oldTxn.PaidInstallments) + (*upd.Amount * oldTxn.PaidInstallments)
+		}
 		if err := s.accRepo.UpdateBalance(oldTxn.AccountID, newBalance, tx); err != nil {
 			return fmt.Errorf("service.UpdateTransaction: update balance: %w", err)
 		}
