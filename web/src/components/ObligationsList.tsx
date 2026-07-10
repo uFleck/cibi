@@ -1,5 +1,3 @@
-import { Link } from '@tanstack/react-router'
-import { ArrowRight } from 'lucide-react'
 import { MoneyValue } from '@/components/ui/money-value'
 import { formatDate } from '@/lib/format'
 import { isInCurrentPayWindow } from '@/lib/financial-window'
@@ -9,10 +7,9 @@ interface ObligationsListProps {
   transactions: TransactionResponse[]
   currency?: string
   nextPayday: string | null
-  linkTo?: string
 }
 
-export function ObligationsList({ transactions, currency = 'BRL', nextPayday, linkTo }: ObligationsListProps) {
+export function ObligationsList({ transactions, currency = 'BRL', nextPayday }: ObligationsListProps) {
   const now = new Date()
 
   const obligations = transactions
@@ -86,16 +83,6 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, li
               className="text-sm font-semibold"
             />
           </div>
-        </div>
-      )}
-      {linkTo && (
-        <div className="px-5 pb-4 pt-1">
-          <Link
-            to={linkTo}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            View all <ArrowRight size={12} />
-          </Link>
         </div>
       )}
     </div>
