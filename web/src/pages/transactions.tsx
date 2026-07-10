@@ -336,6 +336,8 @@ export function TransactionsPage() {
                 frequency: deletedTxn.frequency ?? undefined,
                 anchor_date: deletedTxn.anchor_date ?? undefined,
                 requires_confirmation: deletedTxn.requires_confirmation,
+                is_installment: deletedTxn.is_installment,
+                total_installments: deletedTxn.total_installments ?? undefined,
               })
             }
           },
