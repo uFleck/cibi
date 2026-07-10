@@ -42,6 +42,21 @@ func (s *TransactionsService) CreateTransaction(t sqlite.Transaction) error {
 		}
 	}
 
+	if t.IsInstallment {
+		if t.IsRecurring {
+			return fmt.Errorf("is_installment and is_recurring are mutually exclusive")
+		}
+		if t.TotalInstallments == nil || *t.TotalInstallments <= 0 {
+			return fmt.Errorf("installment transaction requires total_installments > 0")
+		}
+		if t.AnchorDate == nil {
+			return fmt.Errorf("installment transaction requires anchor_date")
+		}
+		if t.Frequency == nil || (*t.Frequency != engine.FreqMonthly && *t.Frequency != engine.FreqWeekly) {
+			return fmt.Errorf("installment transaction requires frequency of monthly or weekly")
+		}
+	}
+
 	if t.ID == uuid.Nil {
 		t.ID = uuid.New()
 	}
@@ -192,7 +207,15 @@ func (s *TransactionsService) DeleteTransaction(id uuid.UUID) error {
 		return fmt.Errorf("service.DeleteTransaction: delete: %w", err)
 	}
 
-	newBalance := acc.CurrentBalance - t.Amount
+	// For installments, reverse all paid installments (paid_installments * amount).
+	// For all other txns, reverse the single balance impact (amount).
+	var balanceDelta int64
+	if t.IsInstallment {
+		balanceDelta = t.Amount * t.PaidInstallments
+	} else {
+		balanceDelta = t.Amount
+	}
+	newBalance := acc.CurrentBalance - balanceDelta
 	if err := s.accRepo.UpdateBalance(t.AccountID, newBalance, tx); err != nil {
 		return fmt.Errorf("service.DeleteTransaction: update balance: %w", err)
 	}
@@ -262,6 +285,9 @@ func (s *TransactionsService) ConfirmRecurring(transactionID uuid.UUID) (time.Ti
 // shouldApplyBalanceOnCreate reports whether a transaction should impact the
 // account balance immediately when created.
 func shouldApplyBalanceOnCreate(t sqlite.Transaction, now time.Time) bool {
+	if t.IsInstallment {
+		return false // installment txns only debit balance on each confirm-installment
+	}
 	if t.RequiresConfirmation && t.ConfirmedAt == nil {
 		return false
 	}
@@ -274,6 +300,9 @@ func shouldApplyBalanceOnCreate(t sqlite.Transaction, now time.Time) bool {
 // hasAppliedToBalance reports whether this stored transaction is currently
 // represented in account balance.
 func hasAppliedToBalance(t sqlite.Transaction, now time.Time) bool {
+	if t.IsInstallment {
+		return t.PaidInstallments > 0
+	}
 	if t.RequiresConfirmation && t.ConfirmedAt == nil {
 		return false
 	}
@@ -281,6 +310,48 @@ func hasAppliedToBalance(t sqlite.Transaction, now time.Time) bool {
 		return false
 	}
 	return true
+}
+
+// ConfirmInstallment confirms one installment payment: debits the per-installment
+// amount from the account balance and increments paid_installments.
+func (s *TransactionsService) ConfirmInstallment(transactionID uuid.UUID) error {
+	t, err := s.txnsRepo.GetByID(transactionID)
+	if err != nil {
+		return fmt.Errorf("service.ConfirmInstallment: get transaction: %w", err)
+	}
+
+	if !t.IsInstallment {
+		return fmt.Errorf("service.ConfirmInstallment: transaction %v is not an installment", transactionID)
+	}
+	if t.TotalInstallments == nil || t.PaidInstallments >= *t.TotalInstallments {
+		return fmt.Errorf("service.ConfirmInstallment: all installments already paid for transaction %v", transactionID)
+	}
+
+	acc, err := s.accRepo.GetByID(t.AccountID)
+	if err != nil {
+		return fmt.Errorf("service.ConfirmInstallment: get account: %w", err)
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("service.ConfirmInstallment: begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	newBalance := acc.CurrentBalance + t.Amount
+	if err := s.accRepo.UpdateBalance(t.AccountID, newBalance, tx); err != nil {
+		return fmt.Errorf("service.ConfirmInstallment: update balance: %w", err)
+	}
+
+	if err := s.txnsRepo.IncrementPaidInstallments(transactionID, tx); err != nil {
+		return fmt.Errorf("service.ConfirmInstallment: increment paid: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("service.ConfirmInstallment: commit: %w", err)
+	}
+
+	return nil
 }
 
 // advanceOccurrence computes the next occurrence after current based on frequency.

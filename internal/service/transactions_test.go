@@ -14,14 +14,15 @@ import (
 )
 
 type mockTransactionsRepo struct {
-	insertFn                func(t sqlite.Transaction, tx *sql.Tx) error
-	getByAccountFn          func(accountID uuid.UUID) ([]sqlite.Transaction, error)
-	getByIDFn               func(id uuid.UUID) (sqlite.Transaction, error)
-	updateFn                func(id uuid.UUID, upd sqlite.UpdateTransaction, tx *sql.Tx) error
-	deleteByIDFn            func(id uuid.UUID, tx *sql.Tx) error
-	advanceNextOccurrenceFn func(id uuid.UUID, next time.Time, tx *sql.Tx) error
-	markConfirmedFn         func(id uuid.UUID, confirmedAt time.Time, tx *sql.Tx) error
-	sumUpcomingFn           func(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error)
+	insertFn                    func(t sqlite.Transaction, tx *sql.Tx) error
+	getByAccountFn              func(accountID uuid.UUID) ([]sqlite.Transaction, error)
+	getByIDFn                   func(id uuid.UUID) (sqlite.Transaction, error)
+	updateFn                    func(id uuid.UUID, upd sqlite.UpdateTransaction, tx *sql.Tx) error
+	deleteByIDFn                func(id uuid.UUID, tx *sql.Tx) error
+	advanceNextOccurrenceFn     func(id uuid.UUID, next time.Time, tx *sql.Tx) error
+	markConfirmedFn             func(id uuid.UUID, confirmedAt time.Time, tx *sql.Tx) error
+	sumUpcomingFn               func(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error)
+	incrementPaidInstallmentsFn func(id uuid.UUID, tx *sql.Tx) error
 }
 
 func (m *mockTransactionsRepo) Insert(t sqlite.Transaction, tx *sql.Tx) error {
@@ -78,6 +79,13 @@ func (m *mockTransactionsRepo) SumUpcomingObligations(accountID uuid.UUID, after
 		return m.sumUpcomingFn(accountID, after, onOrBefore)
 	}
 	return 0, nil
+}
+
+func (m *mockTransactionsRepo) IncrementPaidInstallments(id uuid.UUID, tx *sql.Tx) error {
+	if m.incrementPaidInstallmentsFn != nil {
+		return m.incrementPaidInstallmentsFn(id, tx)
+	}
+	return nil
 }
 
 type mockAccountsRepo struct {
@@ -674,5 +682,133 @@ func TestConfirmRecurring_PendingPaymentAlreadyConfirmed_IsIdempotent(t *testing
 	}
 	if !next.IsZero() {
 		t.Fatalf("expected zero next occurrence, got %v", next)
+	}
+}
+
+func TestConfirmInstallment_DebitsBalanceAndIncrementsCount(t *testing.T) {
+	db := openTestDB(t)
+	txnID := uuid.New()
+	accountID := uuid.New()
+	startingBalance := int64(100000)
+	amount := int64(-5000) // -$50.00 per installment
+	total := int64(12)
+	paid := int64(2)
+	freq := engine.FreqMonthly
+
+	var gotNewBalance int64
+	var incrementCalled bool
+	var incrementUsedTx bool
+
+	txnsRepo := &mockTransactionsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Transaction, error) {
+			return sqlite.Transaction{
+				ID:                txnID,
+				AccountID:         accountID,
+				Amount:            amount,
+				IsInstallment:     true,
+				TotalInstallments: &total,
+				PaidInstallments:  paid,
+				Frequency:         &freq,
+			}, nil
+		},
+		incrementPaidInstallmentsFn: func(id uuid.UUID, tx *sql.Tx) error {
+			incrementCalled = true
+			incrementUsedTx = tx != nil
+			return nil
+		},
+	}
+	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
+
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	err := svc.ConfirmInstallment(txnID)
+	if err != nil {
+		t.Fatalf("ConfirmInstallment error: %v", err)
+	}
+
+	if !incrementCalled || !incrementUsedTx {
+		t.Fatalf("expected IncrementPaidInstallments to be called in a tx")
+	}
+	if gotNewBalance != 95000 {
+		t.Fatalf("expected new balance 95000, got %d", gotNewBalance)
+	}
+}
+
+func TestConfirmInstallment_AlreadyComplete_ReturnsError(t *testing.T) {
+	db := openTestDB(t)
+	txnID := uuid.New()
+	total := int64(3)
+	paid := int64(3) // fully paid
+
+	txnsRepo := &mockTransactionsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Transaction, error) {
+			return sqlite.Transaction{
+				ID:                txnID,
+				IsInstallment:     true,
+				TotalInstallments: &total,
+				PaidInstallments:  paid,
+			}, nil
+		},
+	}
+	accRepo := &mockAccountsRepo{}
+
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	err := svc.ConfirmInstallment(txnID)
+	if err == nil {
+		t.Fatal("expected error for fully paid installment, got nil")
+	}
+}
+
+func TestConfirmInstallment_NonInstallment_ReturnsError(t *testing.T) {
+	db := openTestDB(t)
+	txnID := uuid.New()
+
+	txnsRepo := &mockTransactionsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Transaction, error) {
+			return sqlite.Transaction{ID: txnID, IsInstallment: false}, nil
+		},
+	}
+	accRepo := &mockAccountsRepo{}
+
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	err := svc.ConfirmInstallment(txnID)
+	if err == nil {
+		t.Fatal("expected error for non-installment txn, got nil")
+	}
+}
+
+func TestDeleteInstallment_ReversesAllPaidInstallments(t *testing.T) {
+	db := openTestDB(t)
+	txnID := uuid.New()
+	accountID := uuid.New()
+	startingBalance := int64(100000)
+	amount := int64(-5000) // -$50.00 per installment
+	total := int64(12)
+	paid := int64(3)
+
+	var gotNewBalance int64
+
+	txnsRepo := &mockTransactionsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Transaction, error) {
+			return sqlite.Transaction{
+				ID:                txnID,
+				AccountID:         accountID,
+				Amount:            amount,
+				IsInstallment:     true,
+				TotalInstallments: &total,
+				PaidInstallments:  paid,
+			}, nil
+		},
+		deleteByIDFn: func(id uuid.UUID, tx *sql.Tx) error { return nil },
+	}
+	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
+
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	if err := svc.DeleteTransaction(txnID); err != nil {
+		t.Fatalf("DeleteTransaction error: %v", err)
+	}
+
+	// Reversed: 3 * (-$50) = -$150 removed from balance → balance goes up by $150
+	if gotNewBalance != 115000 {
+		t.Fatalf("expected new balance 115000 (reversed 3 installments), got %d", gotNewBalance)
 	}
 }
