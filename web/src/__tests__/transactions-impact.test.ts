@@ -26,6 +26,9 @@ const txn = (overrides: Partial<TransactionResponse>): TransactionResponse => ({
   frequency: null,
   anchor_date: null,
   next_occurrence: null,
+  is_installment: false,
+  total_installments: null,
+  paid_installments: 0,
   ...overrides,
 })
 

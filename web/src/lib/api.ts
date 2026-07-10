@@ -20,6 +20,9 @@ export interface TransactionResponse {
   frequency: string | null
   anchor_date: string | null
   next_occurrence: string | null
+  is_installment: boolean
+  total_installments: number | null
+  paid_installments: number
 }
 
 export interface GoalResponse {
@@ -331,6 +334,8 @@ export function createTransaction(data: {
   requires_confirmation?: boolean
   frequency?: string
   anchor_date?: string
+  is_installment?: boolean
+  total_installments?: number
 }): Promise<TransactionResponse> {
   return apiFetch<TransactionResponse>('/api/transactions', {
     method: 'POST',
@@ -366,6 +371,12 @@ export function deleteTransaction(id: string): Promise<void> {
 
 export function confirmTransaction(id: string): Promise<TransactionResponse> {
   return apiFetch<TransactionResponse>(`/api/transactions/${id}/confirm`, {
+    method: 'POST',
+  })
+}
+
+export function confirmInstallmentTransaction(id: string): Promise<TransactionResponse> {
+  return apiFetch<TransactionResponse>(`/api/transactions/${id}/confirm-installment`, {
     method: 'POST',
   })
 }
@@ -445,6 +456,8 @@ export interface PublicFriendGroupResponse {
 
 export interface PublicFriendResponse {
   name: string
+  friend_pix_key?: string | null
+  owner_pix_key?: string | null
   balance: { friend_owes_user: number; user_owes_friend: number; net: number }
   debts: PeerDebtResponse[]
   groups: PublicFriendGroupResponse[]
@@ -503,7 +516,6 @@ export interface CreateGroupEventRequest {
   account_id: string
   title: string
   date: string
-  total_amount: number
   notes?: string
 }
 
@@ -512,6 +524,19 @@ export interface PatchGroupEventRequest {
   date?: string
   total_amount?: number
   notes?: string
+}
+
+export interface GroupEventTransactionResponse {
+  id: string
+  event_id: string
+  description: string
+  amount: number
+  created_at: string
+}
+
+export interface AddTransactionRequest {
+  description: string
+  amount: number
 }
 
 export interface SetParticipantsRequest {
@@ -641,6 +666,32 @@ export function setParticipants(eventId: string, data: SetParticipantsRequest): 
   })
 }
 
+export function addGroupEventTransaction(eventId: string, data: AddTransactionRequest): Promise<GroupEventTransactionResponse> {
+  return apiFetch<GroupEventTransactionResponse>(`/api/group-events/${eventId}/transactions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export function removeGroupEventTransaction(eventId: string, transactionId: string): Promise<void> {
+  return apiFetch<void>(`/api/group-events/${eventId}/transactions/${transactionId}`, {
+    method: 'DELETE',
+  })
+}
+
+export function listGroupEventTransactions(eventId: string): Promise<GroupEventTransactionResponse[]> {
+  return apiFetch<GroupEventTransactionResponse[]>(`/api/group-events/${eventId}/transactions`)
+}
+
+export interface PublicConfigResponse {
+  public_base_url: string
+}
+
+export function fetchPublicConfig(): Promise<PublicConfigResponse> {
+  return apiFetch<PublicConfigResponse>('/api/config')
+}
+
 export interface ProfileResponse {
   display_name: string
   pix_key?: string | null
@@ -691,5 +742,13 @@ export function fetchPublicGroup(token: string): Promise<PublicGroupResponse> {
     headers: {
       'Accept': 'application/json'
     }
+  })
+}
+
+export function updatePublicFriendPixKey(token: string, pixKey: string): Promise<void> {
+  return apiFetch<void>(`/public/friend/${token}/pix-key`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pix_key: pixKey }),
   })
 }
