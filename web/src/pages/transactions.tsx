@@ -1,8 +1,9 @@
-import { useState, useContext, useMemo } from 'react'
+import { useState, useContext, useMemo, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, ArrowLeftRight } from 'lucide-react'
+import { Plus, ArrowLeftRight, X } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MoneyValue } from '@/components/ui/money-value'
@@ -20,6 +21,7 @@ import {
   updateTransaction,
   deleteTransaction,
   confirmTransaction,
+  confirmInstallmentTransaction,
   type TransactionResponse,
 } from '@/lib/api'
 import { formatDate } from '@/lib/format'
@@ -27,13 +29,19 @@ import { fromDateInputValue, toDateInputValue } from '@/lib/locale'
 import {
   buildImpactSummary,
   computeProjectedBalanceAfterNextWindow,
+  getWindowBounds,
+  getWindowLabels,
+  isCurrentDue,
   matchesPresetFilter,
 } from '@/lib/transactions-impact'
+import { suggestCategoryFromDescription } from '@/lib/category-autofill'
 import { AccountContext } from '@/App'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 
 const CATEGORIES = [
   'General', 'Food', 'Rent', 'Utilities', 'Transportation', 'Entertainment',
   'Healthcare', 'Shopping', 'Subscriptions', 'Insurance', 'Savings', 'Income',
+  'Education', 'Pets',
 ]
 
 interface FormData {
@@ -45,6 +53,8 @@ interface FormData {
   frequency?: string
   anchor_date?: string
   requires_confirmation?: boolean
+  is_installment?: boolean
+  total_installments?: number
 }
 
 type FormErrors = Partial<Record<keyof FormData, string>>
@@ -64,6 +74,8 @@ export function TransactionsPage() {
     frequency: 'monthly',
     anchor_date: '',
     requires_confirmation: false,
+    is_installment: false,
+    total_installments: undefined,
   })
   const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [amountText, setAmountText] = useState('')
@@ -72,6 +84,11 @@ export function TransactionsPage() {
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [preset, setPreset] = useState<TransactionPreset>('current-window')
   const [showFilters, setShowFilters] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [amountMin, setAmountMin] = useState('')
+  const [amountMax, setAmountMax] = useState('')
+  const [categoryTouched, setCategoryTouched] = useState(false)
+  const [categoryAutofilled, setCategoryAutofilled] = useState(false)
 
   const {
     data: accounts = [],
@@ -110,6 +127,10 @@ export function TransactionsPage() {
     ? paySchedules.reduce((earliest, ps) => (ps.next_payday < earliest ? ps.next_payday : earliest), paySchedules[0].next_payday)
     : null
 
+  const windowLabels = useMemo(() => {
+    return getWindowLabels(nextPayday, paySchedules)
+  }, [nextPayday, paySchedules])
+
   const filteredAndSortedTxns = useMemo(() => {
     const now = new Date()
 
@@ -126,6 +147,20 @@ export function TransactionsPage() {
       nextPayday,
       paySchedules,
     }))
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      txns = txns.filter(t => t.description.toLowerCase().includes(q))
+    }
+
+    const minVal = parseFloat(amountMin)
+    const maxVal = parseFloat(amountMax)
+    if (!isNaN(minVal)) {
+      txns = txns.filter(t => Math.abs(t.amount) >= minVal)
+    }
+    if (!isNaN(maxVal)) {
+      txns = txns.filter(t => Math.abs(t.amount) <= maxVal)
+    }
 
     txns.sort((a: TransactionResponse, b: TransactionResponse) => {
       let cmp = 0
@@ -146,7 +181,7 @@ export function TransactionsPage() {
     })
     
     return txns
-  }, [transactions, filterCategory, preset, sortField, sortDir, nextPayday, paySchedules])
+  }, [transactions, filterCategory, preset, sortField, sortDir, nextPayday, paySchedules, searchQuery, amountMin, amountMax])
 
   const unconfirmedImpact = useMemo(() => {
     const currentBalance = accounts.find(a => a.id === currentAccountId)?.current_balance ?? 0
@@ -172,14 +207,25 @@ export function TransactionsPage() {
     return Array.from(cats).sort()
   }, [transactions])
 
-  const hasActiveFilters = filterCategory !== 'all' || preset !== 'current-window'
+  const formCategories = useMemo(() => {
+    const cats = new Set([...CATEGORIES, ...transactions.map((t: TransactionResponse) => t.category)])
+    return Array.from(cats).sort()
+  }, [transactions])
+
+  const hasActiveFilters = filterCategory !== 'all' || preset !== 'current-window' || !!searchQuery.trim() || !!(amountMin || amountMax)
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => createTransaction(data),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['transactions', currentAccountId] })
+      await queryClient.cancelQueries({ queryKey: ['accounts'] })
+      await queryClient.cancelQueries({ queryKey: ['account', currentAccountId] })
+      const prevTxns = queryClient.getQueryData<TransactionResponse[]>(['transactions', currentAccountId])
+      const prevAccounts = queryClient.getQueryData(['accounts'])
+      const prevAccount = queryClient.getQueryData(['account', currentAccountId])
+      return { prevTxns, prevAccounts, prevAccount }
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      queryClient.invalidateQueries({ queryKey: ['accounts'] })
-      queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
       toast.success('Transaction created')
       setIsCreating(false)
       setFormData({
@@ -191,22 +237,42 @@ export function TransactionsPage() {
         frequency: 'monthly',
         anchor_date: '',
         requires_confirmation: false,
+        is_installment: false,
+        total_installments: undefined,
       })
       setFormErrors({})
       setAmountText('')
+      setCategoryTouched(false)
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create transaction')
+    onError: (error, _vars, ctx) => {
+      if (ctx?.prevTxns) queryClient.setQueryData(['transactions', currentAccountId], ctx.prevTxns)
+      if (ctx?.prevAccounts) queryClient.setQueryData(['accounts'], ctx.prevAccounts)
+      if (ctx?.prevAccount) queryClient.setQueryData(['account', currentAccountId], ctx.prevAccount)
+      toast.error((error as Error).message || 'Failed to create transaction')
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
     },
   })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: Partial<FormData> }) =>
       updateTransaction(id, updates),
+    onMutate: async ({ id, updates }) => {
+      await queryClient.cancelQueries({ queryKey: ['transactions', currentAccountId] })
+      await queryClient.cancelQueries({ queryKey: ['accounts'] })
+      await queryClient.cancelQueries({ queryKey: ['account', currentAccountId] })
+      const prevTxns = queryClient.getQueryData<TransactionResponse[]>(['transactions', currentAccountId])
+      const prevAccounts = queryClient.getQueryData(['accounts'])
+      const prevAccount = queryClient.getQueryData(['account', currentAccountId])
+      queryClient.setQueryData<TransactionResponse[]>(['transactions', currentAccountId], old =>
+        old?.map(t => t.id === id ? { ...t, ...updates } : t) ?? []
+      )
+      return { prevTxns, prevAccounts, prevAccount }
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      queryClient.invalidateQueries({ queryKey: ['accounts'] })
-      queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
       toast.success('Transaction updated')
       setEditingId(null)
       setFormData({
@@ -218,44 +284,150 @@ export function TransactionsPage() {
         frequency: 'monthly',
         anchor_date: '',
         requires_confirmation: false,
+        is_installment: false,
+        total_installments: undefined,
       })
       setFormErrors({})
       setAmountText('')
+      setCategoryTouched(false)
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update transaction')
+    onError: (error, _vars, ctx) => {
+      if (ctx?.prevTxns) queryClient.setQueryData(['transactions', currentAccountId], ctx.prevTxns)
+      if (ctx?.prevAccounts) queryClient.setQueryData(['accounts'], ctx.prevAccounts)
+      if (ctx?.prevAccount) queryClient.setQueryData(['account', currentAccountId], ctx.prevAccount)
+      toast.error((error as Error).message || 'Failed to update transaction')
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: deleteTransaction,
-    onSuccess: () => {
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['transactions', currentAccountId] })
+      await queryClient.cancelQueries({ queryKey: ['accounts'] })
+      await queryClient.cancelQueries({ queryKey: ['account', currentAccountId] })
+      const prevTxns = queryClient.getQueryData<TransactionResponse[]>(['transactions', currentAccountId])
+      const prevAccounts = queryClient.getQueryData(['accounts'])
+      const prevAccount = queryClient.getQueryData(['account', currentAccountId])
+      const deletedTxn = prevTxns?.find(t => t.id === id) ?? null
+      queryClient.setQueryData<TransactionResponse[]>(['transactions', currentAccountId], old =>
+        old?.filter(t => t.id !== id) ?? []
+      )
+      return { prevTxns, prevAccounts, prevAccount, deletedTxn }
+    },
+    onSuccess: (_, _id, ctx) => {
+      const deletedTxn = ctx?.deletedTxn
+      const deletedName = deletedTxn?.description ?? 'Transaction'
+      toast(`${deletedName} deleted`, {
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            if (deletedTxn) {
+              createMutation.mutate({
+                account_id: deletedTxn.account_id,
+                amount: deletedTxn.amount,
+                description: deletedTxn.description,
+                category: deletedTxn.category,
+                is_recurring: deletedTxn.is_recurring,
+                frequency: deletedTxn.frequency ?? undefined,
+                anchor_date: deletedTxn.anchor_date ?? undefined,
+                requires_confirmation: deletedTxn.requires_confirmation,
+              })
+            }
+          },
+        },
+        duration: 5000,
+      })
+    },
+    onError: (error, _id, ctx) => {
+      if (ctx?.prevTxns) queryClient.setQueryData(['transactions', currentAccountId], ctx.prevTxns)
+      if (ctx?.prevAccounts) queryClient.setQueryData(['accounts'], ctx.prevAccounts)
+      if (ctx?.prevAccount) queryClient.setQueryData(['account', currentAccountId], ctx.prevAccount)
+      toast.error((error as Error).message || 'Failed to delete transaction')
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
-      toast.success('Transaction deleted')
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete transaction')
     },
   })
 
   const confirmMutation = useMutation({
     mutationFn: (id: string) => confirmTransaction(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['transactions', currentAccountId] })
+      await queryClient.cancelQueries({ queryKey: ['accounts'] })
+      await queryClient.cancelQueries({ queryKey: ['account', currentAccountId] })
+      const prevTxns = queryClient.getQueryData<TransactionResponse[]>(['transactions', currentAccountId])
+      const prevAccounts = queryClient.getQueryData(['accounts'])
+      const prevAccount = queryClient.getQueryData(['account', currentAccountId])
+      queryClient.setQueryData<TransactionResponse[]>(['transactions', currentAccountId], old =>
+        old?.map(t => t.id === id ? { ...t, confirmed_at: new Date().toISOString() } : t) ?? []
+      )
+      return { prevTxns, prevAccounts, prevAccount }
+    },
     onSuccess: () => {
+      toast.success('Payment confirmed')
+    },
+    onError: (error, _id, ctx) => {
+      if (ctx?.prevTxns) queryClient.setQueryData(['transactions', currentAccountId], ctx.prevTxns)
+      if (ctx?.prevAccounts) queryClient.setQueryData(['accounts'], ctx.prevAccounts)
+      if (ctx?.prevAccount) queryClient.setQueryData(['account', currentAccountId], ctx.prevAccount)
+      toast.error((error as Error).message || 'Failed to confirm payment')
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
-      toast.success('Payment confirmed')
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to confirm payment')
+  })
+
+  const confirmInstallmentMutation = useMutation({
+    mutationFn: (id: string) => confirmInstallmentTransaction(id),
+    onSuccess: () => {
+      toast.success('Installment confirmed')
+    },
+    onError: (error) => {
+      toast.error((error as Error).message || 'Failed to confirm installment')
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
     },
   })
 
   const handleConfirmClick = (id: string) => {
-    confirmMutation.mutate(id)
+    const txn = transactions.find((t: TransactionResponse) => t.id === id)
+    if (txn?.is_installment) {
+      confirmInstallmentMutation.mutate(id)
+    } else {
+      confirmMutation.mutate(id)
+    }
   }
+
+  const handleClearFilters = useCallback(() => {
+    setFilterCategory('all')
+    setPreset('current-window')
+    setSearchQuery('')
+    setAmountMin('')
+    setAmountMax('')
+  }, [])
+
+  const handleBatchConfirmDueNow = useCallback(() => {
+    const { nextPaydayDay } = getWindowBounds(paySchedules, nextPayday)
+    const now = new Date()
+    const dueNowIds = transactions
+      .filter(t => !t.is_recurring && t.requires_confirmation && !t.confirmed_at &&
+        isCurrentDue(t, now, nextPayday, nextPaydayDay))
+      .map(t => t.id)
+    dueNowIds.forEach(id => confirmMutation.mutate(id))
+    toast.success(`Confirmed ${dueNowIds.length} payment${dueNowIds.length !== 1 ? 's' : ''}`)
+  }, [transactions, nextPayday, paySchedules])
 
   const handleCreateClick = () => {
     setIsCreating(true)
@@ -271,12 +443,16 @@ export function TransactionsPage() {
       frequency: 'monthly',
       anchor_date: '',
       requires_confirmation: false,
+      is_installment: false,
+      total_installments: undefined,
     })
   }
 
   const handleEditClick = (txn: TransactionResponse) => {
     setEditingId(txn.id)
     setFormErrors({})
+    setCategoryTouched(false)
+    setCategoryAutofilled(false)
     setAmountText(txn.amount.toString())
     setFormData({
       account_id: txn.account_id,
@@ -287,6 +463,8 @@ export function TransactionsPage() {
       frequency: txn.frequency || 'monthly',
       anchor_date: toDateInputValue(txn.anchor_date),
       requires_confirmation: txn.requires_confirmation,
+      is_installment: txn.is_installment,
+      total_installments: txn.total_installments ?? undefined,
     })
   }
 
@@ -325,23 +503,70 @@ export function TransactionsPage() {
       frequency: 'monthly',
       anchor_date: '',
       requires_confirmation: false,
+      is_installment: false,
+      total_installments: undefined,
     })
   }
 
   const isPending = createMutation.isPending || updateMutation.isPending
   const txnToDelete = transactions.find((t: TransactionResponse) => t.id === confirmDelete)
 
+  // Filter state persistence
+  const FILTER_KEY = `cibi:filters:${currentAccountId}`
+  useEffect(() => {
+    if (!currentAccountId) return
+    try {
+      const saved = sessionStorage.getItem(FILTER_KEY)
+      if (saved) {
+        const state = JSON.parse(saved)
+        if (state.preset) setPreset(state.preset)
+        if (state.filterCategory) setFilterCategory(state.filterCategory)
+        if (state.sortField) setSortField(state.sortField)
+        if (state.sortDir) setSortDir(state.sortDir)
+      }
+    } catch { /* ignore */ }
+  }, [currentAccountId])
+
+  useEffect(() => {
+    if (!currentAccountId) return
+    sessionStorage.setItem(FILTER_KEY, JSON.stringify({
+      preset, filterCategory, sortField, sortDir,
+    }))
+  }, [preset, filterCategory, sortField, sortDir, currentAccountId])
+
   const handleTransactionChange = (changes: Partial<FormData>) => {
-    setFormData(prev => ({ ...prev, ...changes }))
+    if (Object.prototype.hasOwnProperty.call(changes, 'category')) {
+      setCategoryTouched(true)
+    }
+
+    setFormData(prev => {
+      const next = { ...prev, ...changes }
+      const description = changes.description
+      const shouldAutofill = !categoryTouched && typeof description === 'string' && !Object.prototype.hasOwnProperty.call(changes, 'category')
+      if (shouldAutofill) {
+        const suggested = suggestCategoryFromDescription(description, formCategories)
+        if (suggested && suggested !== prev.category) {
+          setCategoryAutofilled(true)
+          setTimeout(() => setCategoryAutofilled(false), 1500)
+        }
+        next.category = suggested
+      }
+      return next
+    })
   }
 
   const handleTransactionAmountParsed = (parsed: number | null) => {
     setFormData(prev => ({ ...prev, amount: parsed ?? 0 }))
   }
 
+  useKeyboardShortcuts({
+    'n': handleCreateClick,
+    'f': () => document.querySelector<HTMLInputElement>('[data-filter-search]')?.focus(),
+  })
+
   if (isError || accountsLoading) {
     return (
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
         <div className="text-center text-destructive">
           {isError ? 'Failed to load transactions.' : 'Loading accounts...'}
         </div>
@@ -350,7 +575,7 @@ export function TransactionsPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
       <ConfirmDialog
         open={!!confirmDelete}
         onConfirm={() => {
@@ -387,10 +612,12 @@ export function TransactionsPage() {
           <p className="text-xs text-muted-foreground">
             Balance if paid: <MoneyValue amount={unconfirmedImpact.currentProjectedBalance} currency={currentAccountCurrency} tone="auto" showSign="always" /> now · <MoneyValue amount={unconfirmedImpact.nextProjectedBalance} currency={currentAccountCurrency} tone="auto" showSign="always" /> after next.
           </p>
-          <div className="flex flex-wrap gap-1.5">
-            <Button size="sm" variant="outline" onClick={() => setPreset('due-now')}>Due now</Button>
-            <Button size="sm" variant="outline" onClick={() => setPreset('next-window')}>Next window</Button>
-          </div>
+
+          {unconfirmedImpact.currentCount > 0 && (
+            <Button size="sm" variant="outline" onClick={handleBatchConfirmDueNow}>
+              Confirm all {unconfirmedImpact.currentCount}
+            </Button>
+          )}
         </CardContent>
       </Card>
 
@@ -402,16 +629,56 @@ export function TransactionsPage() {
         categories={categories}
         sortField={sortField}
         sortDir={sortDir}
+        searchQuery={searchQuery}
+        amountMin={amountMin}
+        amountMax={amountMax}
+        windowLabels={windowLabels}
         onToggleFilters={() => setShowFilters(!showFilters)}
         onPresetChange={setPreset}
         onFilterCategoryChange={setFilterCategory}
         onSortFieldChange={setSortField}
         onSortDirChange={setSortDir}
-        onResetFilters={() => {
-          setFilterCategory('all')
-          setPreset('current-window')
-        }}
+        onSearchQueryChange={setSearchQuery}
+        onAmountMinChange={setAmountMin}
+        onAmountMaxChange={setAmountMax}
+        onResetFilters={handleClearFilters}
       />
+
+      {hasActiveFilters && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted-foreground mr-1">Filters:</span>
+          {preset !== 'current-window' && (
+            <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => setPreset('current-window')}>
+              {preset === 'due-now' ? windowLabels?.dueNowLabel :
+               preset === 'next-window' ? windowLabels?.nextWindowLabel :
+               preset === 'all-recurring' ? 'All recurring' :
+               preset === 'one-time-only' ? 'One-time only' : preset}
+              <X size={12} />
+            </Badge>
+          )}
+          {filterCategory !== 'all' && (
+            <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => setFilterCategory('all')}>
+              {filterCategory}
+              <X size={12} />
+            </Badge>
+          )}
+          {searchQuery.trim() && (
+            <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => setSearchQuery('')}>
+              &ldquo;{searchQuery}&rdquo;
+              <X size={12} />
+            </Badge>
+          )}
+          {(amountMin || amountMax) && (
+            <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => { setAmountMin(''); setAmountMax('') }}>
+              ${amountMin || '0'}–${amountMax || '∞'}
+              <X size={12} />
+            </Badge>
+          )}
+          <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-xs h-7">
+            Clear all
+          </Button>
+        </div>
+      )}
 
       <Skeleton
         name="transaction-list"
@@ -443,19 +710,41 @@ export function TransactionsPage() {
             items={filteredAndSortedTxns.map((txn: TransactionResponse) => ({
               id: txn.id,
               title: txn.description,
-              subtitle: `${txn.category} · ${txn.is_recurring ? `${txn.frequency} · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : (txn.anchor_date ? formatDate(txn.anchor_date) : '-')}` : txn.requires_confirmation ? (txn.confirmed_at ? `confirmed ${formatDate(txn.confirmed_at)}` : `pending ${formatDate(txn.anchor_date || txn.timestamp)}`) : formatDate(txn.timestamp)}`,
+              subtitle: txn.is_installment
+                ? `${txn.category} · Installment · ${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'} paid · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : '-'}`
+                : txn.is_recurring
+                  ? `${txn.category} · ${txn.frequency} · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : (txn.anchor_date ? formatDate(txn.anchor_date) : '-')}`
+                  : txn.requires_confirmation
+                    ? (txn.confirmed_at ? `confirmed ${formatDate(txn.confirmed_at)}` : `pending ${formatDate(txn.anchor_date || txn.timestamp)}`)
+                    : formatDate(txn.timestamp),
               amount: txn.amount,
+              total: txn.amount,
+              perInstallment: null,
               currency: currentAccountCurrency,
               status: {
-                label: txn.is_recurring ? 'Recurring' : txn.requires_confirmation ? (txn.confirmed_at ? 'Pending payment · confirmed' : 'Pending payment') : 'One-time',
-                tone: txn.is_recurring ? 'default' : txn.requires_confirmation ? 'default' : 'secondary',
+                label: txn.is_installment
+                  ? `Installment ${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'}`
+                  : txn.is_recurring
+                    ? 'Recurring'
+                    : txn.requires_confirmation
+                      ? (txn.confirmed_at ? 'Pending payment · confirmed' : 'Pending payment')
+                      : 'One-time',
+                tone: (txn.is_installment || txn.is_recurring || txn.requires_confirmation)
+                  ? 'default'
+                  : 'secondary',
               },
-              canConfirm: txn.is_recurring || (txn.requires_confirmation && !txn.confirmed_at),
+              type: 'transaction' as const,
+              canConfirm: txn.is_installment
+                ? (txn.paid_installments ?? 0) < (txn.total_installments ?? 0)
+                : txn.is_recurring || (txn.requires_confirmation && !txn.confirmed_at),
               canDelete: true,
               canOpen: true,
             }))}
             emptyTitle="No transactions match your filters"
             emptyHint="Adjust filters and try again"
+            sortField={sortField}
+            sortDir={sortDir}
+            maxMobileActions={2}
             onConfirm={handleConfirmClick}
             onDelete={setConfirmDelete}
             onOpen={(id) => {
@@ -480,6 +769,7 @@ export function TransactionsPage() {
           isPending={isPending}
           categories={CATEGORIES}
           accounts={accounts}
+          categoryAutofilled={categoryAutofilled}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
           onChange={handleTransactionChange}
