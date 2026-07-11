@@ -734,8 +734,12 @@ export function TransactionsPage() {
                   : txn.requires_confirmation
                     ? (txn.confirmed_at ? `confirmed ${formatDate(txn.confirmed_at)}` : `pending ${formatDate(txn.anchor_date || txn.timestamp)}`)
                     : formatDate(txn.timestamp),
-              amount: txn.amount,
-              total: txn.amount,
+              amount: txn.is_installment
+                ? txn.amount * ((txn.total_installments ?? 0) - (txn.paid_installments ?? 0))
+                : txn.amount,
+              total: txn.is_installment
+                ? txn.amount * (txn.total_installments ?? 0)
+                : txn.amount,
               perInstallment: txn.is_installment ? txn.amount : null,
               currency: currentAccountCurrency,
               status: {
