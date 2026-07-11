@@ -736,7 +736,7 @@ export function TransactionsPage() {
                     : formatDate(txn.timestamp),
               amount: txn.amount,
               total: txn.amount,
-              perInstallment: null,
+              perInstallment: txn.is_installment ? txn.amount : null,
               currency: currentAccountCurrency,
               status: {
                 label: txn.is_installment
