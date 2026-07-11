@@ -51,11 +51,12 @@ type TransactionsRepo interface {
 
 // UpdateTransaction holds the fields that can be updated on a transaction.
 type UpdateTransaction struct {
-	Description    *string
-	Category       *string
-	Amount         *int64
-	NextOccurrence *time.Time
-	Timestamp      *time.Time
+	Description       *string
+	Category          *string
+	Amount            *int64
+	NextOccurrence    *time.Time
+	Timestamp         *time.Time
+	TotalInstallments *int64
 }
 
 // SqliteTxnsRepo implements TransactionsRepo.
@@ -170,6 +171,11 @@ func (r *SqliteTxnsRepo) Update(id uuid.UUID, upd UpdateTransaction, tx *sql.Tx)
 		tsStr := upd.Timestamp.UTC().Format(time.RFC3339)
 		if err := exec(`UPDATE "Transaction" SET timestamp = ? WHERE id = ?`, tsStr, id.String()); err != nil {
 			return fmt.Errorf("transactions.Update timestamp: %w", err)
+		}
+	}
+	if upd.TotalInstallments != nil {
+		if err := exec(`UPDATE "Transaction" SET total_installments = ? WHERE id = ?`, *upd.TotalInstallments, id.String()); err != nil {
+			return fmt.Errorf("transactions.Update total_installments: %w", err)
 		}
 	}
 	return nil

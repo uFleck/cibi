@@ -54,10 +54,11 @@ type CreateTransactionRequest struct {
 }
 
 type PatchTransactionRequest struct {
-	Description    *string  `json:"description"`
-	Category       *string  `json:"category"`
-	Amount         *float64 `json:"amount"`          // nil = no change
-	NextOccurrence *string  `json:"next_occurrence"` // RFC3339; nil = no change
+	Description       *string  `json:"description"`
+	Category          *string  `json:"category"`
+	Amount            *float64 `json:"amount"`            // nil = no change
+	NextOccurrence    *string  `json:"next_occurrence"`   // RFC3339; nil = no change
+	TotalInstallments *int64   `json:"total_installments"` // nil = no change
 }
 
 type TransactionResponse struct {
@@ -192,8 +193,9 @@ func (h *TransactionsHandler) Update(c echo.Context) error {
 	}
 
 	upd := sqlite.UpdateTransaction{
-		Description: req.Description,
-		Category:    req.Category,
+		Description:       req.Description,
+		Category:          req.Category,
+		TotalInstallments: req.TotalInstallments,
 	}
 
 	// Convert dollars to stored value if provided.

@@ -128,6 +128,17 @@ func (s *TransactionsService) GetTransaction(id uuid.UUID) (sqlite.Transaction, 
 // UpdateTransaction patches the mutable fields of a transaction.
 // D-02: Recalculates account balance if amount changes.
 func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateTransaction) error {
+	// Validate total_installments constraint before any DB work.
+	if upd.TotalInstallments != nil {
+		oldTxn, err := s.txnsRepo.GetByID(id)
+		if err != nil {
+			return fmt.Errorf("service.UpdateTransaction: get old transaction: %w", err)
+		}
+		if *upd.TotalInstallments < oldTxn.PaidInstallments {
+			return fmt.Errorf("total_installments (%d) cannot be less than paid_installments (%d)", *upd.TotalInstallments, oldTxn.PaidInstallments)
+		}
+	}
+
 	// D-02: If amount is being changed, recalculate balance atomically when
 	// this transaction has already impacted account balance.
 	if upd.Amount != nil {
