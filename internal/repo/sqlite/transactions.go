@@ -57,6 +57,10 @@ type UpdateTransaction struct {
 	NextOccurrence    *time.Time
 	Timestamp         *time.Time
 	TotalInstallments *int64
+	IsInstallment     *bool
+	IsRecurring       *bool
+	Frequency         *string
+	AnchorDate        *time.Time
 }
 
 // SqliteTxnsRepo implements TransactionsRepo.
@@ -176,6 +180,27 @@ func (r *SqliteTxnsRepo) Update(id uuid.UUID, upd UpdateTransaction, tx *sql.Tx)
 	if upd.TotalInstallments != nil {
 		if err := exec(`UPDATE "Transaction" SET total_installments = ? WHERE id = ?`, *upd.TotalInstallments, id.String()); err != nil {
 			return fmt.Errorf("transactions.Update total_installments: %w", err)
+		}
+	}
+	if upd.IsInstallment != nil {
+		if err := exec(`UPDATE "Transaction" SET is_installment = ? WHERE id = ?`, *upd.IsInstallment, id.String()); err != nil {
+			return fmt.Errorf("transactions.Update is_installment: %w", err)
+		}
+	}
+	if upd.IsRecurring != nil {
+		if err := exec(`UPDATE "Transaction" SET is_recurring = ? WHERE id = ?`, *upd.IsRecurring, id.String()); err != nil {
+			return fmt.Errorf("transactions.Update is_recurring: %w", err)
+		}
+	}
+	if upd.Frequency != nil {
+		if err := exec(`UPDATE "Transaction" SET frequency = ? WHERE id = ?`, *upd.Frequency, id.String()); err != nil {
+			return fmt.Errorf("transactions.Update frequency: %w", err)
+		}
+	}
+	if upd.AnchorDate != nil {
+		anchorStr := upd.AnchorDate.UTC().Format(time.RFC3339)
+		if err := exec(`UPDATE "Transaction" SET anchor_date = ? WHERE id = ?`, anchorStr, id.String()); err != nil {
+			return fmt.Errorf("transactions.Update anchor_date: %w", err)
 		}
 	}
 	return nil

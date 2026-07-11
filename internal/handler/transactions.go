@@ -56,9 +56,13 @@ type CreateTransactionRequest struct {
 type PatchTransactionRequest struct {
 	Description       *string  `json:"description"`
 	Category          *string  `json:"category"`
-	Amount            *float64 `json:"amount"`            // nil = no change
-	NextOccurrence    *string  `json:"next_occurrence"`   // RFC3339; nil = no change
+	Amount            *float64 `json:"amount"`             // nil = no change
+	NextOccurrence    *string  `json:"next_occurrence"`    // RFC3339; nil = no change
 	TotalInstallments *int64   `json:"total_installments"` // nil = no change
+	IsInstallment     *bool    `json:"is_installment"`     // nil = no change
+	IsRecurring       *bool    `json:"is_recurring"`       // nil = no change
+	Frequency         *string  `json:"frequency"`          // nil = no change
+	AnchorDate        *string  `json:"anchor_date"`        // RFC3339; nil = no change
 }
 
 type TransactionResponse struct {
@@ -196,6 +200,9 @@ func (h *TransactionsHandler) Update(c echo.Context) error {
 		Description:       req.Description,
 		Category:          req.Category,
 		TotalInstallments: req.TotalInstallments,
+		IsInstallment:     req.IsInstallment,
+		IsRecurring:       req.IsRecurring,
+		Frequency:         req.Frequency,
 	}
 
 	// Convert dollars to stored value if provided.
@@ -212,6 +219,16 @@ func (h *TransactionsHandler) Update(c echo.Context) error {
 		}
 		utc := parsed.UTC()
 		upd.NextOccurrence = &utc
+	}
+
+	// Parse anchor_date if provided.
+	if req.AnchorDate != nil {
+		parsed, err := time.Parse(time.RFC3339, *req.AnchorDate)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid anchor_date: must be RFC3339")
+		}
+		utc := parsed.UTC()
+		upd.AnchorDate = &utc
 	}
 
 	if err := h.svc.UpdateTransaction(id, upd); err != nil {
