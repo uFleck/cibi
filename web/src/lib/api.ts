@@ -354,6 +354,8 @@ export function updateTransaction(
     requires_confirmation: boolean
     frequency: string
     anchor_date: string
+    is_installment: boolean
+    total_installments: number | null
   }>
 ): Promise<TransactionResponse> {
   return apiFetch<TransactionResponse>(`/api/transactions/${id}`, {

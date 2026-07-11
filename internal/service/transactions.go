@@ -128,6 +128,25 @@ func (s *TransactionsService) GetTransaction(id uuid.UUID) (sqlite.Transaction, 
 // UpdateTransaction patches the mutable fields of a transaction.
 // D-02: Recalculates account balance if amount changes.
 func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateTransaction) error {
+	// Validate flag mutual exclusion.
+	setInstallment := upd.IsInstallment != nil && *upd.IsInstallment
+	setRecurring := upd.IsRecurring != nil && *upd.IsRecurring
+	if setInstallment && setRecurring {
+		return fmt.Errorf("is_installment and is_recurring are mutually exclusive")
+	}
+	// When switching to installment, required fields must be present in this patch.
+	if setInstallment {
+		if upd.TotalInstallments == nil || *upd.TotalInstallments <= 0 {
+			return fmt.Errorf("installment transaction requires total_installments > 0")
+		}
+		if upd.AnchorDate == nil {
+			return fmt.Errorf("installment transaction requires anchor_date")
+		}
+		if upd.Frequency == nil || (*upd.Frequency != engine.FreqMonthly && *upd.Frequency != engine.FreqWeekly) {
+			return fmt.Errorf("installment transaction requires frequency of monthly or weekly")
+		}
+	}
+
 	// Validate total_installments constraint before any DB work.
 	if upd.TotalInstallments != nil {
 		oldTxn, err := s.txnsRepo.GetByID(id)
