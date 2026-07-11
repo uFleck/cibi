@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"database/sql"
+	"strings"
 	"testing"
 	"time"
 
@@ -826,6 +827,80 @@ func TestConfirmInstallment_NonInstallment_ReturnsError(t *testing.T) {
 	err := svc.ConfirmInstallment(txnID)
 	if err == nil {
 		t.Fatal("expected error for non-installment txn, got nil")
+	}
+}
+
+func TestUpdateTransaction_TotalInstallments_CanIncrease(t *testing.T) {
+	// total_installments goes from 12 → 15 with paid=3; should succeed.
+	db := openTestDB(t)
+	txnID := uuid.New()
+	accountID := uuid.New()
+	total := int64(12)
+	paid := int64(3)
+	newTotal := int64(15)
+
+	var updatedTotal *int64
+
+	txnsRepo := &mockTransactionsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Transaction, error) {
+			return sqlite.Transaction{
+				ID:                txnID,
+				AccountID:         accountID,
+				IsInstallment:     true,
+				TotalInstallments: &total,
+				PaidInstallments:  paid,
+			}, nil
+		},
+		updateFn: func(id uuid.UUID, upd sqlite.UpdateTransaction, tx *sql.Tx) error {
+			updatedTotal = upd.TotalInstallments
+			return nil
+		},
+	}
+	accRepo := &mockAccountsRepo{}
+
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{TotalInstallments: &newTotal})
+	if err != nil {
+		t.Fatalf("expected no error increasing total_installments, got: %v", err)
+	}
+	if updatedTotal == nil || *updatedTotal != newTotal {
+		t.Fatalf("expected total_installments=%d to be passed to repo, got %v", newTotal, updatedTotal)
+	}
+}
+
+func TestUpdateTransaction_TotalInstallments_CannotBecomeLessThanPaid(t *testing.T) {
+	// total_installments → 2 with paid=3; should return error.
+	db := openTestDB(t)
+	txnID := uuid.New()
+	accountID := uuid.New()
+	total := int64(12)
+	paid := int64(3)
+	newTotal := int64(2) // less than paid
+
+	txnsRepo := &mockTransactionsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Transaction, error) {
+			return sqlite.Transaction{
+				ID:                txnID,
+				AccountID:         accountID,
+				IsInstallment:     true,
+				TotalInstallments: &total,
+				PaidInstallments:  paid,
+			}, nil
+		},
+		updateFn: func(id uuid.UUID, upd sqlite.UpdateTransaction, tx *sql.Tx) error {
+			t.Fatal("repo Update should not be called when validation fails")
+			return nil
+		},
+	}
+	accRepo := &mockAccountsRepo{}
+
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{TotalInstallments: &newTotal})
+	if err == nil {
+		t.Fatal("expected error when total_installments < paid_installments, got nil")
+	}
+	if !strings.Contains(err.Error(), "cannot be less than") {
+		t.Fatalf("expected error to contain 'cannot be less than', got: %v", err)
 	}
 }
 
