@@ -212,9 +212,29 @@ describe('transactions impact', () => {
     })).toBe(true)
   })
 
-  it('null preset excludes one-time transactions', () => {
+  it('null preset includes pending one-time transactions', () => {
     expect(matchesPresetFilter({
-      txn: txn({ is_recurring: false, is_installment: false }),
+      txn: txn({ is_recurring: false, is_installment: false, requires_confirmation: true, confirmed_at: null }),
+      preset: null,
+      now: new Date('2026-04-10T12:00:00Z'),
+      nextPayday: '2026-04-20',
+      paySchedules,
+    })).toBe(true)
+  })
+
+  it('null preset excludes confirmed one-time transactions', () => {
+    expect(matchesPresetFilter({
+      txn: txn({ is_recurring: false, is_installment: false, requires_confirmation: true, confirmed_at: '2026-04-09T00:00:00Z' }),
+      preset: null,
+      now: new Date('2026-04-10T12:00:00Z'),
+      nextPayday: '2026-04-20',
+      paySchedules,
+    })).toBe(false)
+  })
+
+  it('null preset excludes non-pending one-time transactions', () => {
+    expect(matchesPresetFilter({
+      txn: txn({ is_recurring: false, is_installment: false, requires_confirmation: false }),
       preset: null,
       now: new Date('2026-04-10T12:00:00Z'),
       nextPayday: '2026-04-20',
