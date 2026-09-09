@@ -121,6 +121,107 @@ describe('transactions impact', () => {
     expect(summary.nextProjectedBalance).toBe(1125)
   })
 
+  it('installment with next_occurrence in current window matches current-window preset', () => {
+    expect(matchesPresetFilter({
+      txn: txn({
+        is_installment: true,
+        is_recurring: false,
+        requires_confirmation: false,
+        next_occurrence: '2026-04-15T00:00:00Z',
+        anchor_date: '2026-03-15T00:00:00Z',
+        frequency: 'monthly',
+      }),
+      preset: 'current-window',
+      now: new Date('2026-04-10T12:00:00Z'),
+      nextPayday: '2026-04-20',
+      paySchedules,
+    })).toBe(true)
+  })
+
+  it('installment with next_occurrence in current window matches due-now preset', () => {
+    expect(matchesPresetFilter({
+      txn: txn({
+        is_installment: true,
+        is_recurring: false,
+        requires_confirmation: false,
+        next_occurrence: '2026-04-15T00:00:00Z',
+        anchor_date: '2026-03-15T00:00:00Z',
+        frequency: 'monthly',
+      }),
+      preset: 'due-now',
+      now: new Date('2026-04-10T12:00:00Z'),
+      nextPayday: '2026-04-20',
+      paySchedules,
+    })).toBe(true)
+  })
+
+  it('installment is excluded from one-time-only preset', () => {
+    expect(matchesPresetFilter({
+      txn: txn({
+        is_installment: true,
+        is_recurring: false,
+        requires_confirmation: false,
+        next_occurrence: '2026-04-15T00:00:00Z',
+      }),
+      preset: 'one-time-only',
+      now: new Date('2026-04-10T12:00:00Z'),
+      nextPayday: '2026-04-20',
+      paySchedules,
+    })).toBe(false)
+  })
+
+  it('installment with next_occurrence in next window matches next-window preset', () => {
+    expect(matchesPresetFilter({
+      txn: txn({
+        is_installment: true,
+        is_recurring: false,
+        requires_confirmation: false,
+        next_occurrence: '2026-04-22T00:00:00Z',
+        anchor_date: '2026-03-22T00:00:00Z',
+        frequency: 'monthly',
+      }),
+      preset: 'next-window',
+      now: new Date('2026-04-10T12:00:00Z'),
+      nextPayday: '2026-04-20',
+      paySchedules,
+    })).toBe(true)
+  })
+
+  it('null preset returns recurring transactions', () => {
+    expect(matchesPresetFilter({
+      txn: txn({ is_recurring: true, requires_confirmation: false }),
+      preset: null,
+      now: new Date('2026-04-10T12:00:00Z'),
+      nextPayday: '2026-04-20',
+      paySchedules,
+    })).toBe(true)
+  })
+
+  it('null preset returns in-progress installment transactions', () => {
+    expect(matchesPresetFilter({
+      txn: txn({
+        is_installment: true,
+        is_recurring: false,
+        requires_confirmation: false,
+        next_occurrence: '2026-04-22T00:00:00Z',
+      }),
+      preset: null,
+      now: new Date('2026-04-10T12:00:00Z'),
+      nextPayday: '2026-04-20',
+      paySchedules,
+    })).toBe(true)
+  })
+
+  it('null preset excludes one-time transactions', () => {
+    expect(matchesPresetFilter({
+      txn: txn({ is_recurring: false, is_installment: false }),
+      preset: null,
+      now: new Date('2026-04-10T12:00:00Z'),
+      nextPayday: '2026-04-20',
+      paySchedules,
+    })).toBe(false)
+  })
+
   it('ignores recurring transactions in payment impact', () => {
     const summary = buildImpactSummary({
       transactions: [

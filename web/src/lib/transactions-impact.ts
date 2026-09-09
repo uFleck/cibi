@@ -1,4 +1,5 @@
 import type { FriendDebtBreakdownItem, PayScheduleResponse, TransactionResponse } from '@/lib/api'
+import { formatDate } from '@/lib/format'
 import { isInCurrentPayWindow } from '@/lib/financial-window'
 import { earliestPaydayAfter, nextPaydayAfter, parseDateOnlyUTC } from '@/lib/pay-schedule'
 
@@ -51,18 +52,51 @@ const getPrimarySchedule = (paySchedules: PayScheduleResponse[]): PayScheduleRes
     : null
 )
 
-const getWindowBounds = (paySchedules: PayScheduleResponse[], nextPayday: string | null) => {
+export const getWindowBounds = (paySchedules: PayScheduleResponse[], nextPayday: string | null) => {
   const primarySchedule = getPrimarySchedule(paySchedules)
   const nextPaydayDay = nextPayday ? parseDay(nextPayday) : null
   const followingPaydayDay = primarySchedule ? shiftWindow(primarySchedule.next_payday, primarySchedule.frequency, 1) : null
   return { nextPaydayDay, followingPaydayDay }
 }
 
-const isCurrentDue = (t: TransactionResponse, now: Date, nextPayday: string | null, nextPaydayDay: number | null) => {
+export interface WindowLabels {
+  dueNowLabel: string
+  currentWindowLabel: string
+  nextWindowLabel: string
+}
+
+export function getWindowLabels(
+  nextPayday: string | null,
+  paySchedules: PayScheduleResponse[],
+): WindowLabels {
+  const { nextPaydayDay, followingPaydayDay } = getWindowBounds(paySchedules, nextPayday)
+
+  const fmtDay = (ts: number | null): string => {
+    if (!ts) return '?'
+    return formatDate(new Date(ts).toISOString())
+  }
+
+  const nextPaydayStr = nextPaydayDay ? fmtDay(nextPaydayDay) : '?'
+
+  return {
+    dueNowLabel: `Due now (before ${nextPaydayStr})`,
+    currentWindowLabel: `Current (until ${nextPaydayStr})`,
+    nextWindowLabel: followingPaydayDay
+      ? `Next (${nextPaydayStr} – ${fmtDay(followingPaydayDay)})`
+      : `Next window`,
+  }
+}
+
+export const isCurrentDue = (t: TransactionResponse, now: Date, nextPayday: string | null, nextPaydayDay: number | null) => {
   if (t.is_recurring) {
     const recurringDate = t.next_occurrence || t.anchor_date
     if (!recurringDate) return false
     return isInCurrentPayWindow(recurringDate, now, nextPayday)
+  }
+
+  if (t.is_installment) {
+    if (!t.next_occurrence) return false
+    return isInCurrentPayWindow(t.next_occurrence, now, nextPayday)
   }
 
   if (!(t.requires_confirmation && !t.confirmed_at)) return false
@@ -118,6 +152,14 @@ export function computeProjectedBalanceAfterNextWindow(params: {
     )
     .reduce((sum, t) => sum + Math.abs(t.amount), 0)
 
+  const currentInstallmentReserved = transactions
+    .filter(
+      t => t.is_installment && t.next_occurrence !== null
+        && t.amount < 0
+        && isInCurrentPayWindow(t.next_occurrence, now, nextPayday),
+    )
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+
   const currentPeerReserved = friendBreakdown.reduce((sum, debt) => {
     if (!debt.next_payment_date) return sum + debt.next_payment
     if (isInCurrentPayWindow(debt.next_payment_date, now, nextPayday)) {
@@ -126,17 +168,23 @@ export function computeProjectedBalanceAfterNextWindow(params: {
     return sum
   }, 0)
 
-  const projectedStartBalance = currentBalance - currentRecurringReserved - currentPeerReserved
+  const projectedStartBalance = currentBalance - currentRecurringReserved - currentInstallmentReserved - currentPeerReserved
 
   const nextRecurringObligations = transactions
     .filter(t => t.is_recurring && t.next_occurrence !== null && isInWindow(t.next_occurrence, windowStart, windowEnd))
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+
+  const nextInstallmentObligations = transactions
+    .filter(t => t.is_installment && t.next_occurrence !== null
+      && t.amount < 0
+      && isInWindow(t.next_occurrence, windowStart, windowEnd))
     .reduce((sum, t) => sum + Math.abs(t.amount), 0)
 
   const nextPeerObligations = friendBreakdown
     .filter(d => d.next_payment_date !== null && isInWindow(d.next_payment_date, windowStart, windowEnd))
     .reduce((sum, d) => sum + d.next_payment, 0)
 
-  const nextObligations = nextRecurringObligations + nextPeerObligations
+  const nextObligations = nextRecurringObligations + nextInstallmentObligations + nextPeerObligations
 
   let incoming = 0
   for (const schedule of paySchedules) {
@@ -194,7 +242,7 @@ export function buildImpactSummary(params: {
 
 export function matchesPresetFilter(params: {
   txn: TransactionResponse
-  preset: 'current-window' | 'due-now' | 'next-window' | 'all-recurring' | 'one-time-only'
+  preset: 'current-window' | 'due-now' | 'next-window' | 'all-recurring' | 'one-time-only' | null
   now: Date
   nextPayday: string | null
   paySchedules: PayScheduleResponse[]
@@ -202,10 +250,30 @@ export function matchesPresetFilter(params: {
   const { txn, preset, now, nextPayday, paySchedules } = params
   const { nextPaydayDay, followingPaydayDay } = getWindowBounds(paySchedules, nextPayday)
 
-  if (preset === 'all-recurring') return txn.is_recurring
-  if (preset === 'one-time-only') return !txn.is_recurring
-  if (preset === 'next-window') return isNextWindowDue(txn, nextPaydayDay, followingPaydayDay)
+  // null = default: all recurring + all in-progress installments
+  if (preset === null) return txn.is_recurring || (txn.is_installment && txn.next_occurrence !== null)
 
-  // current-window and due-now share due classification: include unpaid one-time pending payments by pending date.
+  if (preset === 'all-recurring') return txn.is_recurring
+  if (preset === 'one-time-only') return !txn.is_recurring && !txn.is_installment
+  if (preset === 'next-window') {
+    if (txn.is_installment) {
+      if (!txn.next_occurrence || nextPaydayDay === null || followingPaydayDay === null) return false
+      const occDay = parseDay(txn.next_occurrence)
+      return occDay !== null && occDay >= nextPaydayDay && occDay < followingPaydayDay
+    }
+    return isNextWindowDue(txn, nextPaydayDay, followingPaydayDay)
+  }
+
+  // due-now
+  if (preset === 'due-now') {
+    if (txn.is_installment) {
+      return txn.next_occurrence !== null && isInCurrentPayWindow(txn.next_occurrence, now, nextPayday)
+    }
+    if (txn.is_recurring) return false
+    if (!txn.requires_confirmation || txn.confirmed_at) return false
+    return isCurrentDue(txn, now, nextPayday, nextPaydayDay)
+  }
+
+  // current-window: recurring + installment + pending one-time
   return isCurrentDue(txn, now, nextPayday, nextPaydayDay)
 }
