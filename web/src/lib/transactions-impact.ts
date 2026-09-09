@@ -250,8 +250,10 @@ export function matchesPresetFilter(params: {
   const { txn, preset, now, nextPayday, paySchedules } = params
   const { nextPaydayDay, followingPaydayDay } = getWindowBounds(paySchedules, nextPayday)
 
-  // null = default: all recurring + all in-progress installments
-  if (preset === null) return txn.is_recurring || (txn.is_installment && txn.next_occurrence !== null)
+  const isPendingOneTime = !txn.is_recurring && !txn.is_installment && !!txn.requires_confirmation && !txn.confirmed_at
+
+  // null = default: all recurring + all in-progress installments + pending one-time
+  if (preset === null) return txn.is_recurring || (txn.is_installment && txn.next_occurrence !== null) || isPendingOneTime
 
   if (preset === 'all-recurring') return txn.is_recurring
   if (preset === 'one-time-only') return !txn.is_recurring && !txn.is_installment
@@ -261,6 +263,7 @@ export function matchesPresetFilter(params: {
       const occDay = parseDay(txn.next_occurrence)
       return occDay !== null && occDay >= nextPaydayDay && occDay < followingPaydayDay
     }
+    if (!txn.is_recurring && !isPendingOneTime) return false
     return isNextWindowDue(txn, nextPaydayDay, followingPaydayDay)
   }
 
