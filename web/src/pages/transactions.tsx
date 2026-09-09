@@ -82,7 +82,7 @@ export function TransactionsPage() {
   const [sortField, setSortField] = useState<'description' | 'date' | 'amount'>('date')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [filterCategory, setFilterCategory] = useState<string>('all')
-  const [preset, setPreset] = useState<TransactionPreset>('current-window')
+  const [preset, setPreset] = useState<TransactionPreset | null>(null)
   const [showFilters, setShowFilters] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [amountMin, setAmountMin] = useState('')
@@ -212,7 +212,7 @@ export function TransactionsPage() {
     return Array.from(cats).sort()
   }, [transactions])
 
-  const hasActiveFilters = filterCategory !== 'all' || preset !== 'current-window' || !!searchQuery.trim() || !!(amountMin || amountMax)
+  const hasActiveFilters = filterCategory !== 'all' || preset !== null || !!searchQuery.trim() || !!(amountMin || amountMax)
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => createTransaction(data),
@@ -429,7 +429,7 @@ export function TransactionsPage() {
 
   const handleClearFilters = useCallback(() => {
     setFilterCategory('all')
-    setPreset('current-window')
+    setPreset(null)
     setSearchQuery('')
     setAmountMin('')
     setAmountMax('')
@@ -536,7 +536,7 @@ export function TransactionsPage() {
       const saved = sessionStorage.getItem(FILTER_KEY)
       if (saved) {
         const state = JSON.parse(saved)
-        if (state.preset) setPreset(state.preset)
+        if (state.preset !== undefined) setPreset(state.preset as TransactionPreset | null)
         if (state.filterCategory) setFilterCategory(state.filterCategory)
         if (state.sortField) setSortField(state.sortField)
         if (state.sortDir) setSortDir(state.sortDir)
@@ -664,9 +664,10 @@ export function TransactionsPage() {
       {hasActiveFilters && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs text-muted-foreground mr-1">Filters:</span>
-          {preset !== 'current-window' && (
-            <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => setPreset('current-window')}>
+          {preset !== null && (
+            <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => setPreset(null)}>
               {preset === 'due-now' ? windowLabels?.dueNowLabel :
+               preset === 'current-window' ? windowLabels?.currentWindowLabel :
                preset === 'next-window' ? windowLabels?.nextWindowLabel :
                preset === 'all-recurring' ? 'All recurring' :
                preset === 'one-time-only' ? 'One-time only' : preset}
