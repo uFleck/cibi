@@ -43,6 +43,14 @@ export function ProjectionWidget({
     )
     .reduce((sum, t) => sum + Math.abs(t.amount), 0)
 
+  const currentInstallmentReserved = transactions
+    .filter(
+      t => t.is_installment && t.next_occurrence !== null
+        && t.amount < 0
+        && isInCurrentPayWindow(t.next_occurrence, now, nextPayday),
+    )
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+
   const currentPeerReserved = friendBreakdown.reduce((sum, debt) => {
     if (!debt.next_payment_date) return sum + debt.next_payment
     if (isInCurrentPayWindow(debt.next_payment_date, now, nextPayday)) {
@@ -51,17 +59,23 @@ export function ProjectionWidget({
     return sum
   }, 0)
 
-  const projectedStartBalance = account.current_balance - currentRecurringReserved - currentPeerReserved
+  const projectedStartBalance = account.current_balance - currentRecurringReserved - currentInstallmentReserved - currentPeerReserved
 
   const nextRecurringObligations = transactions
     .filter(t => t.is_recurring && t.next_occurrence !== null && isInWindow(t.next_occurrence, windowStart, windowEnd))
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+
+  const nextInstallmentObligations = transactions
+    .filter(t => t.is_installment && t.next_occurrence !== null
+      && t.amount < 0
+      && isInWindow(t.next_occurrence, windowStart, windowEnd))
     .reduce((sum, t) => sum + Math.abs(t.amount), 0)
 
   const nextPeerObligations = friendBreakdown
     .filter(d => d.next_payment_date !== null && isInWindow(d.next_payment_date, windowStart, windowEnd))
     .reduce((sum, d) => sum + d.next_payment, 0)
 
-  const nextObligations = nextRecurringObligations + nextPeerObligations
+  const nextObligations = nextRecurringObligations + nextInstallmentObligations + nextPeerObligations
 
   let incoming = 0
   for (const schedule of paySchedules) {
@@ -78,8 +92,10 @@ export function ProjectionWidget({
   const projectedEndBalance = projectedStartBalance + net
 
   const chartData = [
-    { name: 'Incoming', value: incoming, fill: 'var(--color-verdict-yes)' },
-    { name: 'Obligations', value: -nextObligations, fill: 'var(--color-verdict-no)' },
+    { name: 'Income', value: incoming, fill: 'var(--color-verdict-yes)' },
+    { name: 'Bills', value: -nextRecurringObligations, fill: 'var(--color-verdict-no)' },
+    ...(nextInstallmentObligations > 0 ? [{ name: 'Installments', value: -nextInstallmentObligations, fill: 'var(--color-risk-medium)' }] : []),
+    ...(nextPeerObligations > 0 ? [{ name: 'Peer debts', value: -nextPeerObligations, fill: 'var(--color-risk-medium)' }] : []),
     { name: 'Net', value: net, fill: net >= 0 ? 'var(--color-verdict-yes)' : 'var(--color-verdict-no)' },
   ]
 
