@@ -135,15 +135,22 @@ func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateT
 		return fmt.Errorf("is_installment and is_recurring are mutually exclusive")
 	}
 	// When switching to installment, required fields must be present in this patch.
+	// If transaction is already installment, skip — fields are already in the DB.
 	if setInstallment {
-		if upd.TotalInstallments == nil || *upd.TotalInstallments <= 0 {
-			return fmt.Errorf("installment transaction requires total_installments > 0")
+		oldTxn, err := s.txnsRepo.GetByID(id)
+		if err != nil {
+			return fmt.Errorf("service.UpdateTransaction: get old transaction: %w", err)
 		}
-		if upd.AnchorDate == nil {
-			return fmt.Errorf("installment transaction requires anchor_date")
-		}
-		if upd.Frequency == nil || (*upd.Frequency != engine.FreqMonthly && *upd.Frequency != engine.FreqWeekly) {
-			return fmt.Errorf("installment transaction requires frequency of monthly or weekly")
+		if !oldTxn.IsInstallment {
+			if upd.TotalInstallments == nil || *upd.TotalInstallments <= 0 {
+				return fmt.Errorf("installment transaction requires total_installments > 0")
+			}
+			if upd.AnchorDate == nil {
+				return fmt.Errorf("installment transaction requires anchor_date")
+			}
+			if upd.Frequency == nil || (*upd.Frequency != engine.FreqMonthly && *upd.Frequency != engine.FreqWeekly) {
+				return fmt.Errorf("installment transaction requires frequency of monthly or weekly")
+			}
 		}
 	}
 

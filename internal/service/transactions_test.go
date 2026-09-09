@@ -940,3 +940,73 @@ func TestDeleteInstallment_ReversesAllPaidInstallments(t *testing.T) {
 		t.Fatalf("expected new balance 115000 (reversed 3 installments), got %d", gotNewBalance)
 	}
 }
+
+func TestUpdateTransaction_ExistingInstallment_SkipsRequiredFieldValidation(t *testing.T) {
+	db := openTestDB(t)
+	txnID := uuid.New()
+	accountID := uuid.New()
+
+	// Transaction is already an installment — PATCH sends is_installment: true
+	// but does NOT include total_installments, anchor_date, or frequency.
+	isInstallment := true
+	newDesc := "Updated description"
+
+	txnsRepo := &mockTransactionsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Transaction, error) {
+			return sqlite.Transaction{
+				ID:               txnID,
+				AccountID:        accountID,
+				IsInstallment:    true,
+				PaidInstallments: 1,
+				Amount:           -5000,
+			}, nil
+		},
+		updateFn: func(id uuid.UUID, upd sqlite.UpdateTransaction, tx *sql.Tx) error {
+			return nil
+		},
+	}
+	accRepo := &mockAccountsRepo{}
+
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{
+		IsInstallment: &isInstallment,
+		Description:   &newDesc,
+	})
+
+	if err != nil {
+		t.Fatalf("expected no error editing existing installment, got: %v", err)
+	}
+}
+
+func TestUpdateTransaction_SwitchToInstallment_StillValidates(t *testing.T) {
+	db := openTestDB(t)
+	txnID := uuid.New()
+	accountID := uuid.New()
+
+	// Transaction is NOT an installment — switching to installment must validate.
+	isInstallment := true
+
+	txnsRepo := &mockTransactionsRepo{
+		getByIDFn: func(id uuid.UUID) (sqlite.Transaction, error) {
+			return sqlite.Transaction{
+				ID:            txnID,
+				AccountID:     accountID,
+				IsInstallment: false,
+			}, nil
+		},
+	}
+	accRepo := &mockAccountsRepo{}
+
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{
+		IsInstallment: &isInstallment,
+		// Missing total_installments, anchor_date, frequency
+	})
+
+	if err == nil {
+		t.Fatal("expected validation error when switching non-installment to installment without required fields")
+	}
+	if !strings.Contains(err.Error(), "total_installments") {
+		t.Fatalf("expected total_installments error, got: %v", err)
+	}
+}
