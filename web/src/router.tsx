@@ -178,7 +178,7 @@ function Dashboard() {
                 </button>
               </div>
 
-              <PayScheduleList schedules={paySchedules} currency={account.currency} nextPayday={nextPayday} />
+              <PayScheduleList schedules={paySchedules} currency={account.currency} />
             </div>
           ) : null}
         </Skeleton>

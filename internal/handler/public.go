@@ -20,6 +20,7 @@ type PublicFriendTokenSvc interface {
 	GetFriendByToken(token string) (sqlite.Friend, error)
 	GetFriendByID(id uuid.UUID) (sqlite.Friend, error)
 	GetPublicFriendView(token string) (service.PublicFriendView, error)
+	UpdateFriend(id uuid.UUID, name *string, notes *string, pixKey *string) error
 }
 
 type PublicPeerDebtSvc interface {
@@ -268,6 +269,30 @@ func (h *PublicHandler) ToggleHostedGroupPayment(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "participant not found in event")
 		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+type UpdatePixKeyRequest struct {
+	PixKey string `json:"pix_key" validate:"required"`
+}
+
+// UpdatePixKey handles PATCH /public/friend/:token/pix-key.
+func (h *PublicHandler) UpdatePixKey(c echo.Context) error {
+	token := c.Param("token")
+	var req UpdatePixKeyRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := c.Validate(req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	friend, err := h.friendSvc.GetFriendByToken(token)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "friend not found")
+	}
+	if err := h.friendSvc.UpdateFriend(friend.ID, nil, nil, &req.PixKey); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.NoContent(http.StatusNoContent)

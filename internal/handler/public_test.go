@@ -39,6 +39,10 @@ func (m *mockPublicFriendService) GetPublicFriendView(token string) (service.Pub
 	return service.PublicFriendView{}, sql.ErrNoRows
 }
 
+func (m *mockPublicFriendService) UpdateFriend(id uuid.UUID, name *string, notes *string, pixKey *string) error {
+	return nil
+}
+
 type mockPublicPeerDebtService struct{}
 
 func (m *mockPublicPeerDebtService) GetBalanceByFriend(id uuid.UUID) (sqlite.PeerDebtBalance, error) {

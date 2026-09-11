@@ -721,7 +721,6 @@ export function FriendsPage() {
         account_id: selectedAccountId!,
         title: eventForm.title,
         date: eventForm.date,
-        total_amount: parseDecimalInput(eventForm.total_amount) ?? 0,
         ...(eventForm.notes ? { notes: eventForm.notes } : {}),
       }),
     onSuccess: () => {

@@ -227,6 +227,38 @@ func (s *GroupEventService) GetPendingBalanceForAdminByAccount(accountID uuid.UU
 	return b, nil
 }
 
+// AddEventTransaction creates and persists a new transaction for a group event.
+func (s *GroupEventService) AddEventTransaction(eventID uuid.UUID, description string, amount int64) (sqlite.GroupEventTransaction, error) {
+	t := sqlite.GroupEventTransaction{
+		ID:          uuid.New(),
+		EventID:     eventID,
+		Description: description,
+		Amount:      amount,
+		CreatedAt:   time.Now().UTC(),
+	}
+	if err := s.repo.InsertTransaction(t); err != nil {
+		return t, fmt.Errorf("service.AddEventTransaction: %w", err)
+	}
+	return t, nil
+}
+
+// RemoveEventTransaction deletes a transaction by ID.
+func (s *GroupEventService) RemoveEventTransaction(id uuid.UUID) error {
+	if err := s.repo.DeleteTransactionByID(id); err != nil {
+		return fmt.Errorf("service.RemoveEventTransaction: %w", err)
+	}
+	return nil
+}
+
+// GetEventTransactions returns all transactions for a group event.
+func (s *GroupEventService) GetEventTransactions(eventID uuid.UUID) ([]sqlite.GroupEventTransaction, error) {
+	txns, err := s.repo.GetTransactionsByEvent(eventID)
+	if err != nil {
+		return nil, fmt.Errorf("service.GetEventTransactions: %w", err)
+	}
+	return txns, nil
+}
+
 // EqualSplitAmounts distributes totalAmount as evenly as possible across count participants.
 // Remainder cents go to the first participant.
 // Example: 100 cents / 3 = [34, 33, 33]

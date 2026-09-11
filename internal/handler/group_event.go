@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -23,6 +24,9 @@ type GroupEventServiceIface interface {
 	SetParticipants(eventID uuid.UUID, participants []sqlite.GroupEventParticipant, hostFriendID *uuid.UUID) error
 	GetParticipants(eventID uuid.UUID) ([]sqlite.GroupEventParticipant, error)
 	EqualSplitAmounts(totalAmount int64, count int) []int64
+	AddEventTransaction(eventID uuid.UUID, description string, amount int64) (sqlite.GroupEventTransaction, error)
+	RemoveEventTransaction(id uuid.UUID) error
+	GetEventTransactions(eventID uuid.UUID) ([]sqlite.GroupEventTransaction, error)
 }
 
 // Ensure *service.GroupEventService satisfies GroupEventServiceIface.
@@ -226,6 +230,78 @@ func (h *GroupEventHandler) Delete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.NoContent(http.StatusNoContent)
+}
+
+type AddTransactionRequest struct {
+	Description string `json:"description" validate:"required"`
+	Amount      int64  `json:"amount" validate:"required"`
+}
+
+type GroupEventTransactionResponse struct {
+	ID          string `json:"id"`
+	EventID     string `json:"event_id"`
+	Description string `json:"description"`
+	Amount      int64  `json:"amount"`
+	CreatedAt   string `json:"created_at"`
+}
+
+func toGroupEventTxnResponse(t sqlite.GroupEventTransaction) GroupEventTransactionResponse {
+	return GroupEventTransactionResponse{
+		ID:          t.ID.String(),
+		EventID:     t.EventID.String(),
+		Description: t.Description,
+		Amount:      t.Amount,
+		CreatedAt:   t.CreatedAt.UTC().Format(time.RFC3339),
+	}
+}
+
+// AddTransaction handles POST /group-events/:id/transactions.
+func (h *GroupEventHandler) AddTransaction(c echo.Context) error {
+	eventID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid event id")
+	}
+	var req AddTransactionRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	if err := c.Validate(req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	t, err := h.svc.AddEventTransaction(eventID, req.Description, req.Amount)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(http.StatusCreated, toGroupEventTxnResponse(t))
+}
+
+// RemoveTransaction handles DELETE /group-events/:id/transactions/:tid.
+func (h *GroupEventHandler) RemoveTransaction(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("tid"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid transaction id")
+	}
+	if err := h.svc.RemoveEventTransaction(id); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+// ListTransactions handles GET /group-events/:id/transactions.
+func (h *GroupEventHandler) ListTransactions(c echo.Context) error {
+	eventID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid event id")
+	}
+	txns, err := h.svc.GetEventTransactions(eventID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	resp := make([]GroupEventTransactionResponse, 0, len(txns))
+	for _, t := range txns {
+		resp = append(resp, toGroupEventTxnResponse(t))
+	}
+	return c.JSON(http.StatusOK, resp)
 }
 
 // SetParticipants handles PUT /group-events/:id/participants — replaces the participant set.
