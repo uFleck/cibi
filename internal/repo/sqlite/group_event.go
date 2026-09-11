@@ -43,6 +43,15 @@ type AdminGroupExpense struct {
 	Date        string // RFC3339 or date-only
 }
 
+// GroupEventTransaction represents a transaction record within a group event.
+type GroupEventTransaction struct {
+	ID          uuid.UUID
+	EventID     uuid.UUID
+	Description string
+	Amount      int64
+	CreatedAt   time.Time
+}
+
 // GroupEventRepo defines the data access contract for group events.
 type GroupEventRepo interface {
 	Insert(e GroupEvent) error
@@ -59,6 +68,9 @@ type GroupEventRepo interface {
 	SumUpcomingAdminObligations(accountID *uuid.UUID, after, onOrBefore time.Time) (int64, error)
 	GetAdminPendingExpenses(accountID *uuid.UUID) ([]AdminGroupExpense, error)
 	GetPendingBalanceForAdmin(accountID *uuid.UUID) (GroupEventBalance, error)
+	InsertTransaction(t GroupEventTransaction) error
+	DeleteTransactionByID(id uuid.UUID) error
+	GetTransactionsByEvent(eventID uuid.UUID) ([]GroupEventTransaction, error)
 }
 
 // SqliteGroupEventRepo implements GroupEventRepo against modernc SQLite.
@@ -514,6 +526,58 @@ func (r *SqliteGroupEventRepo) GetAdminPendingExpenses(accountID *uuid.UUID) ([]
 		result = append(result, item)
 	}
 	return result, rows.Err()
+}
+
+func (r *SqliteGroupEventRepo) InsertTransaction(t GroupEventTransaction) error {
+	_, err := r.db.Exec(
+		`INSERT INTO GroupEventTransaction (id, event_id, description, amount, created_at) VALUES (?, ?, ?, ?, ?)`,
+		t.ID.String(), t.EventID.String(), t.Description, t.Amount, t.CreatedAt.UTC().Format(time.RFC3339),
+	)
+	if err != nil {
+		return fmt.Errorf("group_event.InsertTransaction: %w", err)
+	}
+	return nil
+}
+
+func (r *SqliteGroupEventRepo) DeleteTransactionByID(id uuid.UUID) error {
+	if _, err := r.db.Exec(`DELETE FROM GroupEventTransaction WHERE id = ?`, id.String()); err != nil {
+		return fmt.Errorf("group_event.DeleteTransactionByID: %w", err)
+	}
+	return nil
+}
+
+func (r *SqliteGroupEventRepo) GetTransactionsByEvent(eventID uuid.UUID) ([]GroupEventTransaction, error) {
+	rows, err := r.db.Query(
+		`SELECT id, event_id, description, amount, created_at FROM GroupEventTransaction WHERE event_id = ? ORDER BY created_at DESC`,
+		eventID.String(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("group_event.GetTransactionsByEvent: query: %w", err)
+	}
+	defer rows.Close()
+
+	var txns []GroupEventTransaction
+	for rows.Next() {
+		var t GroupEventTransaction
+		var idStr, eventIDStr, createdAtStr string
+		if err := rows.Scan(&idStr, &eventIDStr, &t.Description, &t.Amount, &createdAtStr); err != nil {
+			return nil, fmt.Errorf("group_event.GetTransactionsByEvent: scan: %w", err)
+		}
+		t.ID, err = uuid.Parse(idStr)
+		if err != nil {
+			return nil, fmt.Errorf("group_event.GetTransactionsByEvent: parse id uuid: %w", err)
+		}
+		t.EventID, err = uuid.Parse(eventIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("group_event.GetTransactionsByEvent: parse event_id uuid: %w", err)
+		}
+		t.CreatedAt, err = time.Parse(time.RFC3339, createdAtStr)
+		if err != nil {
+			return nil, fmt.Errorf("group_event.GetTransactionsByEvent: parse created_at: %w", err)
+		}
+		txns = append(txns, t)
+	}
+	return txns, rows.Err()
 }
 
 // GetPendingBalanceForAdmin aggregates pending group-event balances for the admin.

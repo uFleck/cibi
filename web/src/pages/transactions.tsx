@@ -764,9 +764,6 @@ export function TransactionsPage() {
             }))}
             emptyTitle="No transactions match your filters"
             emptyHint="Adjust filters and try again"
-            sortField={sortField}
-            sortDir={sortDir}
-            maxMobileActions={2}
             onConfirm={handleConfirmClick}
             onDelete={setConfirmDelete}
             onOpen={(id) => {

@@ -126,6 +126,18 @@ func (m *mockGroupEventRepo) GetPendingBalanceForAdmin(accountID *uuid.UUID) (sq
 	return sqlite.GroupEventBalance{}, nil
 }
 
+func (m *mockGroupEventRepo) InsertTransaction(t sqlite.GroupEventTransaction) error {
+	return nil
+}
+
+func (m *mockGroupEventRepo) DeleteTransactionByID(id uuid.UUID) error {
+	return nil
+}
+
+func (m *mockGroupEventRepo) GetTransactionsByEvent(eventID uuid.UUID) ([]sqlite.GroupEventTransaction, error) {
+	return nil, nil
+}
+
 func TestListEventsByAccount_UsesScopedRepoPath(t *testing.T) {
 	accountID := uuid.New()
 	var captured *uuid.UUID
