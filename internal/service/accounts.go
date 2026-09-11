@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/ufleck/cibi/internal/repo/sqlite"
@@ -9,12 +10,13 @@ import (
 
 // AccountsService handles business logic for accounts.
 type AccountsService struct {
-	accRepo sqlite.AccountsRepo
+	accRepo   sqlite.AccountsRepo
+	ledgerSvc *LedgerService
 }
 
 // NewAccountsService creates a new AccountsService.
-func NewAccountsService(accRepo sqlite.AccountsRepo) *AccountsService {
-	return &AccountsService{accRepo: accRepo}
+func NewAccountsService(accRepo sqlite.AccountsRepo, ledgerSvc *LedgerService) *AccountsService {
+	return &AccountsService{accRepo: accRepo, ledgerSvc: ledgerSvc}
 }
 
 // ListAccounts returns all accounts.
@@ -82,8 +84,21 @@ func (s *AccountsService) UpdateAccount(id uuid.UUID, name *string, balance *int
 		}
 	}
 	if balance != nil {
-		if err := s.accRepo.UpdateBalance(id, *balance, nil); err != nil {
-			return fmt.Errorf("service.UpdateAccount: balance: %w", err)
+		acc, err := s.accRepo.GetByID(id)
+		if err != nil {
+			return fmt.Errorf("service.UpdateAccount: get account: %w", err)
+		}
+		delta := *balance - acc.CurrentBalance
+		if delta != 0 {
+			if err := s.ledgerSvc.RecordEntry(sqlite.LedgerEntry{
+				AccountID:   id,
+				EntryType:   "manual_adjustment",
+				Amount:      delta,
+				Description: "Manual balance adjustment",
+				PostedAt:    time.Now().UTC(),
+			}, nil); err != nil {
+				return fmt.Errorf("service.UpdateAccount: record adjustment: %w", err)
+			}
 		}
 	}
 	if safetyBuffer != nil {

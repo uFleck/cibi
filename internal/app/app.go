@@ -51,9 +51,9 @@ func New(cfg config.Config) (*App, error) {
 	iGroupEvtRepo := reposqlite.NewSqliteGroupEventRepo(database)
 	iProfileRepo := reposqlite.NewSqliteProfileRepo(database)
 
-	accountsSvc := service.NewAccountsService(iAccRepo)
 	iLedgerRepo := reposqlite.NewSqliteLedgerRepo(database)
 	ledgerSvc := service.NewLedgerService(database, iLedgerRepo, iAccRepo)
+	accountsSvc := service.NewAccountsService(iAccRepo, ledgerSvc)
 	txnsSvc := service.NewTransactionsService(database, iTxnsRepo, iAccRepo, ledgerSvc)
 	goalsRepo := reposqlite.NewSqliteGoalsRepo(database)
 	goalsSvc := service.NewGoalsService(database, goalsRepo, iAccRepo)
