@@ -234,7 +234,8 @@ func TestCreateTransaction_UpdatesBalanceAtomically(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, &updateUsedTx)
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, accountID, startingBalance)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.CreateTransaction(sqlite.Transaction{AccountID: accountID, Amount: txnAmount})
 	if err != nil {
 		t.Fatalf("CreateTransaction error: %v", err)
@@ -280,7 +281,8 @@ func TestCreateTransaction_FutureAnchorDate_DoesNotUpdateBalance(t *testing.T) {
 	}
 
 	freq := engine.FreqMonthly
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.CreateTransaction(sqlite.Transaction{
 		AccountID:   accountID,
 		Amount:      txnAmount,
@@ -330,7 +332,8 @@ func TestCreateTransaction_PendingPayment_DoesNotUpdateBalance(t *testing.T) {
 		},
 	}
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.CreateTransaction(sqlite.Transaction{
 		AccountID:            accountID,
 		Amount:               txnAmount,
@@ -383,7 +386,8 @@ func TestUpdateTransaction_RecalculatesBalanceWhenAmountChanges(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{Amount: &newAmount})
 	if err != nil {
 		t.Fatalf("UpdateTransaction error: %v", err)
@@ -436,7 +440,8 @@ func TestUpdateTransaction_PendingPaymentAmount_DoesNotAdjustBalanceBeforeConfir
 		},
 	}
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{Amount: &newAmount})
 	if err != nil {
 		t.Fatalf("UpdateTransaction error: %v", err)
@@ -482,7 +487,8 @@ func TestUpdateTransaction_InstallmentWithPaidInstallments_UsesCorrectBalanceDel
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{Amount: &newAmount})
 	if err != nil {
 		t.Fatalf("UpdateTransaction error: %v", err)
@@ -529,7 +535,8 @@ func TestDeleteTransaction_ReversesBalance(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.DeleteTransaction(txnID)
 	if err != nil {
 		t.Fatalf("DeleteTransaction error: %v", err)
@@ -578,7 +585,8 @@ func TestDeleteTransaction_PendingPayment_DoesNotAdjustBalanceBeforeConfirmation
 		},
 	}
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.DeleteTransaction(txnID)
 	if err != nil {
 		t.Fatalf("DeleteTransaction error: %v", err)
@@ -629,7 +637,8 @@ func TestConfirmRecurring_UpdatesBalanceAndAdvancesOccurrence(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, accountID, startingBalance)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	next, err := svc.ConfirmRecurring(txnID)
 	if err != nil {
 		t.Fatalf("ConfirmRecurring error: %v", err)
@@ -688,7 +697,8 @@ func TestConfirmRecurring_PendingPayment_UpdatesBalanceAndMarksConfirmed(t *test
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, accountID, startingBalance)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	next, err := svc.ConfirmRecurring(txnID)
 	if err != nil {
 		t.Fatalf("ConfirmRecurring error: %v", err)
@@ -729,7 +739,8 @@ func TestConfirmRecurring_PendingPaymentAlreadyConfirmed_IsIdempotent(t *testing
 		},
 	}
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	next, err := svc.ConfirmRecurring(txnID)
 	if err != nil {
 		t.Fatalf("ConfirmRecurring error: %v", err)
@@ -773,7 +784,8 @@ func TestConfirmInstallment_DebitsBalanceAndIncrementsCount(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, accountID, startingBalance)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.ConfirmInstallment(txnID)
 	if err != nil {
 		t.Fatalf("ConfirmInstallment error: %v", err)
@@ -805,7 +817,8 @@ func TestConfirmInstallment_AlreadyComplete_ReturnsError(t *testing.T) {
 	}
 	accRepo := &mockAccountsRepo{}
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.ConfirmInstallment(txnID)
 	if err == nil {
 		t.Fatal("expected error for fully paid installment, got nil")
@@ -823,7 +836,8 @@ func TestConfirmInstallment_NonInstallment_ReturnsError(t *testing.T) {
 	}
 	accRepo := &mockAccountsRepo{}
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.ConfirmInstallment(txnID)
 	if err == nil {
 		t.Fatal("expected error for non-installment txn, got nil")
@@ -858,7 +872,8 @@ func TestUpdateTransaction_TotalInstallments_CanIncrease(t *testing.T) {
 	}
 	accRepo := &mockAccountsRepo{}
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{TotalInstallments: &newTotal})
 	if err != nil {
 		t.Fatalf("expected no error increasing total_installments, got: %v", err)
@@ -894,7 +909,8 @@ func TestUpdateTransaction_TotalInstallments_CannotBecomeLessThanPaid(t *testing
 	}
 	accRepo := &mockAccountsRepo{}
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{TotalInstallments: &newTotal})
 	if err == nil {
 		t.Fatal("expected error when total_installments < paid_installments, got nil")
@@ -930,7 +946,8 @@ func TestDeleteInstallment_ReversesAllPaidInstallments(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	if err := svc.DeleteTransaction(txnID); err != nil {
 		t.Fatalf("DeleteTransaction error: %v", err)
 	}
@@ -967,7 +984,8 @@ func TestUpdateTransaction_ExistingInstallment_SkipsRequiredFieldValidation(t *t
 	}
 	accRepo := &mockAccountsRepo{}
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{
 		IsInstallment: &isInstallment,
 		Description:   &newDesc,
@@ -997,7 +1015,8 @@ func TestUpdateTransaction_SwitchToInstallment_StillValidates(t *testing.T) {
 	}
 	accRepo := &mockAccountsRepo{}
 
-	svc := service.NewTransactionsService(db, txnsRepo, accRepo)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{
 		IsInstallment: &isInstallment,
 		// Missing total_installments, anchor_date, frequency
@@ -1009,4 +1028,94 @@ func TestUpdateTransaction_SwitchToInstallment_StillValidates(t *testing.T) {
 	if !strings.Contains(err.Error(), "total_installments") {
 		t.Fatalf("expected total_installments error, got: %v", err)
 	}
+}
+
+// mockLedgerRepo simulates ledger storage in memory for tests.
+// It tracks amounts per account so SumByAccount returns realistic values.
+type mockLedgerRepo struct {
+	entries []sqlite.LedgerEntry
+}
+
+func (m *mockLedgerRepo) Insert(e sqlite.LedgerEntry, tx *sql.Tx) error {
+	if e.ID == (uuid.UUID{}) {
+		e.ID = uuid.New()
+	}
+	m.entries = append(m.entries, e)
+	return nil
+}
+
+func (m *mockLedgerRepo) ListByAccount(accountID uuid.UUID) ([]sqlite.LedgerEntry, error) {
+	var out []sqlite.LedgerEntry
+	for _, e := range m.entries {
+		if e.AccountID == accountID {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
+func (m *mockLedgerRepo) DeleteByID(id uuid.UUID, tx *sql.Tx) error {
+	for i, e := range m.entries {
+		if e.ID == id {
+			m.entries = append(m.entries[:i], m.entries[i+1:]...)
+			return nil
+		}
+	}
+	return nil
+}
+
+func (m *mockLedgerRepo) FindByTransactionID(txnID uuid.UUID) (*sqlite.LedgerEntry, error) {
+	for i, e := range m.entries {
+		if e.TransactionID != nil && *e.TransactionID == txnID {
+			return &m.entries[i], nil
+		}
+	}
+	return nil, nil
+}
+
+func (m *mockLedgerRepo) FindByID(id uuid.UUID) (*sqlite.LedgerEntry, error) {
+	for i, e := range m.entries {
+		if e.ID == id {
+			return &m.entries[i], nil
+		}
+	}
+	return nil, nil
+}
+
+func (m *mockLedgerRepo) SumByAccount(accountID uuid.UUID, tx *sql.Tx) (int64, error) {
+	var sum int64
+	for _, e := range m.entries {
+		if e.AccountID == accountID {
+			sum += e.Amount
+		}
+	}
+	return sum, nil
+}
+
+func (m *mockLedgerRepo) UpdateAmount(id uuid.UUID, amount int64, tx *sql.Tx) error {
+	for i, e := range m.entries {
+		if e.ID == id {
+			m.entries[i].Amount = amount
+			return nil
+		}
+	}
+	return nil
+}
+
+// newTestLedgerSvc returns a LedgerService backed by an in-memory mock repo.
+// seedBalance pre-populates an opening_balance entry for accountID so that
+// SumByAccount reflects the account's starting state correctly.
+// The accRepo must be the same mock the test uses so UpdateBalance is captured.
+func newTestLedgerSvc(db *sql.DB, accRepo sqlite.AccountsRepo, accountID uuid.UUID, seedBalance int64) *service.LedgerService {
+	repo := &mockLedgerRepo{}
+	if accountID != (uuid.UUID{}) {
+		repo.entries = []sqlite.LedgerEntry{{
+			ID:        uuid.New(),
+			AccountID: accountID,
+			EntryType: "opening_balance",
+			Amount:    seedBalance,
+			PostedAt:  time.Now().UTC(),
+		}}
+	}
+	return service.NewLedgerService(db, repo, accRepo)
 }

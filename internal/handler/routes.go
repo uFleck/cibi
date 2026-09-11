@@ -24,6 +24,7 @@ func SetupRoutes(
 	peerDebtSvc *service.PeerDebtService,
 	groupEventSvc *service.GroupEventService,
 	profileSvc *service.ProfileService,
+	ledgerSvc *service.LedgerService,
 	publicBaseURL string,
 ) {
 	ah := NewAccountsHandler(accSvc)
@@ -110,6 +111,12 @@ func SetupRoutes(
 	groupEvents.POST("/:id/transactions", geh.AddTransaction)
 	groupEvents.DELETE("/:id/transactions/:tid", geh.RemoveTransaction)
 	groupEvents.GET("/:id/transactions", geh.ListTransactions)
+
+	lh := NewLedgerHandler(ledgerSvc)
+	ledger := api.Group("/ledger")
+	ledger.GET("", lh.List)
+	ledger.DELETE("/:id", lh.Delete)
+	ledger.POST("/income", lh.RecordIncome)
 
 	profile := api.Group("/profile")
 	profile.GET("", prh.Get)

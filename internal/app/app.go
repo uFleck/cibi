@@ -28,6 +28,7 @@ type App struct {
 	GroupEventSvc  *service.GroupEventService
 	ProfileSvc     *service.ProfileService
 	GoalsSvc       *service.GoalsService
+	LedgerSvc      *service.LedgerService
 }
 
 // New creates and wires the entire application graph.
@@ -51,7 +52,9 @@ func New(cfg config.Config) (*App, error) {
 	iProfileRepo := reposqlite.NewSqliteProfileRepo(database)
 
 	accountsSvc := service.NewAccountsService(iAccRepo)
-	txnsSvc := service.NewTransactionsService(database, iTxnsRepo, iAccRepo)
+	iLedgerRepo := reposqlite.NewSqliteLedgerRepo(database)
+	ledgerSvc := service.NewLedgerService(database, iLedgerRepo, iAccRepo)
+	txnsSvc := service.NewTransactionsService(database, iTxnsRepo, iAccRepo, ledgerSvc)
 	goalsRepo := reposqlite.NewSqliteGoalsRepo(database)
 	goalsSvc := service.NewGoalsService(database, goalsRepo, iAccRepo)
 	engineSvc := service.NewEngineService(iAccRepo, iTxnsRepo, iPsRepo, iPeerDebtRepo, iGroupEvtRepo, goalsRepo)
@@ -65,7 +68,7 @@ func New(cfg config.Config) (*App, error) {
 	e.HTTPErrorHandler = handler.CustomHTTPErrorHandler
 	e.Validator = handler.NewCustomValidator()
 
-	handler.SetupRoutes(e, accountsSvc, txnsSvc, goalsSvc, engineSvc, payScheduleSvc, friendSvc, peerDebtSvc, groupEventSvc, profileSvc)
+	handler.SetupRoutes(e, accountsSvc, txnsSvc, goalsSvc, engineSvc, payScheduleSvc, friendSvc, peerDebtSvc, groupEventSvc, profileSvc, ledgerSvc, cfg.PublicBaseURL)
 
 	return &App{
 		cfg:            cfg,
@@ -80,6 +83,7 @@ func New(cfg config.Config) (*App, error) {
 		GroupEventSvc:  groupEventSvc,
 		ProfileSvc:     profileSvc,
 		GoalsSvc:       goalsSvc,
+		LedgerSvc:      ledgerSvc,
 	}, nil
 }
 
