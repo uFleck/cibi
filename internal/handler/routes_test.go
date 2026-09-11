@@ -14,7 +14,7 @@ func TestRoutesRegistersAPIEndpointsWithInjectedServices(t *testing.T) {
 	SetupRoutes(
 		e,
 		service.NewAccountsService(nil),
-		service.NewTransactionsService(nil, nil, nil),
+		service.NewTransactionsService(nil, nil, nil, nil),
 		service.NewGoalsService(nil, nil, nil),
 		service.NewEngineService(nil, nil, nil, nil, nil, nil),
 		service.NewPayScheduleService(nil, nil, nil),
@@ -22,6 +22,8 @@ func TestRoutesRegistersAPIEndpointsWithInjectedServices(t *testing.T) {
 		service.NewPeerDebtService(nil),
 		service.NewGroupEventService(nil, nil),
 		service.NewProfileService(nil),
+		nil,
+		"",
 	)
 
 	routes := map[string]bool{}

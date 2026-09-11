@@ -12,14 +12,15 @@ import (
 
 // TransactionsService handles business logic for transactions.
 type TransactionsService struct {
-	db       *sql.DB
-	txnsRepo sqlite.TransactionsRepo
-	accRepo  sqlite.AccountsRepo
+	db        *sql.DB
+	txnsRepo  sqlite.TransactionsRepo
+	accRepo   sqlite.AccountsRepo
+	ledgerSvc *LedgerService
 }
 
 // NewTransactionsService creates a new TransactionsService.
-func NewTransactionsService(db *sql.DB, txnsRepo sqlite.TransactionsRepo, accRepo sqlite.AccountsRepo) *TransactionsService {
-	return &TransactionsService{db: db, txnsRepo: txnsRepo, accRepo: accRepo}
+func NewTransactionsService(db *sql.DB, txnsRepo sqlite.TransactionsRepo, accRepo sqlite.AccountsRepo, ledgerSvc *LedgerService) *TransactionsService {
+	return &TransactionsService{db: db, txnsRepo: txnsRepo, accRepo: accRepo, ledgerSvc: ledgerSvc}
 }
 
 // CreateTransaction validates and inserts a new transaction.
@@ -67,36 +68,26 @@ func (s *TransactionsService) CreateTransaction(t sqlite.Transaction) error {
 
 	applyToBalance := shouldApplyBalanceOnCreate(t, time.Now().UTC())
 
-	// IMPORTANT: with SQLite configured as MaxOpenConns(1), calling repository
-	// methods that use s.db while a tx is open can deadlock waiting for a free
-	// connection. Read account balance before opening the tx.
-	var currentBalance int64
-	if applyToBalance {
-		acc, err := s.accRepo.GetByID(t.AccountID)
-		if err != nil {
-			return fmt.Errorf("service.CreateTransaction: get account: %w", err)
-		}
-		currentBalance = acc.CurrentBalance
-	}
-
 	tx, err := s.db.Begin()
 	if err != nil {
 		return fmt.Errorf("service.CreateTransaction: begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
-	// Insert transaction with tx.
 	if err := s.txnsRepo.Insert(t, tx); err != nil {
 		return fmt.Errorf("service.CreateTransaction: insert: %w", err)
 	}
 
 	if applyToBalance {
-		// Calculate new balance: balance increases for positive amounts (credit), decreases for negative (debit).
-		newBalance := currentBalance + t.Amount
-
-		// Update account balance.
-		if err := s.accRepo.UpdateBalance(t.AccountID, newBalance, tx); err != nil {
-			return fmt.Errorf("service.CreateTransaction: update balance: %w", err)
+		if err := s.ledgerSvc.RecordEntry(sqlite.LedgerEntry{
+			AccountID:     t.AccountID,
+			TransactionID: &t.ID,
+			EntryType:     "payment",
+			Amount:        t.Amount,
+			Description:   t.Description,
+			PostedAt:      t.Timestamp,
+		}, tx); err != nil {
+			return fmt.Errorf("service.CreateTransaction: record ledger: %w", err)
 		}
 	}
 
@@ -128,14 +119,11 @@ func (s *TransactionsService) GetTransaction(id uuid.UUID) (sqlite.Transaction, 
 // UpdateTransaction patches the mutable fields of a transaction.
 // D-02: Recalculates account balance if amount changes.
 func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateTransaction) error {
-	// Validate flag mutual exclusion.
 	setInstallment := upd.IsInstallment != nil && *upd.IsInstallment
 	setRecurring := upd.IsRecurring != nil && *upd.IsRecurring
 	if setInstallment && setRecurring {
 		return fmt.Errorf("is_installment and is_recurring are mutually exclusive")
 	}
-	// When switching to installment, required fields must be present in this patch.
-	// If transaction is already installment, skip — fields are already in the DB.
 	if setInstallment {
 		oldTxn, err := s.txnsRepo.GetByID(id)
 		if err != nil {
@@ -154,7 +142,6 @@ func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateT
 		}
 	}
 
-	// Validate total_installments constraint before any DB work.
 	if upd.TotalInstallments != nil {
 		oldTxn, err := s.txnsRepo.GetByID(id)
 		if err != nil {
@@ -180,10 +167,8 @@ func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateT
 			return nil
 		}
 
-		acc, err := s.accRepo.GetByID(oldTxn.AccountID)
-		if err != nil {
-			return fmt.Errorf("service.UpdateTransaction: get account: %w", err)
-		}
+		// Look up ledger entry before opening the tx (MaxOpenConns=1 constraint).
+		ledgerEntry, _ := s.ledgerSvc.FindByTransactionID(id)
 
 		tx, err := s.db.Begin()
 		if err != nil {
@@ -195,19 +180,36 @@ func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateT
 			return fmt.Errorf("service.UpdateTransaction: update: %w", err)
 		}
 
-		// Calculate new balance: new = old_balance - old_amount + new_amount.
-		// For installments, only the paid portion has already hit the balance,
-		// so we reverse/apply PaidInstallments * perInstallmentAmount.
-		newBalance := acc.CurrentBalance - oldTxn.Amount + *upd.Amount
-		if oldTxn.IsInstallment {
-			newBalance = acc.CurrentBalance - (oldTxn.Amount * oldTxn.PaidInstallments) + (*upd.Amount * oldTxn.PaidInstallments)
-		}
-		if err := s.accRepo.UpdateBalance(oldTxn.AccountID, newBalance, tx); err != nil {
-			return fmt.Errorf("service.UpdateTransaction: update balance: %w", err)
-		}
-
 		if err := tx.Commit(); err != nil {
 			return fmt.Errorf("service.UpdateTransaction: commit: %w", err)
+		}
+
+		if ledgerEntry != nil {
+			// Post-ledger: update ledger entry amount and recompute balance.
+			if err := s.ledgerSvc.UpdateEntryAmount(ledgerEntry.ID, *upd.Amount); err != nil {
+				return fmt.Errorf("service.UpdateTransaction: update ledger amount: %w", err)
+			}
+		} else {
+			// Legacy transaction: arithmetic balance adjustment.
+			acc, err := s.accRepo.GetByID(oldTxn.AccountID)
+			if err != nil {
+				return fmt.Errorf("service.UpdateTransaction: get account: %w", err)
+			}
+			newBalance := acc.CurrentBalance - oldTxn.Amount + *upd.Amount
+			if oldTxn.IsInstallment {
+				newBalance = acc.CurrentBalance - (oldTxn.Amount * oldTxn.PaidInstallments) + (*upd.Amount * oldTxn.PaidInstallments)
+			}
+			legacyTx, err := s.db.Begin()
+			if err != nil {
+				return fmt.Errorf("service.UpdateTransaction: begin legacy balance tx: %w", err)
+			}
+			defer legacyTx.Rollback()
+			if err := s.accRepo.UpdateBalance(oldTxn.AccountID, newBalance, legacyTx); err != nil {
+				return fmt.Errorf("service.UpdateTransaction: update balance: %w", err)
+			}
+			if err := legacyTx.Commit(); err != nil {
+				return fmt.Errorf("service.UpdateTransaction: commit legacy balance: %w", err)
+			}
 		}
 
 		return nil
@@ -227,6 +229,12 @@ func (s *TransactionsService) DeleteTransaction(id uuid.UUID) error {
 		return fmt.Errorf("service.DeleteTransaction: get transaction: %w", err)
 	}
 
+	// Look up ledger entry before any tx (MaxOpenConns=1 constraint).
+	ledgerEntry, err := s.ledgerSvc.FindByTransactionID(id)
+	if err != nil {
+		return fmt.Errorf("service.DeleteTransaction: find ledger: %w", err)
+	}
+
 	if !hasAppliedToBalance(t, time.Now().UTC()) {
 		if err := s.txnsRepo.DeleteByID(id, nil); err != nil {
 			return fmt.Errorf("service.DeleteTransaction: delete: %w", err)
@@ -234,6 +242,20 @@ func (s *TransactionsService) DeleteTransaction(id uuid.UUID) error {
 		return nil
 	}
 
+	if ledgerEntry != nil {
+		// Post-ledger transaction: delete transaction, then delete ledger entry
+		// which recomputes balance. Two sequential transactions; delete is not
+		// as critical as write paths.
+		if err := s.txnsRepo.DeleteByID(id, nil); err != nil {
+			return fmt.Errorf("service.DeleteTransaction: delete: %w", err)
+		}
+		if err := s.ledgerSvc.Delete(ledgerEntry.ID); err != nil {
+			return fmt.Errorf("service.DeleteTransaction: delete ledger: %w", err)
+		}
+		return nil
+	}
+
+	// Legacy transaction: arithmetic balance reversal.
 	acc, err := s.accRepo.GetByID(t.AccountID)
 	if err != nil {
 		return fmt.Errorf("service.DeleteTransaction: get account: %w", err)
@@ -288,20 +310,21 @@ func (s *TransactionsService) ConfirmRecurring(transactionID uuid.UUID) (time.Ti
 		return time.Time{}, fmt.Errorf("service.ConfirmRecurring: transaction %v is not confirmable", transactionID)
 	}
 
-	acc, err := s.accRepo.GetByID(t.AccountID)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("service.ConfirmRecurring: get account: %w", err)
-	}
-
 	tx, err := s.db.Begin()
 	if err != nil {
 		return time.Time{}, fmt.Errorf("service.ConfirmRecurring: begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
-	newBalance := acc.CurrentBalance + t.Amount
-	if err := s.accRepo.UpdateBalance(t.AccountID, newBalance, tx); err != nil {
-		return time.Time{}, fmt.Errorf("service.ConfirmRecurring: update balance: %w", err)
+	if err := s.ledgerSvc.RecordEntry(sqlite.LedgerEntry{
+		AccountID:     t.AccountID,
+		TransactionID: &t.ID,
+		EntryType:     "payment",
+		Amount:        t.Amount,
+		Description:   t.Description,
+		PostedAt:      time.Now().UTC(),
+	}, tx); err != nil {
+		return time.Time{}, fmt.Errorf("service.ConfirmRecurring: record ledger: %w", err)
 	}
 
 	var next time.Time
@@ -369,20 +392,21 @@ func (s *TransactionsService) ConfirmInstallment(transactionID uuid.UUID) error 
 		return fmt.Errorf("service.ConfirmInstallment: all installments already paid for transaction %v", transactionID)
 	}
 
-	acc, err := s.accRepo.GetByID(t.AccountID)
-	if err != nil {
-		return fmt.Errorf("service.ConfirmInstallment: get account: %w", err)
-	}
-
 	tx, err := s.db.Begin()
 	if err != nil {
 		return fmt.Errorf("service.ConfirmInstallment: begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
-	newBalance := acc.CurrentBalance + t.Amount
-	if err := s.accRepo.UpdateBalance(t.AccountID, newBalance, tx); err != nil {
-		return fmt.Errorf("service.ConfirmInstallment: update balance: %w", err)
+	if err := s.ledgerSvc.RecordEntry(sqlite.LedgerEntry{
+		AccountID:     t.AccountID,
+		TransactionID: &t.ID,
+		EntryType:     "payment",
+		Amount:        t.Amount,
+		Description:   t.Description,
+		PostedAt:      time.Now().UTC(),
+	}, tx); err != nil {
+		return fmt.Errorf("service.ConfirmInstallment: record ledger: %w", err)
 	}
 
 	if err := s.txnsRepo.IncrementPaidInstallments(transactionID, tx); err != nil {
@@ -394,6 +418,26 @@ func (s *TransactionsService) ConfirmInstallment(transactionID uuid.UUID) error 
 	}
 
 	return nil
+}
+
+// PostponeRecurring advances next_occurrence by one interval without touching the balance.
+// Use when a recurring bill is skipped for one cycle.
+func (s *TransactionsService) PostponeRecurring(transactionID uuid.UUID) (time.Time, error) {
+	t, err := s.txnsRepo.GetByID(transactionID)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("service.PostponeRecurring: get transaction: %w", err)
+	}
+	if !t.IsRecurring {
+		return time.Time{}, fmt.Errorf("service.PostponeRecurring: transaction %v is not recurring", transactionID)
+	}
+	if t.NextOccurrence == nil || t.Frequency == nil {
+		return time.Time{}, fmt.Errorf("service.PostponeRecurring: transaction %v missing next_occurrence or frequency", transactionID)
+	}
+	next := advanceOccurrence(*t.NextOccurrence, *t.Frequency)
+	if err := s.txnsRepo.AdvanceNextOccurrence(transactionID, next, nil); err != nil {
+		return time.Time{}, fmt.Errorf("service.PostponeRecurring: advance next_occurrence: %w", err)
+	}
+	return next, nil
 }
 
 // advanceOccurrence computes the next occurrence after current based on frequency.

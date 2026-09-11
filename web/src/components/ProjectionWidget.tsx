@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
@@ -5,6 +6,10 @@ import { MoneyValue } from '@/components/ui/money-value'
 import { formatDate, formatMoney } from '@/lib/format'
 import { isInCurrentPayWindow } from '@/lib/financial-window'
 import { earliestPaydayAfter, nextPaydayAfter, parseDateOnlyUTC } from '@/lib/pay-schedule'
+import { computeCustomProjection } from '@/lib/monthly-projection'
+import { CustomProjectionSheet } from '@/components/CustomProjectionSheet'
+import type { CustomProjectionConfig } from '@/components/CustomProjectionSheet'
+import type { CustomProjection } from '@/lib/monthly-projection'
 import type { AccountResponse, FriendDebtBreakdownItem, PayScheduleResponse, TransactionResponse } from '@/lib/api'
 import type { ChartConfig } from '@/components/ui/chart'
 
@@ -29,6 +34,10 @@ export function ProjectionWidget({
   friendBreakdown,
   nextPayday,
 }: ProjectionWidgetProps) {
+  const [mode, setMode] = useState<'window' | 'custom'>('window')
+  const [customConfig, setCustomConfig] = useState<CustomProjectionConfig | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
+
   if (!nextPayday || paySchedules.length === 0) return null
 
   const now = new Date()
@@ -88,27 +97,76 @@ export function ProjectionWidget({
     }
   }
 
-  const net = incoming - nextObligations
-  const projectedEndBalance = projectedStartBalance + net
+  const windowNet = incoming - nextObligations
+  const windowProjectedEndBalance = projectedStartBalance + windowNet
 
-  const chartData = [
-    { name: 'Income', value: incoming, fill: 'var(--color-verdict-yes)' },
-    { name: 'Bills', value: -nextRecurringObligations, fill: 'var(--color-verdict-no)' },
-    ...(nextInstallmentObligations > 0 ? [{ name: 'Installments', value: -nextInstallmentObligations, fill: 'var(--color-risk-medium)' }] : []),
-    ...(nextPeerObligations > 0 ? [{ name: 'Peer debts', value: -nextPeerObligations, fill: 'var(--color-risk-medium)' }] : []),
-    { name: 'Net', value: net, fill: net >= 0 ? 'var(--color-verdict-yes)' : 'var(--color-verdict-no)' },
-  ]
+  const isCustom = mode === 'custom' && customConfig !== null
+  let custom: CustomProjection | null = null
+  if (isCustom) {
+    custom = computeCustomProjection(
+      account,
+      transactions,
+      paySchedules,
+      friendBreakdown,
+      customConfig.windowStart,
+      customConfig.windowEnd,
+      customConfig.excludeBalance,
+    )
+  }
+
+  const displayIncome = isCustom ? custom!.income : incoming
+  const displayRecurring = isCustom ? 0 : nextRecurringObligations
+  const displayInstallments = isCustom ? 0 : nextInstallmentObligations
+  const displayPeer = isCustom ? 0 : nextPeerObligations
+  const displayObligations = isCustom ? custom!.obligations : nextObligations
+  const displayNet = isCustom ? custom!.net : windowNet
+  const displayEndBalance = isCustom ? custom!.projectedEndBalance : windowProjectedEndBalance
+  const displayStart = isCustom ? customConfig!.windowStart : windowStart
+  const displayEnd = isCustom ? customConfig!.windowEnd : windowEnd
+
+  const chartData = isCustom
+    ? [
+        { name: 'Income', value: displayIncome, fill: 'var(--color-verdict-yes)' },
+        { name: 'Bills', value: -displayObligations, fill: 'var(--color-verdict-no)' },
+        { name: 'Net', value: displayNet, fill: displayNet >= 0 ? 'var(--color-verdict-yes)' : 'var(--color-verdict-no)' },
+      ]
+    : [
+        { name: 'Income', value: displayIncome, fill: 'var(--color-verdict-yes)' },
+        { name: 'Bills', value: -displayRecurring, fill: 'var(--color-verdict-no)' },
+        ...(displayInstallments > 0 ? [{ name: 'Installments', value: -displayInstallments, fill: 'var(--color-risk-medium)' }] : []),
+        ...(displayPeer > 0 ? [{ name: 'Peer debts', value: -displayPeer, fill: 'var(--color-risk-medium)' }] : []),
+        { name: 'Net', value: displayNet, fill: displayNet >= 0 ? 'var(--color-verdict-yes)' : 'var(--color-verdict-no)' },
+      ]
 
   const chartConfig = {
     value: { label: 'Amount' },
   } satisfies ChartConfig
 
   return (
+    <>
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Projection</CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base">Projection</CardTitle>
+          <div className="flex rounded-md border border-border/60 text-xs overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setMode('window')}
+              className={`px-2.5 py-1 transition-colors ${mode === 'window' ? 'bg-muted font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Next window
+            </button>
+            <button
+              type="button"
+              onClick={() => setSheetOpen(true)}
+              className={`px-2.5 py-1 transition-colors border-l border-border/60 ${mode === 'custom' ? 'bg-muted font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Custom
+            </button>
+          </div>
+        </div>
         <p className="text-xs text-muted-foreground">
-          {formatDate(windowStart.toISOString())} → {formatDate(windowEnd.toISOString())}
+          {formatDate(displayStart.toISOString())} → {formatDate(displayEnd.toISOString())}
         </p>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
@@ -135,14 +193,16 @@ export function ProjectionWidget({
           </BarChart>
         </ChartContainer>
 
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Projected start balance</span>
-          <span className="tabular-nums">{formatMoney(projectedStartBalance, account.currency)}</span>
-        </div>
+        {mode === 'window' && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Projected start balance</span>
+            <span className="tabular-nums">{formatMoney(projectedStartBalance, account.currency)}</span>
+          </div>
+        )}
         <div className="flex justify-between">
           <span className="text-muted-foreground">Incoming</span>
           <MoneyValue
-            amount={incoming}
+            amount={displayIncome}
             currency={account.currency}
             tone="positive"
             showSign="always"
@@ -151,7 +211,7 @@ export function ProjectionWidget({
         <div className="flex justify-between">
           <span className="text-muted-foreground">Obligations</span>
           <MoneyValue
-            amount={-nextObligations}
+            amount={-displayObligations}
             currency={account.currency}
             tone="negative"
             showSign="always"
@@ -159,11 +219,18 @@ export function ProjectionWidget({
         </div>
         <div className="flex justify-between border-t border-border/40 pt-1.5 mt-1">
           <span className="font-semibold">Projected end balance</span>
-          <span className={`font-semibold tabular-nums ${projectedEndBalance < 0 ? 'text-red-500' : 'text-green-600'}`}>
-            {formatMoney(projectedEndBalance, account.currency)}
+          <span className={`font-semibold tabular-nums ${displayEndBalance < 0 ? 'text-red-500' : 'text-green-600'}`}>
+            {formatMoney(displayEndBalance, account.currency)}
           </span>
         </div>
       </CardContent>
     </Card>
+    <CustomProjectionSheet
+      open={sheetOpen}
+      paySchedules={paySchedules}
+      onApply={cfg => { setCustomConfig(cfg); setMode('custom') }}
+      onClose={() => setSheetOpen(false)}
+    />
+    </>
   )
 }
