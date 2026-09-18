@@ -12,17 +12,19 @@ import (
 
 // PayScheduleService handles business logic for pay schedules.
 type PayScheduleService struct {
-	db      *sql.DB
-	psRepo  sqlite.PayScheduleRepo
-	accRepo sqlite.AccountsRepo
+	db        *sql.DB
+	psRepo    sqlite.PayScheduleRepo
+	accRepo   sqlite.AccountsRepo
+	ledgerSvc *LedgerService
 }
 
 // NewPayScheduleService creates a new PayScheduleService.
-func NewPayScheduleService(db *sql.DB, psRepo sqlite.PayScheduleRepo, accRepo sqlite.AccountsRepo) *PayScheduleService {
+func NewPayScheduleService(db *sql.DB, psRepo sqlite.PayScheduleRepo, accRepo sqlite.AccountsRepo, ledgerSvc *LedgerService) *PayScheduleService {
 	return &PayScheduleService{
-		db:      db,
-		psRepo:  psRepo,
-		accRepo: accRepo,
+		db:        db,
+		psRepo:    psRepo,
+		accRepo:   accRepo,
+		ledgerSvc: ledgerSvc,
 	}
 }
 
@@ -121,9 +123,19 @@ func (s *PayScheduleService) ConfirmPayday(id uuid.UUID) (sqlite.PaySchedule, er
 	}
 	defer tx.Rollback()
 
-	newBalance := acc.CurrentBalance + ps.Amount
-	if err := s.accRepo.UpdateBalance(acc.ID, newBalance, tx); err != nil {
-		return sqlite.PaySchedule{}, fmt.Errorf("service.ConfirmPayday: update balance: %w", err)
+	label := ps.ID.String()
+	if ps.Label != nil {
+		label = *ps.Label
+	}
+	if err := s.ledgerSvc.RecordEntry(sqlite.LedgerEntry{
+		AccountID:     acc.ID,
+		PayScheduleID: &ps.ID,
+		EntryType:     "income",
+		Amount:        ps.Amount,
+		Description:   label,
+		PostedAt:      time.Now().UTC(),
+	}, tx); err != nil {
+		return sqlite.PaySchedule{}, fmt.Errorf("service.ConfirmPayday: record income: %w", err)
 	}
 
 	if err := s.psRepo.UpdateAnchorDate(ps.ID, nextAfterUpcoming, tx); err != nil {

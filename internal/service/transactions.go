@@ -190,25 +190,19 @@ func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateT
 				return fmt.Errorf("service.UpdateTransaction: update ledger amount: %w", err)
 			}
 		} else {
-			// Legacy transaction: arithmetic balance adjustment.
-			acc, err := s.accRepo.GetByID(oldTxn.AccountID)
-			if err != nil {
-				return fmt.Errorf("service.UpdateTransaction: get account: %w", err)
-			}
-			newBalance := acc.CurrentBalance - oldTxn.Amount + *upd.Amount
+			// Legacy transaction: record a manual_adjustment for the amount delta.
+			delta := *upd.Amount - oldTxn.Amount
 			if oldTxn.IsInstallment {
-				newBalance = acc.CurrentBalance - (oldTxn.Amount * oldTxn.PaidInstallments) + (*upd.Amount * oldTxn.PaidInstallments)
+				delta = (*upd.Amount - oldTxn.Amount) * oldTxn.PaidInstallments
 			}
-			legacyTx, err := s.db.Begin()
-			if err != nil {
-				return fmt.Errorf("service.UpdateTransaction: begin legacy balance tx: %w", err)
-			}
-			defer legacyTx.Rollback()
-			if err := s.accRepo.UpdateBalance(oldTxn.AccountID, newBalance, legacyTx); err != nil {
-				return fmt.Errorf("service.UpdateTransaction: update balance: %w", err)
-			}
-			if err := legacyTx.Commit(); err != nil {
-				return fmt.Errorf("service.UpdateTransaction: commit legacy balance: %w", err)
+			if err := s.ledgerSvc.RecordEntry(sqlite.LedgerEntry{
+				AccountID:   oldTxn.AccountID,
+				EntryType:   "manual_adjustment",
+				Amount:      delta,
+				Description: oldTxn.Description,
+				PostedAt:    time.Now().UTC(),
+			}, nil); err != nil {
+				return fmt.Errorf("service.UpdateTransaction: adjust balance: %w", err)
 			}
 		}
 
@@ -255,10 +249,12 @@ func (s *TransactionsService) DeleteTransaction(id uuid.UUID) error {
 		return nil
 	}
 
-	// Legacy transaction: arithmetic balance reversal.
-	acc, err := s.accRepo.GetByID(t.AccountID)
-	if err != nil {
-		return fmt.Errorf("service.DeleteTransaction: get account: %w", err)
+	// Legacy transaction: record a manual_adjustment reversal, then delete.
+	var reversalAmount int64
+	if t.IsInstallment {
+		reversalAmount = -(t.Amount * t.PaidInstallments)
+	} else {
+		reversalAmount = -t.Amount
 	}
 
 	tx, err := s.db.Begin()
@@ -270,18 +266,14 @@ func (s *TransactionsService) DeleteTransaction(id uuid.UUID) error {
 	if err := s.txnsRepo.DeleteByID(id, tx); err != nil {
 		return fmt.Errorf("service.DeleteTransaction: delete: %w", err)
 	}
-
-	// For installments, reverse all paid installments (paid_installments * amount).
-	// For all other txns, reverse the single balance impact (amount).
-	var balanceDelta int64
-	if t.IsInstallment {
-		balanceDelta = t.Amount * t.PaidInstallments
-	} else {
-		balanceDelta = t.Amount
-	}
-	newBalance := acc.CurrentBalance - balanceDelta
-	if err := s.accRepo.UpdateBalance(t.AccountID, newBalance, tx); err != nil {
-		return fmt.Errorf("service.DeleteTransaction: update balance: %w", err)
+	if err := s.ledgerSvc.RecordEntry(sqlite.LedgerEntry{
+		AccountID:   t.AccountID,
+		EntryType:   "manual_adjustment",
+		Amount:      reversalAmount,
+		Description: t.Description,
+		PostedAt:    time.Now().UTC(),
+	}, tx); err != nil {
+		return fmt.Errorf("service.DeleteTransaction: adjust balance: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {

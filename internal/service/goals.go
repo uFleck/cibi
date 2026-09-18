@@ -11,13 +11,14 @@ import (
 )
 
 type GoalsService struct {
-	db      *sql.DB
-	goals   sqlite.GoalsRepo
-	accRepo sqlite.AccountsRepo
+	db        *sql.DB
+	goals     sqlite.GoalsRepo
+	accRepo   sqlite.AccountsRepo
+	ledgerSvc *LedgerService
 }
 
-func NewGoalsService(db *sql.DB, goals sqlite.GoalsRepo, accRepo sqlite.AccountsRepo) *GoalsService {
-	return &GoalsService{db: db, goals: goals, accRepo: accRepo}
+func NewGoalsService(db *sql.DB, goals sqlite.GoalsRepo, accRepo sqlite.AccountsRepo, ledgerSvc *LedgerService) *GoalsService {
+	return &GoalsService{db: db, goals: goals, accRepo: accRepo, ledgerSvc: ledgerSvc}
 }
 
 type CreateGoalInput struct {
@@ -161,7 +162,14 @@ func (s *GoalsService) AddLedgerEntry(in AddGoalLedgerInput) (sqlite.GoalLedgerE
 		return sqlite.GoalLedgerEntry{}, err
 	}
 	if balanceDelta != 0 {
-		if err := s.accRepo.UpdateBalance(goal.AccountID, acc.CurrentBalance+balanceDelta, tx); err != nil {
+		desc := "goal " + in.Type
+		if err := s.ledgerSvc.RecordEntry(sqlite.LedgerEntry{
+			AccountID:   goal.AccountID,
+			EntryType:   "manual_adjustment",
+			Amount:      balanceDelta,
+			Description: desc,
+			PostedAt:    in.TimestampUTC,
+		}, tx); err != nil {
 			return sqlite.GoalLedgerEntry{}, err
 		}
 	}
