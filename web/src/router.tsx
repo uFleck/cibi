@@ -13,6 +13,7 @@ import { PayScheduleList } from '@/components/PayScheduleList'
 import { ProjectionWidget } from '@/components/ProjectionWidget'
 import { FriendLedgerWidget } from '@/components/FriendLedgerWidget'
 import { GoalsSnapshotWidget } from '@/components/GoalsSnapshotWidget'
+import { LedgerRecentWidget } from '@/components/LedgerRecentWidget'
 import { AccountsPage } from '@/pages/accounts'
 import { TransactionsPage } from '@/pages/transactions'
 import { FriendsPage } from '@/pages/friends'
@@ -153,6 +154,8 @@ function Dashboard() {
               <GoalsSnapshotWidget />
 
               <CheckWidget accountId={account.id} />
+
+              <LedgerRecentWidget account={account} />
 
               <FriendLedgerWidget />
 
