@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { AppModal } from '@/components/AppModal'
+import { EditSheet } from '@/components/EditSheet'
 import { MobileActionButton } from '@/components/MobileActionButton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { SharedDebtList } from '@/components/debt/shared-debt-list'
@@ -62,6 +63,7 @@ export function AccountsPage() {
     day_of_month_2: '',
   })
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null)
+  const [addingSchedule, setAddingSchedule] = useState(false)
   const [scheduleFormErrors, setScheduleFormErrors] = useState<Partial<Record<string, string>>>({})
 
   const {
@@ -149,6 +151,7 @@ export function AccountsPage() {
     onSuccess: () => {
       toast.success('Schedule added')
       queryClient.invalidateQueries({ queryKey: ['pay-schedules', scheduleModalAccountId] })
+      setAddingSchedule(false)
       setScheduleForm({
         label: '',
         frequency: 'monthly',
@@ -252,6 +255,7 @@ export function AccountsPage() {
   const closeScheduleModal = () => {
     setScheduleModalAccountId(null)
     setEditingScheduleId(null)
+    setAddingSchedule(false)
   }
 
   const startEditSchedule = (ps: PayScheduleResponse) => {
@@ -304,6 +308,7 @@ export function AccountsPage() {
 
   const discardScheduleForm = () => {
     setEditingScheduleId(null)
+    setAddingSchedule(false)
     setScheduleForm({
       label: '',
       frequency: 'monthly',
@@ -489,40 +494,41 @@ export function AccountsPage() {
                 <div key={i} className="h-10 rounded-lg bg-card/60 animate-pulse border border-border/40" />
               ))}
             </div>
-          ) : schedules.length === 0 && !editingScheduleId ? (
+          ) : schedules.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground mb-4">No pay schedules yet</p>
-              <p className="text-xs text-muted-foreground">Add a schedule to tell CIBI when you get paid.</p>
+              <Button size="sm" onClick={() => setAddingSchedule(true)}>
+                <Plus size={14} />
+                Add Schedule
+              </Button>
             </div>
           ) : (
             <>
               <div className="sm:hidden flex flex-col gap-2">
                 {schedules.map((ps: PayScheduleResponse) => (
-                  editingScheduleId === ps.id ? null : (
-                    <div key={ps.id} className="border rounded-md p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <div className="font-medium">{ps.label ?? ps.frequency}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {ps.frequency} · {ps.anchor_date}
-                            {ps.day_of_month_2 ? `/${ps.day_of_month_2}` : ''}
-                          </div>
+                  <div key={ps.id} className="border rounded-md p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <div className="font-medium">{ps.label ?? ps.frequency}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {ps.frequency} · {ps.anchor_date}
+                          {ps.day_of_month_2 ? `/${ps.day_of_month_2}` : ''}
                         </div>
-                        <MoneyValue
-                          amount={ps.amount}
-                          currency={scheduleCurrency}
-                          showSign="always"
-                          tone="positive"
-                          className="font-semibold"
-                        />
                       </div>
-                      <div className="flex justify-end gap-2 mt-2">
-                        <MobileActionButton onClick={() => handleConfirmSchedule(ps.id)} icon={Check} label="Confirm" disabled={confirmScheduleMutation.isPending} />
-                        <MobileActionButton onClick={() => startEditSchedule(ps)} icon={Edit2} label="Edit" variant="outline" />
-                        <MobileActionButton onClick={() => handleDeleteSchedule(ps.id)} icon={Trash2} label="Delete" variant="outline" />
-                      </div>
+                      <MoneyValue
+                        amount={ps.amount}
+                        currency={scheduleCurrency}
+                        showSign="always"
+                        tone="positive"
+                        className="font-semibold"
+                      />
                     </div>
-                  )
+                    <div className="flex justify-end gap-2 mt-2">
+                      <MobileActionButton onClick={() => handleConfirmSchedule(ps.id)} icon={Check} label="Confirm" disabled={confirmScheduleMutation.isPending} />
+                      <MobileActionButton onClick={() => startEditSchedule(ps)} icon={Edit2} label="Edit" variant="outline" />
+                      <MobileActionButton onClick={() => handleDeleteSchedule(ps.id)} icon={Trash2} label="Delete" variant="outline" />
+                    </div>
+                  </div>
                 ))}
               </div>
 
@@ -537,98 +543,124 @@ export function AccountsPage() {
                   </thead>
                   <tbody className="divide-y">
                     {schedules.map((ps: PayScheduleResponse) => (
-                      editingScheduleId === ps.id ? null : (
-                        <tr key={ps.id} className="hover:bg-muted/30">
-                          <td className="px-3 py-2">
-                            <div className="font-medium">{ps.label ?? ps.frequency}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {ps.frequency} · {ps.anchor_date}
-                              {ps.day_of_month_2 ? `/${ps.day_of_month_2}` : ''}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            <MoneyValue
-                              amount={ps.amount}
-                              currency={scheduleCurrency}
-                              showSign="always"
-                              tone="positive"
-                              className="font-medium"
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="flex gap-1 justify-end">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    onClick={() => handleConfirmSchedule(ps.id)}
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-9 w-9"
-                                    aria-label="Confirm schedule"
-                                    disabled={confirmScheduleMutation.isPending}
-                                  >
-                                    <Check size={14} />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Confirm schedule</p>
-                                </TooltipContent>
-                              </Tooltip>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    onClick={() => startEditSchedule(ps)}
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-9 w-9"
-                                    aria-label="Edit schedule"
-                                  >
-                                    <Edit2 size={14} />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Edit schedule</p>
-                                </TooltipContent>
-                              </Tooltip>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    onClick={() => handleDeleteSchedule(ps.id)}
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-9 w-9"
-                                    aria-label="Delete schedule"
-                                  >
-                                    <Trash2 size={14} />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Delete schedule</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </div>
-                          </td>
-                        </tr>
-                      )
+                      <tr key={ps.id} className="hover:bg-muted/30">
+                        <td className="px-3 py-2">
+                          <div className="font-medium">{ps.label ?? ps.frequency}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {ps.frequency} · {ps.anchor_date}
+                            {ps.day_of_month_2 ? `/${ps.day_of_month_2}` : ''}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <MoneyValue
+                            amount={ps.amount}
+                            currency={scheduleCurrency}
+                            showSign="always"
+                            tone="positive"
+                            className="font-medium"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex gap-1 justify-end">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  onClick={() => handleConfirmSchedule(ps.id)}
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9"
+                                  aria-label="Confirm schedule"
+                                  disabled={confirmScheduleMutation.isPending}
+                                >
+                                  <Check size={14} />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Confirm schedule</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  onClick={() => startEditSchedule(ps)}
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9"
+                                  aria-label="Edit schedule"
+                                >
+                                  <Edit2 size={14} />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Edit schedule</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  onClick={() => handleDeleteSchedule(ps.id)}
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9"
+                                  aria-label="Delete schedule"
+                                >
+                                  <Trash2 size={14} />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Delete schedule</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </td>
+                      </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+
+              <div className="flex justify-end mt-3">
+                <Button size="sm" variant="outline" onClick={() => setAddingSchedule(true)}>
+                  <Plus size={14} />
+                  Add Schedule
+                </Button>
+              </div>
             </>
           )}
 
-          {(editingScheduleId || schedules.length === 0 || !editingScheduleId) && (
+          <EditSheet
+            open={addingSchedule}
+            onOpenChange={(open) => { if (!open) discardScheduleForm() }}
+            title="Add Schedule"
+          >
             <AccountScheduleForm
-              editingScheduleId={editingScheduleId}
+              editingScheduleId={null}
               scheduleForm={scheduleForm}
               scheduleFormErrors={scheduleFormErrors}
-              isPending={createScheduleMutation.isPending || updateScheduleMutation.isPending}
+              isPending={createScheduleMutation.isPending}
               onSubmit={handleScheduleSubmit}
               onChange={changes => setScheduleForm({ ...scheduleForm, ...changes })}
               onClearError={field => setScheduleFormErrors({ ...scheduleFormErrors, [field]: undefined })}
               onCancelEdit={discardScheduleForm}
             />
-          )}
+          </EditSheet>
+
+          <EditSheet
+            open={!!editingScheduleId}
+            onOpenChange={(open) => { if (!open) discardScheduleForm() }}
+            title="Edit Schedule"
+          >
+            <AccountScheduleForm
+              editingScheduleId={editingScheduleId}
+              scheduleForm={scheduleForm}
+              scheduleFormErrors={scheduleFormErrors}
+              isPending={updateScheduleMutation.isPending}
+              onSubmit={handleScheduleSubmit}
+              onChange={changes => setScheduleForm({ ...scheduleForm, ...changes })}
+              onClearError={field => setScheduleFormErrors({ ...scheduleFormErrors, [field]: undefined })}
+              onCancelEdit={discardScheduleForm}
+            />
+          </EditSheet>
       </AppModal>
     </div>
   )
