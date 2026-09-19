@@ -1,10 +1,10 @@
 import { ArrowDown, ArrowUp, Filter, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { EditSheet } from '@/components/EditSheet'
 import type { WindowLabels } from '@/lib/transactions-impact'
 
 export type TransactionPreset =
@@ -80,33 +80,61 @@ export function TransactionFilters({
         </Button>
       </div>
 
-      <TooltipProvider>
-        <div className="flex flex-wrap gap-1.5">
-          {presetChips.map(p => (
-            <Tooltip key={p.key}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={preset === p.key ? 'secondary' : 'outline'}
-                  size="sm"
-                  onClick={() => onPresetChange(preset === p.key ? null : p.key)}
-                  className="text-xs h-8"
-                >
-                  {p.label}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{p.tooltip}</p>
-              </TooltipContent>
-            </Tooltip>
-          ))}
-        </div>
-      </TooltipProvider>
+      <EditSheet
+        open={showFilters}
+        onOpenChange={(open) => { if (showFilters && !open) onToggleFilters() }}
+        title="Filter & Sort"
+        description="Narrow down which transactions you see."
+      >
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-2">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Quick filters</Label>
+            <TooltipProvider>
+              <div className="flex flex-wrap gap-1.5">
+                {presetChips.map(p => (
+                  <Tooltip key={p.key}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={preset === p.key ? 'secondary' : 'outline'}
+                        size="sm"
+                        onClick={() => onPresetChange(preset === p.key ? null : p.key)}
+                        className="text-xs h-8"
+                      >
+                        {p.label}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{p.tooltip}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            </TooltipProvider>
+          </div>
 
-      {showFilters && (
-        <Card>
-          <CardContent className="py-3 grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Search</Label>
+            <Input
+              placeholder="Search descriptions..."
+              value={searchQuery}
+              onChange={e => onSearchQueryChange(e.target.value)}
+              className="h-9"
+              data-filter-search
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Amount range</Label>
+            <div className="flex items-center gap-2">
+              <Input placeholder="Min" value={amountMin} onChange={e => onAmountMinChange(e.target.value)} className="h-9" />
+              <span className="text-muted-foreground text-xs">–</span>
+              <Input placeholder="Max" value={amountMax} onChange={e => onAmountMaxChange(e.target.value)} className="h-9" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
-              <Label className="text-xs">Sort By</Label>
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Sort by</Label>
               <Select
                 value={sortField}
                 onValueChange={v => onSortFieldChange(v as 'description' | 'date' | 'amount')}
@@ -122,7 +150,7 @@ export function TransactionFilters({
               </Select>
             </div>
             <div className="flex flex-col gap-1">
-              <Label className="text-xs">Direction</Label>
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Direction</Label>
               <Select value={sortDir} onValueChange={v => onSortDirChange(v as 'asc' | 'desc')}>
                 <SelectTrigger className="w-full h-9">
                   <SelectValue />
@@ -137,35 +165,16 @@ export function TransactionFilters({
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">Search</Label>
-              <Input
-                placeholder="Search descriptions..."
-                value={searchQuery}
-                onChange={e => onSearchQueryChange(e.target.value)}
-                className="h-9"
-                data-filter-search
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">Amount range</Label>
-              <div className="flex items-center gap-2">
-                <Input placeholder="Min $" value={amountMin} onChange={e => onAmountMinChange(e.target.value)} className="h-9" />
-                <span className="text-muted-foreground text-xs">–</span>
-                <Input placeholder="Max $" value={amountMax} onChange={e => onAmountMaxChange(e.target.value)} className="h-9" />
-              </div>
-            </div>
-            {hasActiveFilters && (
-              <div className="flex items-end">
-                <Button variant="ghost" size="sm" className="w-full sm:w-auto" onClick={onResetFilters}>
-                  <X size={14} />
-                  Clear
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+          </div>
+
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" className="self-start" onClick={onResetFilters}>
+              <X size={14} />
+              Clear all filters
+            </Button>
+          )}
+        </div>
+      </EditSheet>
     </>
   )
 }
