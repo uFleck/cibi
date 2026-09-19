@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useContext, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useContext, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Plus, Trash2, Save } from 'lucide-react'
@@ -9,10 +9,7 @@ import { AppModal } from '@/components/AppModal'
 import { CompactEntityTable } from '@/components/CompactEntityTable'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { MoneyValue } from '@/components/ui/money-value'
-import { SharedDebtList } from '@/components/debt/shared-debt-list'
-import { mapFriendDebtsToVM, getDisplayAmount } from '@/components/debt/debt-list-mappers'
 import { FriendForm } from '@/components/FriendForm'
-import { DebtForm, type DebtFormState } from '@/components/DebtForm'
 import { GroupEventForm, type GroupEventFormState } from '@/components/GroupEventForm'
 import { ParticipantEditor } from '@/components/ParticipantEditor'
 import {
@@ -20,10 +17,6 @@ import {
   createFriend,
   updateFriend,
   deleteFriend,
-  listPeerDebts,
-  createPeerDebt,
-  deletePeerDebt,
-  confirmDebt,
   listGroupEvents,
   createGroupEvent,
   updateGroupEvent,
@@ -32,7 +25,6 @@ import {
   setParticipants,
   type FriendResponse,
   type GroupEventResponse,
-  type PeerDebtResponse,
 } from '@/lib/api'
 import { formatDate } from '@/lib/format'
 import { parseDecimalInput } from '@/lib/locale'
@@ -46,14 +38,6 @@ interface CreateFriendFormState {
 
 const EMPTY_FRIEND_FORM: CreateFriendFormState = { name: '', notes: '', pix_key: '' }
 const EMPTY_EVENT_FORM: GroupEventFormState = { title: '', date: '', total_amount: '', notes: '' }
-const EMPTY_DEBT_FORM: DebtFormState = {
-  description: '',
-  amount: '',
-  date: '',
-  is_installment: false,
-  total_installments: '',
-  frequency: 'monthly',
-}
 
 async function copyToClipboard(text: string): Promise<boolean> {
   if (navigator.clipboard && window.isSecureContext) {
@@ -84,34 +68,23 @@ async function copyToClipboard(text: string): Promise<boolean> {
 
 function FriendDetailsModal({
   friend,
-  accountId,
   open,
   onOpenChange,
 }: {
   friend: FriendResponse | null
-  accountId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
   const queryClient = useQueryClient()
   const [nameDraft, setNameDraft] = useState('')
   const [pixKeyDraft, setPixKeyDraft] = useState('')
-  const [showAddDebt, setShowAddDebt] = useState(false)
-  const [debtForm, setDebtForm] = useState<DebtFormState>(EMPTY_DEBT_FORM)
   const [confirmDeleteFriendOpen, setConfirmDeleteFriendOpen] = useState(false)
-  const [debtToDelete, setDebtToDelete] = useState<string | null>(null)
 
   useEffect(() => {
     if (!friend) return
     setNameDraft(friend.name)
     setPixKeyDraft(friend.pix_key ?? '')
   }, [friend])
-
-  const { data: debts = [], isLoading: debtsLoading } = useQuery({
-    queryKey: ['peer-debts', accountId, friend?.id],
-    queryFn: () => listPeerDebts(accountId!, friend!.id),
-    enabled: open && !!friend && !!accountId,
-  })
 
   const renameMutation = useMutation({
     mutationFn: () => updateFriend(friend!.id, { name: nameDraft.trim(), pix_key: pixKeyDraft.trim() }),
@@ -126,96 +99,21 @@ function FriendDetailsModal({
     mutationFn: () => deleteFriend(friend!.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['friends'] })
-      queryClient.invalidateQueries({ queryKey: ['peer-debts-all', accountId] })
       toast.success('Friend deleted')
       onOpenChange(false)
     },
     onError: () => toast.error('Failed to delete friend'),
   })
 
-  const addDebtMutation = useMutation({
-    mutationFn: () =>
-      createPeerDebt({
-        account_id: accountId!,
-        friend_id: friend!.id,
-        description: debtForm.description,
-        amount: Math.round((parseDecimalInput(debtForm.amount) ?? 0) * 100),
-        date: debtForm.date,
-        ...(debtForm.is_installment
-          ? {
-              is_installment: true,
-              total_installments: parseInt(debtForm.total_installments, 10),
-              frequency: debtForm.frequency,
-            }
-          : {}),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['peer-debts', accountId, friend?.id] })
-      queryClient.invalidateQueries({ queryKey: ['peer-debts-all', accountId] })
-      toast.success('Debt added')
-      setDebtForm(EMPTY_DEBT_FORM)
-      setShowAddDebt(false)
-    },
-    onError: () => toast.error('Failed to add debt'),
-  })
-
-  const confirmMutation = useMutation({
-    mutationFn: (id: string) => confirmDebt(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['peer-debts', accountId, friend?.id] })
-      queryClient.invalidateQueries({ queryKey: ['peer-debts-all', accountId] })
-      toast.success('Debt confirmed')
-    },
-    onError: () => toast.error('Failed to confirm debt'),
-  })
-
-  const deleteDebtMutation = useMutation({
-    mutationFn: (id: string) => deletePeerDebt(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['peer-debts', accountId, friend?.id] })
-      queryClient.invalidateQueries({ queryKey: ['peer-debts-all', accountId] })
-      toast.success('Debt deleted')
-      setDebtToDelete(null)
-    },
-    onError: () => toast.error('Failed to delete debt'),
-  })
-
-  function handleAddDebt(e: FormEvent) {
-    e.preventDefault()
-    if (!friend || !accountId) return
-
-    const amount = parseDecimalInput(debtForm.amount)
-    if (amount == null) {
-      toast.error('Enter valid amount')
-      return
-    }
-
-    if (debtForm.is_installment) {
-      const totalInstallments = parseInt(debtForm.total_installments, 10)
-      if (Number.isNaN(totalInstallments) || totalInstallments <= 0) {
-        toast.error('Enter valid installments')
-        return
-      }
-    }
-
-    addDebtMutation.mutate()
-  }
-
   if (!friend) return null
-
-  const debtTarget = debts.find(d => d.id === debtToDelete)
-  const unpaidDebts = debts.filter((d: PeerDebtResponse) => !d.is_confirmed)
-  const paidDebts = debts.filter((d: PeerDebtResponse) => d.is_confirmed)
 
   return (
     <AppModal
       open={open}
       onOpenChange={onOpenChange}
       title="Friend Details"
-      description="Manage friend, debts, link access"
-      contentClassName="sm:max-w-[calc(100vw-2rem)] lg:max-w-5xl"
+      description="Manage friend and link access"
     >
-
         <ConfirmDialog
           open={confirmDeleteFriendOpen}
           onCancel={() => setConfirmDeleteFriendOpen(false)}
@@ -225,17 +123,6 @@ function FriendDetailsModal({
           }}
           title={`Delete "${friend.name}"?`}
           description="This removes friend and debt history."
-          confirmLabel="Delete"
-        />
-
-        <ConfirmDialog
-          open={!!debtToDelete}
-          onCancel={() => setDebtToDelete(null)}
-          onConfirm={() => {
-            if (debtToDelete) deleteDebtMutation.mutate(debtToDelete)
-          }}
-          title={`Delete debt "${debtTarget?.description ?? ''}"?`}
-          description="This action cannot be undone."
           confirmLabel="Delete"
         />
 
@@ -279,52 +166,6 @@ function FriendDetailsModal({
             </Button>
           </div>
         </div>
-
-        <div className="flex flex-col gap-4">
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold">Open debts ({unpaidDebts.length})</h3>
-            <SharedDebtList
-              view="owner"
-              items={mapFriendDebtsToVM(unpaidDebts)}
-              loading={debtsLoading}
-              emptyTitle="No open debts"
-              emptyHint="All good for now"
-              onConfirm={(id) => confirmMutation.mutate(id)}
-              onDelete={(id) => setDebtToDelete(id)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold">Paid debts ({paidDebts.length})</h3>
-            <SharedDebtList
-              view="owner"
-              items={mapFriendDebtsToVM(paidDebts)}
-              loading={false}
-              emptyTitle="No paid debts yet"
-              emptyHint="Paid debts will appear here"
-              onDelete={(id) => setDebtToDelete(id)}
-            />
-          </div>
-        </div>
-
-        {showAddDebt ? (
-          <DebtForm
-            friendId={friend.id}
-            form={debtForm}
-            onChange={setDebtForm}
-            onSubmit={handleAddDebt}
-            onCancel={() => setShowAddDebt(false)}
-            isSubmitting={addDebtMutation.isPending}
-            submitLabel="Add"
-            cancelLabel="Cancel"
-            title="Add Debt"
-          />
-        ) : (
-          <Button variant="outline" size="sm" onClick={() => setShowAddDebt(true)}>
-            <Plus size={14} />
-            Add Debt
-          </Button>
-        )}
     </AppModal>
   )
 }
@@ -679,26 +520,6 @@ export function FriendsPage() {
     enabled: !!selectedAccountId,
   })
 
-  const { data: allDebts = [] } = useQuery({
-    queryKey: ['peer-debts-all', selectedAccountId],
-    queryFn: () => listPeerDebts(selectedAccountId!),
-    enabled: !!selectedAccountId,
-  })
-
-  const friendOverview = useMemo(() => {
-    const map = new Map<string, { total: number; openCount: number }>()
-
-    for (const debt of allDebts) {
-      const current = map.get(debt.friend_id) ?? { total: 0, openCount: 0 }
-      const displayAmount = getDisplayAmount(debt)
-      current.total += displayAmount
-      if (!debt.is_confirmed) current.openCount += 1
-      map.set(debt.friend_id, current)
-    }
-
-    return map
-  }, [allDebts])
-
   const createFriendMutation = useMutation({
     mutationFn: () =>
       createFriend({
@@ -777,17 +598,11 @@ export function FriendsPage() {
         ) : (
           <CompactEntityTable
             entityLabel="Friend"
-            items={friends.map(friend => {
-              const overview = friendOverview.get(friend.id) ?? { total: 0, openCount: 0 }
-
-              return {
+            items={friends.map(friend => ({
                 id: friend.id,
                 primary: friend.name,
-                secondary: (
-                  <>
-                    {overview.openCount} open · <MoneyValue amount={overview.total} currency="BRL" showSign="auto" tone="auto" /> total
-                  </>
-                ),                onCopy: async () => {
+                secondary: friend.pix_key ? `PIX: ${friend.pix_key}` : undefined,
+                onCopy: async () => {
                   const ok = await copyToClipboard(`${window.location.origin}/public/friend/${friend.public_token}`)
                   if (ok) toast.success('Link copied')
                   else toast.error('Failed to copy link')
@@ -795,8 +610,8 @@ export function FriendsPage() {
                 onOpen: () => setActiveFriendId(friend.id),
                 copyAriaLabel: 'Copy public link',
                 openAriaLabel: 'Access friend details',
-              }
-            })}
+              }))}
+
           />
         )}
       </section>
@@ -897,7 +712,6 @@ export function FriendsPage() {
 
       <FriendDetailsModal
         friend={activeFriend}
-        accountId={selectedAccountId}
         open={!!activeFriend}
         onOpenChange={(open) => {
           if (!open) setActiveFriendId(null)

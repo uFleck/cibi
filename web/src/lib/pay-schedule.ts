@@ -72,17 +72,23 @@ export function parseDateOnlyUTC(date: string): Date {
 export function nextPaydayAfter(schedule: PayScheduleResponse, from: Date): Date {
   const anchor = parseDateOnlyUTC(schedule.anchor_date)
 
+  // For monthly/semi-monthly, anchor.Day() is used as the canonical pay day but the
+  // anchor's year/month is ignored by the underlying helpers. After ConfirmPayday advances
+  // the anchor (e.g. Sep 20 → Oct 20), we must not return a past occurrence (Sep 20).
+  // Clamp `from` to anchor-1ms so the helper skips occurrences before the anchor.
+  const clampedFrom = (ef: Date) => anchor.getTime() > from.getTime() ? new Date(anchor.getTime() - 1) : ef
+
   switch (schedule.frequency) {
     case 'weekly':
       return nextFixedInterval(anchor, from, 7)
     case 'bi-weekly':
       return nextFixedInterval(anchor, from, 14)
     case 'monthly':
-      return nextMonthly(anchor, from)
+      return nextMonthly(anchor, clampedFrom(from))
     case 'semi-monthly':
-      return nextSemiMonthly(anchor.getUTCDate(), schedule.day_of_month_2 ?? 0, from)
+      return nextSemiMonthly(anchor.getUTCDate(), schedule.day_of_month_2 ?? 0, clampedFrom(from))
     default:
-      return nextMonthly(anchor, from)
+      return nextMonthly(anchor, clampedFrom(from))
   }
 }
 

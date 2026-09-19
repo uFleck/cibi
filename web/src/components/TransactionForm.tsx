@@ -1,5 +1,4 @@
 import type { FormEvent } from 'react'
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ValueInput } from '@/components/ui/value-input'
@@ -11,7 +10,6 @@ export interface TransactionFormValues {
   account_id: string
   amount: number
   description: string
-  category: string
   is_recurring?: boolean
   frequency?: string
   anchor_date?: string
@@ -33,9 +31,7 @@ export interface TransactionFormProps {
   formErrors: TransactionFormErrors
   amountText: string
   isPending: boolean
-  categories: string[]
   accounts: TransactionFormAccountOption[]
-  categoryAutofilled?: boolean
   onSubmit: (e: FormEvent) => void
   onCancel: () => void
   onChange: (changes: Partial<TransactionFormValues>) => void
@@ -50,9 +46,7 @@ export function TransactionForm({
   formErrors,
   amountText,
   isPending,
-  categories,
   accounts,
-  categoryAutofilled = false,
   onSubmit,
   onCancel,
   onChange,
@@ -125,30 +119,6 @@ export function TransactionForm({
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="txn-category" className="text-xs">Category *</Label>
-          <Select
-            value={formData.category}
-            onValueChange={v => {
-              onChange({ category: v })
-              if (formErrors.category) onClearError('category')
-            }}
-          >
-            <SelectTrigger id="txn-category" size="sm" className={cn('w-full', categoryAutofilled && 'ring-2 ring-primary/30 transition-all duration-300')} aria-invalid={!!formErrors.category || undefined}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map(c => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {formErrors.category && (
-            <p id="txn-category-error" className="text-xs text-destructive">
-              {formErrors.category}
-            </p>
-          )}
-        </div>
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
             <Switch

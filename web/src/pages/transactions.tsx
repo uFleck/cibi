@@ -1,14 +1,14 @@
 import { useState, useContext, useMemo, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, ArrowLeftRight, X } from 'lucide-react'
+import { Plus, ArrowLeftRight, X, Users } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MoneyValue } from '@/components/ui/money-value'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { AppModal } from '@/components/AppModal'
+import { EditSheet } from '@/components/EditSheet'
 import { SharedDebtList } from '@/components/debt/shared-debt-list'
 import { TransactionForm } from '@/components/TransactionForm'
 import { TransactionFilters, type TransactionPreset } from '@/components/TransactionFilters'
@@ -22,7 +22,11 @@ import {
   deleteTransaction,
   confirmTransaction,
   confirmInstallmentTransaction,
+  listFriends,
+  confirmDebt,
+  deletePeerDebt,
   type TransactionResponse,
+  type FriendResponse,
 } from '@/lib/api'
 import { formatDate } from '@/lib/format'
 import { fromDateInputValue, toDateInputValue } from '@/lib/locale'
@@ -34,21 +38,13 @@ import {
   isCurrentDue,
   matchesPresetFilter,
 } from '@/lib/transactions-impact'
-import { suggestCategoryFromDescription } from '@/lib/category-autofill'
 import { AccountContext } from '@/App'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
-
-const CATEGORIES = [
-  'General', 'Food', 'Rent', 'Utilities', 'Transportation', 'Entertainment',
-  'Healthcare', 'Shopping', 'Subscriptions', 'Insurance', 'Savings', 'Income',
-  'Education', 'Pets',
-]
 
 interface FormData {
   account_id: string
   amount: number
   description: string
-  category: string
   is_recurring?: boolean
   frequency?: string
   anchor_date?: string
@@ -62,14 +58,15 @@ type FormErrors = Partial<Record<keyof FormData, string>>
 export function TransactionsPage() {
   const queryClient = useQueryClient()
   const { selectedAccountId } = useContext(AccountContext)
+  const [activeTab, setActiveTab] = useState<'transactions' | 'friend-debts'>('transactions')
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [peerDebtFilter, setPeerDebtFilter] = useState<{ friendId: string; direction: 'all' | 'i-owe' | 'they-owe'; status: 'all' | 'confirmed' | 'pending' }>({ friendId: 'all', direction: 'all', status: 'all' })
   const [formData, setFormData] = useState<FormData>({
     account_id: '',
     amount: 0,
     description: '',
-    category: 'General',
     is_recurring: false,
     frequency: 'monthly',
     anchor_date: '',
@@ -81,14 +78,11 @@ export function TransactionsPage() {
   const [amountText, setAmountText] = useState('')
   const [sortField, setSortField] = useState<'description' | 'date' | 'amount'>('date')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-  const [filterCategory, setFilterCategory] = useState<string>('all')
   const [preset, setPreset] = useState<TransactionPreset | null>(null)
   const [showFilters, setShowFilters] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [amountMin, setAmountMin] = useState('')
   const [amountMax, setAmountMax] = useState('')
-  const [categoryTouched, setCategoryTouched] = useState(false)
-  const [categoryAutofilled, setCategoryAutofilled] = useState(false)
 
   const {
     data: accounts = [],
@@ -123,6 +117,11 @@ export function TransactionsPage() {
     enabled: !!currentAccountId,
   })
 
+  const { data: friends = [] } = useQuery({
+    queryKey: ['friends'],
+    queryFn: listFriends,
+  })
+
   const nextPayday = paySchedules.length > 0
     ? paySchedules.reduce((earliest, ps) => (ps.next_payday < earliest ? ps.next_payday : earliest), paySchedules[0].next_payday)
     : null
@@ -134,11 +133,7 @@ export function TransactionsPage() {
   const filteredAndSortedTxns = useMemo(() => {
     const now = new Date()
 
-    let txns = [...transactions]
-
-    if (filterCategory !== 'all') {
-      txns = txns.filter((t: TransactionResponse) => t.category === filterCategory)
-    }
+    let txns = transactions.filter((t: TransactionResponse) => t.type === 'personal')
 
     txns = txns.filter((t: TransactionResponse) => matchesPresetFilter({
       txn: t,
@@ -181,7 +176,7 @@ export function TransactionsPage() {
     })
     
     return txns
-  }, [transactions, filterCategory, preset, sortField, sortDir, nextPayday, paySchedules, searchQuery, amountMin, amountMax])
+  }, [transactions, preset, sortField, sortDir, nextPayday, paySchedules, searchQuery, amountMin, amountMax])
 
   const unconfirmedImpact = useMemo(() => {
     const currentBalance = accounts.find(a => a.id === currentAccountId)?.current_balance ?? 0
@@ -202,17 +197,25 @@ export function TransactionsPage() {
     })
   }, [accounts, currentAccountId, friendBreakdown, nextPayday, paySchedules, transactions])
 
-  const categories = useMemo(() => {
-    const cats = new Set(transactions.map((t: TransactionResponse) => t.category))
-    return Array.from(cats).sort()
-  }, [transactions])
+  const hasActiveFilters = preset !== null || !!searchQuery.trim() || !!(amountMin || amountMax)
 
-  const formCategories = useMemo(() => {
-    const cats = new Set([...CATEGORIES, ...transactions.map((t: TransactionResponse) => t.category)])
-    return Array.from(cats).sort()
-  }, [transactions])
-
-  const hasActiveFilters = filterCategory !== 'all' || preset !== null || !!searchQuery.trim() || !!(amountMin || amountMax)
+  const filteredPeerDebts = useMemo(() => {
+    let debts = transactions.filter((t: TransactionResponse) => t.type === 'peer')
+    if (peerDebtFilter.friendId !== 'all') {
+      debts = debts.filter(t => t.friend_id === peerDebtFilter.friendId)
+    }
+    if (peerDebtFilter.direction === 'i-owe') {
+      debts = debts.filter(t => t.amount < 0)
+    } else if (peerDebtFilter.direction === 'they-owe') {
+      debts = debts.filter(t => t.amount > 0)
+    }
+    if (peerDebtFilter.status === 'confirmed') {
+      debts = debts.filter(t => t.confirmed_at !== null)
+    } else if (peerDebtFilter.status === 'pending') {
+      debts = debts.filter(t => t.confirmed_at === null)
+    }
+    return debts
+  }, [transactions, peerDebtFilter])
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => createTransaction(data),
@@ -232,7 +235,6 @@ export function TransactionsPage() {
         account_id: currentAccountId,
         amount: 0,
         description: '',
-        category: 'General',
         is_recurring: false,
         frequency: 'monthly',
         anchor_date: '',
@@ -242,7 +244,6 @@ export function TransactionsPage() {
       })
       setFormErrors({})
       setAmountText('')
-      setCategoryTouched(false)
     },
     onError: (error, _vars, ctx) => {
       if (ctx?.prevTxns) queryClient.setQueryData(['transactions', currentAccountId], ctx.prevTxns)
@@ -279,7 +280,6 @@ export function TransactionsPage() {
         account_id: currentAccountId,
         amount: 0,
         description: '',
-        category: 'General',
         is_recurring: false,
         frequency: 'monthly',
         anchor_date: '',
@@ -289,7 +289,6 @@ export function TransactionsPage() {
       })
       setFormErrors({})
       setAmountText('')
-      setCategoryTouched(false)
     },
     onError: (error, _vars, ctx) => {
       if (ctx?.prevTxns) queryClient.setQueryData(['transactions', currentAccountId], ctx.prevTxns)
@@ -331,7 +330,6 @@ export function TransactionsPage() {
                 account_id: deletedTxn.account_id,
                 amount: deletedTxn.amount,
                 description: deletedTxn.description,
-                category: deletedTxn.category,
                 is_recurring: deletedTxn.is_recurring,
                 frequency: deletedTxn.frequency ?? undefined,
                 anchor_date: deletedTxn.anchor_date ?? undefined,
@@ -428,12 +426,29 @@ export function TransactionsPage() {
   }
 
   const handleClearFilters = useCallback(() => {
-    setFilterCategory('all')
     setPreset(null)
     setSearchQuery('')
     setAmountMin('')
     setAmountMax('')
   }, [])
+
+  const confirmPeerDebtMutation = useMutation({
+    mutationFn: (id: string) => confirmDebt(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      toast.success('Debt confirmed')
+    },
+    onError: () => toast.error('Failed to confirm debt'),
+  })
+
+  const deletePeerDebtMutation = useMutation({
+    mutationFn: (id: string) => deletePeerDebt(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      toast.success('Debt deleted')
+    },
+    onError: () => toast.error('Failed to delete debt'),
+  })
 
   const handleBatchConfirmDueNow = useCallback(() => {
     const { nextPaydayDay } = getWindowBounds(paySchedules, nextPayday)
@@ -455,7 +470,6 @@ export function TransactionsPage() {
       account_id: currentAccountId,
       amount: 0,
       description: '',
-      category: 'General',
       is_recurring: false,
       frequency: 'monthly',
       anchor_date: '',
@@ -468,14 +482,11 @@ export function TransactionsPage() {
   const handleEditClick = (txn: TransactionResponse) => {
     setEditingId(txn.id)
     setFormErrors({})
-    setCategoryTouched(false)
-    setCategoryAutofilled(false)
     setAmountText(txn.amount.toString())
     setFormData({
       account_id: txn.account_id,
       amount: txn.amount,
       description: txn.description,
-      category: txn.category,
       is_recurring: txn.is_recurring,
       frequency: txn.frequency || 'monthly',
       anchor_date: toDateInputValue(txn.anchor_date),
@@ -489,7 +500,6 @@ export function TransactionsPage() {
     const errors: FormErrors = {}
     if (!formData.description.trim()) errors.description = 'Description is required'
     if (formData.amount === 0) errors.amount = 'Amount must be non-zero'
-    if (!formData.category.trim()) errors.category = 'Category is required'
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -515,7 +525,6 @@ export function TransactionsPage() {
       account_id: currentAccountId,
       amount: 0,
       description: '',
-      category: 'General',
       is_recurring: false,
       frequency: 'monthly',
       anchor_date: '',
@@ -537,7 +546,6 @@ export function TransactionsPage() {
       if (saved) {
         const state = JSON.parse(saved)
         if (state.preset !== undefined) setPreset(state.preset as TransactionPreset | null)
-        if (state.filterCategory) setFilterCategory(state.filterCategory)
         if (state.sortField) setSortField(state.sortField)
         if (state.sortDir) setSortDir(state.sortDir)
       }
@@ -547,29 +555,12 @@ export function TransactionsPage() {
   useEffect(() => {
     if (!currentAccountId) return
     sessionStorage.setItem(FILTER_KEY, JSON.stringify({
-      preset, filterCategory, sortField, sortDir,
+      preset, sortField, sortDir,
     }))
-  }, [preset, filterCategory, sortField, sortDir, currentAccountId])
+  }, [preset, sortField, sortDir, currentAccountId])
 
   const handleTransactionChange = (changes: Partial<FormData>) => {
-    if (Object.prototype.hasOwnProperty.call(changes, 'category')) {
-      setCategoryTouched(true)
-    }
-
-    setFormData(prev => {
-      const next = { ...prev, ...changes }
-      const description = changes.description
-      const shouldAutofill = !categoryTouched && typeof description === 'string' && !Object.prototype.hasOwnProperty.call(changes, 'category')
-      if (shouldAutofill) {
-        const suggested = suggestCategoryFromDescription(description, formCategories)
-        if (suggested && suggested !== prev.category) {
-          setCategoryAutofilled(true)
-          setTimeout(() => setCategoryAutofilled(false), 1500)
-        }
-        next.category = suggested
-      }
-      return next
-    })
+    setFormData(prev => ({ ...prev, ...changes }))
   }
 
   const handleTransactionAmountParsed = (parsed: number | null) => {
@@ -613,13 +604,32 @@ export function TransactionsPage() {
             </p>
           )}
         </div>
-        <Button onClick={handleCreateClick} size="sm" className="hidden sm:inline-flex">
-          <Plus size={16} />
-          Add Transaction
-        </Button>
+        {activeTab === 'transactions' && (
+          <Button onClick={handleCreateClick} size="sm" className="hidden sm:inline-flex">
+            <Plus size={16} />
+            Add Transaction
+          </Button>
+        )}
       </div>
 
-      <Card>
+      <div className="flex gap-1 border-b">
+        <button
+          onClick={() => setActiveTab('transactions')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'transactions' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        >
+          <ArrowLeftRight size={14} className="inline mr-1.5 -mt-0.5" />
+          Transactions
+        </button>
+        <button
+          onClick={() => setActiveTab('friend-debts')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'friend-debts' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        >
+          <Users size={14} className="inline mr-1.5 -mt-0.5" />
+          Friend Debts
+        </button>
+      </div>
+
+      {activeTab === 'transactions' && <><Card>
         <CardContent className="py-3 space-y-2">
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Unconfirmed payment impact</p>
           <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
@@ -642,8 +652,6 @@ export function TransactionsPage() {
         showFilters={showFilters}
         hasActiveFilters={hasActiveFilters}
         preset={preset}
-        filterCategory={filterCategory}
-        categories={categories}
         sortField={sortField}
         sortDir={sortDir}
         searchQuery={searchQuery}
@@ -652,7 +660,6 @@ export function TransactionsPage() {
         windowLabels={windowLabels}
         onToggleFilters={() => setShowFilters(!showFilters)}
         onPresetChange={setPreset}
-        onFilterCategoryChange={setFilterCategory}
         onSortFieldChange={setSortField}
         onSortDirChange={setSortDir}
         onSearchQueryChange={setSearchQuery}
@@ -671,12 +678,6 @@ export function TransactionsPage() {
                preset === 'next-window' ? windowLabels?.nextWindowLabel :
                preset === 'all-recurring' ? 'All recurring' :
                preset === 'one-time-only' ? 'One-time only' : preset}
-              <X size={12} />
-            </Badge>
-          )}
-          {filterCategory !== 'all' && (
-            <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => setFilterCategory('all')}>
-              {filterCategory}
               <X size={12} />
             </Badge>
           )}
@@ -729,9 +730,9 @@ export function TransactionsPage() {
               id: txn.id,
               title: txn.description,
               subtitle: txn.is_installment
-                ? `${txn.category} · Installment · ${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'} paid · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : '-'}`
+                ? `Installment · ${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'} paid · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : '-'}`
                 : txn.is_recurring
-                  ? `${txn.category} · ${txn.frequency} · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : (txn.anchor_date ? formatDate(txn.anchor_date) : '-')}`
+                  ? `${txn.frequency} · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : (txn.anchor_date ? formatDate(txn.anchor_date) : '-')}`
                   : txn.requires_confirmation
                     ? (txn.confirmed_at ? `confirmed ${formatDate(txn.confirmed_at)}` : `pending ${formatDate(txn.anchor_date || txn.timestamp)}`)
                     : formatDate(txn.timestamp),
@@ -772,9 +773,92 @@ export function TransactionsPage() {
             }}
           />
         )}
-      </Skeleton>
+      </Skeleton></>}
 
-      <AppModal
+      {activeTab === 'friend-debts' && (
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap gap-2 items-end">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Friend</span>
+              <select
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                value={peerDebtFilter.friendId}
+                onChange={e => setPeerDebtFilter(f => ({ ...f, friendId: e.target.value }))}
+              >
+                <option value="all">All friends</option>
+                {friends.map((fr: FriendResponse) => (
+                  <option key={fr.id} value={fr.id}>{fr.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Direction</span>
+              <select
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                value={peerDebtFilter.direction}
+                onChange={e => setPeerDebtFilter(f => ({ ...f, direction: e.target.value as typeof f.direction }))}
+              >
+                <option value="all">All</option>
+                <option value="i-owe">I owe</option>
+                <option value="they-owe">They owe</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">Status</span>
+              <select
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                value={peerDebtFilter.status}
+                onChange={e => setPeerDebtFilter(f => ({ ...f, status: e.target.value as typeof f.status }))}
+              >
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+              </select>
+            </div>
+          </div>
+          <Skeleton
+            name="peer-debt-list"
+            loading={txnsLoading}
+            fallback={
+              <div className="flex flex-col gap-2">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="h-10 rounded-lg bg-card/60 animate-pulse border border-border/40" />
+                ))}
+              </div>
+            }
+          >
+            <SharedDebtList
+              view="owner"
+              items={filteredPeerDebts.map((txn: TransactionResponse) => {
+                const friendName = friends.find((f: FriendResponse) => f.id === txn.friend_id)?.name ?? 'Unknown'
+                const isConfirmed = txn.confirmed_at !== null
+                const direction = txn.amount < 0 ? 'I owe' : 'They owe'
+                return {
+                  id: txn.id,
+                  title: txn.description,
+                  subtitle: `${friendName} · ${direction} · ${isConfirmed ? `confirmed ${formatDate(txn.confirmed_at!)}` : `pending ${formatDate(txn.anchor_date || txn.timestamp)}`}`,
+                  amount: txn.is_installment
+                    ? txn.amount * ((txn.total_installments ?? 0) - (txn.paid_installments ?? 0))
+                    : txn.amount,
+                  currency: currentAccountCurrency,
+                  status: {
+                    label: isConfirmed ? 'Confirmed' : (txn.is_installment ? `${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'} paid` : 'Pending'),
+                    tone: isConfirmed ? 'default' as const : 'outline' as const,
+                  },
+                  canConfirm: !isConfirmed,
+                  canDelete: true,
+                }
+              })}
+              emptyTitle="No friend debts"
+              emptyHint="Adjust filters or add a debt via Friends page"
+              onConfirm={(id) => confirmPeerDebtMutation.mutate(id)}
+              onDelete={(id) => deletePeerDebtMutation.mutate(id)}
+            />
+          </Skeleton>
+        </div>
+      )}
+
+      <EditSheet
         open={isCreating || !!editingId}
         onOpenChange={(open) => !open && handleCancel()}
         title={editingId ? 'Edit Transaction' : 'New Transaction'}
@@ -786,9 +870,7 @@ export function TransactionsPage() {
           formErrors={formErrors}
           amountText={amountText}
           isPending={isPending}
-          categories={CATEGORIES}
           accounts={accounts}
-          categoryAutofilled={categoryAutofilled}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
           onChange={handleTransactionChange}
@@ -796,16 +878,18 @@ export function TransactionsPage() {
           onAmountParsedChange={handleTransactionAmountParsed}
           onClearError={field => setFormErrors({ ...formErrors, [field]: undefined })}
         />
-      </AppModal>
+      </EditSheet>
 
       <div className="h-24 sm:h-8" />
 
-      <div className="sm:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] right-4 z-30">
-        <Button onClick={handleCreateClick} className="h-12 shadow-lg rounded-full px-5">
-          <Plus size={18} />
-          New Transaction
-        </Button>
-      </div>
+      {activeTab === 'transactions' && (
+        <div className="sm:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] right-4 z-30">
+          <Button onClick={handleCreateClick} className="h-12 shadow-lg rounded-full px-5">
+            <Plus size={18} />
+            New Transaction
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

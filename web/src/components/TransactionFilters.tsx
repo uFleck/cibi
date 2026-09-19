@@ -18,8 +18,6 @@ export interface TransactionFiltersProps {
   showFilters: boolean
   hasActiveFilters: boolean
   preset: TransactionPreset | null
-  categories: string[]
-  filterCategory: string
   sortField: 'description' | 'date' | 'amount'
   sortDir: 'asc' | 'desc'
   searchQuery: string
@@ -28,7 +26,6 @@ export interface TransactionFiltersProps {
   windowLabels: WindowLabels | null
   onToggleFilters: () => void
   onPresetChange: (value: TransactionPreset | null) => void
-  onFilterCategoryChange: (value: string) => void
   onSortFieldChange: (value: 'description' | 'date' | 'amount') => void
   onSortDirChange: (value: 'asc' | 'desc') => void
   onSearchQueryChange: (value: string) => void
@@ -41,8 +38,6 @@ export function TransactionFilters({
   showFilters,
   hasActiveFilters,
   preset,
-  categories,
-  filterCategory,
   sortField,
   sortDir,
   searchQuery,
@@ -51,7 +46,6 @@ export function TransactionFilters({
   windowLabels,
   onToggleFilters,
   onPresetChange,
-  onFilterCategoryChange,
   onSortFieldChange,
   onSortDirChange,
   onSearchQueryChange,
@@ -80,7 +74,7 @@ export function TransactionFilters({
           Filters
           {hasActiveFilters && (
             <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
-              {[filterCategory !== 'all', preset !== null, !!searchQuery, !!(amountMin || amountMax)].filter(Boolean).length}
+              {[preset !== null, !!searchQuery, !!(amountMin || amountMax)].filter(Boolean).length}
             </span>
           )}
         </Button>
@@ -140,20 +134,6 @@ export function TransactionFilters({
                   <SelectItem value="desc">
                     <span className="inline-flex items-center gap-1"><ArrowDown size={12} /> Desc</span>
                   </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">Category</Label>
-              <Select value={filterCategory} onValueChange={onFilterCategoryChange}>
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {categories.map(c => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
                 </SelectContent>
               </Select>
             </div>

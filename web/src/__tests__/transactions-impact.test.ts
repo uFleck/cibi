@@ -16,6 +16,7 @@ const paySchedules: PayScheduleResponse[] = [{
 const txn = (overrides: Partial<TransactionResponse>): TransactionResponse => ({
   id: 't-1',
   account_id: 'acc-1',
+  type: 'personal',
   amount: -100,
   description: 'Bill',
   category: 'General',
