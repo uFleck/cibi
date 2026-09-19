@@ -12,6 +12,7 @@ import { EditSheet } from '@/components/EditSheet'
 import { SharedDebtList } from '@/components/debt/shared-debt-list'
 import { TransactionForm } from '@/components/TransactionForm'
 import { TransactionFilters, type TransactionPreset } from '@/components/TransactionFilters'
+import { LedgerRecentWidget } from '@/components/LedgerRecentWidget'
 import {
   fetchAccounts,
   fetchTransactions,
@@ -93,7 +94,8 @@ export function TransactionsPage() {
   })
 
   const currentAccountId = selectedAccountId || accounts[0]?.id
-  const currentAccountCurrency = accounts.find(a => a.id === currentAccountId)?.currency ?? 'BRL'
+  const currentAccount = accounts.find(a => a.id === currentAccountId)
+  const currentAccountCurrency = currentAccount?.currency ?? 'BRL'
 
   const {
     data: transactions = [],
@@ -647,6 +649,8 @@ export function TransactionsPage() {
           )}
         </CardContent>
       </Card>
+
+      {currentAccount && <LedgerRecentWidget account={currentAccount} />}
 
       <TransactionFilters
         showFilters={showFilters}
