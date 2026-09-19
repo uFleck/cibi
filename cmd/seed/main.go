@@ -29,7 +29,9 @@ func main() {
 
 	accRepo := reposqlite.NewSqliteAccountsRepo(database)
 	psRepo := reposqlite.NewSqlitePayScheduleRepo(database)
-	psSvc := service.NewPayScheduleService(database, psRepo, accRepo)
+	ledgerRepo := reposqlite.NewSqliteLedgerRepo(database)
+	ledgerSvc := service.NewLedgerService(database, ledgerRepo, accRepo)
+	psSvc := service.NewPayScheduleService(database, psRepo, accRepo, ledgerSvc)
 
 	// Get default account
 	acc, err := accRepo.GetDefault()
