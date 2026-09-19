@@ -5,6 +5,8 @@ import { Plus, ArrowLeftRight, X, Users } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { MoneyValue } from '@/components/ui/money-value'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -26,8 +28,10 @@ import {
   listFriends,
   confirmDebt,
   deletePeerDebt,
+  createPeerDebt,
   type TransactionResponse,
   type FriendResponse,
+  type CreatePeerDebtRequest,
 } from '@/lib/api'
 import { formatDate } from '@/lib/format'
 import { fromDateInputValue, toDateInputValue } from '@/lib/locale'
@@ -64,6 +68,13 @@ export function TransactionsPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [peerDebtFilter, setPeerDebtFilter] = useState<{ friendId: string; direction: 'all' | 'i-owe' | 'they-owe'; status: 'all' | 'confirmed' | 'pending' }>({ friendId: 'all', direction: 'all', status: 'all' })
+  const [isCreatingDebt, setIsCreatingDebt] = useState(false)
+  const [debtForm, setDebtForm] = useState({
+    friend_id: '',
+    amount: '',
+    description: '',
+    date: new Date().toISOString().slice(0, 10),
+  })
   const [formData, setFormData] = useState<FormData>({
     account_id: '',
     amount: 0,
@@ -452,6 +463,17 @@ export function TransactionsPage() {
     onError: () => toast.error('Failed to delete debt'),
   })
 
+  const createDebtMutation = useMutation({
+    mutationFn: (data: CreatePeerDebtRequest) => createPeerDebt(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      toast.success('Debt created')
+      setIsCreatingDebt(false)
+      setDebtForm({ friend_id: '', amount: '', description: '', date: new Date().toISOString().slice(0, 10) })
+    },
+    onError: () => toast.error('Failed to create debt'),
+  })
+
   const handleBatchConfirmDueNow = useCallback(() => {
     const { nextPaydayDay } = getWindowBounds(paySchedules, nextPayday)
     const now = new Date()
@@ -819,6 +841,10 @@ export function TransactionsPage() {
                 <option value="confirmed">Confirmed</option>
               </select>
             </div>
+            <Button size="sm" onClick={() => setIsCreatingDebt(true)} className="ml-auto">
+              <Plus size={16} />
+              New Debt
+            </Button>
           </div>
           <Skeleton
             name="peer-debt-list"
@@ -854,13 +880,87 @@ export function TransactionsPage() {
                 }
               })}
               emptyTitle="No friend debts"
-              emptyHint="Adjust filters or add a debt via Friends page"
+              emptyHint="Adjust filters or click New Debt"
               onConfirm={(id) => confirmPeerDebtMutation.mutate(id)}
               onDelete={(id) => deletePeerDebtMutation.mutate(id)}
             />
           </Skeleton>
         </div>
       )}
+
+      <EditSheet
+        open={isCreatingDebt}
+        onOpenChange={(open) => !open && setIsCreatingDebt(false)}
+        title="New Friend Debt"
+        description="Record a debt between you and a friend."
+      >
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!debtForm.friend_id || !debtForm.amount || !debtForm.description) return
+            const amt = parseFloat(debtForm.amount)
+            if (isNaN(amt) || amt === 0) return
+            createDebtMutation.mutate({
+              account_id: currentAccountId!,
+              friend_id: debtForm.friend_id,
+              amount: Math.round(amt * 100),
+              description: debtForm.description,
+              date: debtForm.date || new Date().toISOString(),
+            })
+          }}
+        >
+          <div className="flex flex-col gap-1">
+            <Label>Friend</Label>
+            <select
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              value={debtForm.friend_id}
+              onChange={e => setDebtForm(f => ({ ...f, friend_id: e.target.value }))}
+              required
+            >
+              <option value="">Select friend...</option>
+              {friends.map((fr: FriendResponse) => (
+                <option key={fr.id} value={fr.id}>{fr.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label>Amount</Label>
+            <p className="text-xs text-muted-foreground">Positive = they owe you. Negative = you owe them.</p>
+            <Input
+              type="number"
+              step="0.01"
+              placeholder="e.g. 50.00 or -30.00"
+              value={debtForm.amount}
+              onChange={e => setDebtForm(f => ({ ...f, amount: e.target.value }))}
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label>Description</Label>
+            <Input
+              placeholder="e.g. Dinner, Movie tickets"
+              value={debtForm.description}
+              onChange={e => setDebtForm(f => ({ ...f, description: e.target.value }))}
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label>Date</Label>
+            <Input
+              type="date"
+              value={debtForm.date}
+              onChange={e => setDebtForm(f => ({ ...f, date: e.target.value }))}
+            />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button type="button" variant="outline" onClick={() => setIsCreatingDebt(false)}>Cancel</Button>
+            <Button type="submit" disabled={createDebtMutation.isPending}>
+              {createDebtMutation.isPending ? 'Saving...' : 'Create Debt'}
+            </Button>
+          </div>
+        </form>
+      </EditSheet>
 
       <EditSheet
         open={isCreating || !!editingId}
