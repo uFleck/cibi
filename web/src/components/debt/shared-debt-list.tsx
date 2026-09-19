@@ -128,9 +128,9 @@ export function SharedDebtList({
               {items.map(item => {
                 return (
                   <tr key={item.id} className="hover:bg-muted/30">
-                    <td className="px-3 py-2">
-                      <div className="font-medium">{item.title}</div>
-                      <div className="text-xs text-muted-foreground">{item.subtitle}</div>
+                    <td className="px-3 py-2 max-w-[200px]">
+                      <div className="font-medium truncate">{item.title}</div>
+                      <div className="text-xs text-muted-foreground truncate">{item.subtitle}</div>
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
                       <MoneyValue amount={item.amount} currency={item.currency} showSign="auto" tone="auto" />

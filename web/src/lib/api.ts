@@ -10,9 +10,11 @@ export interface AccountResponse {
 export interface TransactionResponse {
   id: string
   account_id: string
+  type: 'personal' | 'peer'
+  friend_id?: string | null
   amount: number
   description: string
-  category: string
+  category?: string
   timestamp: string
   is_recurring: boolean
   requires_confirmation: boolean
@@ -329,7 +331,6 @@ export function createTransaction(data: {
   account_id: string
   amount: number
   description: string
-  category: string
   is_recurring?: boolean
   requires_confirmation?: boolean
   frequency?: string
@@ -349,7 +350,6 @@ export function updateTransaction(
   data: Partial<{
     amount: number
     description: string
-    category: string
     is_recurring: boolean
     requires_confirmation: boolean
     frequency: string

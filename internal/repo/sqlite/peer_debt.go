@@ -72,13 +72,13 @@ type PeerDebtRepo interface {
 	// joined with the friend name for display purposes.
 	GetActiveUserDebtsWithFriend(accountID *uuid.UUID) ([]ActiveUserDebt, error)
 	// ConfirmInstallment atomically increments paid_installments (capped at total_installments)
-	// for installment debts, or sets is_confirmed=1 for non-installment debts.
+	// for installment debts, or sets confirmed_at for non-installment debts.
 	ConfirmInstallment(id uuid.UUID) error
 	// ToggleInstallmentConfirmation toggles confirmation state for installment and non-installment debts.
 	ToggleInstallmentConfirmation(id uuid.UUID) error
 }
 
-// SqlitePeerDebtRepo implements PeerDebtRepo against modernc SQLite.
+// SqlitePeerDebtRepo implements PeerDebtRepo against the Transaction table (type='peer').
 type SqlitePeerDebtRepo struct {
 	db *sql.DB
 }
@@ -101,18 +101,32 @@ func (r *SqlitePeerDebtRepo) Insert(d PeerDebt) error {
 	if d.AnchorDate != nil {
 		anchorDate = *d.AnchorDate
 	}
+	isRecurring := 0
+	if d.Frequency != nil {
+		isRecurring = 1
+	}
+	var confirmedAt interface{}
+	if d.IsConfirmed {
+		confirmedAt = d.Date
+	}
 	_, err := r.db.Exec(
-		`INSERT INTO PeerDebt (id, account_id, friend_id, amount, description, date, is_installment,
-		 total_installments, paid_installments, frequency, anchor_date, is_confirmed)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO "Transaction" (id, account_id, type, friend_id, amount, description, timestamp,
+		 is_recurring, frequency, anchor_date, is_installment,
+		 total_installments, paid_installments, requires_confirmation, confirmed_at)
+		 VALUES (?, ?, 'peer', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
 		d.ID.String(), d.AccountID.String(), d.FriendID.String(), d.Amount, d.Description, d.Date,
-		d.IsInstallment, totalInstallments, d.PaidInstallments, frequency, anchorDate, d.IsConfirmed,
+		isRecurring, frequency, anchorDate, d.IsInstallment, totalInstallments, d.PaidInstallments, confirmedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("peer_debt.Insert: %w", err)
 	}
 	return nil
 }
+
+// peerDebtSelect is the column list for all peer debt queries against Transaction.
+const peerDebtSelect = `SELECT id, account_id, friend_id, amount, description, timestamp, is_installment,
+	 total_installments, paid_installments, frequency, anchor_date,
+	 CASE WHEN confirmed_at IS NOT NULL THEN 1 ELSE 0 END`
 
 func scanPeerDebt(idStr, accountIDStr, friendIDStr string, totalInstallments sql.NullInt64, frequency, anchorDate sql.NullString, d *PeerDebt) error {
 	var err error
@@ -141,9 +155,7 @@ func scanPeerDebt(idStr, accountIDStr, friendIDStr string, totalInstallments sql
 }
 
 func (r *SqlitePeerDebtRepo) GetByFriend(friendID uuid.UUID, accountID *uuid.UUID) ([]PeerDebt, error) {
-	query := `SELECT id, account_id, friend_id, amount, description, date, is_installment,
-		 total_installments, paid_installments, frequency, anchor_date, is_confirmed
-		 FROM PeerDebt WHERE friend_id = ?`
+	query := peerDebtSelect + ` FROM "Transaction" WHERE type = 'peer' AND friend_id = ?`
 	args := []any{friendID.String()}
 	if accountID != nil {
 		query += ` AND account_id = ?`
@@ -158,12 +170,10 @@ func (r *SqlitePeerDebtRepo) GetByFriend(friendID uuid.UUID, accountID *uuid.UUI
 }
 
 func (r *SqlitePeerDebtRepo) GetAll(accountID *uuid.UUID) ([]PeerDebt, error) {
-	query := `SELECT id, account_id, friend_id, amount, description, date, is_installment,
-		 total_installments, paid_installments, frequency, anchor_date, is_confirmed
-		 FROM PeerDebt`
+	query := peerDebtSelect + ` FROM "Transaction" WHERE type = 'peer'`
 	args := []any{}
 	if accountID != nil {
-		query += ` WHERE account_id = ?`
+		query += ` AND account_id = ?`
 		args = append(args, accountID.String())
 	}
 	rows, err := r.db.Query(query, args...)
@@ -201,9 +211,7 @@ func (r *SqlitePeerDebtRepo) GetByID(id uuid.UUID) (PeerDebt, error) {
 	var totalInstallments sql.NullInt64
 	var frequency, anchorDate sql.NullString
 	err := r.db.QueryRow(
-		`SELECT id, account_id, friend_id, amount, description, date, is_installment,
-		 total_installments, paid_installments, frequency, anchor_date, is_confirmed
-		 FROM PeerDebt WHERE id = ?`,
+		peerDebtSelect+` FROM "Transaction" WHERE type = 'peer' AND id = ?`,
 		id.String(),
 	).Scan(
 		&idStr, &accountIDStr, &friendIDStr, &d.Amount, &d.Description, &d.Date, &d.IsInstallment,
@@ -231,37 +239,54 @@ func (r *SqlitePeerDebtRepo) Update(id uuid.UUID, amount *int64, description *st
 	if description != nil {
 		fields = append(fields, updateField{col: "description", val: *description})
 	}
-	if isConfirmed != nil {
-		fields = append(fields, updateField{col: "is_confirmed", val: *isConfirmed})
-	}
 	if paidInstallments != nil {
 		fields = append(fields, updateField{col: "paid_installments", val: *paidInstallments})
 	}
-	if len(fields) == 0 {
+
+	var err error
+	if len(fields) > 0 {
+		setClauses := make([]string, 0, len(fields))
+		args := make([]any, 0, len(fields)+1)
+		for _, f := range fields {
+			setClauses = append(setClauses, f.col+" = ?")
+			args = append(args, f.val)
+		}
+		args = append(args, id.String())
+		query := `UPDATE "Transaction" SET ` + strings.Join(setClauses, ", ") + ` WHERE id = ? AND type = 'peer'`
+		res, execErr := r.db.Exec(query, args...)
+		if execErr != nil {
+			return fmt.Errorf("peer_debt.Update: %w", execErr)
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			err = sql.ErrNoRows
+		}
+	}
+
+	if isConfirmed != nil {
+		var q string
+		if *isConfirmed {
+			q = `UPDATE "Transaction" SET confirmed_at = timestamp WHERE id = ? AND type = 'peer'`
+		} else {
+			q = `UPDATE "Transaction" SET confirmed_at = NULL WHERE id = ? AND type = 'peer'`
+		}
+		res, execErr := r.db.Exec(q, id.String())
+		if execErr != nil {
+			return fmt.Errorf("peer_debt.Update is_confirmed: %w", execErr)
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			err = sql.ErrNoRows
+		}
+	}
+
+	if len(fields) == 0 && isConfirmed == nil && paidInstallments == nil {
 		return fmt.Errorf("peer_debt.Update: no fields provided")
 	}
 
-	setClauses := make([]string, 0, len(fields))
-	args := make([]any, 0, len(fields)+1)
-	for _, f := range fields {
-		setClauses = append(setClauses, f.col+" = ?")
-		args = append(args, f.val)
-	}
-	args = append(args, id.String())
-
-	query := "UPDATE PeerDebt SET " + strings.Join(setClauses, ", ") + " WHERE id = ?"
-	res, err := r.db.Exec(query, args...)
-	if err != nil {
-		return fmt.Errorf("peer_debt.Update: %w", err)
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return fmt.Errorf("peer_debt.Update: %w", sql.ErrNoRows)
-	}
-	return nil
+	return err
 }
 
 func (r *SqlitePeerDebtRepo) DeleteByID(id uuid.UUID) error {
-	if _, err := r.db.Exec(`DELETE FROM PeerDebt WHERE id = ?`, id.String()); err != nil {
+	if _, err := r.db.Exec(`DELETE FROM "Transaction" WHERE id = ? AND type = 'peer'`, id.String()); err != nil {
 		return fmt.Errorf("peer_debt.DeleteByID: %w", err)
 	}
 	return nil
@@ -271,11 +296,11 @@ func (r *SqlitePeerDebtRepo) GetBalanceByFriend(friendID uuid.UUID, accountID *u
 	query := `SELECT
 		    COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0),
 		    COALESCE(ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)), 0)
-		 FROM PeerDebt WHERE friend_id = ?
+		 FROM "Transaction" WHERE type = 'peer' AND friend_id = ?
 		   AND (
 		     (is_installment = 1 AND paid_installments < total_installments)
 		     OR
-		     (is_installment = 0 AND is_confirmed = 0)
+		     (is_installment = 0 AND confirmed_at IS NULL)
 		   )`
 	args := []any{friendID.String()}
 	if accountID != nil {
@@ -296,11 +321,12 @@ func (r *SqlitePeerDebtRepo) GetGlobalBalance(accountID *uuid.UUID) (GlobalPeerB
 	query := `SELECT
 		    COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0),
 		    COALESCE(ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)), 0)
-		 FROM PeerDebt
-		 WHERE (
+		 FROM "Transaction"
+		 WHERE type = 'peer'
+		 AND (
 		   (is_installment = 1 AND paid_installments < total_installments)
 		   OR
-		   (is_installment = 0 AND is_confirmed = 0)
+		   (is_installment = 0 AND confirmed_at IS NULL)
 		 )`
 	args := []any{}
 	if accountID != nil {
@@ -319,16 +345,15 @@ func (r *SqlitePeerDebtRepo) GetGlobalBalance(accountID *uuid.UUID) (GlobalPeerB
 
 // ConfirmInstallment atomically confirms a debt record.
 // For installment debts: increments paid_installments by 1, capped at total_installments.
-// For non-installment debts: sets is_confirmed = 1.
-// Uses a single atomic SQL statement — no read-modify-write race.
+// For non-installment debts: sets confirmed_at = timestamp.
 func (r *SqlitePeerDebtRepo) ConfirmInstallment(id uuid.UUID) error {
 	res, err := r.db.Exec(`
-		UPDATE PeerDebt SET
+		UPDATE "Transaction" SET
 		    paid_installments = CASE WHEN is_installment = 1
 		        THEN MIN(paid_installments + 1, COALESCE(total_installments, paid_installments + 1))
 		        ELSE paid_installments END,
-		    is_confirmed = CASE WHEN is_installment = 0 THEN 1 ELSE is_confirmed END
-		WHERE id = ?`, id.String())
+		    confirmed_at = CASE WHEN is_installment = 0 THEN timestamp ELSE confirmed_at END
+		WHERE id = ? AND type = 'peer'`, id.String())
 	if err != nil {
 		return fmt.Errorf("peer_debt.ConfirmInstallment: %w", err)
 	}
@@ -339,12 +364,12 @@ func (r *SqlitePeerDebtRepo) ConfirmInstallment(id uuid.UUID) error {
 }
 
 // ToggleInstallmentConfirmation toggles confirm state with strict reversal semantics.
-//   - non-installment: flips is_confirmed 0<->1
+//   - non-installment: flips confirmed_at NULL<->timestamp
 //   - installment: if currently complete (paid_installments >= total_installments), decrement by 1;
 //     otherwise increment by 1 (capped at total_installments)
 func (r *SqlitePeerDebtRepo) ToggleInstallmentConfirmation(id uuid.UUID) error {
 	res, err := r.db.Exec(`
-		UPDATE PeerDebt
+		UPDATE "Transaction"
 		SET
 			paid_installments = CASE
 				WHEN is_installment = 1 THEN
@@ -355,11 +380,12 @@ func (r *SqlitePeerDebtRepo) ToggleInstallmentConfirmation(id uuid.UUID) error {
 					END
 				ELSE paid_installments
 			END,
-			is_confirmed = CASE
-				WHEN is_installment = 0 THEN CASE WHEN is_confirmed = 1 THEN 0 ELSE 1 END
-				ELSE is_confirmed
+			confirmed_at = CASE
+				WHEN is_installment = 0 THEN
+					CASE WHEN confirmed_at IS NOT NULL THEN NULL ELSE timestamp END
+				ELSE confirmed_at
 			END
-		WHERE id = ?`, id.String())
+		WHERE id = ? AND type = 'peer'`, id.String())
 	if err != nil {
 		return fmt.Errorf("peer_debt.ToggleInstallmentConfirmation: %w", err)
 	}
@@ -378,12 +404,13 @@ func (r *SqlitePeerDebtRepo) SumNextUserPayment(accountID *uuid.UUID) (int64, er
 				ELSE amount
 			END
 		)), 0)
-		FROM PeerDebt
-		WHERE amount < 0
+		FROM "Transaction"
+		WHERE type = 'peer'
+		AND amount < 0
 		  AND (
 		    (is_installment = 1 AND paid_installments < total_installments)
 		    OR
-		    (is_installment = 0 AND is_confirmed = 0)
+		    (is_installment = 0 AND confirmed_at IS NULL)
 		  )`
 	args := []any{}
 	if accountID != nil {
@@ -401,26 +428,27 @@ func (r *SqlitePeerDebtRepo) SumNextUserPayment(accountID *uuid.UUID) (int64, er
 
 func (r *SqlitePeerDebtRepo) GetActiveUserDebtsWithFriend(accountID *uuid.UUID) ([]ActiveUserDebt, error) {
 	query := `
-		SELECT f.name, pd.amount, pd.is_installment,
-		       COALESCE(pd.total_installments, 0),
-		       pd.paid_installments,
-		       COALESCE(pd.frequency, ''),
-		       pd.date,
-		       pd.anchor_date
-		FROM PeerDebt pd
-		JOIN Friend f ON f.id = pd.friend_id
-		WHERE pd.amount < 0
+		SELECT f.name, t.amount, t.is_installment,
+		       COALESCE(t.total_installments, 0),
+		       t.paid_installments,
+		       COALESCE(t.frequency, ''),
+		       t.timestamp,
+		       t.anchor_date
+		FROM "Transaction" t
+		JOIN Friend f ON f.id = t.friend_id
+		WHERE t.type = 'peer'
+		  AND t.amount < 0
 		  AND (
-		    (pd.is_installment = 1 AND pd.paid_installments < pd.total_installments)
+		    (t.is_installment = 1 AND t.paid_installments < t.total_installments)
 		    OR
-		    (pd.is_installment = 0 AND pd.is_confirmed = 0)
+		    (t.is_installment = 0 AND t.confirmed_at IS NULL)
 		  )`
 	args := []any{}
 	if accountID != nil {
-		query += ` AND pd.account_id = ?`
+		query += ` AND t.account_id = ?`
 		args = append(args, accountID.String())
 	}
-	query += ` ORDER BY f.name, pd.date`
+	query += ` ORDER BY f.name, t.timestamp`
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
@@ -458,8 +486,8 @@ func parsePeerDebtDate(raw string) (time.Time, error) {
 }
 
 func (r *SqlitePeerDebtRepo) SumUpcomingPeerObligations(accountID *uuid.UUID, after, onOrBefore time.Time) (int64, error) {
-	lumpQuery := `SELECT amount, date FROM PeerDebt
-		 WHERE amount < 0 AND is_installment = 0 AND is_confirmed = 0`
+	lumpQuery := `SELECT amount, timestamp FROM "Transaction"
+		 WHERE type = 'peer' AND amount < 0 AND is_installment = 0 AND confirmed_at IS NULL`
 	lumpArgs := []any{}
 	if accountID != nil {
 		lumpQuery += ` AND account_id = ?`
@@ -491,9 +519,10 @@ func (r *SqlitePeerDebtRepo) SumUpcomingPeerObligations(accountID *uuid.UUID, af
 		return 0, fmt.Errorf("peer_debt.SumUpcomingPeerObligations: lump rows: %w", err)
 	}
 
-	instQuery := `SELECT id, amount, total_installments, paid_installments, frequency, date
-		 FROM PeerDebt
-		 WHERE amount < 0
+	instQuery := `SELECT id, amount, total_installments, paid_installments, frequency, timestamp
+		 FROM "Transaction"
+		 WHERE type = 'peer'
+		   AND amount < 0
 		   AND is_installment = 1
 		   AND total_installments IS NOT NULL
 		   AND total_installments > 0

@@ -1,6 +1,10 @@
 package engine
 
-import "time"
+import (
+	"time"
+
+	"github.com/ufleck/cibi/internal/holidays"
+)
 
 // Frequency constants matching the schema TEXT enum values.
 const (
@@ -44,27 +48,38 @@ func NextPayday(schedule PaySchedule, from time.Time) time.Time {
 	from = from.UTC()
 	anchor := schedule.AnchorDate.UTC()
 
+	// For monthly/semi-monthly the underlying helpers use only anchor.Day(), ignoring
+	// anchor's year/month. After ConfirmPayday advances the anchor (e.g. Sep 20 → Oct 20),
+	// without clamping the helpers still return Sep 20 for a Sep query. Clamp `from` to
+	// anchor-1ns so any occurrence before the anchor is skipped.
+	ef := from
+	if anchor.After(from) {
+		ef = anchor.Add(-time.Nanosecond)
+	}
+
+	var raw time.Time
 	switch schedule.Frequency {
 	case FreqWeekly:
-		return nextFixedInterval(anchor, from, 7)
+		raw = nextFixedInterval(anchor, from, 7)
 
 	case FreqBiWeekly:
-		return nextFixedInterval(anchor, from, 14)
+		raw = nextFixedInterval(anchor, from, 14)
 
 	case FreqMonthly:
-		return nextMonthly(anchor, from)
+		raw = nextMonthly(anchor, ef)
 
 	case FreqSemiMonthly:
 		day2 := 0
 		if schedule.DayOfMonth2 != nil {
 			day2 = *schedule.DayOfMonth2
 		}
-		return nextSemiMonthly(anchor.Day(), day2, from)
+		raw = nextSemiMonthly(anchor.Day(), day2, ef)
 
 	default:
 		// Fallback: treat as monthly
-		return nextMonthly(anchor, from)
+		raw = nextMonthly(anchor, ef)
 	}
+	return holidays.AdjustToBusinessDay(raw)
 }
 
 // nextFixedInterval returns the next date strictly after `from` that is

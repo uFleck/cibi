@@ -69,7 +69,6 @@ var txAddCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		amountFloat, _ := cmd.Flags().GetFloat64("amount")
 		description, _ := cmd.Flags().GetString("description")
-		category, _ := cmd.Flags().GetString("category")
 		isRecurring, _ := cmd.Flags().GetBool("recurring")
 		frequency, _ := cmd.Flags().GetString("frequency")
 		anchorStr, _ := cmd.Flags().GetString("anchor")
@@ -97,7 +96,6 @@ var txAddCmd = &cobra.Command{
 			AccountID:   accountID,
 			Amount:      amountCents,
 			Description: description,
-			Category:    category,
 			IsRecurring: isRecurring,
 		}
 
@@ -155,10 +153,7 @@ var txUpdateCmd = &cobra.Command{
 			d, _ := cmd.Flags().GetString("description")
 			upd.Description = &d
 		}
-		if cmd.Flags().Changed("category") {
-			c, _ := cmd.Flags().GetString("category")
-			upd.Category = &c
-		}
+
 		if cmd.Flags().Changed("amount") {
 			a, _ := cmd.Flags().GetFloat64("amount")
 			cents := int64(math.Round(a * 100))

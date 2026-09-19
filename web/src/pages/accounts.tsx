@@ -82,6 +82,15 @@ export function AccountsPage() {
     enabled: !!scheduleModalAccountId,
   })
 
+  const today = new Date().toISOString().slice(0, 10)
+  const defaultAccount = accounts.find(a => a.is_default) ?? accounts[0] ?? null
+  const { data: allSchedules = [] } = useQuery({
+    queryKey: ['pay-schedules', defaultAccount?.id],
+    queryFn: () => listPaySchedules(defaultAccount!.id),
+    enabled: !!defaultAccount && !scheduleModalAccountId,
+  })
+  const todaySchedules = allSchedules.filter(ps => ps.next_payday === today)
+
   const createMutation = useMutation({
     mutationFn: (data: FormData) => createAccount(data),
     onSuccess: () => {
@@ -189,8 +198,8 @@ export function AccountsPage() {
   const confirmScheduleMutation = useMutation({
     mutationFn: confirmPaySchedule,
     onSuccess: () => {
-      toast.success('Schedule confirmed')
-      queryClient.invalidateQueries({ queryKey: ['pay-schedules', scheduleModalAccountId] })
+      toast.success('Payday confirmed')
+      queryClient.invalidateQueries({ queryKey: ['pay-schedules'] })
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
     },
     onError: (error: Error) => {
@@ -351,6 +360,32 @@ export function AccountsPage() {
           New Account
         </Button>
       </div>
+
+      {todaySchedules.length > 0 && (
+        <div className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1">
+            <p className="font-medium text-sm">Payday today</p>
+            <p className="text-xs text-muted-foreground">
+              {todaySchedules.map(ps => ps.label ?? ps.frequency).join(', ')}
+            </p>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {todaySchedules.map(ps => (
+              <Button
+                key={ps.id}
+                size="sm"
+                variant="outline"
+                className="border-green-500/40 hover:bg-green-500/20"
+                onClick={() => handleConfirmSchedule(ps.id)}
+                disabled={confirmScheduleMutation.isPending}
+              >
+                <Check size={14} />
+                Mark received{todaySchedules.length > 1 ? ` (${ps.label ?? ps.frequency})` : ''}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <Skeleton
         name="account-list"

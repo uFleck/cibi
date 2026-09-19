@@ -44,7 +44,6 @@ type CreateTransactionRequest struct {
 	AccountID            string  `json:"account_id"  validate:"required"`
 	Amount               float64 `json:"amount"      validate:"required"`
 	Description          string  `json:"description" validate:"required"`
-	Category             string  `json:"category"`
 	IsRecurring          bool    `json:"is_recurring"`
 	Frequency            *string `json:"frequency"`   // required if is_recurring
 	AnchorDate           *string `json:"anchor_date"` // RFC3339; required if is_recurring
@@ -55,7 +54,6 @@ type CreateTransactionRequest struct {
 
 type PatchTransactionRequest struct {
 	Description       *string  `json:"description"`
-	Category          *string  `json:"category"`
 	Amount            *float64 `json:"amount"`             // nil = no change
 	NextOccurrence    *string  `json:"next_occurrence"`    // RFC3339; nil = no change
 	TotalInstallments *int64   `json:"total_installments"` // nil = no change
@@ -68,9 +66,10 @@ type PatchTransactionRequest struct {
 type TransactionResponse struct {
 	ID                   string  `json:"id"`
 	AccountID            string  `json:"account_id"`
-	Amount               float64 `json:"amount"` // stored as dollars
+	Type                 string  `json:"type"`                // "personal" | "peer"
+	FriendID             *string `json:"friend_id,omitempty"` // nullable UUID string
+	Amount               float64 `json:"amount"`              // stored as dollars
 	Description          string  `json:"description"`
-	Category             string  `json:"category"`
 	Timestamp            string  `json:"timestamp"` // RFC3339
 	IsRecurring          bool    `json:"is_recurring"`
 	Frequency            *string `json:"frequency"`
@@ -85,12 +84,16 @@ type TransactionResponse struct {
 
 // txnToResponse converts a sqlite.Transaction to TransactionResponse.
 func txnToResponse(t sqlite.Transaction) TransactionResponse {
+	txnType := t.Type
+	if txnType == "" {
+		txnType = "personal"
+	}
 	resp := TransactionResponse{
 		ID:                   t.ID.String(),
 		AccountID:            t.AccountID.String(),
+		Type:                 txnType,
 		Amount:               float64(t.Amount) / 100.0,
 		Description:          t.Description,
-		Category:             t.Category,
 		Timestamp:            t.Timestamp.UTC().Format(time.RFC3339),
 		IsRecurring:          t.IsRecurring,
 		Frequency:            t.Frequency,
@@ -98,6 +101,10 @@ func txnToResponse(t sqlite.Transaction) TransactionResponse {
 		IsInstallment:        t.IsInstallment,
 		TotalInstallments:    t.TotalInstallments,
 		PaidInstallments:     t.PaidInstallments,
+	}
+	if t.FriendID != nil {
+		s := t.FriendID.String()
+		resp.FriendID = &s
 	}
 	if t.AnchorDate != nil {
 		s := t.AnchorDate.UTC().Format(time.RFC3339)
@@ -163,7 +170,6 @@ func (h *TransactionsHandler) Create(c echo.Context) error {
 		AccountID:            accountID,
 		Amount:               int64(math.Round(req.Amount * 100)),
 		Description:          req.Description,
-		Category:             req.Category,
 		Timestamp:            time.Now().UTC(),
 		IsRecurring:          req.IsRecurring,
 		Frequency:            req.Frequency,
@@ -198,7 +204,6 @@ func (h *TransactionsHandler) Update(c echo.Context) error {
 
 	upd := sqlite.UpdateTransaction{
 		Description:       req.Description,
-		Category:          req.Category,
 		TotalInstallments: req.TotalInstallments,
 		IsInstallment:     req.IsInstallment,
 		IsRecurring:       req.IsRecurring,
