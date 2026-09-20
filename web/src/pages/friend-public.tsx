@@ -1,65 +1,101 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { toast } from 'sonner'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { Check, Copy, ChevronDown, ChevronUp } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { fetchPublicFriend, togglePublicFriendGroupPayment, type PeerDebtResponse, type PublicFriendGroupResponse } from '@/lib/api'
-import { formatDate } from '@/lib/format'
 import { MoneyValue } from '@/components/ui/money-value'
+import { fetchPublicFriend, togglePublicFriendGroupPayment, type PeerDebtResponse } from '@/lib/api'
+import { formatDate } from '@/lib/format'
 import { copyToClipboard } from '@/lib/clipboard'
 import { publicFriendRoute } from '@/router'
-import { SharedDebtList } from '@/components/debt/shared-debt-list'
-import { mapPublicDebtsToVM } from '@/components/debt/debt-list-mappers'
-import { ChevronDown, ChevronUp, Check, Copy } from 'lucide-react'
+import { calculateNextPayDate } from '@/components/debt/debt-list-mappers'
 
-// Generate mock payment history for a debt
-function generatePaymentHistory(debt: PeerDebtResponse): Array<{ date: string; amount: number }> {
-  if (!debt.is_installment || debt.paid_installments === 0) return []
-  
-  const history: Array<{ date: string; amount: number }> = []
-  const installmentAmount = debt.amount / (debt.total_installments || 1)
-  const anchor = debt.anchor_date ? new Date(debt.anchor_date) : new Date(debt.date)
-  
-  for (let i = 0; i < debt.paid_installments; i++) {
-    let payDate: Date
-    if (debt.frequency === 'monthly') {
-      payDate = new Date(anchor)
-      payDate.setMonth(anchor.getMonth() + i)
-    } else if (debt.frequency === 'weekly') {
-      payDate = new Date(anchor)
-      payDate.setDate(anchor.getDate() + i * 7)
-    } else {
-      payDate = new Date(anchor)
-      payDate.setMonth(anchor.getMonth() + i)
-    }
-    
-    history.push({
-      date: payDate.toISOString().split('T')[0],
-      amount: installmentAmount,
-    })
-  }
-  
-  return history
+function InstallmentCard({ debt }: { debt: PeerDebtResponse }) {
+  const total = debt.total_installments ?? 1
+  const paid = debt.paid_installments ?? 0
+  const remaining = total - paid
+  const absTotal = Math.abs(debt.amount)
+  const perInstall = absTotal / total
+  const remainingAmount = perInstall * remaining
+  const nextDate = calculateNextPayDate(debt)
+  const progressPct = total > 0 ? (paid / total) * 100 : 0
+
+  return (
+    <div className="rounded-xl border border-border/60 bg-card p-4 flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-semibold">{debt.description}</p>
+        <Badge variant="secondary" className="shrink-0">{paid}/{total} paid</Badge>
+      </div>
+
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+        <div
+          className="h-full rounded-full bg-primary transition-all"
+          style={{ width: `${progressPct.toFixed(1)}%` }}
+        />
+      </div>
+
+      <div className="rounded-lg bg-muted/50 px-3 py-2.5 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-xs text-muted-foreground font-medium">Next installment</p>
+          {nextDate && (
+            <p className="text-xs text-muted-foreground mt-0.5">Due {formatDate(nextDate)}</p>
+          )}
+        </div>
+        <MoneyValue
+          amount={perInstall}
+          currency="BRL"
+          showSign="never"
+          tone="neutral"
+          className="text-2xl font-bold tabular-nums"
+        />
+      </div>
+
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <span>{remaining} installment{remaining !== 1 ? 's' : ''} remaining</span>
+        <MoneyValue
+          amount={remainingAmount}
+          currency="BRL"
+          showSign="never"
+          tone="neutral"
+          className="font-medium text-foreground"
+        />
+      </div>
+    </div>
+  )
 }
 
-function groupStatus(group: PublicFriendGroupResponse): { label: string; variant: 'default' | 'outline' } {
-  if (group.is_confirmed) return { label: 'Paid', variant: 'default' }
-  return { label: 'Pending payment to host', variant: 'outline' }
+function PendingLumpSumRow({ debt }: { debt: PeerDebtResponse }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card px-4 py-3">
+      <div>
+        <p className="font-medium text-sm">{debt.description}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Since {formatDate(debt.anchor_date ?? debt.date)}</p>
+      </div>
+      <MoneyValue
+        amount={Math.abs(debt.amount)}
+        currency="BRL"
+        showSign="never"
+        tone="neutral"
+        className="font-semibold tabular-nums shrink-0"
+      />
+    </div>
+  )
 }
 
 export function FriendPublicPage() {
   const queryClient = useQueryClient()
   const { token } = publicFriendRoute.useParams()
-  const [showPaymentHistory, setShowPaymentHistory] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
 
   const confirmGroupPaymentMutation = useMutation({
-    mutationFn: ({ eventId, friendId }: { eventId: string; friendId: string }) => togglePublicFriendGroupPayment(token, eventId, friendId),
+    mutationFn: ({ eventId, friendId }: { eventId: string; friendId: string }) =>
+      togglePublicFriendGroupPayment(token, eventId, friendId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['public-friend', token] })
-      toast.success('Group payment updated')
+      toast.success('Payment updated')
     },
-    onError: () => toast.error('Failed to update group payment'),
+    onError: () => toast.error('Failed to update payment'),
   })
 
   const { data, isLoading, isError } = useQuery({
@@ -70,9 +106,9 @@ export function FriendPublicPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-xl mx-auto px-4 py-12 flex flex-col gap-4">
+      <div className="max-w-lg mx-auto px-4 py-12 flex flex-col gap-4">
         {[0, 1, 2].map(i => (
-          <div key={i} className="h-16 rounded-xl bg-muted animate-pulse" />
+          <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />
         ))}
       </div>
     )
@@ -80,300 +116,234 @@ export function FriendPublicPage() {
 
   if (isError || !data) {
     return (
-      <div className="max-w-xl mx-auto px-4 py-12">
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="font-semibold text-destructive">Balance not found</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              This link may be invalid or the friend may have been removed.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="max-w-lg mx-auto px-4 py-12">
+        <div className="rounded-xl border border-border/60 bg-card p-8 text-center">
+          <p className="font-semibold text-destructive">Balance not found</p>
+          <p className="text-sm text-muted-foreground mt-2">This link may be invalid or the friend may have been removed.</p>
+        </div>
       </div>
     )
   }
 
-  const groups = data.groups ?? []
   const hostedGroups = data.hosted_groups ?? []
-  const pendingGroupTotal = groups
-    .filter(g => !g.is_confirmed)
-    .reduce((sum, g) => sum + g.share_amount, 0)
+  const groups = data.groups ?? []
 
-  // Calculate total from remaining amounts (exclude fully paid debts)
-  const totalAmount = data.debts.reduce((sum, debt) => {
-    if (debt.is_confirmed) return sum
+  const pendingOwedToFriend: PeerDebtResponse[] = data.debts.filter(
+    d => d.amount < 0 && !d.is_confirmed && !(d.is_installment && (d.paid_installments ?? 0) >= (d.total_installments ?? 0))
+  )
+  const pendingOwedByFriend: PeerDebtResponse[] = data.debts.filter(
+    d => d.amount > 0 && !d.is_confirmed
+  )
+  const settled: PeerDebtResponse[] = data.debts.filter(
+    d => d.is_confirmed || (d.is_installment && (d.paid_installments ?? 0) >= (d.total_installments ?? 1))
+  )
 
-    if (debt.is_installment && debt.total_installments && debt.total_installments > 0) {
-      const installmentAmount = debt.amount / debt.total_installments
-      const remainingInstallments = debt.total_installments - debt.paid_installments
-      return sum + (installmentAmount * remainingInstallments)
-    }
-
-    return sum + debt.amount
-  }, 0)
+  const owedToFriend = data.balance.user_owes_friend
+  const owedByFriend = data.balance.friend_owes_user
+  const hasBalance = owedToFriend > 0 || owedByFriend > 0
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-12 flex flex-col gap-6">
-      <h1 className="text-2xl font-bold">{data.name}</h1>
+    <div className="max-w-lg mx-auto px-4 py-8 flex flex-col gap-6">
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Group Participations</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {groups.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No group events yet</p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {pendingGroupTotal > 0 && (
-                <p className="text-sm">
-                  You still need to pay the host{groups[0]?.host_name ? ` (${groups[0].host_name})` : ''}:{' '}
-                  <MoneyValue amount={pendingGroupTotal} currency="BRL" showSign="never" tone="neutral" className="font-semibold" />                </p>
-              )}
-              <div className="sm:hidden flex flex-col gap-2">
-                {groups.map(group => {
-                  const status = groupStatus(group)
-                  return (
-                    <div key={group.event_id} className="border rounded-md p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="font-medium">{group.title}</div>
-                          <div className="text-sm text-muted-foreground">{formatDate(group.date)} · {group.host_name}</div>
-                        </div>
-                        <MoneyValue amount={group.share_amount} currency="BRL" showSign="never" tone="neutral" className="font-semibold" />                      </div>
-                      <div className="mt-2 flex items-center justify-between">
-                        <Badge variant={status.variant}>{status.label}</Badge>
-                        {group.host_pix_key && (
-                          <Button
-                            variant="outline"
-                            className="h-9"
-                            onClick={async () => {
-                              const ok = await copyToClipboard(group.host_pix_key!)
-                              if (ok) toast.success('Host PIX copied')
-                              else toast.error('Failed to copy PIX key')
-                            }}
-                          >
-                            <Copy size={14} />
-                            Copy PIX
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+      {/* Balance hero */}
+      <div className="rounded-xl border border-border/60 bg-card p-6 flex flex-col gap-4">
+        <p className="text-sm font-medium text-muted-foreground">{data.name}</p>
 
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-muted-foreground text-xs border-b border-border/40">
-                      <th className="text-left pb-2 pr-3">Group</th>
-                      <th className="text-left pb-2 pr-3">Date</th>
-                      <th className="text-left pb-2 pr-3">Host</th>
-                      <th className="text-right pb-2 pr-3">Your Share</th>
-                      <th className="text-left pb-2 pr-3">Status</th>
-                      <th className="text-right pb-2">PIX</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {groups.map(group => {
-                      const status = groupStatus(group)
-                      return (
-                        <tr key={group.event_id} className="border-b border-border/20 last:border-0">
-                          <td className="py-2 pr-3">{group.title}</td>
-                          <td className="py-2 pr-3 whitespace-nowrap">{formatDate(group.date)}</td>
-                          <td className="py-2 pr-3 whitespace-nowrap inline-flex items-center gap-1">
-                            {group.host_name}
-                            <Badge variant="secondary">Host</Badge>
-                          </td>
-                          <td className="py-2 pr-3 text-right tabular-nums">
-                            <MoneyValue amount={group.share_amount} currency="BRL" showSign="never" tone="neutral" />
-                          </td>                          <td className="py-2 pr-3">
-                            <Badge variant={status.variant}>{status.label}</Badge>
-                          </td>
-                          <td className="py-2 text-right">
-                            {group.host_pix_key && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9"
-                                onClick={async () => {
-                                  const ok = await copyToClipboard(group.host_pix_key!)
-                                  if (ok) toast.success('Host PIX copied')
-                                  else toast.error('Failed to copy PIX key')
-                                }}
-                                aria-label="Copy host PIX"
-                              >
-                                <Copy size={14} />
-                              </Button>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+        {!hasBalance ? (
+          <p className="text-lg font-semibold text-muted-foreground">All settled up.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {owedToFriend > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">You are owed</p>
+                <MoneyValue
+                  amount={owedToFriend}
+                  currency="BRL"
+                  showSign="never"
+                  tone="positive"
+                  className="text-4xl font-bold tabular-nums"
+                />
               </div>
-            </div>
+            )}
+            {owedByFriend > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">You owe</p>
+                <MoneyValue
+                  amount={owedByFriend}
+                  currency="BRL"
+                  showSign="never"
+                  tone="negative"
+                  className="text-4xl font-bold tabular-nums"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {data.owner_pix_key && (
+          <Button
+            variant="outline"
+            className="w-full gap-2"
+            onClick={async () => {
+              const ok = await copyToClipboard(data.owner_pix_key!)
+              if (ok) toast.success('PIX key copied')
+              else toast.error('Failed to copy PIX key')
+            }}
+          >
+            <Copy size={14} />
+            Copy PIX key to pay
+          </Button>
+        )}
+      </div>
+
+      {/* Pending: what the owner owes the friend */}
+      {pendingOwedToFriend.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">Pending payments</p>
+          {pendingOwedToFriend.map(debt =>
+            debt.is_installment ? (
+              <InstallmentCard key={debt.id} debt={debt} />
+            ) : (
+              <PendingLumpSumRow key={debt.id} debt={debt} />
+            )
           )}
-        </CardContent>
-      </Card>
+        </section>
+      )}
 
-      {hostedGroups.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Hosted Groups · Confirm Payments</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {hostedGroups.map(group => (
-              <div key={group.event_id} className="border rounded-md p-3">
-                <div className="flex items-center justify-between mb-2">
+      {/* Pending: what the friend owes the owner */}
+      {pendingOwedByFriend.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">You owe</p>
+          {pendingOwedByFriend.map(debt => (
+            <div key={debt.id} className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card px-4 py-3">
+              <div>
+                <p className="font-medium text-sm">{debt.description}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{formatDate(debt.anchor_date ?? debt.date)}</p>
+              </div>
+              <MoneyValue amount={debt.amount} currency="BRL" showSign="never" tone="negative" className="font-semibold tabular-nums shrink-0" />
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* Group participations */}
+      {groups.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">Group events</p>
+          {groups.map(group => (
+            <div key={group.event_id} className="rounded-xl border border-border/60 bg-card p-4 flex flex-col gap-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
                   <p className="font-medium">{group.title}</p>
-                  <span className="text-xs text-muted-foreground">{formatDate(group.date)}</span>
+                  <p className="text-xs text-muted-foreground mt-0.5">{formatDate(group.date)} · Host: {group.host_name}</p>
                 </div>
-                {group.participants.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No participants to confirm.</p>
-                ) : (
-                  <>
-                    <div className="sm:hidden flex flex-col gap-2">
-                      {group.participants.map(p => (
-                        <div key={p.friend_id} className="border rounded-md p-2.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="font-medium">{p.friend_name}</div>
-                            <MoneyValue amount={p.share_amount} currency="BRL" showSign="never" tone="neutral" />                          </div>
-                          <div className="mt-2 flex items-center justify-between">
-                            <Badge variant={p.is_confirmed ? 'default' : 'outline'}>
-                              {p.is_confirmed ? 'Confirmed' : 'Pending'}
-                            </Badge>
-                            <Button
-                              variant="outline"
-                              className="h-9"
-                              onClick={() => confirmGroupPaymentMutation.mutate({ eventId: group.event_id, friendId: p.friend_id })}
-                              disabled={confirmGroupPaymentMutation.isPending}
-                            >
-                              <Check size={14} />
-                              {p.is_confirmed ? 'Undo' : 'Confirm'}
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <table className="hidden sm:table w-full text-sm">
-                      <thead>
-                        <tr className="text-muted-foreground text-xs border-b border-border/40">
-                          <th className="text-left pb-1 pr-2">Participant</th>
-                          <th className="text-right pb-1 pr-2">Share</th>
-                          <th className="text-left pb-1 pr-2">Status</th>
-                          <th className="text-right pb-1">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {group.participants.map(p => (
-                          <tr key={p.friend_id} className="border-b border-border/20 last:border-0">
-                            <td className="py-1 pr-2">{p.friend_name}</td>
-                            <td className="py-1 pr-2 text-right tabular-nums">
-                              <MoneyValue amount={p.share_amount} currency="BRL" showSign="never" tone="neutral" />
-                            </td>                            <td className="py-1 pr-2">
-                              <Badge variant={p.is_confirmed ? 'default' : 'outline'}>
-                                {p.is_confirmed ? 'Confirmed' : 'Pending'}
-                              </Badge>
-                            </td>
-                            <td className="py-1 text-right">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9"
-                                onClick={() => confirmGroupPaymentMutation.mutate({ eventId: group.event_id, friendId: p.friend_id })}
-                                disabled={confirmGroupPaymentMutation.isPending}
-                                aria-label="Toggle participant payment"
-                              >
-                                <Check size={14} />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </>
+                <MoneyValue amount={group.share_amount} currency="BRL" showSign="never" tone="neutral" className="font-semibold shrink-0" />
+              </div>
+              <div className="flex items-center justify-between">
+                <Badge variant={group.is_confirmed ? 'default' : 'outline'}>
+                  {group.is_confirmed ? 'Paid' : 'Pending payment to host'}
+                </Badge>
+                {group.host_pix_key && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      const ok = await copyToClipboard(group.host_pix_key!)
+                      if (ok) toast.success('Host PIX copied')
+                      else toast.error('Failed to copy PIX key')
+                    }}
+                  >
+                    <Copy size={13} />
+                    Copy host PIX
+                  </Button>
                 )}
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Debt History</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <SharedDebtList
-            view="public-friend"
-            items={mapPublicDebtsToVM(data.debts)}
-            emptyTitle="No debts recorded"
-            emptyHint="Nothing pending right now"
-          />
-          <div className="flex items-center justify-between border-t border-border/60 pt-2 mt-1">
-            <span className="font-semibold">Total</span>
-            <MoneyValue amount={totalAmount} currency="BRL" showSign="auto" tone="auto" className="font-semibold" />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Hidden Payment History */}
-      {data.debts.some(d => d.is_installment && d.paid_installments > 0) && (
-        <Card>
-          <CardHeader
-            className="cursor-pointer"
-            onClick={() => setShowPaymentHistory(!showPaymentHistory)}
-          >
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Payment History</CardTitle>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <span className="text-xs">{showPaymentHistory ? 'Hide' : 'Show'}</span>
-                {showPaymentHistory ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-              </div>
             </div>
-          </CardHeader>
-          {showPaymentHistory && (
-            <CardContent>
-              {data.debts
-                .filter(d => d.is_installment && d.paid_installments > 0)
-                .map(debt => {
-                  const payments = generatePaymentHistory(debt)
-                  return (
-                    <div key={debt.id} className="mb-4 last:mb-0">
-                      <p className="text-xs font-medium text-muted-foreground mb-2">
-                        {debt.description}
-                      </p>
-                      <table className="w-full text-sm mb-4">
-                        <thead className="text-muted-foreground text-xs">
-                          <tr className="border-b border-border/20">
-                            <th className="text-left pb-1 pr-3">Payment Date</th>
-                            <th className="text-right pb-1">Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {payments.map((payment, idx) => (
-                            <tr key={idx} className="border-b border-border/10 last:border-0">
-                              <td className="py-1 pr-3">{formatDate(payment.date)}</td>
-                              <td className="py-1 text-right tabular-nums">
-                                <MoneyValue amount={payment.amount} currency="BRL" showSign="never" tone="neutral" />
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )
-                })}
-            </CardContent>
-          )}
-        </Card>
+          ))}
+        </section>
       )}
 
-      <p className="text-xs text-muted-foreground text-center">This is a read-only view.</p>
+      {/* Hosted groups — friend can confirm participants paid */}
+      {hostedGroups.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">Groups you host</p>
+          {hostedGroups.map(group => (
+            <div key={group.event_id} className="rounded-xl border border-border/60 bg-card p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <p className="font-medium">{group.title}</p>
+                <p className="text-xs text-muted-foreground">{formatDate(group.date)}</p>
+              </div>
+              {group.participants.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No participants to confirm.</p>
+              ) : (
+                <div className="flex flex-col divide-y divide-border/40">
+                  {group.participants.map(p => (
+                    <div key={p.friend_id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
+                      <div>
+                        <p className="text-sm font-medium">{p.friend_name}</p>
+                        <MoneyValue amount={p.share_amount} currency="BRL" showSign="never" tone="neutral" className="text-xs text-muted-foreground" />
+                      </div>
+                      <Button
+                        variant={p.is_confirmed ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => confirmGroupPaymentMutation.mutate({ eventId: group.event_id, friendId: p.friend_id })}
+                        disabled={confirmGroupPaymentMutation.isPending}
+                      >
+                        <Check size={13} />
+                        {p.is_confirmed ? 'Confirmed' : 'Confirm'}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* Settled history */}
+      {settled.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <button
+            className="flex items-center justify-between px-1 py-0.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setShowHistory(v => !v)}
+          >
+            <span>History ({settled.length})</span>
+            {showHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+
+          {showHistory && (
+            <div className="rounded-xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
+              {settled.map(debt => {
+                const isInstallment = debt.is_installment && (debt.total_installments ?? 0) > 0
+                const absTotal = Math.abs(debt.amount)
+                return (
+                  <div key={debt.id} className="flex items-center gap-3 px-4 py-2.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm truncate text-muted-foreground">{debt.description}</p>
+                      {isInstallment && (
+                        <p className="text-xs text-muted-foreground/60">
+                          {debt.paid_installments}/{debt.total_installments} installments paid
+                        </p>
+                      )}
+                    </div>
+                    <MoneyValue
+                      amount={absTotal}
+                      currency="BRL"
+                      showSign="never"
+                      tone="neutral"
+                      className="text-sm tabular-nums text-muted-foreground shrink-0"
+                    />
+                    <Badge variant="default" className="text-[10px] shrink-0">Settled</Badge>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      <p className="text-xs text-muted-foreground text-center pb-4">Read-only view shared by {data.name.split(' ')[0]}.</p>
     </div>
   )
 }
