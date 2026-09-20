@@ -29,6 +29,7 @@ import {
   confirmDebt,
   deletePeerDebt,
   createPeerDebt,
+  updatePeerDebt,
   type TransactionResponse,
   type FriendResponse,
   type CreatePeerDebtRequest,
@@ -75,6 +76,8 @@ export function TransactionsPage() {
     description: '',
     date: new Date().toISOString().slice(0, 10),
   })
+  const [editingDebtId, setEditingDebtId] = useState<string | null>(null)
+  const [editDebtDraft, setEditDebtDraft] = useState({ amount: '', description: '' })
   const [formData, setFormData] = useState<FormData>({
     account_id: '',
     amount: 0,
@@ -461,6 +464,17 @@ export function TransactionsPage() {
       toast.success('Debt deleted')
     },
     onError: () => toast.error('Failed to delete debt'),
+  })
+
+  const updateDebtMutation = useMutation({
+    mutationFn: ({ id, amount, description }: { id: string; amount: number; description: string }) =>
+      updatePeerDebt(id, { amount, description }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      toast.success('Debt updated')
+      setEditingDebtId(null)
+    },
+    onError: () => toast.error('Failed to update debt'),
   })
 
   const createDebtMutation = useMutation({
@@ -867,8 +881,8 @@ export function TransactionsPage() {
                   id: txn.id,
                   title: txn.description,
                   subtitle: `${friendName} · ${direction} · ${isConfirmed ? `confirmed ${formatDate(txn.confirmed_at!)}` : `pending ${formatDate(txn.anchor_date || txn.timestamp)}`}`,
-                  amount: txn.is_installment
-                    ? txn.amount * ((txn.total_installments ?? 0) - (txn.paid_installments ?? 0))
+                  amount: txn.is_installment && txn.total_installments
+                    ? (txn.amount / txn.total_installments) * (txn.total_installments - (txn.paid_installments ?? 0))
                     : txn.amount,
                   currency: currentAccountCurrency,
                   status: {
@@ -876,12 +890,22 @@ export function TransactionsPage() {
                     tone: isConfirmed ? 'default' as const : 'outline' as const,
                   },
                   canConfirm: !isConfirmed,
+                  canEdit: true,
                   canDelete: true,
                 }
               })}
               emptyTitle="No friend debts"
               emptyHint="Adjust filters or click New Debt"
               onConfirm={(id) => confirmPeerDebtMutation.mutate(id)}
+              onEdit={(id) => {
+                const txn = filteredPeerDebts.find((t: TransactionResponse) => t.id === id)
+                if (!txn) return
+                setEditDebtDraft({
+                  amount: String(Math.abs(txn.amount)),
+                  description: txn.description,
+                })
+                setEditingDebtId(id)
+              }}
               onDelete={(id) => deletePeerDebtMutation.mutate(id)}
             />
           </Skeleton>
@@ -957,6 +981,56 @@ export function TransactionsPage() {
             <Button type="button" variant="outline" onClick={() => setIsCreatingDebt(false)}>Cancel</Button>
             <Button type="submit" disabled={createDebtMutation.isPending}>
               {createDebtMutation.isPending ? 'Saving...' : 'Create Debt'}
+            </Button>
+          </div>
+        </form>
+      </EditSheet>
+
+      <EditSheet
+        open={!!editingDebtId}
+        onOpenChange={(open) => !open && setEditingDebtId(null)}
+        title="Edit Friend Debt"
+        description="Update amount or description."
+      >
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            const amt = parseFloat(editDebtDraft.amount)
+            if (isNaN(amt) || amt === 0) return
+            const txn = filteredPeerDebts.find((t: TransactionResponse) => t.id === editingDebtId)
+            const signed = txn && txn.amount < 0 ? -Math.abs(amt) : Math.abs(amt)
+            updateDebtMutation.mutate({
+              id: editingDebtId!,
+              amount: Math.round(signed * 100),
+              description: editDebtDraft.description,
+            })
+          }}
+        >
+          <div className="flex flex-col gap-1">
+            <Label>Description</Label>
+            <Input
+              value={editDebtDraft.description}
+              onChange={e => setEditDebtDraft(d => ({ ...d, description: e.target.value }))}
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label>Amount</Label>
+            <p className="text-xs text-muted-foreground">Enter positive number. Sign (who owes whom) is preserved.</p>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={editDebtDraft.amount}
+              onChange={e => setEditDebtDraft(d => ({ ...d, amount: e.target.value }))}
+              required
+            />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button type="button" variant="outline" onClick={() => setEditingDebtId(null)}>Cancel</Button>
+            <Button type="submit" disabled={updateDebtMutation.isPending}>
+              {updateDebtMutation.isPending ? 'Saving...' : 'Save'}
             </Button>
           </div>
         </form>
