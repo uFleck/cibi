@@ -293,20 +293,30 @@ func (r *SqlitePeerDebtRepo) DeleteByID(id uuid.UUID) error {
 }
 
 func (r *SqlitePeerDebtRepo) GetBalanceByFriend(friendID uuid.UUID, accountID *uuid.UUID) (PeerDebtBalance, error) {
-	query := `SELECT
-		    COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0),
-		    COALESCE(ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)), 0)
-		 FROM "Transaction" WHERE type = 'peer' AND friend_id = ?
-		   AND (
-		     (is_installment = 1 AND paid_installments < total_installments)
-		     OR
-		     (is_installment = 0 AND confirmed_at IS NULL)
-		   )`
+	query := `
+		SELECT
+		    COALESCE(SUM(CASE WHEN adj > 0 THEN adj ELSE 0 END), 0),
+		    COALESCE(ABS(SUM(CASE WHEN adj < 0 THEN adj ELSE 0 END)), 0)
+		FROM (
+		    SELECT
+		        CASE
+		            WHEN is_installment = 1 AND COALESCE(total_installments, 0) > 0
+		            THEN CAST(amount AS REAL) / total_installments * (total_installments - COALESCE(paid_installments, 0))
+		            ELSE CAST(amount AS REAL)
+		        END AS adj
+		    FROM "Transaction"
+		    WHERE type = 'peer' AND friend_id = ?
+		      AND (
+		        (is_installment = 1 AND paid_installments < total_installments)
+		        OR
+		        (is_installment = 0 AND confirmed_at IS NULL)
+		      )`
 	args := []any{friendID.String()}
 	if accountID != nil {
 		query += ` AND account_id = ?`
 		args = append(args, accountID.String())
 	}
+	query += `)`
 
 	var b PeerDebtBalance
 	err := r.db.QueryRow(query, args...).Scan(&b.FriendOwesUser, &b.UserOwesFriend)
@@ -318,21 +328,30 @@ func (r *SqlitePeerDebtRepo) GetBalanceByFriend(friendID uuid.UUID, accountID *u
 }
 
 func (r *SqlitePeerDebtRepo) GetGlobalBalance(accountID *uuid.UUID) (GlobalPeerBalance, error) {
-	query := `SELECT
-		    COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0),
-		    COALESCE(ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)), 0)
-		 FROM "Transaction"
-		 WHERE type = 'peer'
-		 AND (
-		   (is_installment = 1 AND paid_installments < total_installments)
-		   OR
-		   (is_installment = 0 AND confirmed_at IS NULL)
-		 )`
+	query := `
+		SELECT
+		    COALESCE(SUM(CASE WHEN adj > 0 THEN adj ELSE 0 END), 0),
+		    COALESCE(ABS(SUM(CASE WHEN adj < 0 THEN adj ELSE 0 END)), 0)
+		FROM (
+		    SELECT
+		        CASE
+		            WHEN is_installment = 1 AND COALESCE(total_installments, 0) > 0
+		            THEN CAST(amount AS REAL) / total_installments * (total_installments - COALESCE(paid_installments, 0))
+		            ELSE CAST(amount AS REAL)
+		        END AS adj
+		    FROM "Transaction"
+		    WHERE type = 'peer'
+		      AND (
+		        (is_installment = 1 AND paid_installments < total_installments)
+		        OR
+		        (is_installment = 0 AND confirmed_at IS NULL)
+		      )`
 	args := []any{}
 	if accountID != nil {
 		query += ` AND account_id = ?`
 		args = append(args, accountID.String())
 	}
+	query += `)`
 
 	var b GlobalPeerBalance
 	err := r.db.QueryRow(query, args...).Scan(&b.TotalOwedToUser, &b.TotalUserOwes)
