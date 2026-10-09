@@ -24,13 +24,12 @@ impl Tray {
         let menu = Menu::new();
         menu.append_items(&[&MenuItem::with_id(MenuId::new(SHOW), "Show", true, None), &MenuItem::with_id(MenuId::new(QUIT), "Quit", true, None)])
             .expect("tray menu");
-        let rgba = [0x3f, 0xae, 0x4a, 0xff].repeat(16 * 16);
         Self(
             TrayIconBuilder::new()
                 .with_menu(Box::new(menu))
                 .with_menu_on_left_click(false)
                 .with_tooltip("CIBI")
-                .with_icon(Icon::from_rgba(rgba, 16, 16).expect("icon"))
+                .with_icon(Icon::from_rgba(include_bytes!("../assets/tray.rgba").to_vec(), 32, 32).expect("icon"))
                 .build()
                 .expect("tray icon"),
         )

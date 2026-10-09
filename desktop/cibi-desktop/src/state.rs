@@ -21,17 +21,7 @@ pub struct AppState {
     pub public_base_url: String,
     pub pay_schedule_id: Option<String>,
     loading: usize,
-    accent: u32,
 }
-
-/// (API theme id, primary color 0xRRGGBB), approximating web/src/pages/settings.tsx.
-const THEMES: [(&str, u32); 5] = [
-    ("green-anchor", 0x3fae4a),
-    ("neutral-command", 0x3b6ea5),
-    ("teal-bridge", 0x1fa3a8),
-    ("warm-amber", 0xe0a020),
-    ("rose-noir", 0xc2467f),
-];
 
 impl AppState {
     pub fn new(cx: &mut Context<Self>) -> Self {
@@ -48,7 +38,6 @@ impl AppState {
             public_base_url: String::new(),
             pay_schedule_id: None,
             loading: 0,
-            accent: THEMES[0].1,
         };
         s.apply_theme(cx);
         s.refresh_accounts(cx);
@@ -95,12 +84,8 @@ impl AppState {
 
     /// Select an account and load its profile theme. Call after mutations that change it.
     pub fn select(&mut self, id: Option<String>, cx: &mut Context<Self>) {
-        self.selected = id.clone();
-        let Some(id) = id else { return };
-        self.fetch(cx, move |c| c.fetch_profile(&id), |s, p, cx| {
-            s.accent = THEMES.iter().find(|t| t.0 == p.theme).map_or(THEMES[0].1, |t| t.1);
-            s.apply_theme(cx);
-        });
+        self.selected = id;
+        cx.notify();
     }
 
     pub fn set_dark(&mut self, dark: bool, cx: &mut Context<Self>) {
@@ -149,15 +134,54 @@ impl AppState {
         self.fetch(cx, move |c| c.list_pay_schedules(&id), |s, l, _| s.pay_schedule_id = l.first().map(|p| p.id.clone()));
     }
 
+    /// Fixed CIBI palette (charcoal + gold); the per-account API theme is ignored on desktop.
     fn apply_theme(&self, cx: &mut Context<Self>) {
-        Theme::change(if self.config.dark { ThemeMode::Dark } else { ThemeMode::Light }, None, cx);
-        let c: Hsla = rgb(self.accent).into();
+        let dark = self.config.dark;
+        Theme::change(if dark { ThemeMode::Dark } else { ThemeMode::Light }, None, cx);
+        let h = |x: u32| -> Hsla { rgb(x).into() };
+        let gold = h(0xD4AF50);
+        let (bg, card, text, muted, border) = if dark {
+            (h(0x111111), h(0x1C1C1C), h(0xF4F0E6), h(0x8F8F8F), h(0x2C2C2C))
+        } else {
+            (h(0xF7F5EF), h(0xFFFFFF), h(0x111111), h(0x6B6B6B), h(0xE2DED2))
+        };
         let t = Theme::global_mut(cx);
-        t.primary = c;
-        t.primary_hover = c.opacity(0.9);
-        t.primary_active = c.opacity(0.8);
-        t.ring = c;
-        t.button_primary = c;
+        t.background = bg;
+        t.foreground = text;
+        t.border = border;
+        t.muted = card;
+        t.muted_foreground = muted;
+        t.popover = card;
+        t.popover_foreground = text;
+        t.input = border;
+        t.secondary = card;
+        t.secondary_foreground = text;
+        t.accent = card;
+        t.accent_foreground = text;
+        t.colors.list = bg;
+        t.list_hover = card;
+        t.list_active = card;
+        t.list_active_border = gold;
+        t.sidebar = bg;
+        t.sidebar_foreground = text;
+        t.sidebar_border = border;
+        t.sidebar_accent = card;
+        t.sidebar_accent_foreground = gold;
+        t.sidebar_primary = gold;
+        t.sidebar_primary_foreground = h(0x111111);
+        t.primary = gold;
+        t.primary_hover = gold.opacity(0.9);
+        t.primary_active = gold.opacity(0.8);
+        t.primary_foreground = h(0x111111);
+        t.button_primary = gold;
+        t.button_primary_hover = gold.opacity(0.9);
+        t.button_primary_active = gold.opacity(0.8);
+        t.button_primary_foreground = h(0x111111);
+        t.ring = gold;
+        t.link = gold;
+        t.success = h(0x4ADE80);
+        t.danger = h(0xFB7185);
+        t.warning = h(0xFBBF24);
         cx.notify();
     }
 }
