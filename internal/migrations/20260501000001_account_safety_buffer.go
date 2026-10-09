@@ -22,14 +22,23 @@ func upAccountSafetyBuffer(ctx context.Context, tx *sql.Tx) error {
 		}
 	}
 
-	_, _ = tx.ExecContext(ctx, `
-		UPDATE Account
-		SET safety_buffer = COALESCE((SELECT min_threshold FROM SafetyBuffer LIMIT 1), 1000)
-		WHERE safety_buffer IS NULL OR safety_buffer = 0
-	`)
+	// The legacy SafetyBuffer table is absent on fresh databases; backfill only if it exists.
+	var legacy int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='SafetyBuffer'`).Scan(&legacy); err != nil {
+		return err
+	}
+	if legacy > 0 {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE Account
+			SET safety_buffer = COALESCE((SELECT min_threshold FROM SafetyBuffer LIMIT 1), 1000)
+			WHERE safety_buffer IS NULL OR safety_buffer = 0
+		`); err != nil {
+			return err
+		}
+	}
 
-	_, _ = tx.ExecContext(ctx, `DROP TABLE IF EXISTS SafetyBuffer`)
-	return nil
+	_, err = tx.ExecContext(ctx, `DROP TABLE IF EXISTS SafetyBuffer`)
+	return err
 }
 
 func hasAccountSafetyBufferColumn(ctx context.Context, tx *sql.Tx) (bool, error) {
@@ -56,6 +65,6 @@ func hasAccountSafetyBufferColumn(ctx context.Context, tx *sql.Tx) (bool, error)
 }
 
 func downAccountSafetyBuffer(ctx context.Context, tx *sql.Tx) error {
-	_, _ = tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS SafetyBuffer (min_threshold INTEGER)`)
-	return nil
+	_, err := tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS SafetyBuffer (min_threshold INTEGER)`)
+	return err
 }
