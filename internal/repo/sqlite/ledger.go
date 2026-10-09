@@ -72,7 +72,7 @@ func (r *SqliteLedgerRepo) Insert(e LedgerEntry, tx *sql.Tx) error {
 
 func (r *SqliteLedgerRepo) ListByAccount(accountID uuid.UUID) ([]LedgerEntry, error) {
 	rows, err := r.db.Query(`SELECT id, account_id, transaction_id, pay_schedule_id, entry_type, amount, description, posted_at
-		FROM ledger WHERE account_id = ? ORDER BY posted_at ASC`, accountID.String())
+		FROM ledger WHERE account_id = ? ORDER BY posted_at DESC`, accountID.String())
 	if err != nil {
 		return nil, fmt.Errorf("ledger.ListByAccount: %w", err)
 	}
@@ -159,6 +159,16 @@ type ledgerScanner interface {
 	Scan(dest ...any) error
 }
 
+func parseLedgerTime(s string) (time.Time, error) {
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02 15:04:05", s); err == nil {
+		return t, nil
+	}
+	return time.Parse("2006-01-02", s)
+}
+
 func scanLedgerEntry(s *sql.Rows) (LedgerEntry, error) {
 	return scanLedger(s)
 }
@@ -201,7 +211,7 @@ func scanLedger(s ledgerScanner) (LedgerEntry, error) {
 	e.EntryType = entryType
 	e.Amount = amount
 	e.Description = desc
-	e.PostedAt, err = time.Parse(time.RFC3339, postedStr)
+	e.PostedAt, err = parseLedgerTime(postedStr)
 	if err != nil {
 		return e, fmt.Errorf("parse posted_at: %w", err)
 	}

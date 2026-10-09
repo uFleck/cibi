@@ -1,7 +1,7 @@
 import { useState, useContext, useMemo, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, ArrowLeftRight, X, Users } from 'lucide-react'
+import { Plus, ArrowLeftRight, X, Users, History } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,6 @@ import { EditSheet } from '@/components/EditSheet'
 import { SharedDebtList } from '@/components/debt/shared-debt-list'
 import { TransactionForm } from '@/components/TransactionForm'
 import { TransactionFilters, type TransactionPreset } from '@/components/TransactionFilters'
-import { LedgerRecentWidget } from '@/components/LedgerRecentWidget'
 import {
   fetchAccounts,
   fetchTransactions,
@@ -30,11 +29,13 @@ import {
   deletePeerDebt,
   createPeerDebt,
   updatePeerDebt,
+  fetchLedger,
   type TransactionResponse,
   type FriendResponse,
   type CreatePeerDebtRequest,
+  type LedgerEntryResponse,
 } from '@/lib/api'
-import { formatDate } from '@/lib/format'
+import { formatDate, formatMoney } from '@/lib/format'
 import { fromDateInputValue, toDateInputValue } from '@/lib/locale'
 import {
   buildImpactSummary,
@@ -64,7 +65,11 @@ type FormErrors = Partial<Record<keyof FormData, string>>
 export function TransactionsPage() {
   const queryClient = useQueryClient()
   const { selectedAccountId } = useContext(AccountContext)
-  const [activeTab, setActiveTab] = useState<'transactions' | 'friend-debts'>('transactions')
+  const [activeTab, setActiveTab] = useState<'transactions' | 'friend-debts' | 'ledger'>(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab')
+    if (tab === 'ledger' || tab === 'friend-debts') return tab
+    return 'transactions'
+  })
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -136,6 +141,12 @@ export function TransactionsPage() {
   const { data: friends = [] } = useQuery({
     queryKey: ['friends'],
     queryFn: listFriends,
+  })
+
+  const { data: ledgerEntries = [] } = useQuery({
+    queryKey: ['ledger', currentAccountId],
+    queryFn: () => fetchLedger(currentAccountId!),
+    enabled: !!currentAccountId,
   })
 
   const nextPayday = paySchedules.length > 0
@@ -665,6 +676,13 @@ export function TransactionsPage() {
           <Users size={14} className="inline mr-1.5 -mt-0.5" />
           Friend Debts
         </button>
+        <button
+          onClick={() => setActiveTab('ledger')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'ledger' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        >
+          <History size={14} className="inline mr-1.5 -mt-0.5" />
+          Recent activity
+        </button>
       </div>
 
       {activeTab === 'transactions' && <><Card>
@@ -685,8 +703,6 @@ export function TransactionsPage() {
           )}
         </CardContent>
       </Card>
-
-      {currentAccount && <LedgerRecentWidget account={currentAccount} />}
 
       <TransactionFilters
         showFilters={showFilters}
@@ -909,6 +925,41 @@ export function TransactionsPage() {
               onDelete={(id) => deletePeerDebtMutation.mutate(id)}
             />
           </Skeleton>
+        </div>
+      )}
+
+      {activeTab === 'ledger' && (
+        <div className="flex flex-col gap-1">
+          {ledgerEntries.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-12">
+                <History className="mx-auto mb-4 text-muted-foreground/40" size={40} />
+                <p className="text-muted-foreground">No activity yet</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col divide-y divide-border/50 pt-2 pb-0">
+                {ledgerEntries.map((entry: LedgerEntryResponse) => (
+                  <div key={entry.id} className="flex items-center justify-between gap-3 py-2.5">
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs text-muted-foreground">{formatDate(entry.posted_at)}</span>
+                      <span className="text-sm truncate">{entry.description}</span>
+                    </div>
+                    <span
+                      className={
+                        entry.amount >= 0
+                          ? 'text-sm font-medium text-green-600 shrink-0'
+                          : 'text-sm font-medium text-red-500 shrink-0'
+                      }
+                    >
+                      {entry.amount >= 0 ? '+' : ''}{formatMoney(entry.amount, currentAccountCurrency)}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 

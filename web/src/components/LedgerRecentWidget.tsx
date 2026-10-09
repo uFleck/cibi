@@ -44,7 +44,7 @@ export function LedgerRecentWidget({ account }: Props) {
         ))}
         <button
           type="button"
-          onClick={() => navigate({ to: '/transactions' })}
+          onClick={() => (navigate as (opts: { to: string; search?: Record<string, string> }) => void)({ to: '/transactions', search: { tab: 'ledger' } })}
           className="text-xs text-muted-foreground hover:text-foreground mt-1 self-start"
         >
           View all

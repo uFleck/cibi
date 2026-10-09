@@ -54,7 +54,7 @@ export function ValueInput({
       />
 
       {showSignToggle && (
-        <div className="flex gap-2">
+        <div className="flex gap-2 sm:hidden">
           <Button
             type="button"
             size="sm"

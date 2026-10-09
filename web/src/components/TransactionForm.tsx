@@ -4,7 +4,6 @@ import { Input } from '@/components/ui/input'
 import { ValueInput } from '@/components/ui/value-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 
 export interface TransactionFormValues {
   account_id: string
@@ -118,44 +117,35 @@ export function TransactionForm({
           )}
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <Switch
-              id="txn-recurring"
-              checked={!!formData.is_recurring}
-              onCheckedChange={v => onChange({
-                is_recurring: v,
-                is_installment: v ? false : formData.is_installment,
-                requires_confirmation: v ? false : formData.requires_confirmation,
-              })}
-            />
-            <Label htmlFor="txn-recurring" className="text-xs cursor-pointer">Recurring</Label>
-          </div>
-          <div className="flex items-center gap-3">
-            <Switch
-              id="txn-pending-payment"
-              checked={!formData.is_recurring && !formData.is_installment && !!formData.requires_confirmation}
-              onCheckedChange={v => onChange({
-                requires_confirmation: v,
-                is_recurring: v ? false : formData.is_recurring,
-                is_installment: v ? false : formData.is_installment,
-              })}
-            />
-            <Label htmlFor="txn-pending-payment" className="text-xs cursor-pointer">Pending payment (confirm later)</Label>
-          </div>
-          <div className="flex items-center gap-3">
-            <Switch
-              id="txn-installment"
-              checked={!!formData.is_installment}
-              onCheckedChange={v => onChange({
-                is_installment: v,
-                is_recurring: v ? false : formData.is_recurring,
-                requires_confirmation: v ? false : formData.requires_confirmation,
-              })}
-            />
-            <Label htmlFor="txn-installment" className="text-xs cursor-pointer">Installment plan</Label>
-          </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-xs">Type</Label>
+        <div className="grid grid-cols-2 gap-2">
+          {([
+            { value: 'none', label: 'One-time' },
+            { value: 'recurring', label: 'Recurring' },
+            { value: 'pending', label: 'Pending payment' },
+            { value: 'installment', label: 'Installment plan' },
+          ] as const).map(({ value, label }) => {
+            const active =
+              (value === 'recurring' && !!formData.is_recurring) ||
+              (value === 'pending' && !formData.is_recurring && !formData.is_installment && !!formData.requires_confirmation) ||
+              (value === 'installment' && !!formData.is_installment) ||
+              (value === 'none' && !formData.is_recurring && !formData.requires_confirmation && !formData.is_installment)
+            return (
+              <button
+                type="button"
+                key={value}
+                className={`rounded-md border px-3 py-2.5 text-xs text-left transition-colors ${active ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-muted-foreground hover:text-foreground'}`}
+                onClick={() => onChange({
+                  is_recurring: value === 'recurring',
+                  is_installment: value === 'installment',
+                  requires_confirmation: value === 'pending',
+                })}
+              >
+                {label}
+              </button>
+            )
+          })}
         </div>
       </div>
       {formData.is_installment && (
