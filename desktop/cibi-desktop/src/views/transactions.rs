@@ -22,6 +22,14 @@ pub struct Transactions {
     pub state: Entity<AppState>,
 }
 
+/// Mirrors web useKeyboardShortcuts on the transactions page: `n` new, `f` search (not while typing).
+pub fn bind_keys(cx: &mut App) {
+    cx.bind_keys([
+        KeyBinding::new("n", NewTxn, Some("Transactions && !Input")),
+        KeyBinding::new("f", FocusSearch, Some("Transactions && !Input")),
+    ]);
+}
+
 impl Render for Transactions {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let state = self.state.clone();
@@ -32,7 +40,10 @@ impl Render for Transactions {
 const PRESETS: [Preset; 5] = [Preset::DueNow, Preset::CurrentWindow, Preset::NextWindow, Preset::AllRecurring, Preset::OneTimeOnly];
 const SORTS: [&str; 3] = ["Description", "Date", "Amount"];
 
+actions!(transactions, [NewTxn, FocusSearch]);
+
 pub struct Page {
+    focus: FocusHandle,
     state: Entity<AppState>,
     form: Entity<Form>,
     proj: Entity<Proj>,
@@ -78,7 +89,10 @@ impl Page {
             }
         })
         .detach();
+        let focus = cx.focus_handle();
+        window.focus(&focus, cx);
         let mut me = Self {
+            focus,
             form: cx.new(|cx| Form::new(page, window, cx)),
             proj: cx.new(|_| Proj::default()),
             state,
@@ -392,6 +406,10 @@ impl Render for Page {
 
         v_flex()
             .size_full()
+            .key_context("Transactions")
+            .track_focus(&self.focus)
+            .on_action(cx.listener(|p, _: &NewTxn, w, cx| p.open_form(None, w, cx)))
+            .on_action(cx.listener(|p, _: &FocusSearch, w, cx| { let f = p.search.read(cx).focus_handle(cx); w.focus(&f, cx) }))
             .id("txn-scroll").overflow_y_scroll()
             .p_6()
             .gap_4()
