@@ -66,7 +66,7 @@ func (s *TransactionsService) CreateTransaction(t sqlite.Transaction) error {
 		t.Timestamp = now
 	}
 
-	applyToBalance := shouldApplyBalanceOnCreate(t, time.Now().UTC())
+	effect := balanceEffect(t, time.Now().UTC())
 
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -78,12 +78,12 @@ func (s *TransactionsService) CreateTransaction(t sqlite.Transaction) error {
 		return fmt.Errorf("service.CreateTransaction: insert: %w", err)
 	}
 
-	if applyToBalance {
+	if effect != 0 {
 		if err := s.ledgerSvc.RecordEntry(sqlite.LedgerEntry{
 			AccountID:     t.AccountID,
 			TransactionID: &t.ID,
 			EntryType:     "payment",
-			Amount:        t.Amount,
+			Amount:        effect,
 			Description:   t.Description,
 			PostedAt:      t.Timestamp,
 		}, tx); err != nil {
@@ -160,7 +160,8 @@ func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateT
 			return fmt.Errorf("service.UpdateTransaction: get old transaction: %w", err)
 		}
 
-		if !hasAppliedToBalance(oldTxn, time.Now().UTC()) {
+		now := time.Now().UTC()
+		if balanceEffect(oldTxn, now) == 0 {
 			if err := s.txnsRepo.Update(id, upd, nil); err != nil {
 				return fmt.Errorf("service.UpdateTransaction: %w", err)
 			}
@@ -191,10 +192,9 @@ func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateT
 			}
 		} else {
 			// Legacy transaction: record a manual_adjustment for the amount delta.
-			delta := *upd.Amount - oldTxn.Amount
-			if oldTxn.IsInstallment {
-				delta = (*upd.Amount - oldTxn.Amount) * oldTxn.PaidInstallments
-			}
+			newTxn := oldTxn
+			newTxn.Amount = *upd.Amount
+			delta := balanceEffect(newTxn, now) - balanceEffect(oldTxn, now)
 			if err := s.ledgerSvc.RecordEntry(sqlite.LedgerEntry{
 				AccountID:   oldTxn.AccountID,
 				EntryType:   "manual_adjustment",
@@ -229,7 +229,8 @@ func (s *TransactionsService) DeleteTransaction(id uuid.UUID) error {
 		return fmt.Errorf("service.DeleteTransaction: find ledger: %w", err)
 	}
 
-	if !hasAppliedToBalance(t, time.Now().UTC()) {
+	effect := balanceEffect(t, time.Now().UTC())
+	if effect == 0 {
 		if err := s.txnsRepo.DeleteByID(id, nil); err != nil {
 			return fmt.Errorf("service.DeleteTransaction: delete: %w", err)
 		}
@@ -250,13 +251,6 @@ func (s *TransactionsService) DeleteTransaction(id uuid.UUID) error {
 	}
 
 	// Legacy transaction: record a manual_adjustment reversal, then delete.
-	var reversalAmount int64
-	if t.IsInstallment {
-		reversalAmount = -(t.Amount * t.PaidInstallments)
-	} else {
-		reversalAmount = -t.Amount
-	}
-
 	tx, err := s.db.Begin()
 	if err != nil {
 		return fmt.Errorf("service.DeleteTransaction: begin tx: %w", err)
@@ -269,7 +263,7 @@ func (s *TransactionsService) DeleteTransaction(id uuid.UUID) error {
 	if err := s.ledgerSvc.RecordEntry(sqlite.LedgerEntry{
 		AccountID:   t.AccountID,
 		EntryType:   "manual_adjustment",
-		Amount:      reversalAmount,
+		Amount:      -effect,
 		Description: t.Description,
 		PostedAt:    time.Now().UTC(),
 	}, tx); err != nil {
@@ -339,34 +333,19 @@ func (s *TransactionsService) ConfirmRecurring(transactionID uuid.UUID) (time.Ti
 	return next, nil
 }
 
-// shouldApplyBalanceOnCreate reports whether a transaction should impact the
-// account balance immediately when created.
-func shouldApplyBalanceOnCreate(t sqlite.Transaction, now time.Time) bool {
+// balanceEffect returns the amount this transaction currently contributes to
+// the account balance. Create/Update/Delete apply effect(new)-effect(old).
+func balanceEffect(t sqlite.Transaction, now time.Time) int64 {
 	if t.IsInstallment {
-		return false // installment txns only debit balance on each confirm-installment
+		return t.Amount * t.PaidInstallments // each confirmed installment debits Amount
 	}
 	if t.RequiresConfirmation && t.ConfirmedAt == nil {
-		return false
+		return 0
 	}
 	if t.IsRecurring && t.AnchorDate != nil && t.AnchorDate.UTC().After(now.UTC()) {
-		return false
+		return 0
 	}
-	return true
-}
-
-// hasAppliedToBalance reports whether this stored transaction is currently
-// represented in account balance.
-func hasAppliedToBalance(t sqlite.Transaction, now time.Time) bool {
-	if t.IsInstallment {
-		return t.PaidInstallments > 0
-	}
-	if t.RequiresConfirmation && t.ConfirmedAt == nil {
-		return false
-	}
-	if t.IsRecurring && t.AnchorDate != nil && t.AnchorDate.UTC().After(now.UTC()) {
-		return false
-	}
-	return true
+	return t.Amount
 }
 
 // ConfirmInstallment confirms one installment payment: debits the per-installment
