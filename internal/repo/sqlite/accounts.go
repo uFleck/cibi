@@ -70,12 +70,7 @@ func (r *SqliteAccountsRepo) Insert(a Account) error {
 }
 
 func (r *SqliteAccountsRepo) UnsetDefaults(tx *sql.Tx) error {
-	var err error
-	if tx != nil {
-		_, err = tx.Exec(`UPDATE Account SET is_default = 0 WHERE is_default = 1`)
-	} else {
-		_, err = r.db.Exec(`UPDATE Account SET is_default = 0 WHERE is_default = 1`)
-	}
+	_, err := pick(r.db, tx).Exec(`UPDATE Account SET is_default = 0 WHERE is_default = 1`)
 	if err != nil {
 		return fmt.Errorf("accounts.UnsetDefaults: %w", err)
 	}
@@ -139,12 +134,7 @@ func (r *SqliteAccountsRepo) GetByID(id uuid.UUID) (Account, error) {
 }
 
 func (r *SqliteAccountsRepo) UpdateBalance(id uuid.UUID, balance int64, tx *sql.Tx) error {
-	var err error
-	if tx != nil {
-		_, err = tx.Exec(`UPDATE Account SET current_balance = ? WHERE id = ?`, balance, id.String())
-	} else {
-		_, err = r.db.Exec(`UPDATE Account SET current_balance = ? WHERE id = ?`, balance, id.String())
-	}
+	_, err := pick(r.db, tx).Exec(`UPDATE Account SET current_balance = ? WHERE id = ?`, balance, id.String())
 	if err != nil {
 		return fmt.Errorf("accounts.UpdateBalance: %w", err)
 	}
@@ -185,12 +175,7 @@ func (r *SqliteAccountsRepo) UpdateIsDefault(id uuid.UUID, isDefault bool) error
 }
 
 func (r *SqliteAccountsRepo) IncrementVersion(id uuid.UUID, tx *sql.Tx) error {
-	var err error
-	if tx != nil {
-		_, err = tx.Exec(`UPDATE Account SET version = COALESCE(version,1) + 1 WHERE id = ?`, id.String())
-	} else {
-		_, err = r.db.Exec(`UPDATE Account SET version = COALESCE(version,1) + 1 WHERE id = ?`, id.String())
-	}
+	_, err := pick(r.db, tx).Exec(`UPDATE Account SET version = COALESCE(version,1) + 1 WHERE id = ?`, id.String())
 	if err != nil {
 		return fmt.Errorf("accounts.IncrementVersion: %w", err)
 	}
@@ -215,3 +200,18 @@ func (r *SqliteAccountsRepo) DeleteByID(id uuid.UUID) error {
 
 // Ensure time import is used (UTC formatting utility for other repos to import).
 var _ = time.UTC
+
+// execer is satisfied by both *sql.DB and *sql.Tx.
+type execer interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	Query(query string, args ...any) (*sql.Rows, error)
+	QueryRow(query string, args ...any) *sql.Row
+}
+
+// pick returns tx when non-nil, otherwise db.
+func pick(db *sql.DB, tx *sql.Tx) execer {
+	if tx != nil {
+		return tx
+	}
+	return db
+}

@@ -101,10 +101,7 @@ func (r *SqliteGoalsRepo) InsertGoal(g Goal, tx *sql.Tx) error {
 	if !ValidGoalStatuses[g.Status] {
 		return fmt.Errorf("goals.InsertGoal: invalid status")
 	}
-	exec := r.db.Exec
-	if tx != nil {
-		exec = tx.Exec
-	}
+	exec := pick(r.db, tx).Exec
 	_, err := exec(`INSERT INTO Goal (id, account_id, name, status, target_amount_cents, invested_total_cents, min_contribution_per_window_cents, start_date_utc, target_date_utc, notes, currency, created_at_utc, updated_at_utc)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		g.ID.String(), g.AccountID.String(), g.Name, g.Status, g.TargetAmountCents, g.InvestedTotalCents, g.MinContributionPerWindowCents,
@@ -140,10 +137,7 @@ func (r *SqliteGoalsRepo) GetGoalByID(id uuid.UUID) (Goal, error) {
 }
 
 func (r *SqliteGoalsRepo) UpdateGoal(id uuid.UUID, upd UpdateGoal, tx *sql.Tx) error {
-	exec := r.db.Exec
-	if tx != nil {
-		exec = tx.Exec
-	}
+	exec := pick(r.db, tx).Exec
 	if upd.Name != nil {
 		if _, err := exec(`UPDATE Goal SET name = ? WHERE id = ?`, *upd.Name, id.String()); err != nil {
 			return err
@@ -194,10 +188,7 @@ func (r *SqliteGoalsRepo) InsertLedgerEntry(entry GoalLedgerEntry, tx *sql.Tx) e
 	if !ValidGoalLedgerSources[entry.Source] {
 		return fmt.Errorf("goals.InsertLedgerEntry: invalid source")
 	}
-	exec := r.db.Exec
-	if tx != nil {
-		exec = tx.Exec
-	}
+	exec := pick(r.db, tx).Exec
 	_, err := exec(`INSERT INTO GoalLedgerEntry (id, goal_id, amount_cents, type, source, note, reverses_entry_id, timestamp_utc, created_at_utc)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		entry.ID.String(), entry.GoalID.String(), entry.AmountCents, entry.Type, entry.Source, entry.Note,
@@ -232,10 +223,7 @@ func (r *SqliteGoalsRepo) GetLedgerEntryByID(id uuid.UUID) (GoalLedgerEntry, err
 }
 
 func (r *SqliteGoalsRepo) AddTargetAudit(a GoalTargetAudit, tx *sql.Tx) error {
-	exec := r.db.Exec
-	if tx != nil {
-		exec = tx.Exec
-	}
+	exec := pick(r.db, tx).Exec
 	_, err := exec(`INSERT INTO GoalTargetAudit (id, goal_id, previous_target_amount_cents, new_target_amount_cents, changed_at_utc, note) VALUES (?, ?, ?, ?, ?, ?)`,
 		a.ID.String(), a.GoalID.String(), a.PreviousTargetAmountCents, a.NewTargetAmountCents, a.ChangedAtUTC.UTC().Format(time.RFC3339), a.Note,
 	)
@@ -243,10 +231,7 @@ func (r *SqliteGoalsRepo) AddTargetAudit(a GoalTargetAudit, tx *sql.Tx) error {
 }
 
 func (r *SqliteGoalsRepo) InsertRecurring(rec GoalRecurringContribution, tx *sql.Tx) error {
-	exec := r.db.Exec
-	if tx != nil {
-		exec = tx.Exec
-	}
+	exec := pick(r.db, tx).Exec
 	_, err := exec(`INSERT INTO GoalRecurringContribution (id, goal_id, amount_cents, frequency, anchor_date_utc, next_due_utc, active, created_at_utc, updated_at_utc)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		rec.ID.String(), rec.GoalID.String(), rec.AmountCents, rec.Frequency,
@@ -286,10 +271,7 @@ func (r *SqliteGoalsRepo) GetRecurringByID(id uuid.UUID) (GoalRecurringContribut
 }
 
 func (r *SqliteGoalsRepo) UpdateRecurring(id uuid.UUID, upd UpdateGoalRecurringContribution, tx *sql.Tx) error {
-	exec := r.db.Exec
-	if tx != nil {
-		exec = tx.Exec
-	}
+	exec := pick(r.db, tx).Exec
 	if upd.NextDueUTC != nil {
 		if _, err := exec(`UPDATE GoalRecurringContribution SET next_due_utc = ? WHERE id = ?`, upd.NextDueUTC.UTC().Format(time.RFC3339), id.String()); err != nil {
 			return fmt.Errorf("goals.UpdateRecurring: %w", err)

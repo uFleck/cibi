@@ -98,11 +98,7 @@ func (r *SqliteTxnsRepo) Insert(t Transaction, tx *sql.Tx) error {
 		t.RequiresConfirmation, nil,
 		t.IsInstallment, totalInst, t.PaidInstallments,
 	}
-	if tx != nil {
-		_, err = tx.Exec(q, args...)
-	} else {
-		_, err = r.db.Exec(q, args...)
-	}
+	_, err = pick(r.db, tx).Exec(q, args...)
 	if err != nil {
 		return fmt.Errorf("transactions.Insert: %w", err)
 	}
@@ -143,12 +139,7 @@ func (r *SqliteTxnsRepo) GetByID(id uuid.UUID) (Transaction, error) {
 
 func (r *SqliteTxnsRepo) Update(id uuid.UUID, upd UpdateTransaction, tx *sql.Tx) error {
 	exec := func(q string, args ...any) error {
-		var err error
-		if tx != nil {
-			_, err = tx.Exec(q, args...)
-		} else {
-			_, err = r.db.Exec(q, args...)
-		}
+		_, err := pick(r.db, tx).Exec(q, args...)
 		return err
 	}
 	if upd.Description != nil {
@@ -203,12 +194,7 @@ func (r *SqliteTxnsRepo) Update(id uuid.UUID, upd UpdateTransaction, tx *sql.Tx)
 }
 
 func (r *SqliteTxnsRepo) DeleteByID(id uuid.UUID, tx *sql.Tx) error {
-	var err error
-	if tx != nil {
-		_, err = tx.Exec(`DELETE FROM "Transaction" WHERE id = ?`, id.String())
-	} else {
-		_, err = r.db.Exec(`DELETE FROM "Transaction" WHERE id = ?`, id.String())
-	}
+	_, err := pick(r.db, tx).Exec(`DELETE FROM "Transaction" WHERE id = ?`, id.String())
 	if err != nil {
 		return fmt.Errorf("transactions.DeleteByID: %w", err)
 	}
@@ -217,12 +203,7 @@ func (r *SqliteTxnsRepo) DeleteByID(id uuid.UUID, tx *sql.Tx) error {
 
 func (r *SqliteTxnsRepo) AdvanceNextOccurrence(id uuid.UUID, next time.Time, tx *sql.Tx) error {
 	nextStr := next.UTC().Format(time.RFC3339)
-	var err error
-	if tx != nil {
-		_, err = tx.Exec(`UPDATE "Transaction" SET next_occurrence = ? WHERE id = ?`, nextStr, id.String())
-	} else {
-		_, err = r.db.Exec(`UPDATE "Transaction" SET next_occurrence = ? WHERE id = ?`, nextStr, id.String())
-	}
+	_, err := pick(r.db, tx).Exec(`UPDATE "Transaction" SET next_occurrence = ? WHERE id = ?`, nextStr, id.String())
 	if err != nil {
 		return fmt.Errorf("transactions.AdvanceNextOccurrence: %w", err)
 	}
@@ -231,12 +212,7 @@ func (r *SqliteTxnsRepo) AdvanceNextOccurrence(id uuid.UUID, next time.Time, tx 
 
 func (r *SqliteTxnsRepo) MarkConfirmed(id uuid.UUID, confirmedAt time.Time, tx *sql.Tx) error {
 	confirmedStr := confirmedAt.UTC().Format(time.RFC3339)
-	var err error
-	if tx != nil {
-		_, err = tx.Exec(`UPDATE "Transaction" SET confirmed_at = ?, requires_confirmation = 0 WHERE id = ?`, confirmedStr, id.String())
-	} else {
-		_, err = r.db.Exec(`UPDATE "Transaction" SET confirmed_at = ?, requires_confirmation = 0 WHERE id = ?`, confirmedStr, id.String())
-	}
+	_, err := pick(r.db, tx).Exec(`UPDATE "Transaction" SET confirmed_at = ?, requires_confirmation = 0 WHERE id = ?`, confirmedStr, id.String())
 	if err != nil {
 		return fmt.Errorf("transactions.MarkConfirmed: %w", err)
 	}
@@ -246,11 +222,7 @@ func (r *SqliteTxnsRepo) MarkConfirmed(id uuid.UUID, confirmedAt time.Time, tx *
 func (r *SqliteTxnsRepo) IncrementPaidInstallments(id uuid.UUID, tx *sql.Tx) error {
 	var err error
 	q := `UPDATE "Transaction" SET paid_installments = paid_installments + 1 WHERE id = ?`
-	if tx != nil {
-		_, err = tx.Exec(q, id.String())
-	} else {
-		_, err = r.db.Exec(q, id.String())
-	}
+	_, err = pick(r.db, tx).Exec(q, id.String())
 	if err != nil {
 		return fmt.Errorf("transactions.IncrementPaidInstallments: %w", err)
 	}

@@ -58,12 +58,7 @@ func (r *SqliteLedgerRepo) Insert(e LedgerEntry, tx *sql.Tx) error {
 		e.EntryType, e.Amount, e.Description,
 		e.PostedAt.UTC().Format(time.RFC3339),
 	}
-	var err error
-	if tx != nil {
-		_, err = tx.Exec(q, args...)
-	} else {
-		_, err = r.db.Exec(q, args...)
-	}
+	_, err := pick(r.db, tx).Exec(q, args...)
 	if err != nil {
 		return fmt.Errorf("ledger.Insert: %w", err)
 	}
@@ -89,12 +84,7 @@ func (r *SqliteLedgerRepo) ListByAccount(accountID uuid.UUID) ([]LedgerEntry, er
 }
 
 func (r *SqliteLedgerRepo) DeleteByID(id uuid.UUID, tx *sql.Tx) error {
-	var err error
-	if tx != nil {
-		_, err = tx.Exec(`DELETE FROM ledger WHERE id = ?`, id.String())
-	} else {
-		_, err = r.db.Exec(`DELETE FROM ledger WHERE id = ?`, id.String())
-	}
+	_, err := pick(r.db, tx).Exec(`DELETE FROM ledger WHERE id = ?`, id.String())
 	if err != nil {
 		return fmt.Errorf("ledger.DeleteByID: %w", err)
 	}
@@ -130,12 +120,7 @@ func (r *SqliteLedgerRepo) FindByID(id uuid.UUID) (*LedgerEntry, error) {
 func (r *SqliteLedgerRepo) SumByAccount(accountID uuid.UUID, tx *sql.Tx) (int64, error) {
 	q := `SELECT COALESCE(SUM(amount), 0) FROM ledger WHERE account_id = ?`
 	var sum int64
-	var err error
-	if tx != nil {
-		err = tx.QueryRow(q, accountID.String()).Scan(&sum)
-	} else {
-		err = r.db.QueryRow(q, accountID.String()).Scan(&sum)
-	}
+	err := pick(r.db, tx).QueryRow(q, accountID.String()).Scan(&sum)
 	if err != nil {
 		return 0, fmt.Errorf("ledger.SumByAccount: %w", err)
 	}
@@ -143,12 +128,7 @@ func (r *SqliteLedgerRepo) SumByAccount(accountID uuid.UUID, tx *sql.Tx) (int64,
 }
 
 func (r *SqliteLedgerRepo) UpdateAmount(id uuid.UUID, amount int64, tx *sql.Tx) error {
-	var err error
-	if tx != nil {
-		_, err = tx.Exec(`UPDATE ledger SET amount = ? WHERE id = ?`, amount, id.String())
-	} else {
-		_, err = r.db.Exec(`UPDATE ledger SET amount = ? WHERE id = ?`, amount, id.String())
-	}
+	_, err := pick(r.db, tx).Exec(`UPDATE ledger SET amount = ? WHERE id = ?`, amount, id.String())
 	if err != nil {
 		return fmt.Errorf("ledger.UpdateAmount: %w", err)
 	}
