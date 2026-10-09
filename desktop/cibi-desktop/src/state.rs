@@ -1,6 +1,9 @@
 //! Global app state. Views read it via `Entity<AppState>`; later phases add their own cached fields.
 use crate::config::Config;
-use cibi_client::{models::AccountResponse, Client, Error};
+use cibi_client::{
+    models::{AccountResponse, LedgerEntryResponse, ProfileResponse},
+    Client, Error,
+};
 use gpui_kit::component::{Theme, ThemeMode};
 use gpui_kit::*;
 
@@ -11,6 +14,12 @@ pub struct AppState {
     pub selected: Option<String>,
     /// Pending last error; the shell turns it into a toast.
     pub error: Option<String>,
+    /// Settings page data (see `load_settings`); `profile_rev` bumps whenever `profile` is reloaded.
+    pub profile: Option<ProfileResponse>,
+    pub profile_rev: usize,
+    pub ledger: Vec<LedgerEntryResponse>,
+    pub public_base_url: String,
+    pub pay_schedule_id: Option<String>,
     loading: usize,
     accent: u32,
 }
@@ -33,6 +42,11 @@ impl AppState {
             accounts: vec![],
             selected: None,
             error: None,
+            profile: None,
+            profile_rev: 0,
+            ledger: vec![],
+            public_base_url: String::new(),
+            pay_schedule_id: None,
             loading: 0,
             accent: THEMES[0].1,
         };
@@ -98,7 +112,6 @@ impl AppState {
     }
 
     /// Persist a new API base URL and reload everything against it.
-    #[allow(dead_code)] // used by the Settings page (phase 8)
     pub fn set_base_url(&mut self, url: &str, cx: &mut Context<Self>) {
         self.config.base_url = url.trim().to_string();
         if let Err(e) = self.config.save() {
@@ -106,6 +119,20 @@ impl AppState {
         }
         self.client = Client::new(&self.config.base_url);
         self.refresh_accounts(cx);
+    }
+
+    /// Reload profile, ledger, public config and the account's first pay schedule (for income).
+    pub fn load_settings(&mut self, cx: &mut Context<Self>) {
+        let Some(id) = self.selected.clone() else { return };
+        let a = id.clone();
+        self.fetch(cx, move |c| c.fetch_profile(&a), |s, p, _| {
+            s.profile = Some(p);
+            s.profile_rev += 1;
+        });
+        let a = id.clone();
+        self.fetch(cx, move |c| c.fetch_ledger(&a), |s, l, _| s.ledger = l);
+        self.fetch(cx, |c| c.fetch_public_config(), |s, c, _| s.public_base_url = c.public_base_url);
+        self.fetch(cx, move |c| c.list_pay_schedules(&id), |s, l, _| s.pay_schedule_id = l.first().map(|p| p.id.clone()));
     }
 
     fn apply_theme(&self, cx: &mut Context<Self>) {
