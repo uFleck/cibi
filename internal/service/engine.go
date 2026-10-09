@@ -6,19 +6,30 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/ufleck/cibi/internal/engine"
+	"github.com/ufleck/cibi/internal/payday"
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 )
 
 // ErrPayScheduleRequired is returned when the user has not configured their pay schedule.
 var ErrPayScheduleRequired = errors.New("PAY_SCHEDULE_REQUIRED")
 
+// RiskLevel is the verdict class; its string value is part of the JSON API.
+type RiskLevel string
+
+const (
+	RiskLow     RiskLevel = "LOW"
+	RiskMedium  RiskLevel = "MEDIUM"
+	RiskHigh    RiskLevel = "HIGH"
+	RiskBlocked RiskLevel = "BLOCKED"
+	RiskWait    RiskLevel = "WAIT"
+)
+
 // EngineResult holds the output of the CanIBuyIt decision.
 type EngineResult struct {
 	CanBuy                bool
 	PurchasingPower       int64               // cents; balance - obligations - safety_buffer
 	BufferRemaining       int64               // cents; purchasing_power - item_price (may be negative)
-	RiskLevel             string              // "LOW" | "MEDIUM" | "HIGH" | "BLOCKED" | "WAIT"
+	RiskLevel             RiskLevel
 	WillAffordAfterPayday bool                // true when WAIT verdict applies
 	WaitUntil             *time.Time          // non-nil only when RiskLevel == "WAIT"
 	GoalImpacts           []GoalImpact        // projected per-goal impact of this purchase
@@ -88,112 +99,117 @@ func NewEngineService(
 // The union window approach uses the earliest next payday across all schedules.
 // Must complete in under 100ms.
 func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineResult, error) {
-	// Step 1: Load account.
+	in, err := s.loadInputs(accountID)
+	if err != nil {
+		return EngineResult{}, err
+	}
+	return evaluate(in, itemPrice), nil
+}
+
+// engineInputs is everything evaluate needs; gathered by loadInputs so evaluate stays pure.
+type engineInputs struct {
+	balance        int64 // cents
+	safetyBuffer   int64 // cents
+	obligations    int64 // cents; recurring + peer + group, all <= 0
+	paydayAmount   int64 // cents; income at earliestPayday
+	earliestPayday time.Time
+	contributed    map[uuid.UUID]int64
+	goals          []sqlite.Goal
+}
+
+func (s *EngineService) loadInputs(accountID uuid.UUID) (engineInputs, error) {
 	acc, err := s.accRepo.GetByID(accountID)
 	if err != nil {
-		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: get account: %w", err)
+		return engineInputs{}, fmt.Errorf("engine.CanIBuyIt: get account: %w", err)
 	}
 
-	// Step 2: Load ALL pay schedules for this account.
 	schedules, err := s.psRepo.ListByAccountID(accountID)
 	if err != nil {
-		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: list pay schedules: %w", err)
+		return engineInputs{}, fmt.Errorf("engine.CanIBuyIt: list pay schedules: %w", err)
 	}
 	if len(schedules) == 0 {
-		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: %w", ErrPayScheduleRequired)
+		return engineInputs{}, fmt.Errorf("engine.CanIBuyIt: %w", ErrPayScheduleRequired)
 	}
 
-	// Step 3: Find earliest next payday across all schedules (union window approach).
+	// Earliest next payday across all schedules (union window approach).
 	now := time.Now().UTC()
 	var earliestPayday time.Time
 	var earliestSchedule sqlite.PaySchedule
 	for i, ps := range schedules {
-		ep := engine.PaySchedule{
+		ep := payday.PaySchedule{
 			Frequency:   ps.Frequency,
 			AnchorDate:  ps.AnchorDate,
 			DayOfMonth2: ps.DayOfMonth2,
 		}
-		np := engine.NextPayday(ep, now)
+		np := payday.NextPayday(ep, now)
 		if i == 0 || np.Before(earliestPayday) {
 			earliestPayday = np
 			earliestSchedule = ps
 		}
 	}
 
-	// Step 4: Sum obligations due before earliest payday (includes overdue until confirmed).
+	// Obligations due before earliest payday (includes overdue until confirmed).
+	// All are stored as negative amounts (debits), so adding them reduces purchasing power.
 	obligations, err := s.txnsRepo.SumUpcomingObligations(accountID, now, earliestPayday)
 	if err != nil {
-		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: sum obligations: %w", err)
+		return engineInputs{}, fmt.Errorf("engine.CanIBuyIt: sum obligations: %w", err)
 	}
-	// Obligations are stored as negative amounts (debits). Sum is negative or zero.
-	// purchasing_power = balance + obligations (obligations <= 0) - threshold
-	// Example: balance=50000, obligations=-20000, threshold=10000 → pp=20000
-
-	// Step 4b: Sum outgoing peer debt obligations (money user owes friends).
 	peerObligations, err := s.peerDebtRepo.SumUpcomingPeerObligations(&accountID, now, earliestPayday)
 	if err != nil {
-		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: sum peer obligations: %w", err)
+		return engineInputs{}, fmt.Errorf("engine.CanIBuyIt: sum peer obligations: %w", err)
 	}
-
-	// Step 4c: Sum admin obligations from friend-hosted group events.
 	groupObligations, err := s.groupEventRepo.SumUpcomingAdminObligations(&accountID, now, earliestPayday)
 	if err != nil {
-		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: sum group obligations: %w", err)
+		return engineInputs{}, fmt.Errorf("engine.CanIBuyIt: sum group obligations: %w", err)
 	}
 
-	// Step 5: Load goals for per-goal projection.
 	goals, err := s.goalsRepo.GetGoalsByAccount(accountID)
 	if err != nil {
-		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: list goals: %w", err)
+		return engineInputs{}, fmt.Errorf("engine.CanIBuyIt: list goals: %w", err)
 	}
-
-	// Step 6: Calculate purchasing power.
-	// peerObligations and groupObligations are <= 0; adding them reduces purchasing power.
-	purchasingPower := acc.CurrentBalance + obligations + peerObligations + groupObligations - acc.SafetyBuffer
-
-	// Step 7: Determine can_buy and buffer_remaining.
-	canBuy := purchasingPower >= itemPrice
-	bufferRemaining := purchasingPower - itemPrice
 	windowStart := previousPayday(earliestSchedule, now)
-	contributedThisWindow, err := s.goalContributionsInWindow(goals, windowStart, earliestPayday)
+	contributed, err := s.goalContributionsInWindow(goals, windowStart, earliestPayday)
 	if err != nil {
-		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: load goal window contributions: %w", err)
-	}
-	goalImpacts, coveredGoals := buildGoalImpacts(goals, purchasingPower, bufferRemaining, contributedThisWindow)
-
-	// Step 8: Classify risk — handle BLOCKED and WAIT inline; delegate LOW/MEDIUM/HIGH to classifyRisk.
-	if canBuy {
-		return EngineResult{
-			CanBuy:                 true,
-			PurchasingPower:        purchasingPower,
-			BufferRemaining:        bufferRemaining,
-			RiskLevel:              classifyRisk(bufferRemaining, acc.SafetyBuffer),
-			GoalImpacts:            goalImpacts,
-			GoalsCoveredThisWindow: coveredGoals,
-		}, nil
+		return engineInputs{}, fmt.Errorf("engine.CanIBuyIt: load goal window contributions: %w", err)
 	}
 
-	// Cannot buy — check WAIT: will the user afford it after the earliest payday?
-	projectedBalance := acc.CurrentBalance + earliestSchedule.Amount
-	// obligations, peerObligations, and groupObligations are summed for [now, earliestPayday].
-	projectedPurchasingPower := projectedBalance + obligations + peerObligations + groupObligations - acc.SafetyBuffer
-	willAfford := projectedPurchasingPower >= itemPrice
+	return engineInputs{
+		balance:        acc.CurrentBalance,
+		safetyBuffer:   acc.SafetyBuffer,
+		obligations:    obligations + peerObligations + groupObligations,
+		paydayAmount:   earliestSchedule.Amount,
+		earliestPayday: earliestPayday,
+		contributed:    contributed,
+		goals:          goals,
+	}, nil
+}
+
+// evaluate is the pure decision: no repos, no clock.
+func evaluate(in engineInputs, itemPrice int64) EngineResult {
+	purchasingPower := in.balance + in.obligations - in.safetyBuffer
+	bufferRemaining := purchasingPower - itemPrice
+	goalImpacts, coveredGoals := buildGoalImpacts(in.goals, purchasingPower, bufferRemaining, in.contributed)
 
 	result := EngineResult{
-		CanBuy:                 false,
+		CanBuy:                 purchasingPower >= itemPrice,
 		PurchasingPower:        purchasingPower,
 		BufferRemaining:        bufferRemaining,
-		RiskLevel:              "BLOCKED",
-		WillAffordAfterPayday:  willAfford,
-		WaitUntil:              nil,
 		GoalImpacts:            goalImpacts,
 		GoalsCoveredThisWindow: coveredGoals,
 	}
-	if willAfford {
-		result.RiskLevel = "WAIT"
-		result.WaitUntil = &earliestPayday
+	if result.CanBuy {
+		result.RiskLevel = classifyRisk(bufferRemaining, in.safetyBuffer)
+		return result
 	}
-	return result, nil
+
+	// Cannot buy now: WAIT if the earliest payday's income would cover it.
+	result.RiskLevel = RiskBlocked
+	result.WillAffordAfterPayday = purchasingPower+in.paydayAmount >= itemPrice
+	if result.WillAffordAfterPayday {
+		result.RiskLevel = RiskWait
+		result.WaitUntil = &in.earliestPayday
+	}
+	return result
 }
 
 // CanIBuyItDefault runs CanIBuyIt against the account marked is_default = 1.
@@ -293,13 +309,13 @@ func (s *EngineService) goalContributionsInWindow(goals []sqlite.Goal, windowSta
 }
 
 func previousPayday(ps sqlite.PaySchedule, from time.Time) time.Time {
-	ep := engine.PaySchedule{Frequency: ps.Frequency, AnchorDate: ps.AnchorDate, DayOfMonth2: ps.DayOfMonth2}
-	curr := engine.NextPayday(ep, ps.AnchorDate.Add(-time.Second))
+	ep := payday.PaySchedule{Frequency: ps.Frequency, AnchorDate: ps.AnchorDate, DayOfMonth2: ps.DayOfMonth2}
+	curr := payday.NextPayday(ep, ps.AnchorDate.Add(-time.Second))
 	if !curr.Before(from) {
 		return curr
 	}
 	for i := 0; i < 1000; i++ {
-		next := engine.NextPayday(ep, curr)
+		next := payday.NextPayday(ep, curr)
 		if !next.Before(from) {
 			return curr
 		}
@@ -308,15 +324,15 @@ func previousPayday(ps sqlite.PaySchedule, from time.Time) time.Time {
 	return curr
 }
 
-func classifyRisk(bufferRemaining, minThreshold int64) string {
+func classifyRisk(bufferRemaining, minThreshold int64) RiskLevel {
 	if minThreshold == 0 {
-		return "LOW"
+		return RiskLow
 	}
 	if bufferRemaining < minThreshold/4 {
-		return "HIGH"
+		return RiskHigh
 	}
 	if bufferRemaining < minThreshold/2 {
-		return "MEDIUM"
+		return RiskMedium
 	}
-	return "LOW"
+	return RiskLow
 }

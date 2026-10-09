@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
 
-	"github.com/ufleck/cibi/internal/engine"
+	"github.com/ufleck/cibi/internal/payday"
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 	"github.com/ufleck/cibi/internal/service"
 )
@@ -280,7 +280,7 @@ func TestCreateTransaction_FutureAnchorDate_DoesNotUpdateBalance(t *testing.T) {
 		},
 	}
 
-	freq := engine.FreqMonthly
+	freq := payday.FreqMonthly
 	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
 	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.CreateTransaction(sqlite.Transaction{
@@ -605,7 +605,7 @@ func TestConfirmRecurring_UpdatesBalanceAndAdvancesOccurrence(t *testing.T) {
 	accountID := uuid.New()
 	startingBalance := int64(10000)
 	amount := int64(-1500)
-	freq := engine.FreqWeekly
+	freq := payday.FreqWeekly
 	nextOccurrence := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	var gotNewBalance int64
@@ -758,7 +758,7 @@ func TestConfirmInstallment_DebitsBalanceAndIncrementsCount(t *testing.T) {
 	amount := int64(-5000) // -$50.00 per installment
 	total := int64(12)
 	paid := int64(2)
-	freq := engine.FreqMonthly
+	freq := payday.FreqMonthly
 
 	var gotNewBalance int64
 	var incrementCalled bool
