@@ -1,7 +1,7 @@
 //! Settings: profile + theme, API base URL, record income, ledger (web/src/pages/settings.tsx + ledger API).
 use crate::state::AppState;
 use cibi_client::models::{RecordIncomeRequest, UpdateProfileRequest};
-use gpui_kit::component::{button::*, input::*, *};
+use gpui_kit::component::{button::*, input::*, switch::Switch, *};
 use gpui_kit::*;
 
 const THEMES: [(&str, &str); 5] =
@@ -43,7 +43,7 @@ impl Settings {
     /// Reload on account switch; copy a freshly loaded profile into the inputs.
     fn sync(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let (sel, rev, profile) = {
-            let s = self.state.read(cx);
+        let s = self.state.read(cx);
             (s.selected.clone(), s.profile_rev, s.profile.clone())
         };
         if sel != self.loaded_for {
@@ -107,6 +107,7 @@ impl Settings {
 impl Render for Settings {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let this = cx.entity();
+        let s_ent = self.state.clone();
         let s = self.state.read(cx);
         let theme = s.profile.as_ref().map(|p| p.theme.clone()).unwrap_or_default();
         let can_income = s.pay_schedule_id.is_some();
@@ -152,6 +153,15 @@ impl Render for Settings {
                     })
                 })),
             )
+            .child(section("Background"))
+            .child(Switch::new("tray").label("Close button hides to tray").checked(s.config.close_to_tray).on_click({
+                let st = s_ent.clone();
+                move |v: &bool, _, cx| st.update(cx, |s, cx| s.set_toggle(false, *v, cx))
+            }))
+            .child(Switch::new("login").label("Start at login").checked(s.config.start_at_login).on_click({
+                let st = s_ent.clone();
+                move |v: &bool, _, cx| st.update(cx, |s, cx| s.set_toggle(true, *v, cx))
+            }))
             .child(section("Public base URL"))
             .child(div().child(if s.public_base_url.is_empty() { "-".to_string() } else { s.public_base_url.clone() }))
             .child(section("Record income"))

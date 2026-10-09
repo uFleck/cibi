@@ -111,6 +111,20 @@ impl AppState {
         self.apply_theme(cx);
     }
 
+    /// Toggle close-to-tray (`login == false`) or start-at-login (`login == true`) and persist it.
+    pub fn set_toggle(&mut self, login: bool, on: bool, cx: &mut Context<Self>) {
+        if login {
+            self.config.start_at_login = on;
+            crate::background::set_autostart(on);
+        } else {
+            self.config.close_to_tray = on;
+        }
+        if let Err(e) = self.config.save() {
+            self.error = Some(format!("saving config: {e}"));
+        }
+        cx.notify();
+    }
+
     /// Persist a new API base URL and reload everything against it.
     pub fn set_base_url(&mut self, url: &str, cx: &mut Context<Self>) {
         self.config.base_url = url.trim().to_string();

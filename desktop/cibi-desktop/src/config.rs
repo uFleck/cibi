@@ -7,11 +7,13 @@ use std::path::PathBuf;
 pub struct Config {
     pub base_url: String,
     pub dark: bool,
+    pub close_to_tray: bool,
+    pub start_at_login: bool,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { base_url: "http://localhost:42069".into(), dark: true }
+        Self { base_url: "http://localhost:42069".into(), dark: true, close_to_tray: true, start_at_login: false }
     }
 }
 
