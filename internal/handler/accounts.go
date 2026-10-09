@@ -78,7 +78,7 @@ func accountToResponse(a sqlite.Account) AccountResponse {
 func (h *AccountsHandler) List(c echo.Context) error {
 	accs, err := h.svc.ListAccounts()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	resp := make([]AccountResponse, len(accs))
 	for i, a := range accs {
@@ -105,7 +105,7 @@ func (h *AccountsHandler) Create(c echo.Context) error {
 		SafetyBuffer:   int64(math.Round(req.SafetyBuffer * 100)),
 	}
 	if err := h.svc.CreateAccount(acc); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusCreated, accountToResponse(acc))
 }
@@ -117,7 +117,7 @@ func (h *AccountsHandler) GetDefault(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusOK, accountToResponse(acc))
 }
@@ -133,7 +133,7 @@ func (h *AccountsHandler) GetByID(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "account not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusOK, accountToResponse(acc))
 }
@@ -163,7 +163,7 @@ func (h *AccountsHandler) Update(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "account not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	// Return updated account.
 	acc, err := h.svc.GetByID(id)
@@ -171,7 +171,7 @@ func (h *AccountsHandler) Update(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "account not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusOK, accountToResponse(acc))
 }
@@ -186,7 +186,7 @@ func (h *AccountsHandler) SetDefault(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "account not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -201,7 +201,7 @@ func (h *AccountsHandler) Delete(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "account not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }

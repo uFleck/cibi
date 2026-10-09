@@ -108,7 +108,7 @@ func friendToResponse(f sqlite.Friend) FriendResponse {
 func (h *FriendsHandler) List(c echo.Context) error {
 	friends, err := h.svc.ListFriends()
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	resp := make([]FriendResponse, len(friends))
 	for i, f := range friends {
@@ -128,7 +128,7 @@ func (h *FriendsHandler) Create(c echo.Context) error {
 	}
 	f, err := h.svc.CreateFriend(req.Name, req.Notes, req.PixKey)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusCreated, friendToResponse(f))
 }
@@ -144,7 +144,7 @@ func (h *FriendsHandler) GetByID(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "friend not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusOK, friendToResponse(f))
 }
@@ -163,14 +163,14 @@ func (h *FriendsHandler) Update(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "friend not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	f, err := h.svc.GetFriendByID(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "friend not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusOK, friendToResponse(f))
 }
@@ -185,7 +185,7 @@ func (h *FriendsHandler) Delete(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "friend not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -203,11 +203,11 @@ func (h *FriendsHandler) Breakdown(c echo.Context) error {
 
 	items, err := h.peerDebtSvc.GetFriendDebtBreakdown(&accountID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	groupExpenses, err := h.groupSvc.GetAdminPendingExpenses(&accountID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 
 	combined := make([]service.FriendDebtItem, 0, len(items)+len(groupExpenses))
@@ -255,15 +255,15 @@ func (h *FriendsHandler) Summary(c echo.Context) error {
 
 	bal, err := h.peerDebtSvc.GetGlobalBalance(&accountID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	nextPayment, err := h.peerDebtSvc.SumNextUserPayment(&accountID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	groupBal, err := h.groupSvc.GetPendingBalanceForAdmin(&accountID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 
 	totalOwedToUser := bal.TotalOwedToUser + groupBal.TheyOweAdmin

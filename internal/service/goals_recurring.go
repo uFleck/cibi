@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -87,13 +86,13 @@ func (s *GoalsService) ConfirmRecurringDue(itemID uuid.UUID, timestamp time.Time
 		return err
 	}
 	if !item.Active {
-		return fmt.Errorf("recurring contribution is inactive")
+		return validationf("recurring contribution is inactive")
 	}
 	if timestamp.IsZero() {
 		timestamp = time.Now().UTC()
 	}
 	if timestamp.Before(item.NextDueUTC) {
-		return fmt.Errorf("recurring contribution is not due yet")
+		return validationf("recurring contribution is not due yet")
 	}
 	source := "recurring"
 	_, err = s.AddLedgerEntry(AddGoalLedgerInput{

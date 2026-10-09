@@ -35,7 +35,7 @@ func (h *ProfileHandler) Get(c echo.Context) error {
 	}
 	p, err := h.svc.GetByAccount(accountID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusOK, ProfileResponse{
 		DisplayName: p.DisplayName,
@@ -57,7 +57,7 @@ func (h *ProfileHandler) Patch(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 	if err := h.svc.UpdateByAccount(accountID, req.DisplayName, req.PixKey, req.Theme); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
