@@ -219,7 +219,9 @@ func (h *GoalsHandler) ReverseLedger(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid entry id")
 	}
 	var req ReverseRequest
-	_ = c.Bind(&req)
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid request body")
+	}
 	entry, err := h.svc.ReverseLedgerEntry(goalID, entryID, req.Note)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())

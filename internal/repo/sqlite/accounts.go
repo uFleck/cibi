@@ -3,7 +3,6 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -213,5 +212,3 @@ func (r *SqliteAccountsRepo) DeleteByID(id uuid.UUID) error {
 	return tx.Commit()
 }
 
-// Ensure time import is used (UTC formatting utility for other repos to import).
-var _ = time.UTC
