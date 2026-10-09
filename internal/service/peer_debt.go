@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/ufleck/cibi/internal/engine"
+	"github.com/ufleck/cibi/internal/payday"
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 )
 
@@ -218,7 +218,7 @@ func buildFriendDebtItems(rows []sqlite.ActiveUserDebt) []FriendDebtItem {
 				firstDue, err = time.Parse("2006-01-02", anchorStr)
 			}
 			if err == nil {
-				nextDue := engine.NextInstallmentDue(firstDue, r.PaidInstallments, r.Frequency)
+				nextDue := payday.NextInstallmentDue(firstDue, r.PaidInstallments, r.Frequency)
 				s := nextDue.UTC().Format(time.RFC3339)
 				item.NextPaymentDate = &s
 			}
