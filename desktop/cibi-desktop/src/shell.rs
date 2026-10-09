@@ -47,7 +47,7 @@ impl Shell {
             cx.new(|_| Transactions { state: s() }).into(),
             cx.new(|_| Friends { state: s() }).into(),
             cx.new(|_| Goals { state: s() }).into(),
-            cx.new(|_| Settings { state: s() }).into(),
+            cx.new(|cx| Settings::new(s(), window, cx)).into(),
         ];
         Self { state, page: Page::Dashboard, views }
     }
