@@ -74,21 +74,26 @@ func (s *AccountsService) GetByID(id uuid.UUID) (sqlite.Account, error) {
 	return acc, nil
 }
 
+// UpdateAccountInput holds the patchable account fields; nil = no change.
+type UpdateAccountInput struct {
+	Name         *string
+	Balance      *int64
+	SafetyBuffer *int64
+}
+
 // UpdateAccount patches mutable fields on an account.
-// Pass nil for fields that should not change.
-// name: nil = no change; balance: nil = no change.
-func (s *AccountsService) UpdateAccount(id uuid.UUID, name *string, balance *int64, safetyBuffer *int64) error {
-	if name != nil {
-		if err := s.accRepo.UpdateName(id, *name); err != nil {
+func (s *AccountsService) UpdateAccount(id uuid.UUID, in UpdateAccountInput) error {
+	if in.Name != nil {
+		if err := s.accRepo.UpdateName(id, *in.Name); err != nil {
 			return fmt.Errorf("service.UpdateAccount: name: %w", err)
 		}
 	}
-	if balance != nil {
+	if in.Balance != nil {
 		acc, err := s.accRepo.GetByID(id)
 		if err != nil {
 			return fmt.Errorf("service.UpdateAccount: get account: %w", err)
 		}
-		delta := *balance - acc.CurrentBalance
+		delta := *in.Balance - acc.CurrentBalance
 		if delta != 0 {
 			if err := s.ledgerSvc.RecordEntry(sqlite.LedgerEntry{
 				AccountID:   id,
@@ -101,8 +106,8 @@ func (s *AccountsService) UpdateAccount(id uuid.UUID, name *string, balance *int
 			}
 		}
 	}
-	if safetyBuffer != nil {
-		if err := s.accRepo.UpdateSafetyBuffer(id, *safetyBuffer); err != nil {
+	if in.SafetyBuffer != nil {
+		if err := s.accRepo.UpdateSafetyBuffer(id, *in.SafetyBuffer); err != nil {
 			return fmt.Errorf("service.UpdateAccount: safety_buffer: %w", err)
 		}
 	}
