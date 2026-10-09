@@ -42,7 +42,12 @@ export function ProjectionWidget({
 
   const now = new Date()
   const windowStart = parseDateOnlyUTC(nextPayday)
-  const windowEnd = earliestPaydayAfter(paySchedules, windowStart)
+  // Backend adjusts next_payday backward for weekends/holidays, so windowStart
+  // may be 1–2 days before the raw canonical date. Recover that raw date first,
+  // then step to the next occurrence — otherwise we get a 1-day window.
+  const rawWindowStart = earliestPaydayAfter(paySchedules, new Date(windowStart.getTime() - 1))
+  if (!rawWindowStart) return null
+  const windowEnd = earliestPaydayAfter(paySchedules, rawWindowStart)
   if (!windowEnd) return null
 
   const currentRecurringReserved = transactions

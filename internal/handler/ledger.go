@@ -27,7 +27,7 @@ type LedgerEntryResponse struct {
 	TransactionID *string `json:"transaction_id"`
 	PayScheduleID *string `json:"pay_schedule_id"`
 	EntryType     string  `json:"entry_type"`
-	Amount        int64   `json:"amount"`
+	Amount        float64 `json:"amount"`
 	Description   string  `json:"description"`
 	PostedAt      string  `json:"posted_at"`
 }
@@ -45,7 +45,7 @@ func toLedgerEntryResponse(e sqlite.LedgerEntry) LedgerEntryResponse {
 		ID:          e.ID.String(),
 		AccountID:   e.AccountID.String(),
 		EntryType:   e.EntryType,
-		Amount:      e.Amount,
+		Amount:      float64(e.Amount) / 100.0,
 		Description: e.Description,
 		PostedAt:    e.PostedAt.UTC().Format(time.RFC3339),
 	}
