@@ -896,7 +896,10 @@ dependencies = [
 name = "cibi-desktop"
 version = "0.1.0"
 dependencies = [
+ "cibi-client",
  "gpui-kit",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
