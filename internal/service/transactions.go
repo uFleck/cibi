@@ -31,10 +31,10 @@ func NewTransactionsService(db *sql.DB, txnsRepo sqlite.TransactionsRepo, accRep
 func (s *TransactionsService) CreateTransaction(t sqlite.Transaction) error {
 	if t.IsRecurring {
 		if t.Frequency == nil || !sqlite.ValidFrequencies[*t.Frequency] {
-			return fmt.Errorf("recurring transaction requires a valid frequency (weekly, bi-weekly, monthly, yearly)")
+			return validationf("recurring transaction requires a valid frequency (weekly, bi-weekly, monthly, yearly)")
 		}
 		if t.AnchorDate == nil {
-			return fmt.Errorf("recurring transaction requires anchor_date")
+			return validationf("recurring transaction requires anchor_date")
 		}
 		// Set initial next_occurrence = anchor_date if not provided.
 		if t.NextOccurrence == nil {
@@ -45,16 +45,16 @@ func (s *TransactionsService) CreateTransaction(t sqlite.Transaction) error {
 
 	if t.IsInstallment {
 		if t.IsRecurring {
-			return fmt.Errorf("is_installment and is_recurring are mutually exclusive")
+			return validationf("is_installment and is_recurring are mutually exclusive")
 		}
 		if t.TotalInstallments == nil || *t.TotalInstallments <= 0 {
-			return fmt.Errorf("installment transaction requires total_installments > 0")
+			return validationf("installment transaction requires total_installments > 0")
 		}
 		if t.AnchorDate == nil {
-			return fmt.Errorf("installment transaction requires anchor_date")
+			return validationf("installment transaction requires anchor_date")
 		}
 		if t.Frequency == nil || (*t.Frequency != engine.FreqMonthly && *t.Frequency != engine.FreqWeekly) {
-			return fmt.Errorf("installment transaction requires frequency of monthly or weekly")
+			return validationf("installment transaction requires frequency of monthly or weekly")
 		}
 	}
 
@@ -122,7 +122,7 @@ func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateT
 	setInstallment := upd.IsInstallment != nil && *upd.IsInstallment
 	setRecurring := upd.IsRecurring != nil && *upd.IsRecurring
 	if setInstallment && setRecurring {
-		return fmt.Errorf("is_installment and is_recurring are mutually exclusive")
+		return validationf("is_installment and is_recurring are mutually exclusive")
 	}
 	if setInstallment {
 		oldTxn, err := s.txnsRepo.GetByID(id)
@@ -131,13 +131,13 @@ func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateT
 		}
 		if !oldTxn.IsInstallment {
 			if upd.TotalInstallments == nil || *upd.TotalInstallments <= 0 {
-				return fmt.Errorf("installment transaction requires total_installments > 0")
+				return validationf("installment transaction requires total_installments > 0")
 			}
 			if upd.AnchorDate == nil {
-				return fmt.Errorf("installment transaction requires anchor_date")
+				return validationf("installment transaction requires anchor_date")
 			}
 			if upd.Frequency == nil || (*upd.Frequency != engine.FreqMonthly && *upd.Frequency != engine.FreqWeekly) {
-				return fmt.Errorf("installment transaction requires frequency of monthly or weekly")
+				return validationf("installment transaction requires frequency of monthly or weekly")
 			}
 		}
 	}
@@ -148,7 +148,7 @@ func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateT
 			return fmt.Errorf("service.UpdateTransaction: get old transaction: %w", err)
 		}
 		if *upd.TotalInstallments < oldTxn.PaidInstallments {
-			return fmt.Errorf("total_installments (%d) cannot be less than paid_installments (%d)", *upd.TotalInstallments, oldTxn.PaidInstallments)
+			return validationf("total_installments (%d) cannot be less than paid_installments (%d)", *upd.TotalInstallments, oldTxn.PaidInstallments)
 		}
 	}
 
@@ -299,7 +299,7 @@ func (s *TransactionsService) ConfirmRecurring(transactionID uuid.UUID) (time.Ti
 
 	isOneTimeDue := !t.IsRecurring && t.RequiresConfirmation && t.ConfirmedAt == nil
 	if !t.IsRecurring && !isOneTimeDue {
-		return time.Time{}, fmt.Errorf("service.ConfirmRecurring: transaction %v is not confirmable", transactionID)
+		return time.Time{}, validationf("service.ConfirmRecurring: transaction %v is not confirmable", transactionID)
 	}
 
 	tx, err := s.db.Begin()
@@ -378,10 +378,10 @@ func (s *TransactionsService) ConfirmInstallment(transactionID uuid.UUID) error 
 	}
 
 	if !t.IsInstallment {
-		return fmt.Errorf("service.ConfirmInstallment: transaction %v is not an installment", transactionID)
+		return validationf("service.ConfirmInstallment: transaction %v is not an installment", transactionID)
 	}
 	if t.TotalInstallments == nil || t.PaidInstallments >= *t.TotalInstallments {
-		return fmt.Errorf("service.ConfirmInstallment: all installments already paid for transaction %v", transactionID)
+		return validationf("service.ConfirmInstallment: all installments already paid for transaction %v", transactionID)
 	}
 
 	tx, err := s.db.Begin()
@@ -420,10 +420,10 @@ func (s *TransactionsService) PostponeRecurring(transactionID uuid.UUID) (time.T
 		return time.Time{}, fmt.Errorf("service.PostponeRecurring: get transaction: %w", err)
 	}
 	if !t.IsRecurring {
-		return time.Time{}, fmt.Errorf("service.PostponeRecurring: transaction %v is not recurring", transactionID)
+		return time.Time{}, validationf("service.PostponeRecurring: transaction %v is not recurring", transactionID)
 	}
 	if t.NextOccurrence == nil || t.Frequency == nil {
-		return time.Time{}, fmt.Errorf("service.PostponeRecurring: transaction %v missing next_occurrence or frequency", transactionID)
+		return time.Time{}, validationf("service.PostponeRecurring: transaction %v missing next_occurrence or frequency", transactionID)
 	}
 	next := advanceOccurrence(*t.NextOccurrence, *t.Frequency)
 	if err := s.txnsRepo.AdvanceNextOccurrence(transactionID, next, nil); err != nil {

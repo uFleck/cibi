@@ -128,7 +128,7 @@ func (h *GoalsHandler) Create(c echo.Context) error {
 	}
 	g, err := h.svc.CreateGoal(service.CreateGoalInput{AccountID: accountID, Name: req.Name, TargetAmount: math.Round(req.TargetAmount*100) / 100, MinContributionPerWindow: math.Round(req.MinContributionPerWindow*100) / 100, StartDateUTC: start.UTC(), TargetDateUTC: target, Notes: req.Notes})
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusCreated, goalResp(g))
 }
@@ -140,7 +140,7 @@ func (h *GoalsHandler) List(c echo.Context) error {
 	}
 	goals, err := h.svc.ListGoals(accountID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	resp := make([]GoalResponse, len(goals))
 	for i, g := range goals {
@@ -168,7 +168,7 @@ func (h *GoalsHandler) Update(c echo.Context) error {
 		td = &u
 	}
 	if err := h.svc.UpdateGoal(goalID, service.UpdateGoalInput{Name: req.Name, TargetAmount: req.TargetAmount, TargetDateUTC: td, Notes: req.Notes, MinContributionPerWindow: req.MinContributionPerWindow}); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -204,7 +204,7 @@ func (h *GoalsHandler) AddLedger(c echo.Context) error {
 	}
 	entry, err := h.svc.AddLedgerEntry(service.AddGoalLedgerInput{GoalID: goalID, Amount: req.Amount, Type: req.Type, Source: req.Source, TimestampUTC: ts, Note: req.Note})
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusCreated, ledgerResp(entry))
 }
@@ -222,7 +222,7 @@ func (h *GoalsHandler) ReverseLedger(c echo.Context) error {
 	_ = c.Bind(&req)
 	entry, err := h.svc.ReverseLedgerEntry(goalID, entryID, req.Note)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusCreated, ledgerResp(entry))
 }
@@ -234,7 +234,7 @@ func (h *GoalsHandler) ListLedger(c echo.Context) error {
 	}
 	entries, err := h.svc.ListLedger(goalID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	resp := make([]GoalLedgerEntryResponse, len(entries))
 	for i, e := range entries {

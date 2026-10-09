@@ -58,7 +58,7 @@ func (s *GoalsService) CreateGoal(in CreateGoalInput) (sqlite.Goal, error) {
 	now := time.Now().UTC()
 	goal := sqlite.Goal{ID: uuid.New(), AccountID: in.AccountID, Name: in.Name, Status: "active", TargetAmountCents: toCents(in.TargetAmount), InvestedTotalCents: 0, MinContributionPerWindowCents: toCents(in.MinContributionPerWindow), StartDateUTC: in.StartDateUTC.UTC(), TargetDateUTC: in.TargetDateUTC, Notes: in.Notes, Currency: acc.Currency, CreatedAtUTC: now, UpdatedAtUTC: now}
 	if goal.TargetAmountCents <= 0 {
-		return sqlite.Goal{}, fmt.Errorf("validation: target amount must be > 0")
+		return sqlite.Goal{}, validationf("validation: target amount must be > 0")
 	}
 	if err := s.goals.InsertGoal(goal, nil); err != nil {
 		return sqlite.Goal{}, err
@@ -80,14 +80,14 @@ func (s *GoalsService) UpdateGoal(goalID uuid.UUID, in UpdateGoalInput) error {
 	if in.MinContributionPerWindow != nil {
 		minContributionCents := toCents(*in.MinContributionPerWindow)
 		if minContributionCents < 0 {
-			return fmt.Errorf("validation: min contribution per window must be >= 0")
+			return validationf("validation: min contribution per window must be >= 0")
 		}
 		upd.MinContributionPerWindowCents = &minContributionCents
 	}
 	if in.TargetAmount != nil {
 		newTarget := toCents(*in.TargetAmount)
 		if newTarget <= 0 {
-			return fmt.Errorf("validation: target amount must be > 0")
+			return validationf("validation: target amount must be > 0")
 		}
 		upd.TargetAmountCents = &newTarget
 		if goal.InvestedTotalCents >= newTarget {
@@ -124,7 +124,7 @@ func (s *GoalsService) AddLedgerEntry(in AddGoalLedgerInput) (sqlite.GoalLedgerE
 	}
 	amountCents := toCents(in.Amount)
 	if amountCents <= 0 {
-		return sqlite.GoalLedgerEntry{}, fmt.Errorf("validation: amount must be > 0")
+		return sqlite.GoalLedgerEntry{}, validationf("validation: amount must be > 0")
 	}
 	if in.Source == "" {
 		in.Source = "manual"
@@ -140,7 +140,7 @@ func (s *GoalsService) AddLedgerEntry(in AddGoalLedgerInput) (sqlite.GoalLedgerE
 		balanceDelta = -amountCents
 		investDelta = amountCents
 		if acc.CurrentBalance < amountCents {
-			return sqlite.GoalLedgerEntry{}, fmt.Errorf("insufficient funds")
+			return sqlite.GoalLedgerEntry{}, validationf("insufficient funds")
 		}
 	case "withdrawal":
 		balanceDelta = amountCents
@@ -148,7 +148,7 @@ func (s *GoalsService) AddLedgerEntry(in AddGoalLedgerInput) (sqlite.GoalLedgerE
 	case "adjustment":
 		investDelta = amountCents
 	default:
-		return sqlite.GoalLedgerEntry{}, fmt.Errorf("validation: invalid type")
+		return sqlite.GoalLedgerEntry{}, validationf("validation: invalid type")
 	}
 
 	tx, err := s.db.Begin()

@@ -15,7 +15,7 @@ func (h *GoalsHandler) ListRecurring(c echo.Context) error {
 	}
 	items, err := h.svc.ListRecurringDue(accountID, time.Now().UTC())
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusOK, items)
 }
@@ -26,7 +26,7 @@ func (h *GoalsHandler) ConfirmRecurring(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid recurring id")
 	}
 	if err := h.svc.ConfirmRecurringDue(id, time.Now().UTC()); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }

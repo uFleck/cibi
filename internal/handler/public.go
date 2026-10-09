@@ -151,7 +151,7 @@ func (h *PublicHandler) GetFriendByToken(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "friend not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 
 	debtResp := make([]PeerDebtResponse, len(view.Debts))
@@ -215,14 +215,14 @@ func (h *PublicHandler) ConfirmHostedGroupPayment(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "friend not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	event, err := h.groupSvc.GetEventByID(eventID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "event not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	if event.HostFriendID == nil || *event.HostFriendID != hostFriend.ID {
 		return echo.NewHTTPError(http.StatusForbidden, "only event host can confirm payments")
@@ -231,7 +231,7 @@ func (h *PublicHandler) ConfirmHostedGroupPayment(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "participant not found in event")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -253,14 +253,14 @@ func (h *PublicHandler) ToggleHostedGroupPayment(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "friend not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	event, err := h.groupSvc.GetEventByID(eventID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "event not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	if event.HostFriendID == nil || *event.HostFriendID != hostFriend.ID {
 		return echo.NewHTTPError(http.StatusForbidden, "only event host can toggle payments")
@@ -269,7 +269,7 @@ func (h *PublicHandler) ToggleHostedGroupPayment(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "participant not found in event")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -293,7 +293,7 @@ func (h *PublicHandler) UpdatePixKey(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "friend not found")
 	}
 	if err := h.friendSvc.UpdateFriend(friend.ID, nil, nil, &req.PixKey); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -308,11 +308,11 @@ func (h *PublicHandler) GetGroupByToken(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "group event not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	participants, err := h.groupSvc.GetParticipants(event.ID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 
 	hostName, hostPixKey, hostFriendID := h.hostInfo(event)

@@ -14,7 +14,7 @@ func (h *GoalsHandler) Tracking(c echo.Context) error {
 	}
 	tracking, err := h.svc.BuildTracking(accountID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusOK, tracking)
 }

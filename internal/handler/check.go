@@ -87,7 +87,7 @@ func (h *CheckHandler) Check(c echo.Context) error {
 		result, err = h.svc.CanIBuyItDefault(cents)
 	}
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	impacts := make([]CheckGoalImpact, 0, len(result.GoalImpacts))
 	for _, impact := range result.GoalImpacts {

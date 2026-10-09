@@ -37,7 +37,7 @@ func (s *ProfileService) GetByAccount(accountID uuid.UUID) (sqlite.UserProfile, 
 func (s *ProfileService) UpdateByAccount(accountID uuid.UUID, displayName string, pixKey *string, theme string) error {
 	name := strings.TrimSpace(displayName)
 	if name == "" {
-		return fmt.Errorf("display_name is required")
+		return validationf("display_name is required")
 	}
 	if pixKey != nil {
 		v := strings.TrimSpace(*pixKey)
@@ -52,7 +52,7 @@ func (s *ProfileService) UpdateByAccount(accountID uuid.UUID, displayName string
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
-		return fmt.Errorf("invalid theme %q: must be one of %s", theme, strings.Join(keys, ", "))
+		return validationf("invalid theme %q: must be one of %s", theme, strings.Join(keys, ", "))
 	}
 	if err := s.repo.UpsertByAccount(accountID, name, pixKey, theme); err != nil {
 		return fmt.Errorf("service.Profile.UpdateByAccount: %w", err)

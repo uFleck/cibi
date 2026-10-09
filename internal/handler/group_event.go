@@ -136,7 +136,7 @@ func (h *GroupEventHandler) List(c echo.Context) error {
 	}
 	events, err := h.svc.ListEvents(&accountID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	resp := make([]GroupEventResponse, len(events))
 	for i, e := range events {
@@ -161,7 +161,7 @@ func (h *GroupEventHandler) Create(c echo.Context) error {
 	totalValue := int64(math.Round(req.TotalAmount * 100))
 	event, err := h.svc.CreateEvent(accountID, req.Title, req.Date, totalValue, req.Notes)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusCreated, groupEventToResponse(event, nil))
 }
@@ -177,11 +177,11 @@ func (h *GroupEventHandler) GetByID(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "group event not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	participants, err := h.svc.GetParticipants(id)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusOK, groupEventToResponse(event, participants))
 }
@@ -205,14 +205,14 @@ func (h *GroupEventHandler) Update(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "group event not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	event, err := h.svc.GetEventByID(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "group event not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusOK, groupEventToResponse(event, nil))
 }
@@ -227,7 +227,7 @@ func (h *GroupEventHandler) Delete(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "group event not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -270,7 +270,7 @@ func (h *GroupEventHandler) AddTransaction(c echo.Context) error {
 	}
 	t, err := h.svc.AddEventTransaction(eventID, req.Description, req.Amount)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusCreated, toGroupEventTxnResponse(t))
 }
@@ -282,7 +282,7 @@ func (h *GroupEventHandler) RemoveTransaction(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid transaction id")
 	}
 	if err := h.svc.RemoveEventTransaction(id); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -295,7 +295,7 @@ func (h *GroupEventHandler) ListTransactions(c echo.Context) error {
 	}
 	txns, err := h.svc.GetEventTransactions(eventID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	resp := make([]GroupEventTransactionResponse, 0, len(txns))
 	for _, t := range txns {
@@ -347,7 +347,7 @@ func (h *GroupEventHandler) SetParticipants(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "group event not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
