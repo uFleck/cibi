@@ -28,9 +28,7 @@ func upPixKeys(ctx context.Context, tx *sql.Tx) error {
 	return nil
 }
 
-func downPixKeys(ctx context.Context, tx *sql.Tx) error {
-	_ = ctx
-	_ = tx
+func downPixKeys(_ context.Context, _ *sql.Tx) error {
 	// no-op: SQLite cannot drop columns easily.
 	return nil
 }

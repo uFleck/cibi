@@ -121,7 +121,7 @@ func (s *EngineService) CanIBuyIt(accountID uuid.UUID, itemPrice int64) (EngineR
 	}
 
 	// Step 4: Sum obligations due before earliest payday (includes overdue until confirmed).
-	obligations, err := s.txnsRepo.SumUpcomingObligations(accountID, now, earliestPayday)
+	obligations, err := s.txnsRepo.SumUpcomingObligations(accountID, earliestPayday)
 	if err != nil {
 		return EngineResult{}, fmt.Errorf("engine.CanIBuyIt: sum obligations: %w", err)
 	}

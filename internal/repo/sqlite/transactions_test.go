@@ -35,7 +35,6 @@ func TestSumUpcomingObligations_IncludesOverdueUntilConfirmed(t *testing.T) {
 
 	accountID := uuid.New()
 	otherAccountID := uuid.New()
-	now := time.Date(2026, 4, 15, 12, 0, 0, 0, time.UTC)
 	nextPayday := time.Date(2026, 4, 20, 0, 0, 0, 0, time.UTC)
 
 	insertRecurring := func(accountID uuid.UUID, amount int64, nextOccurrence string) {
@@ -70,7 +69,7 @@ func TestSumUpcomingObligations_IncludesOverdueUntilConfirmed(t *testing.T) {
 	insertPending(accountID, -6000, "2026-04-01T00:00:00Z", &futureAfterPayday) // pending date after payday
 	insertPending(otherAccountID, -7000, "2026-04-10T00:00:00Z", nil)           // other account
 
-	sum, err := repo.SumUpcomingObligations(accountID, now, nextPayday)
+	sum, err := repo.SumUpcomingObligations(accountID, nextPayday)
 	requireNoErr(t, "sum obligations", err)
 	requireI64(t, "sum", sum, -9000)
 }

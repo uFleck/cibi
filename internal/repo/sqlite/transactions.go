@@ -46,7 +46,7 @@ type TransactionsRepo interface {
 	DeleteByID(id uuid.UUID, tx *sql.Tx) error
 	AdvanceNextOccurrence(id uuid.UUID, next time.Time, tx *sql.Tx) error
 	MarkConfirmed(id uuid.UUID, confirmedAt time.Time, tx *sql.Tx) error
-	SumUpcomingObligations(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error)
+	SumUpcomingObligations(accountID uuid.UUID, onOrBefore time.Time) (int64, error)
 	IncrementPaidInstallments(id uuid.UUID, tx *sql.Tx) error
 }
 
@@ -257,8 +257,7 @@ func (r *SqliteTxnsRepo) IncrementPaidInstallments(id uuid.UUID, tx *sql.Tx) err
 	return nil
 }
 
-func (r *SqliteTxnsRepo) SumUpcomingObligations(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error) {
-	_ = after
+func (r *SqliteTxnsRepo) SumUpcomingObligations(accountID uuid.UUID, onOrBefore time.Time) (int64, error) {
 	onOrBeforeStr := onOrBefore.UTC().Format(time.RFC3339)
 	var sum int64
 	err := r.db.QueryRow(`SELECT COALESCE(SUM(amount), 0)

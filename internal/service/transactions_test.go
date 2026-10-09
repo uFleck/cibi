@@ -22,7 +22,7 @@ type mockTransactionsRepo struct {
 	deleteByIDFn                func(id uuid.UUID, tx *sql.Tx) error
 	advanceNextOccurrenceFn     func(id uuid.UUID, next time.Time, tx *sql.Tx) error
 	markConfirmedFn             func(id uuid.UUID, confirmedAt time.Time, tx *sql.Tx) error
-	sumUpcomingFn               func(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error)
+	sumUpcomingFn               func(accountID uuid.UUID, onOrBefore time.Time) (int64, error)
 	incrementPaidInstallmentsFn func(id uuid.UUID, tx *sql.Tx) error
 }
 
@@ -75,9 +75,9 @@ func (m *mockTransactionsRepo) MarkConfirmed(id uuid.UUID, confirmedAt time.Time
 	return nil
 }
 
-func (m *mockTransactionsRepo) SumUpcomingObligations(accountID uuid.UUID, after, onOrBefore time.Time) (int64, error) {
+func (m *mockTransactionsRepo) SumUpcomingObligations(accountID uuid.UUID, onOrBefore time.Time) (int64, error) {
 	if m.sumUpcomingFn != nil {
-		return m.sumUpcomingFn(accountID, after, onOrBefore)
+		return m.sumUpcomingFn(accountID, onOrBefore)
 	}
 	return 0, nil
 }
