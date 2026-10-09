@@ -1,18 +1,15 @@
-use gpui_kit::component::button::*;
+mod config;
+mod shell;
+mod state;
+mod views;
+
 use gpui_kit::*;
-
-struct Hello;
-
-impl Render for Hello {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div().p_4().child(Button::new("ok").primary().label("CIBI"))
-    }
-}
 
 fn main() {
     gpui_kit::application().run(|cx| {
         gpui_kit::init(cx);
-        gpui_kit::open_window(WindowOptions::default(), cx, |_, cx| cx.new(|_| Hello))
+        gpui_kit::open_window(WindowOptions::default(), cx, |window, cx| cx.new(|cx| shell::Shell::new(window, cx)))
             .expect("failed to open window");
+        cx.activate(true);
     });
 }
