@@ -398,8 +398,12 @@ func fillGoal(g Goal, id, acc, start string, target, notes sql.NullString, creat
 		n := notes.String
 		g.Notes = &n
 	}
-	g.CreatedAtUTC, _ = time.Parse(time.RFC3339, created)
-	g.UpdatedAtUTC, _ = time.Parse(time.RFC3339, updated)
+	if g.CreatedAtUTC, err = time.Parse(time.RFC3339, created); err != nil {
+		return g, fmt.Errorf("goals: parse created_at: %w", err)
+	}
+	if g.UpdatedAtUTC, err = time.Parse(time.RFC3339, updated); err != nil {
+		return g, fmt.Errorf("goals: parse updated_at: %w", err)
+	}
 	return g, nil
 }
 func scanGoalLedger(rows *sql.Rows) (GoalLedgerEntry, error) {
