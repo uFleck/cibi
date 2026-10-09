@@ -55,3 +55,17 @@ plan.md
 # SQLite runtime sidecars
 data/*.db-wal
 data/*.db-shm
+
+# local/agent junk
+*.db
+*.db-shm
+*.db-wal
+*.bak
+tmp/
+.opencode/
+.pi/
+.pi-lens/
+.superpowers/
+.hermes/
+.planning/
+.claude/
