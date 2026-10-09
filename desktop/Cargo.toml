@@ -1,0 +1,3 @@
+[workspace]
+members = ["cibi-desktop", "cibi-client"]
+resolver = "2"
