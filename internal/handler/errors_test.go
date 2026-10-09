@@ -1,12 +1,16 @@
 package handler
 
 import (
+	"database/sql"
+	"errors"
+	"fmt"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/labstack/echo/v4"
+	"github.com/ufleck/cibi/internal/service"
 )
 
 // TestBadRequest verifies that any handler receiving malformed JSON returns
@@ -77,5 +81,23 @@ func TestNotFound(t *testing.T) {
 	}
 	if _, ok := resp["error"]; !ok {
 		t.Errorf("expected 'error' key in response, got %v", resp)
+	}
+}
+
+func TestHTTPErrorMapping(t *testing.T) {
+	cases := []struct {
+		err  error
+		code int
+		msg  string
+	}{
+		{fmt.Errorf("wrap: %w", &service.ValidationError{Msg: "bad input"}), 400, "bad input"},
+		{fmt.Errorf("get: %w", sql.ErrNoRows), 404, "not found"},
+		{errors.New("sqlite: disk I/O error at /var/db"), 500, "internal server error"},
+	}
+	for _, c := range cases {
+		he := httpError(c.err)
+		if he.Code != c.code || he.Message != c.msg {
+			t.Errorf("%v: got %d %v, want %d %q", c.err, he.Code, he.Message, c.code, c.msg)
+		}
 	}
 }

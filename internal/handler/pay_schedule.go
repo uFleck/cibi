@@ -98,7 +98,7 @@ func (h *PayScheduleHandler) List(c echo.Context) error {
 	}
 	schedules, err := h.svc.ListPaySchedules(accountID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	resp := make([]PayScheduleResponse, len(schedules))
 	for i, ps := range schedules {
@@ -127,7 +127,7 @@ func (h *PayScheduleHandler) Create(c echo.Context) error {
 	ps, err := h.svc.CreatePaySchedule(accountID, req.Frequency, anchorDate,
 		req.DayOfMonth2, req.Label, int64(math.Round(req.Amount*100)))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusCreated, payScheduleToResponse(ps))
 }
@@ -151,7 +151,7 @@ func (h *PayScheduleHandler) Update(c echo.Context) error {
 	}
 	if err := h.svc.UpdatePaySchedule(id, req.Frequency, anchorDate,
 		req.DayOfMonth2, req.Label, int64(math.Round(req.Amount*100))); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -163,7 +163,7 @@ func (h *PayScheduleHandler) Delete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid schedule id")
 	}
 	if err := h.svc.DeletePaySchedule(id); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -179,7 +179,7 @@ func (h *PayScheduleHandler) Confirm(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "schedule not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusOK, payScheduleToResponse(ps))
 }

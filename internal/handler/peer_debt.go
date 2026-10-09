@@ -109,7 +109,7 @@ func (h *PeerDebtHandler) List(c echo.Context) error {
 		}
 		debts, err := h.svc.ListByFriend(friendID, &accountID)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+			return httpError(err)
 		}
 		resp := make([]PeerDebtResponse, len(debts))
 		for i, d := range debts {
@@ -120,7 +120,7 @@ func (h *PeerDebtHandler) List(c echo.Context) error {
 
 	debts, err := h.svc.ListAll(&accountID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	resp := make([]PeerDebtResponse, len(debts))
 	for i, d := range debts {
@@ -163,7 +163,7 @@ func (h *PeerDebtHandler) Create(c echo.Context) error {
 	}
 	created, err := h.svc.CreateDebt(d)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusCreated, peerDebtToResponse(created))
 }
@@ -187,7 +187,7 @@ func (h *PeerDebtHandler) Update(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "peer debt not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -202,7 +202,7 @@ func (h *PeerDebtHandler) Delete(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "peer debt not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -217,7 +217,7 @@ func (h *PeerDebtHandler) Confirm(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "peer debt not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -232,7 +232,7 @@ func (h *PeerDebtHandler) ToggleConfirm(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "peer debt not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }

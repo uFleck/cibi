@@ -143,7 +143,7 @@ func (h *TransactionsHandler) List(c echo.Context) error {
 	}
 	txns, err := h.svc.ListTransactions(accountID)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	resp := make([]TransactionResponse, len(txns))
 	for i, t := range txns {
@@ -186,7 +186,7 @@ func (h *TransactionsHandler) Create(c echo.Context) error {
 		t.AnchorDate = &utc
 	}
 	if err := h.svc.CreateTransaction(t); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusCreated, txnToResponse(t))
 }
@@ -240,7 +240,7 @@ func (h *TransactionsHandler) Update(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "transaction not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 
 	// Return updated transaction.
@@ -249,7 +249,7 @@ func (h *TransactionsHandler) Update(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "transaction not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusOK, txnToResponse(txn))
 }
@@ -264,7 +264,7 @@ func (h *TransactionsHandler) Delete(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "transaction not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -282,13 +282,13 @@ func (h *TransactionsHandler) Confirm(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "transaction not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 
 	// Return updated transaction with new next_occurrence.
 	txn, err := h.svc.GetTransaction(id)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusOK, txnToResponse(txn))
 }
@@ -305,12 +305,12 @@ func (h *TransactionsHandler) ConfirmInstallment(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "transaction not found")
 		}
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return httpError(err)
 	}
 
 	txn, err := h.svc.GetTransaction(id)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httpError(err)
 	}
 	return c.JSON(http.StatusOK, txnToResponse(txn))
 }
