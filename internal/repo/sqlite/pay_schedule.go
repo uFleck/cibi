@@ -189,12 +189,7 @@ func (r *SqlitePayScheduleRepo) UpdateByID(id uuid.UUID, ps PaySchedule) error {
 }
 
 func (r *SqlitePayScheduleRepo) UpdateAnchorDate(id uuid.UUID, anchorDate time.Time, tx *sql.Tx) error {
-	var err error
-	if tx != nil {
-		_, err = tx.Exec(`UPDATE PaySchedule SET anchor_date = ? WHERE id = ?`, anchorDate.UTC().Format(time.RFC3339), id.String())
-	} else {
-		_, err = r.db.Exec(`UPDATE PaySchedule SET anchor_date = ? WHERE id = ?`, anchorDate.UTC().Format(time.RFC3339), id.String())
-	}
+	_, err := pick(r.db, tx).Exec(`UPDATE PaySchedule SET anchor_date = ? WHERE id = ?`, anchorDate.UTC().Format(time.RFC3339), id.String())
 	if err != nil {
 		return fmt.Errorf("pay_schedule.UpdateAnchorDate: %w", err)
 	}
