@@ -6,8 +6,6 @@
 Thumbs.db
 *.md
 !README.md
-.planning/
-.claude/
 node_modules/
 web/node_modules/
 web/dist/
