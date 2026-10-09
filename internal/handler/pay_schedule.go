@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
-	"github.com/ufleck/cibi/internal/engine"
+	"github.com/ufleck/cibi/internal/payday"
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 	"github.com/ufleck/cibi/internal/service"
 )
@@ -68,12 +68,12 @@ type PayScheduleResponse struct {
 
 // payScheduleToResponse converts a sqlite.PaySchedule to PayScheduleResponse.
 func payScheduleToResponse(ps sqlite.PaySchedule) PayScheduleResponse {
-	ep := engine.PaySchedule{
+	ep := payday.PaySchedule{
 		Frequency:   ps.Frequency,
 		AnchorDate:  ps.AnchorDate,
 		DayOfMonth2: ps.DayOfMonth2,
 	}
-	nextPayday := engine.NextPayday(ep, time.Now().UTC())
+	nextPayday := payday.NextPayday(ep, time.Now().UTC())
 	return PayScheduleResponse{
 		ID:          ps.ID.String(),
 		AccountID:   ps.AccountID.String(),

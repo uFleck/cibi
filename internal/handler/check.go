@@ -115,7 +115,7 @@ func (h *CheckHandler) Check(c echo.Context) error {
 		CanBuy:                 result.CanBuy,
 		PurchasingPower:        float64(result.PurchasingPower) / 100.0,
 		BufferRemaining:        float64(result.BufferRemaining) / 100.0,
-		RiskLevel:              result.RiskLevel,
+		RiskLevel:              string(result.RiskLevel),
 		WillAffordAfterPayday:  result.WillAffordAfterPayday,
 		GoalImpacts:            impacts,
 		GoalsCoveredThisWindow: covered,

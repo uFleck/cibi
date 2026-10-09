@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
-	"github.com/ufleck/cibi/internal/engine"
+	"github.com/ufleck/cibi/internal/payday"
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 	"github.com/ufleck/cibi/internal/service"
 )
@@ -122,7 +122,7 @@ func txnToResponse(t sqlite.Transaction) TransactionResponse {
 	// Overrides stored next_occurrence (which is null for installments).
 	if t.IsInstallment && t.AnchorDate != nil && t.Frequency != nil {
 		if t.TotalInstallments == nil || t.PaidInstallments < *t.TotalInstallments {
-			next := engine.NextInstallmentDue(*t.AnchorDate, t.PaidInstallments, *t.Frequency)
+			next := payday.NextInstallmentDue(*t.AnchorDate, t.PaidInstallments, *t.Frequency)
 			s := next.UTC().Format(time.RFC3339)
 			resp.NextOccurrence = &s
 		}

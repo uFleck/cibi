@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/ufleck/cibi/internal/engine"
+	"github.com/ufleck/cibi/internal/payday"
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 )
 
@@ -53,7 +53,7 @@ func (s *TransactionsService) CreateTransaction(t sqlite.Transaction) error {
 		if t.AnchorDate == nil {
 			return fmt.Errorf("installment transaction requires anchor_date")
 		}
-		if t.Frequency == nil || (*t.Frequency != engine.FreqMonthly && *t.Frequency != engine.FreqWeekly) {
+		if t.Frequency == nil || (*t.Frequency != payday.FreqMonthly && *t.Frequency != payday.FreqWeekly) {
 			return fmt.Errorf("installment transaction requires frequency of monthly or weekly")
 		}
 	}
@@ -136,7 +136,7 @@ func (s *TransactionsService) UpdateTransaction(id uuid.UUID, upd sqlite.UpdateT
 			if upd.AnchorDate == nil {
 				return fmt.Errorf("installment transaction requires anchor_date")
 			}
-			if upd.Frequency == nil || (*upd.Frequency != engine.FreqMonthly && *upd.Frequency != engine.FreqWeekly) {
+			if upd.Frequency == nil || (*upd.Frequency != payday.FreqMonthly && *upd.Frequency != payday.FreqWeekly) {
 				return fmt.Errorf("installment transaction requires frequency of monthly or weekly")
 			}
 		}
@@ -435,16 +435,16 @@ func (s *TransactionsService) PostponeRecurring(transactionID uuid.UUID) (time.T
 // advanceOccurrence computes the next occurrence after current based on frequency.
 func advanceOccurrence(current time.Time, frequency string) time.Time {
 	switch frequency {
-	case engine.FreqWeekly:
+	case payday.FreqWeekly:
 		return current.AddDate(0, 0, 7)
-	case engine.FreqBiWeekly, "biweekly":
+	case payday.FreqBiWeekly, "biweekly":
 		return current.AddDate(0, 0, 14)
-	case engine.FreqMonthly:
-		return engine.AddMonthClamped(current, 1)
-	case engine.FreqYearly:
-		return engine.AddMonthClamped(current, 12)
+	case payday.FreqMonthly:
+		return payday.AddMonthClamped(current, 1)
+	case payday.FreqYearly:
+		return payday.AddMonthClamped(current, 12)
 	default:
 		// Fallback — treat as monthly
-		return engine.AddMonthClamped(current, 1)
+		return payday.AddMonthClamped(current, 1)
 	}
 }

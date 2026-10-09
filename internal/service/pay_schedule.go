@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/ufleck/cibi/internal/engine"
+	"github.com/ufleck/cibi/internal/payday"
 	"github.com/ufleck/cibi/internal/repo/sqlite"
 )
 
@@ -109,13 +109,13 @@ func (s *PayScheduleService) ConfirmPayday(id uuid.UUID) (sqlite.PaySchedule, er
 		return sqlite.PaySchedule{}, fmt.Errorf("service.ConfirmPayday: get account: %w", err)
 	}
 
-	ep := engine.PaySchedule{
+	ep := payday.PaySchedule{
 		Frequency:   ps.Frequency,
 		AnchorDate:  ps.AnchorDate,
 		DayOfMonth2: ps.DayOfMonth2,
 	}
-	upcoming := engine.NextPayday(ep, time.Now().UTC())
-	nextAfterUpcoming := engine.NextPayday(ep, upcoming)
+	upcoming := payday.NextPayday(ep, time.Now().UTC())
+	nextAfterUpcoming := payday.NextPayday(ep, upcoming)
 
 	tx, err := s.db.Begin()
 	if err != nil {
