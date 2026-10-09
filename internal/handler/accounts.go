@@ -20,7 +20,7 @@ type AccountsServiceIface interface {
 	GetDefault() (sqlite.Account, error)
 	GetByID(id uuid.UUID) (sqlite.Account, error)
 	SetDefault(id uuid.UUID) error
-	UpdateAccount(id uuid.UUID, name *string, balance *int64, safetyBuffer *int64) error
+	UpdateAccount(id uuid.UUID, in service.UpdateAccountInput) error
 	DeleteAccount(id uuid.UUID) error
 }
 
@@ -159,7 +159,7 @@ func (h *AccountsHandler) Update(c echo.Context) error {
 		v := int64(math.Round(*req.SafetyBuffer * 100))
 		safetyBufferValue = &v
 	}
-	if err := h.svc.UpdateAccount(id, req.Name, balanceValue, safetyBufferValue); err != nil {
+	if err := h.svc.UpdateAccount(id, service.UpdateAccountInput{Name: req.Name, Balance: balanceValue, SafetyBuffer: safetyBufferValue}); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return echo.NewHTTPError(http.StatusNotFound, "account not found")
 		}
