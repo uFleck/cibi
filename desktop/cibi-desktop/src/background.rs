@@ -65,7 +65,8 @@ pub fn set_autostart(on: bool) {
     } else {
         c.args(["delete", key, "/v", "CIBI", "/f"]);
     }
-    let _ = c.output();
+    use std::os::windows::process::CommandExt;
+    let _ = c.creation_flags(0x0800_0000).output(); // CREATE_NO_WINDOW
 }
 
 /// Ids of due items not in `seen`: unconfirmed pending transactions dated today or earlier, overdue goal contributions.
