@@ -12,6 +12,7 @@ use cibi_client::{
     models::*,
     Client, Error,
 };
+use super::ledger_row::ledger_row;
 use form::{Form, FREQS};
 use gpui_kit::component::{button::*, input::{InputEvent, InputState, Input}, *};
 use gpui_kit::prelude::FluentBuilder as _;
@@ -331,13 +332,7 @@ impl Render for Page {
         let list = if self.ledger_tab {
             v_flex()
                 .gap_1()
-                .children(self.ledger.iter().map(|e| {
-                    h_flex()
-                        .justify_between()
-                        .py_1()
-                        .child(v_flex().child(div().text_xs().text_color(muted).child(format_date(&e.posted_at))).child(e.description.clone()))
-                        .child(format!("{}{}", if e.amount >= 0.0 { "+" } else { "" }, money(e.amount)))
-                }))
+                .children(self.ledger.iter().map(|e| ledger_row(cx, e, &cur)))
                 .when(self.ledger.is_empty(), |d| d.child("No activity yet"))
         } else {
             v_flex()
