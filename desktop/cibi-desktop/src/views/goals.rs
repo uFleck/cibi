@@ -1,10 +1,14 @@
 //! Goals page (web/src/pages/goals.tsx): tracking, CRUD, ledger add/reverse, recurring confirm.
+//! Goal and ledger forms open in a sheet (goals/form.rs).
+mod form;
+
 use crate::state::AppState;
+use crate::views::ui::open_form_sheet;
 use cibi_client::{format::*, models::*, Client, Error};
-use gpui_kit::component::{button::*, input::*, progress::Progress, *};
+use form::{GoalForm, Mode};
+use gpui_kit::component::{button::*, input::InputState, progress::Progress, *};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
-use std::collections::HashSet;
 
 /// Shell builds `Goals { state }`; the real view lives in keyed state so it can own inputs (needs a Window).
 pub struct Goals {
@@ -18,32 +22,12 @@ impl Render for Goals {
     }
 }
 
-#[derive(Clone, PartialEq)]
-enum Mode {
-    None,
-    New,
-    Edit(String),
-    Add(String),
-    Remove(String),
-    History(String),
-}
-
 struct Page {
     state: Entity<AppState>,
     loaded: Option<String>,
     tracking: Option<GoalsTrackingResponse>,
     recurring: Vec<GoalRecurringDueItemResponse>,
-    ledger: Vec<GoalLedgerEntryResponse>,
-    mode: Mode,
-    name: Entity<InputState>,
-    target: Entity<InputState>,
-    min: Entity<InputState>,
-    amount: Entity<InputState>,
-    note: Entity<InputState>,
-}
-
-fn input(ph: &str, w: &mut Window, cx: &mut Context<Page>) -> Entity<InputState> {
-    cx.new(|cx| InputState::new(w, cx).placeholder(ph.to_string()))
+    form: Entity<GoalForm>,
 }
 
 fn card(cx: &App) -> Div {
@@ -56,19 +40,19 @@ fn bold(s: impl Into<SharedString>) -> Div {
 
 impl Page {
     fn new(state: Entity<AppState>, w: &mut Window, cx: &mut Context<Self>) -> Self {
+        let page = cx.weak_entity();
         Self {
             state,
             loaded: None,
             tracking: None,
             recurring: vec![],
-            ledger: vec![],
-            mode: Mode::None,
-            name: input("Trip, emergency fund...", w, cx),
-            target: input("Target amount, e.g. 1500.00", w, cx),
-            min: input("Min contribution per window (empty = none)", w, cx),
-            amount: input("Amount, e.g. 50.00", w, cx),
-            note: input("Reason", w, cx),
+            form: cx.new(|cx| GoalForm::new(page, w, cx)),
         }
+    }
+
+    fn currency(&self, cx: &App) -> String {
+        let st = self.state.read(cx);
+        st.accounts.iter().find(|a| Some(&a.id) == st.selected.as_ref()).map_or("BRL".to_string(), |a| a.currency.clone())
     }
 
     /// Blocking call on the background executor (AppState::fetch pattern, but `done` gets this view).
@@ -100,7 +84,7 @@ impl Page {
 
     fn reload(&mut self, cx: &mut Context<Self>) {
         let Some(acc) = self.state.read(cx).selected.clone() else { return };
-        let open = match &self.mode {
+        let open = match &self.form.read(cx).mode {
             Mode::History(id) => Some(id.clone()),
             _ => None,
         };
@@ -111,55 +95,62 @@ impl Page {
                 Ok((c.fetch_goals_tracking(&acc)?, c.list_goal_recurring(&acc)?, ledger))
             },
             |s, (t, r, l), cx| {
-                (s.tracking, s.recurring, s.ledger) = (Some(t), r, l);
+                (s.tracking, s.recurring) = (Some(t), r);
+                s.form.update(cx, |f, cx| {
+                    f.ledger = l;
+                    cx.notify();
+                });
                 cx.notify();
             },
         );
     }
 
-    /// Run a write, then close the form (the ledger panel stays) and reload.
+    /// Run a write, then reload (the sheet is closed by the caller, or stays open for ledger reversals).
     fn mutate(&mut self, cx: &mut Context<Self>, call: impl FnOnce(Client) -> Result<(), Error> + Send + 'static) {
-        self.run(cx, call, |s, _, cx| {
-            if !matches!(s.mode, Mode::History(_)) {
-                s.mode = Mode::None;
-            }
-            s.reload(cx);
-        });
+        self.run(cx, call, |s, _, cx| s.reload(cx));
     }
 
     fn open(&mut self, mode: Mode, g: Option<&GoalsTrackingGoalResponse>, w: &mut Window, cx: &mut Context<Self>) {
-        let vals = [
-            (&self.name, g.map_or(String::new(), |g| g.name.clone())),
-            (&self.target, g.map_or(String::new(), |g| g.target_amount.to_string())),
-            (&self.min, g.map_or(String::new(), |g| g.min_contribution_per_window.unwrap_or(0.0).to_string())),
-            (&self.amount, String::new()),
-            (&self.note, String::new()),
-        ];
-        for (i, v) in vals {
-            i.update(cx, |i, cx| i.set_value(v, w, cx));
-        }
-        self.mode = mode;
-        if let Mode::History(_) = self.mode {
-            self.ledger.clear();
+        let title = match mode {
+            Mode::New => "New goal",
+            Mode::Edit(_) => "Edit goal",
+            Mode::Add(_) => "Add money",
+            Mode::Remove(_) => "Remove money",
+            Mode::History(_) | Mode::None => "Ledger",
+        };
+        let history = matches!(mode, Mode::History(_));
+        let cur = self.currency(cx);
+        let form = self.form.clone();
+        form.update(cx, |f, cx| f.load(mode, g, &cur, w, cx));
+        if history {
             self.reload(cx);
         }
-        cx.notify();
+        open_form_sheet(w, cx, title, form);
     }
 
-    fn submit(&mut self, cx: &mut Context<Self>) {
+    fn submit(&mut self, w: &mut Window, cx: &mut Context<Self>) {
+        let f = self.form.read(cx);
         let v = |i: &Entity<InputState>| i.read(cx).value().trim().to_string();
-        let (name, note) = (v(&self.name), v(&self.note));
-        let target = parse_decimal_input(&v(&self.target)).filter(|t| *t > 0.0);
-        let min = match v(&self.min) {
+        let (name, note, mode) = (v(&f.name), v(&f.note), f.mode.clone());
+        let target = parse_decimal_input(&v(&f.target)).filter(|t| *t > 0.0);
+        let min = match v(&f.min) {
             s if s.is_empty() => Some(0.0),
             s => parse_decimal_input(&s).filter(|m| *m >= 0.0),
         };
-        let amount = parse_decimal_input(&v(&self.amount)).filter(|a| *a > 0.0);
+        let amount = parse_decimal_input(&v(&f.amount)).filter(|a| *a > 0.0);
+        let err = match &mode {
+            Mode::New | Mode::Edit(_) if name.is_empty() || target.is_none() || min.is_none() => Some("Enter a name, a target > 0 and a valid minimum"),
+            Mode::Add(_) | Mode::Remove(_) if amount.is_none() => Some("Enter an amount > 0"),
+            Mode::Remove(_) if note.is_empty() => Some("A reason is required"),
+            _ => None,
+        };
+        if let Some(e) = err {
+            return self.form.update(cx, |f, cx| f.fail(e, cx));
+        }
         let acc = self.state.read(cx).selected.clone();
-        match self.mode.clone() {
-            Mode::New | Mode::Edit(_) if name.is_empty() || target.is_none() || min.is_none() => {
-                self.fail(cx, "Enter a name, a target > 0 and a valid minimum".into())
-            }
+        let add = matches!(mode, Mode::Add(_));
+        w.close_sheet(cx);
+        match mode {
             Mode::New => {
                 let Some(account_id) = acc else { return };
                 let d = CreateGoalRequest {
@@ -176,10 +167,7 @@ impl Page {
                 let d = UpdateGoalRequest { name: Some(name), target_amount: target, min_contribution_per_window: min, ..Default::default() };
                 self.mutate(cx, move |c| c.update_goal(&id, &d));
             }
-            Mode::Add(_) | Mode::Remove(_) if amount.is_none() => self.fail(cx, "Enter an amount > 0".into()),
-            Mode::Remove(_) if note.is_empty() => self.fail(cx, "A reason is required".into()),
             Mode::Add(id) | Mode::Remove(id) => {
-                let add = matches!(self.mode, Mode::Add(_));
                 let d = AddGoalLedgerRequest {
                     amount: amount.unwrap(),
                     r#type: if add { "contribution" } else { "withdrawal" }.into(),
@@ -191,64 +179,14 @@ impl Page {
             Mode::History(_) | Mode::None => {}
         }
     }
-
-    fn form(&self, cx: &mut Context<Self>) -> Option<Div> {
-        let goal = vec![("Name", &self.name), ("Target", &self.target), ("Min contribution / window", &self.min)];
-        let (title, fields) = match &self.mode {
-            Mode::New => ("New goal", goal),
-            Mode::Edit(_) => ("Edit goal", goal),
-            Mode::Add(_) => ("Add money", vec![("Amount", &self.amount)]),
-            Mode::Remove(_) => ("Remove money", vec![("Amount", &self.amount), ("Reason", &self.note)]),
-            _ => return None,
-        };
-        Some(
-            card(cx)
-                .gap_2()
-                .child(bold(title))
-                .children(fields.into_iter().map(|(l, i)| v_flex().gap_1().child(l).child(Input::new(i))))
-                .child(
-                    h_flex()
-                        .gap_2()
-                        .child(Button::new("submit").primary().label("Save").on_click(cx.listener(|s, _, _, cx| s.submit(cx))))
-                        .child(Button::new("cancel").ghost().label("Cancel").on_click(cx.listener(|s, _, _, cx| {
-                            s.mode = Mode::None;
-                            cx.notify();
-                        }))),
-                ),
-        )
-    }
-
-    fn history(&self, goal_id: &str, cur: &str, cx: &mut Context<Self>) -> Div {
-        let reversed: HashSet<&str> = self.ledger.iter().filter_map(|e| e.reverses_entry_id.as_deref()).collect();
-        let rows = self.ledger.iter().map(|e| {
-            let (gid, eid) = (goal_id.to_string(), e.id.clone());
-            let is_reversed = reversed.contains(e.id.as_str());
-            h_flex()
-                .gap_3()
-                .child(format!("{} · {} · {}", format_date(&e.timestamp_utc), e.r#type, e.source))
-                .child(format_money(e.amount, cur))
-                .when(is_reversed, |d| d.child("reversed"))
-                .when(e.reverses_entry_id.is_none() && !is_reversed, |d| {
-                    d.child(Button::new(SharedString::from(format!("rev-{}", e.id))).small().outline().label("Reverse").on_click(
-                        cx.listener(move |s, _, _, cx| {
-                            let (g, e) = (gid.clone(), eid.clone());
-                            s.mutate(cx, move |c| c.reverse_goal_ledger_entry(&g, &e).map(|_| ()));
-                        }),
-                    ))
-                })
-        });
-        card(cx).child(bold("Ledger")).children(rows).when(self.ledger.is_empty(), |d| d.child("No entries."))
-    }
 }
 
 impl Render for Page {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let st = self.state.read(cx);
-        let sel = st.selected.clone();
-        let cur = st.accounts.iter().find(|a| Some(&a.id) == sel.as_ref()).map_or("BRL".to_string(), |a| a.currency.clone());
+        let sel = self.state.read(cx).selected.clone();
+        let cur = self.currency(cx);
         if sel != self.loaded {
-            self.loaded = sel.clone();
-            self.mode = Mode::None;
+            self.loaded = sel;
             self.tracking = None;
             self.reload(cx);
         }
@@ -256,7 +194,7 @@ impl Render for Page {
             h_flex()
                 .justify_between()
                 .child(div().text_xl().font_weight(FontWeight::BOLD).child("Goals"))
-                .child(Button::new("new").primary().label("New goal").disabled(sel.is_none()).on_click(cx.listener(|s, _, w, cx| s.open(Mode::New, None, w, cx)))),
+                .child(Button::new("new").primary().label("New goal").disabled(self.state.read(cx).selected.is_none()).on_click(cx.listener(|s, _, w, cx| s.open(Mode::New, None, w, cx)))),
         );
         let Some(t) = self.tracking.clone() else { return page.child("Loading…") };
         let sm = &t.summary;
@@ -289,17 +227,12 @@ impl Render for Page {
             });
             page = page.child(card(cx).child(bold("Recurring contributions due")).children(rows));
         }
-        if let Some(f) = self.form(cx) {
-            page = page.child(f);
-        }
-        if let Mode::History(id) = self.mode.clone() {
-            page = page.child(self.history(&id, &cur, cx));
-        }
         if t.top_goals.is_empty() {
             page = page.child("No goals yet. Create one to track contributions and progress.");
         }
         for g in t.top_goals {
             let pct = if g.progress_pct.is_finite() { g.progress_pct.clamp(0.0, 100.0) } else { 0.0 };
+            let done = g.status == "completed";
             let btn = |label: &'static str, key: &'static str, mode: Mode, cx: &mut Context<Self>| {
                 let g = g.clone();
                 Button::new(SharedString::from(format!("{key}-{}", g.id))).small().outline().label(label).on_click(cx.listener(
@@ -312,6 +245,7 @@ impl Render for Page {
                 .child(btn("Remove money", "rm", Mode::Remove(g.id.clone()), cx))
                 .child(btn("Edit", "edit", Mode::Edit(g.id.clone()), cx))
                 .child(btn("Ledger", "hist", Mode::History(g.id.clone()), cx));
+            let (success, muted, gold) = (cx.theme().success, cx.theme().muted_foreground, cx.theme().primary);
             page = page.child(
                 card(cx)
                     .child(h_flex().justify_between().child(bold(g.name.clone())).child(format!(
@@ -319,8 +253,9 @@ impl Render for Page {
                         format_money(g.invested_total, &cur),
                         format_money(g.target_amount, &cur)
                     )))
-                    .child(Progress::new(SharedString::from(format!("p-{}", g.id))).value(pct as f32))
-                    .child(format!("Remaining {}", format_money(g.remaining_amount, &cur)))
+                    .child(Progress::new(SharedString::from(format!("p-{}", g.id))).value(pct as f32).color(if done { success } else { gold }))
+                    .when(done, |d| d.child(div().text_sm().text_color(success).child("Completed")))
+                    .child(div().text_sm().text_color(muted).child(format!("Remaining {}", format_money(g.remaining_amount, &cur))))
                     .child(row),
             );
         }
