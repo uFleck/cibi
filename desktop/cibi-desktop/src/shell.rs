@@ -101,7 +101,11 @@ impl Shell {
             }
         })
         .detach();
-        Self { state, page: Page::Dashboard, views, _tray: tray }
+        // CIBI_START_VIEW=<index|name> opens a page directly (used by scripts/shot.py).
+        let page = std::env::var("CIBI_START_VIEW").ok().and_then(|v| {
+            NAV.iter().position(|(_, n)| n.eq_ignore_ascii_case(&v)).or_else(|| v.parse().ok()).and_then(|i| NAV.get(i)).map(|(p, _)| *p)
+        }).unwrap_or(Page::Dashboard);
+        Self { state, page, views, _tray: tray }
     }
 }
 
@@ -138,8 +142,8 @@ impl Render for Shell {
                 Sidebar::new("nav")
                     .collapsible(false)
                     .header(div().child("CIBI").text_lg().font_weight(FontWeight::BOLD))
-                    .child(accounts)
-                    .child(nav)
+                    .child(SidebarGroup::new("Account").child(accounts))
+                    .child(SidebarGroup::new("Menu").child(nav))
                     .footer(footer),
             )
             .child(div().flex_1().h_full().child(self.views[idx].clone()))

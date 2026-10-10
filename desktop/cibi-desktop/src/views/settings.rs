@@ -1,11 +1,9 @@
 //! Settings: profile + theme, API base URL, record income, ledger (web/src/pages/settings.tsx + ledger API).
 use crate::state::AppState;
+use cibi_client::format::{format_date, format_time_utc};
 use cibi_client::models::{RecordIncomeRequest, UpdateProfileRequest};
 use gpui_kit::component::{button::*, input::*, switch::Switch, *};
 use gpui_kit::*;
-
-const THEMES: [(&str, &str); 5] =
-    [("green-anchor", "Green"), ("neutral-command", "Navy"), ("teal-bridge", "Teal"), ("warm-amber", "Amber"), ("rose-noir", "Rose")];
 
 pub struct Settings {
     state: Entity<AppState>,
@@ -66,7 +64,7 @@ impl Settings {
         self.state.update(cx, |s, cx| s.fetch(cx, call, |s, _, cx| s.load_settings(cx)));
     }
 
-    fn save_profile(&mut self, theme: Option<&str>, cx: &mut Context<Self>) {
+    fn save_profile(&mut self, cx: &mut Context<Self>) {
         let Some(id) = self.state.read(cx).selected.clone() else { return };
         let name = self.name.read(cx).value().trim().to_string();
         let pix = self.pix.read(cx).value().trim().to_string();
@@ -74,10 +72,11 @@ impl Settings {
             self.state.update(cx, |s, _| s.error = Some("Display name is required".into()));
             return;
         }
-        let theme = theme.map(String::from).or_else(|| self.state.read(cx).profile.as_ref().map(|p| p.theme.clone()));
+        // The API theme field is ignored on desktop (fixed palette); send it back unchanged.
+        let theme = self.state.read(cx).profile.as_ref().map(|p| p.theme.clone());
         let d = UpdateProfileRequest {
             display_name: name,
-            theme: theme.filter(|t| !t.is_empty()).unwrap_or_else(|| THEMES[0].0.into()),
+            theme: theme.filter(|t| !t.is_empty()).unwrap_or_else(|| "green-anchor".into()),
             pix_key: Some(pix).filter(|p| !p.is_empty()),
         };
         // select() re-reads the profile and re-applies the accent colour.
@@ -109,21 +108,15 @@ impl Render for Settings {
         let this = cx.entity();
         let s_ent = self.state.clone();
         let s = self.state.read(cx);
-        let theme = s.profile.as_ref().map(|p| p.theme.clone()).unwrap_or_default();
         let can_income = s.pay_schedule_id.is_some();
         let section = |title: &str| div().text_lg().mt_4().child(title.to_string());
         let t = this.clone();
-        let themes = h_flex().gap_2().children(THEMES.iter().map(|&(id, label)| {
-            let t = this.clone();
-            let b = Button::new(id).label(label).on_click(move |_, _, cx| t.update(cx, |t, cx| t.save_profile(Some(id), cx)));
-            if theme == id { b.primary() } else { b.outline() }
-        }));
         let ledger = v_flex().gap_1().children(s.ledger.iter().map(|e| {
             let (t, id) = (this.clone(), e.id.clone());
             h_flex()
                 .gap_3()
-                .child(div().w_40().child(e.posted_at.clone()))
-                .child(div().w_24().child(e.entry_type.clone()))
+                .child(div().w_56().child(format!("{} {}", format_date(&e.posted_at), format_time_utc(&e.posted_at))))
+                .child(div().w_40().child(e.entry_type.replace('_', " ")))
                 .child(div().w_32().child(format!("R$ {:.2}", e.amount)))
                 .child(div().flex_1().child(e.description.clone()))
                 .child(Button::new(format!("del-{id}")).danger().outline().label("Delete").on_click(move |_, _, cx| {
@@ -141,9 +134,7 @@ impl Render for Settings {
             .child(section("Profile"))
             .child(div().w_96().child(Input::new(&self.name)))
             .child(div().w_96().child(Input::new(&self.pix)))
-            .child(Button::new("save-profile").primary().label("Save profile").on_click(move |_, _, cx| t.update(cx, |t, cx| t.save_profile(None, cx))))
-            .child(section("Theme"))
-            .child(themes)
+            .child(h_flex().child(Button::new("save-profile").primary().label("Save profile").on_click(move |_, _, cx| t.update(cx, |t, cx| t.save_profile(cx)))))
             .child(section("API base URL"))
             .child(
                 h_flex().gap_2().child(div().w_96().child(Input::new(&self.url))).child(Button::new("save-url").label("Save").on_click(move |_, _, cx| {
@@ -163,7 +154,7 @@ impl Render for Settings {
                 move |v: &bool, _, cx| st.update(cx, |s, cx| s.set_toggle(true, *v, cx))
             }))
             .child(section("Public base URL"))
-            .child(div().child(if s.public_base_url.is_empty() { "-".to_string() } else { s.public_base_url.clone() }))
+            .child(div().child(if s.public_base_url.is_empty() { "Not configured on the server".to_string() } else { s.public_base_url.clone() }))
             .child(section("Record income"))
             .child(
                 h_flex()

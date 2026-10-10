@@ -145,7 +145,8 @@ impl AppState {
         } else {
             (h(0xF7F5EF), h(0xFFFFFF), h(0x111111), h(0x6B6B6B), h(0xE2DED2))
         };
-        let t = Theme::global_mut(cx);
+        // Theme::update keeps `tokens` (read by buttons) in step with `colors`; global_mut does not.
+        Theme::update(cx, |t| {
         t.background = bg;
         t.foreground = text;
         t.border = border;
@@ -182,6 +183,7 @@ impl AppState {
         t.success = h(0x4ADE80);
         t.danger = h(0xFB7185);
         t.warning = h(0xFBBF24);
+        });
         cx.notify();
     }
 }
