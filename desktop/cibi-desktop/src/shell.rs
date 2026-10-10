@@ -1,7 +1,7 @@
 //! Window shell: sidebar (account selector + nav) and the active view.
 use crate::{background, state::AppState};
 use crate::views::{accounts::Accounts, dashboard::Dashboard, friends::Friends, goals::Goals, settings::Settings, transactions::Transactions};
-use gpui_kit::component::{button::*, notification::Notification, sidebar::*, *};
+use gpui_kit::component::{notification::Notification, sidebar::*, *};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
@@ -112,7 +112,7 @@ impl Shell {
 impl Render for Shell {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let st = self.state.read(cx);
-        let (dark, loading) = (st.config.dark, st.loading());
+        let loading = st.loading();
         let accounts = SidebarMenu::new().children(st.accounts.iter().map(|a| {
             let (id, state) = (a.id.clone(), self.state.clone());
             SidebarMenuItem::new(format!("{} · {}", a.name, a.currency))
@@ -128,13 +128,7 @@ impl Render for Shell {
                 })
             })
         }));
-        let state = self.state.clone();
-        let footer = h_flex()
-            .gap_2()
-            .child(Button::new("theme").ghost().label(if dark { "Light mode" } else { "Dark mode" }).on_click(
-                move |_, _, cx| state.update(cx, |s, cx| s.set_dark(!s.config.dark, cx)),
-            ))
-            .when(loading, |d| d.child("Loading…"));
+        let footer = h_flex().gap_2().when(loading, |d| d.child("Loading…"));
         let idx = NAV.iter().position(|n| n.0 == self.page).unwrap();
         h_flex()
             .size_full()
