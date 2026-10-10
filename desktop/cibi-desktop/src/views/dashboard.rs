@@ -1,9 +1,10 @@
 //! Dashboard (web/src/router.tsx '/'): stat cards, pay window, goals, Can-I-Buy-It check, friend ledger,
 //! obligations, monthly projection. Skipped vs web: recent-ledger widget, pay-schedule list (Accounts page has it).
+use super::ui::{card, money, row};
 use crate::state::AppState;
 use chrono::{DateTime, Duration, Months, Utc};
 use cibi_client::{
-    format::{format_date, format_money, parse_decimal_input},
+    format::{format_date, parse_decimal_input},
     models::*,
     pay_schedule::{earliest_payday_after, next_payday_after, parse_date_only_utc},
     projection::compute_monthly_projection,
@@ -105,28 +106,6 @@ impl Body {
         })
         .detach();
     }
-}
-
-fn money(a: f64, cur: &str) -> String {
-    format_money(a, cur)
-}
-
-fn card(cx: &App, title: &str) -> Div {
-    v_flex()
-        .gap_2()
-        .p_4()
-        .rounded_lg()
-        .border_1()
-        .border_color(cx.theme().border)
-        .child(div().text_xs().text_color(cx.theme().muted_foreground).child(title.to_uppercase()))
-}
-
-fn row(cx: &App, label: impl Into<SharedString>, value: impl Into<SharedString>) -> Div {
-    h_flex()
-        .justify_between()
-        .gap_4()
-        .child(div().text_sm().text_color(cx.theme().muted_foreground).child(label.into()))
-        .child(div().text_sm().child(value.into()))
 }
 
 fn now() -> DateTime<Utc> {
