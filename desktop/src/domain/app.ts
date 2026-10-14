@@ -17,6 +17,7 @@ import { FriendService } from './service/friend'
 import { PeerDebtService } from './service/peerDebt'
 import { GroupEventService } from './service/groupEvent'
 import { GoalsService } from './service/goals'
+import { EngineService } from './service/engine'
 import { SqliteAccountsRepo, type AccountsRepo } from './repo/accounts'
 import { SqliteLedgerRepo, type LedgerRepo } from './repo/ledger'
 import { SqliteProfileRepo, type ProfileRepo } from './repo/profile'
@@ -48,6 +49,7 @@ export interface App {
   groupEventSvc: GroupEventService
   profileSvc: ProfileService
   goalsSvc: GoalsService
+  engineSvc: EngineService
 }
 
 export function buildApp(db: Db, config: Partial<Config> = {}): App {
@@ -63,6 +65,7 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
   const txnsSvc = new TransactionsService(db, txnsRepo, accountsRepo, ledgerSvc)
   const goalsRepo = new SqliteGoalsRepo(db)
   const goalsSvc = new GoalsService(db, goalsRepo, accountsRepo, ledgerSvc)
+  const engineSvc = new EngineService(accountsRepo, txnsRepo, psRepo, peerDebtRepo, groupEventRepo, goalsRepo)
   const payScheduleSvc = new PayScheduleService(db, psRepo, accountsRepo, ledgerSvc)
   const friendSvc = new FriendService(friendRepo)
   const peerDebtSvc = new PeerDebtService(peerDebtRepo)
@@ -90,5 +93,6 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
     groupEventSvc,
     profileSvc,
     goalsSvc,
+    engineSvc,
   }
 }

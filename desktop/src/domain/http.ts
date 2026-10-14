@@ -105,6 +105,11 @@ export function resetRoutesForTests(): void {
   routes.length = 0
 }
 
+/** The registered routes as method and pattern, in registration order. For the route-table tests and the UI coverage check. */
+export function listRoutes(): { method: string; pattern: string }[] {
+  return routes.map((r) => ({ method: r.method, pattern: r.pattern }))
+}
+
 function decodeParam(raw: string): string {
   try {
     return decodeURIComponent(raw)

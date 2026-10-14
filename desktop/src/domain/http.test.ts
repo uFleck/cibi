@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { getDb, setDb } from './db'
-import { HttpError, localFetch, resetRoutesForTests, route } from './http'
+import { HttpError, listRoutes, localFetch, resetRoutesForTests, route } from './http'
 import { createTestDb } from './testing/testDb'
 
 const PAY_MESSAGE =
@@ -169,6 +169,21 @@ describe('matching', () => {
 
   it('rejects a pattern that does not start with a slash', () => {
     expect(() => route('GET', 'api/x', async () => ({ body: 'x' }))).toThrow("must start with '/'")
+  })
+})
+
+describe('listRoutes', () => {
+  it('lists the registered routes as method and pattern, and is empty after a reset', () => {
+    expect(listRoutes()).toEqual([])
+    route('GET', '/api/accounts/:id', async () => undefined)
+    route('POST', '/api/check', async () => undefined)
+    route('GET', '/api/accounts/:id', async () => undefined)
+    expect(listRoutes()).toEqual([
+      { method: 'GET', pattern: '/api/accounts/:id' },
+      { method: 'POST', pattern: '/api/check' },
+    ])
+    resetRoutesForTests()
+    expect(listRoutes()).toEqual([])
   })
 })
 
