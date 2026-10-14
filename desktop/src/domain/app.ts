@@ -11,26 +11,32 @@ import { DEFAULT_CONFIG, type Config } from './config'
 import { LedgerService } from './service/ledger'
 import { AccountsService } from './service/accounts'
 import { ProfileService } from './service/profile'
+import { PayScheduleService } from './service/paySchedule'
 import { SqliteAccountsRepo, type AccountsRepo } from './repo/accounts'
 import { SqliteLedgerRepo, type LedgerRepo } from './repo/ledger'
 import { SqliteProfileRepo, type ProfileRepo } from './repo/profile'
+import { SqlitePayScheduleRepo, type PayScheduleRepo } from './repo/paySchedule'
 
 export interface App {
   db: Db
   config: Config
   accountsRepo: AccountsRepo
   ledgerRepo: LedgerRepo
+  psRepo: PayScheduleRepo
   profileRepo: ProfileRepo
   ledgerSvc: LedgerService
   accountsSvc: AccountsService
+  payScheduleSvc: PayScheduleService
   profileSvc: ProfileService
 }
 
 export function buildApp(db: Db, config: Partial<Config> = {}): App {
   const accountsRepo = new SqliteAccountsRepo(db)
+  const psRepo = new SqlitePayScheduleRepo(db)
   const ledgerRepo = new SqliteLedgerRepo(db)
   const ledgerSvc = new LedgerService(db, ledgerRepo, accountsRepo)
   const accountsSvc = new AccountsService(accountsRepo, ledgerSvc)
+  const payScheduleSvc = new PayScheduleService(db, psRepo, accountsRepo, ledgerSvc)
   const profileRepo = new SqliteProfileRepo(db)
   const profileSvc = new ProfileService(profileRepo)
   return {
@@ -38,9 +44,11 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
     config: { ...DEFAULT_CONFIG, ...config },
     accountsRepo,
     ledgerRepo,
+    psRepo,
     profileRepo,
     ledgerSvc,
     accountsSvc,
+    payScheduleSvc,
     profileSvc,
   }
 }

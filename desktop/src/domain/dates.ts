@@ -109,6 +109,17 @@ export function parseDbTime(s: string): Date {
   throw new Error(`parsing time "${s}" as "2006-01-02T15:04:05Z07:00": cannot parse`)
 }
 
+/**
+ * Go's time.Parse("2006-01-02", s) (UTC): exactly YYYY-MM-DD, fixed widths, and an
+ * out-of-range month or day (Feb 30, 2026-02-29) is an error. Throws otherwise.
+ */
+export function parseYmd(s: string): Date {
+  const day = DATE_RE.exec(s)
+  if (!day) throw new Error(`parsing time "${s}" as "2006-01-02": cannot parse`)
+  const [, y, mo, d] = day
+  return build(y, mo, d, '0', '0', '0')
+}
+
 function build(
   y: string,
   mo: string,

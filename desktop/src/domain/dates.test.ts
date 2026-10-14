@@ -8,6 +8,7 @@ import {
   formatDbTime,
   formatYmd,
   parseDbTime,
+  parseYmd,
   sameDay,
   startOfDay,
   weekday,
@@ -128,5 +129,31 @@ describe('formatApiTime (Go time.Time JSON: RFC3339Nano, trailing zeros trimmed)
     ['three digits are kept', '2026-01-02T03:04:05.123Z', '2026-01-02T03:04:05.123Z'],
   ])('%s', (_name, iso, expected) => {
     expect(formatApiTime(new Date(iso))).toBe(expected)
+  })
+})
+
+describe('parseYmd (Go time.Parse("2006-01-02"))', () => {
+  it.each([
+    ['a plain day', '2026-04-10', new Date('2026-04-10T00:00:00Z')],
+    ['the first of the year', '2026-01-01', new Date('2026-01-01T00:00:00Z')],
+    ['leap day in a leap year', '2028-02-29', new Date('2028-02-29T00:00:00Z')],
+    ['the last day of a month', '2026-01-31', new Date('2026-01-31T00:00:00Z')],
+  ])('accepts %s', (_name, input, expected) => {
+    expect(parseYmd(input)).toEqual(expected)
+  })
+
+  it.each([
+    ['Feb 29 in a non-leap year', '2026-02-29'],
+    ['Feb 30', '2026-02-30'],
+    ['month 13', '2026-13-01'],
+    ['month 00', '2026-00-10'],
+    ['day 00', '2026-04-00'],
+    ['single-digit month', '2026-4-10'],
+    ['single-digit day', '2026-04-1'],
+    ['an RFC3339 timestamp', '2026-04-10T00:00:00Z'],
+    ['a trailing space', '2026-04-10 '],
+    ['an empty string', ''],
+  ])('rejects %s', (_name, input) => {
+    expect(() => parseYmd(input)).toThrow()
   })
 })

@@ -28,6 +28,13 @@ export function intCol(row: Row, name: string): number {
   throw new AppError(`unsupported value for int64 column ${name}: ${String(v)}`)
 }
 
+/** A nullable integer column: NULL gives null (Go sql.NullInt64 with Valid false). */
+export function nullableIntCol(row: Row, name: string): number | null {
+  const v = row[name]
+  if (v === null || v === undefined) return null
+  return intCol(row, name)
+}
+
 export function boolCol(row: Row, name: string): boolean {
   const v = row[name]
   if (v === 1 || v === true) return true
