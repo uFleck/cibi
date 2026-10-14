@@ -16,6 +16,7 @@ import { PayScheduleService } from './service/paySchedule'
 import { FriendService } from './service/friend'
 import { PeerDebtService } from './service/peerDebt'
 import { GroupEventService } from './service/groupEvent'
+import { GoalsService } from './service/goals'
 import { SqliteAccountsRepo, type AccountsRepo } from './repo/accounts'
 import { SqliteLedgerRepo, type LedgerRepo } from './repo/ledger'
 import { SqliteProfileRepo, type ProfileRepo } from './repo/profile'
@@ -24,6 +25,7 @@ import { SqliteTxnsRepo, type TransactionsRepo } from './repo/transactions'
 import { SqliteFriendRepo, type FriendRepo } from './repo/friend'
 import { SqlitePeerDebtRepo, type PeerDebtRepo } from './repo/peerDebt'
 import { SqliteGroupEventRepo, type GroupEventRepo } from './repo/groupEvent'
+import { SqliteGoalsRepo, type GoalsRepo } from './repo/goals'
 
 export interface App {
   db: Db
@@ -36,6 +38,7 @@ export interface App {
   peerDebtRepo: PeerDebtRepo
   groupEventRepo: GroupEventRepo
   profileRepo: ProfileRepo
+  goalsRepo: GoalsRepo
   ledgerSvc: LedgerService
   accountsSvc: AccountsService
   txnsSvc: TransactionsService
@@ -44,6 +47,7 @@ export interface App {
   peerDebtSvc: PeerDebtService
   groupEventSvc: GroupEventService
   profileSvc: ProfileService
+  goalsSvc: GoalsService
 }
 
 export function buildApp(db: Db, config: Partial<Config> = {}): App {
@@ -57,6 +61,8 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
   const ledgerSvc = new LedgerService(db, ledgerRepo, accountsRepo)
   const accountsSvc = new AccountsService(accountsRepo, ledgerSvc)
   const txnsSvc = new TransactionsService(db, txnsRepo, accountsRepo, ledgerSvc)
+  const goalsRepo = new SqliteGoalsRepo(db)
+  const goalsSvc = new GoalsService(db, goalsRepo, accountsRepo, ledgerSvc)
   const payScheduleSvc = new PayScheduleService(db, psRepo, accountsRepo, ledgerSvc)
   const friendSvc = new FriendService(friendRepo)
   const peerDebtSvc = new PeerDebtService(peerDebtRepo)
@@ -74,6 +80,7 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
     peerDebtRepo,
     groupEventRepo,
     profileRepo,
+    goalsRepo,
     ledgerSvc,
     accountsSvc,
     txnsSvc,
@@ -82,5 +89,6 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
     peerDebtSvc,
     groupEventSvc,
     profileSvc,
+    goalsSvc,
   }
 }

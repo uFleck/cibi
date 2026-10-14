@@ -7,6 +7,7 @@ import {
   formatApiTime,
   formatDbTime,
   formatYmd,
+  isZeroTime,
   parseDbTime,
   parseRfc3339,
   parseRfc3339OrYmd,
@@ -196,5 +197,15 @@ describe('parseRfc3339OrYmd (Go parsePeerDebtDate: RFC3339, then 2006-01-02)', (
     ['empty text', ''],
   ])('rejects %s', (_name, input) => {
     expect(() => parseRfc3339OrYmd(input)).toThrow()
+  })
+})
+
+describe('isZeroTime (Go time.Time.IsZero)', () => {
+  it('is true for 0001-01-01T00:00:00Z only', () => {
+    expect(isZeroTime(date(1, 1, 1))).toBe(true)
+    expect(isZeroTime(parseRfc3339('0001-01-01T00:00:00Z'))).toBe(true)
+    expect(isZeroTime(date(1, 1, 2))).toBe(false)
+    expect(isZeroTime(parseRfc3339('0001-01-01T00:00:01Z'))).toBe(false)
+    expect(isZeroTime(new Date(0))).toBe(false)
   })
 })

@@ -53,6 +53,14 @@ export function daysInMonth(year: number, month: number): number {
   return t.getUTCDate()
 }
 
+/** Go's zero time.Time (0001-01-01T00:00:00Z) as an instant. */
+export const GO_ZERO_TIME_MS = date(1, 1, 1).getTime()
+
+/** Go's t.IsZero(): true only for the zero time (0001-01-01T00:00:00Z). */
+export function isZeroTime(t: Date): boolean {
+  return t.getTime() === GO_ZERO_TIME_MS
+}
+
 /** UTC midnight of the UTC calendar day containing t. */
 export function startOfDay(t: Date): Date {
   return date(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate())

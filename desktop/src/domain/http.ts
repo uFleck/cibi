@@ -44,11 +44,21 @@ interface Segment {
   text: string
 }
 
+/** Per-route options for route(). The defaults are the ones every route has. */
+export interface RouteOptions {
+  /**
+   * The handler ignores a body that does not parse (Go `_ = c.Bind(&req)`): malformed JSON reaches the
+   * handler as an undefined body instead of a 400. Only the handler can tell what a body it cannot read means.
+   */
+  ignoreMalformedBody?: boolean
+}
+
 interface Route {
   method: Method
   pattern: string
   segments: Segment[]
   handler: Handler
+  ignoreMalformedBody: boolean
 }
 
 const routes: Route[] = []
@@ -74,8 +84,14 @@ function parsePattern(pattern: string): Segment[] {
 }
 
 /** Registers a handler for method + pattern, e.g. route('GET', '/api/accounts/:id', handler). A repeated method + pattern replaces the earlier handler, like Echo. */
-export function route(method: Method, pattern: string, handler: Handler): void {
-  const entry: Route = { method, pattern, segments: parsePattern(pattern), handler }
+export function route(method: Method, pattern: string, handler: Handler, options: RouteOptions = {}): void {
+  const entry: Route = {
+    method,
+    pattern,
+    segments: parsePattern(pattern),
+    handler,
+    ignoreMalformedBody: options.ignoreMalformedBody ?? false,
+  }
   const existing = routes.findIndex((r) => r.method === method && r.pattern === pattern)
   if (existing === -1) {
     routes.push(entry)
@@ -254,7 +270,9 @@ export async function localFetch(path: string, init: RequestInit = {}): Promise<
     try {
       body = JSON.parse(raw)
     } catch {
-      return jsonResponse(400, { error: INVALID_BODY })
+      // A route that ignores a body it cannot read (route option) gets no body instead of the 400.
+      if (!found.route.ignoreMalformedBody) return jsonResponse(400, { error: INVALID_BODY })
+      body = undefined
     }
   }
 

@@ -4,6 +4,7 @@
 import type { App } from './app'
 import { registerAccountsRoutes } from './handlers/accounts'
 import { registerFriendRoutes } from './handlers/friend'
+import { registerGoalsRoutes } from './handlers/goals'
 import { registerGroupEventRoutes } from './handlers/groupEvent'
 import { registerLedgerRoutes } from './handlers/ledger'
 import { registerPayScheduleRoutes } from './handlers/paySchedule'
@@ -20,4 +21,5 @@ export function registerRoutes(app: App): void {
   registerFriendRoutes(app)
   registerPeerDebtRoutes(app)
   registerGroupEventRoutes(app)
+  registerGoalsRoutes(app)
 }

@@ -66,6 +66,23 @@ describe('params, query and body', () => {
     expect(ran).toBe(false)
   })
 
+  it('a route with ignoreMalformedBody runs with no body when the JSON does not parse (Go `_ = c.Bind`)', async () => {
+    let seen: unknown = 'not called'
+    route(
+      'POST',
+      '/api/check',
+      async (ctx) => {
+        seen = ctx.body
+        return { body: 'ran' }
+      },
+      { ignoreMalformedBody: true },
+    )
+    const res = await localFetch('/api/check', { method: 'POST', body: '{bad json' })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toBe('ran')
+    expect(seen).toBeUndefined()
+  })
+
   it('exposes the same database as getDb()', async () => {
     route('GET', '/api/db', async (ctx) => {
       const rows = await ctx.db.query<{ n: number }>('SELECT 1 AS n')
