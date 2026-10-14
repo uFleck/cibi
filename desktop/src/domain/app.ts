@@ -13,11 +13,17 @@ import { AccountsService } from './service/accounts'
 import { TransactionsService } from './service/transactions'
 import { ProfileService } from './service/profile'
 import { PayScheduleService } from './service/paySchedule'
+import { FriendService } from './service/friend'
+import { PeerDebtService } from './service/peerDebt'
+import { GroupEventService } from './service/groupEvent'
 import { SqliteAccountsRepo, type AccountsRepo } from './repo/accounts'
 import { SqliteLedgerRepo, type LedgerRepo } from './repo/ledger'
 import { SqliteProfileRepo, type ProfileRepo } from './repo/profile'
 import { SqlitePayScheduleRepo, type PayScheduleRepo } from './repo/paySchedule'
 import { SqliteTxnsRepo, type TransactionsRepo } from './repo/transactions'
+import { SqliteFriendRepo, type FriendRepo } from './repo/friend'
+import { SqlitePeerDebtRepo, type PeerDebtRepo } from './repo/peerDebt'
+import { SqliteGroupEventRepo, type GroupEventRepo } from './repo/groupEvent'
 
 export interface App {
   db: Db
@@ -26,11 +32,17 @@ export interface App {
   txnsRepo: TransactionsRepo
   ledgerRepo: LedgerRepo
   psRepo: PayScheduleRepo
+  friendRepo: FriendRepo
+  peerDebtRepo: PeerDebtRepo
+  groupEventRepo: GroupEventRepo
   profileRepo: ProfileRepo
   ledgerSvc: LedgerService
   accountsSvc: AccountsService
   txnsSvc: TransactionsService
   payScheduleSvc: PayScheduleService
+  friendSvc: FriendService
+  peerDebtSvc: PeerDebtService
+  groupEventSvc: GroupEventService
   profileSvc: ProfileService
 }
 
@@ -38,11 +50,17 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
   const accountsRepo = new SqliteAccountsRepo(db)
   const txnsRepo = new SqliteTxnsRepo(db)
   const psRepo = new SqlitePayScheduleRepo(db)
+  const friendRepo = new SqliteFriendRepo(db)
+  const peerDebtRepo = new SqlitePeerDebtRepo(db)
+  const groupEventRepo = new SqliteGroupEventRepo(db)
   const ledgerRepo = new SqliteLedgerRepo(db)
   const ledgerSvc = new LedgerService(db, ledgerRepo, accountsRepo)
   const accountsSvc = new AccountsService(accountsRepo, ledgerSvc)
   const txnsSvc = new TransactionsService(db, txnsRepo, accountsRepo, ledgerSvc)
   const payScheduleSvc = new PayScheduleService(db, psRepo, accountsRepo, ledgerSvc)
+  const friendSvc = new FriendService(friendRepo)
+  const peerDebtSvc = new PeerDebtService(peerDebtRepo)
+  const groupEventSvc = new GroupEventService(groupEventRepo, friendRepo)
   const profileRepo = new SqliteProfileRepo(db)
   const profileSvc = new ProfileService(profileRepo)
   return {
@@ -52,11 +70,17 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
     txnsRepo,
     ledgerRepo,
     psRepo,
+    friendRepo,
+    peerDebtRepo,
+    groupEventRepo,
     profileRepo,
     ledgerSvc,
     accountsSvc,
     txnsSvc,
     payScheduleSvc,
+    friendSvc,
+    peerDebtSvc,
+    groupEventSvc,
     profileSvc,
   }
 }

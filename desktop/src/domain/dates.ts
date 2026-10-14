@@ -165,3 +165,17 @@ export function formatApiTime(t: Date): string {
   const fraction = iso.slice(20, 23).replace(/0+$/, '')
   return fraction === '' ? `${base}Z` : `${base}.${fraction}Z`
 }
+
+/**
+ * Go's time.Parse(time.RFC3339, s), then time.Parse("2006-01-02", s) when that fails. Both are UTC.
+ * This is the date form of peer debts and group events (parsePeerDebtDate, parseGroupEventDate,
+ * and the anchor/date fallback of buildFriendDebtItems). Throws when neither form parses.
+ * The real rows hold both: timestamp is "2026-06-10" and anchor_date is "2026-10-10T00:00:00Z".
+ */
+export function parseRfc3339OrYmd(s: string): Date {
+  try {
+    return parseRfc3339(s)
+  } catch {
+    return parseYmd(s)
+  }
+}

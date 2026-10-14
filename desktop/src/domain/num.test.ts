@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { goRound } from './num'
+import { goFloatText, goRound } from './num'
 
 describe('goRound (Go math.Round: half away from zero)', () => {
   it.each([
@@ -34,5 +34,23 @@ describe('goRound (Go math.Round: half away from zero)', () => {
 
   it('passes NaN through, as Go does', () => {
     expect(goRound(Number.NaN)).toBeNaN()
+  })
+})
+
+describe('goFloatText (strconv FormatFloat(f, g, -1, 64), as database/sql prints a float)', () => {
+  it.each([
+    ['a whole number below 1e6', 300, '300'],
+    ['a fraction', 566.666, '566.666'],
+    ['a long fraction', 666.6666666666666, '666.6666666666666'],
+    ['a whole number of 1e6 uses an exponent', 1000000, '1e+06'],
+    ['2000000 uses an exponent', 2000000, '2e+06'],
+    ['a negative whole number of 1234567', -1234567, '-1.234567e+06'],
+    ['999999 stays plain', 999999, '999999'],
+    ['zero', 0, '0'],
+    ['negative zero', -0, '-0'],
+    ['a small number uses an exponent', 0.00001, '1e-05'],
+    ['0.0001 stays plain', 0.0001, '0.0001'],
+  ])('%s', (_name, input, want) => {
+    expect(goFloatText(input)).toBe(want)
   })
 })

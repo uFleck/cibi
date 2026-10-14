@@ -9,6 +9,7 @@ import {
   formatYmd,
   parseDbTime,
   parseRfc3339,
+  parseRfc3339OrYmd,
   parseYmd,
   sameDay,
   startOfDay,
@@ -176,5 +177,24 @@ describe('parseYmd (Go time.Parse("2006-01-02"))', () => {
     ['an empty string', ''],
   ])('rejects %s', (_name, input) => {
     expect(() => parseYmd(input)).toThrow()
+  })
+})
+
+describe('parseRfc3339OrYmd (Go parsePeerDebtDate: RFC3339, then 2006-01-02)', () => {
+  it.each([
+    ['RFC3339 with Z (anchor_date in the real rows)', '2026-10-10T00:00:00Z', '2026-10-10T00:00:00.000Z'],
+    ['RFC3339 with an offset is converted to UTC', '2026-06-10T09:00:00+09:00', '2026-06-10T00:00:00.000Z'],
+    ['RFC3339 with a fraction keeps milliseconds', '2026-06-10T01:02:03.456Z', '2026-06-10T01:02:03.456Z'],
+    ['date only (timestamp in the real rows)', '2026-06-10', '2026-06-10T00:00:00.000Z'],
+  ])('%s', (_name, input, want) => {
+    expect(parseRfc3339OrYmd(input).toISOString()).toBe(want)
+  })
+
+  it.each([
+    ['the space form is not a peer debt date', '2026-09-11 20:01:19'],
+    ['an impossible date', '2026-02-30'],
+    ['empty text', ''],
+  ])('rejects %s', (_name, input) => {
+    expect(() => parseRfc3339OrYmd(input)).toThrow()
   })
 })
