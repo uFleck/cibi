@@ -138,7 +138,7 @@ func TestNextPayday_SemiMonthly(t *testing.T) {
 		{"from_jan_1", date(2025, 1, 1), date(2025, 1, 15)},
 		{"from_jan_15", date(2025, 1, 15), date(2025, 1, 30)},
 		{"from_jan_20", date(2025, 1, 20), date(2025, 1, 30)},
-		{"from_jan_30", date(2025, 1, 30), date(2025, 2, 15)},
+		{"from_jan_30", date(2025, 1, 30), date(2025, 2, 14)}, // Sat 15th moves to Fri (AdjustToBusinessDay)
 		// Feb has no day 30 — should clamp to Feb 28
 		{"from_feb_15", date(2025, 2, 15), date(2025, 2, 28)},
 	}

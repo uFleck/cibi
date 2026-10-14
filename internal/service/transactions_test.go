@@ -386,7 +386,7 @@ func TestUpdateTransaction_RecalculatesBalanceWhenAmountChanges(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, accountID, startingBalance)
 	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{Amount: &newAmount})
 	if err != nil {
@@ -487,7 +487,7 @@ func TestUpdateTransaction_InstallmentWithPaidInstallments_UsesCorrectBalanceDel
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, accountID, startingBalance)
 	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.UpdateTransaction(txnID, sqlite.UpdateTransaction{Amount: &newAmount})
 	if err != nil {
@@ -535,7 +535,7 @@ func TestDeleteTransaction_ReversesBalance(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, accountID, startingBalance)
 	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	err := svc.DeleteTransaction(txnID)
 	if err != nil {
@@ -946,7 +946,7 @@ func TestDeleteInstallment_ReversesAllPaidInstallments(t *testing.T) {
 	}
 	accRepo := newScopedAccountRepo(t, accountID, startingBalance, &gotNewBalance, nil)
 
-	ledgerSvc := newTestLedgerSvc(db, accRepo, uuid.Nil, 0)
+	ledgerSvc := newTestLedgerSvc(db, accRepo, accountID, startingBalance)
 	svc := service.NewTransactionsService(db, txnsRepo, accRepo, ledgerSvc)
 	if err := svc.DeleteTransaction(txnID); err != nil {
 		t.Fatalf("DeleteTransaction error: %v", err)

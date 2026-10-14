@@ -44,7 +44,7 @@ func TestGoalsRecurring_ListDue_OverdueAndNoAutoPost(t *testing.T) {
 		{ID: uuid.New(), GoalID: goalID, AmountCents: 1000, Frequency: "monthly", AnchorDateUTC: now, NextDueUTC: now.Add(time.Hour), Active: true},
 	}
 	accRepo := newScopedAccountRepo(t, accountID, 100000, nil, nil)
-	svc := service.NewGoalsService(db, repo, accRepo)
+	svc := service.NewGoalsService(db, repo, accRepo, nil)
 
 	out, err := svc.ListRecurringDue(accountID, now)
 	if err != nil {
@@ -69,7 +69,7 @@ func TestGoalsRecurring_ConfirmDue_PostsRecurringAndAdvancesSinglePeriod(t *test
 	due := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 	repo := &recurringRepo{mockGoalsRepo: mockGoalsRepo{goal: sqlite.Goal{ID: goalID, AccountID: accountID, TargetAmountCents: 100000, InvestedTotalCents: 1000, Status: "active"}}, recurringByID: sqlite.GoalRecurringContribution{ID: itemID, GoalID: goalID, AmountCents: 2000, Frequency: "monthly", NextDueUTC: due, Active: true}}
 	accRepo := newScopedAccountRepo(t, accountID, 100000, nil, nil)
-	svc := service.NewGoalsService(db, repo, accRepo)
+	svc := service.NewGoalsService(db, repo, accRepo, newTestLedgerSvc(db, accRepo, accountID, 100000))
 
 	confirmAt := time.Date(2026, 6, 20, 0, 0, 0, 0, time.UTC)
 	if err := svc.ConfirmRecurringDue(itemID, confirmAt); err != nil {

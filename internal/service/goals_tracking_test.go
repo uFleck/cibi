@@ -30,7 +30,7 @@ func TestGoalsTracking_DeterministicUrgencyOrdering(t *testing.T) {
 	}
 	repo.listLedgerByGoalFn = func(goalID uuid.UUID) ([]sqlite.GoalLedgerEntry, error) { return nil, nil }
 	accRepo := newScopedAccountRepo(t, accID, 0, nil, nil)
-	svc := service.NewGoalsService(db, repo, accRepo)
+	svc := service.NewGoalsService(db, repo, accRepo, nil)
 
 	out, err := svc.BuildTracking(accID)
 	if err != nil {
@@ -68,7 +68,7 @@ func TestGoalsTracking_TopGoalsCappedAtFive(t *testing.T) {
 	repo.getGoalsByAccountFn = func(accountID uuid.UUID) ([]sqlite.Goal, error) { return goals, nil }
 	repo.listLedgerByGoalFn = func(goalID uuid.UUID) ([]sqlite.GoalLedgerEntry, error) { return nil, nil }
 	accRepo := newScopedAccountRepo(t, accID, 0, nil, nil)
-	svc := service.NewGoalsService(db, repo, accRepo)
+	svc := service.NewGoalsService(db, repo, accRepo, nil)
 
 	out, err := svc.BuildTracking(accID)
 	if err != nil {

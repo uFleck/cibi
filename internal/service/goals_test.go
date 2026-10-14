@@ -95,7 +95,7 @@ func TestGoals_AddLedgerEntry_ContributionDebitsBalanceAtomically(t *testing.T) 
 	repo := &mockGoalsRepo{goal: sqlite.Goal{ID: goalID, AccountID: accID, TargetAmountCents: 10000, InvestedTotalCents: 0, Status: "active"}}
 	var newBal int64
 	accRepo := newScopedAccountRepo(t, accID, 5000, &newBal, nil)
-	svc := service.NewGoalsService(db, repo, accRepo)
+	svc := service.NewGoalsService(db, repo, accRepo, newTestLedgerSvc(db, accRepo, accID, 5000))
 	_, err := svc.AddLedgerEntry(service.AddGoalLedgerInput{GoalID: goalID, Amount: 10, Type: "contribution", Source: "manual", TimestampUTC: time.Now().UTC()})
 	if err != nil {
 		t.Fatalf("AddLedgerEntry: %v", err)
@@ -111,7 +111,7 @@ func TestGoals_AddLedgerEntry_WithdrawalCreditsBalance(t *testing.T) {
 	repo := &mockGoalsRepo{goal: sqlite.Goal{ID: goalID, AccountID: accID, TargetAmountCents: 10000, InvestedTotalCents: 2000, Status: "active"}}
 	var newBal int64
 	accRepo := newScopedAccountRepo(t, accID, 1000, &newBal, nil)
-	svc := service.NewGoalsService(db, repo, accRepo)
+	svc := service.NewGoalsService(db, repo, accRepo, newTestLedgerSvc(db, accRepo, accID, 1000))
 	_, err := svc.AddLedgerEntry(service.AddGoalLedgerInput{GoalID: goalID, Amount: 5, Type: "withdrawal", Source: "manual", TimestampUTC: time.Now().UTC()})
 	if err != nil {
 		t.Fatalf("AddLedgerEntry: %v", err)
@@ -126,7 +126,7 @@ func TestGoals_AddLedgerEntry_InsufficientFunds(t *testing.T) {
 	goalID, accID := uuid.New(), uuid.New()
 	repo := &mockGoalsRepo{goal: sqlite.Goal{ID: goalID, AccountID: accID, TargetAmountCents: 10000, InvestedTotalCents: 0, Status: "active"}}
 	accRepo := newScopedAccountRepo(t, accID, 300, nil, nil)
-	svc := service.NewGoalsService(db, repo, accRepo)
+	svc := service.NewGoalsService(db, repo, accRepo, nil)
 	_, err := svc.AddLedgerEntry(service.AddGoalLedgerInput{GoalID: goalID, Amount: 10, Type: "contribution", Source: "manual", TimestampUTC: time.Now().UTC()})
 	if err == nil || !strings.Contains(err.Error(), "insufficient") {
 		t.Fatalf("expected insufficient funds, got %v", err)
@@ -138,7 +138,7 @@ func TestGoals_AddLedgerEntry_AutoCompletesOnTarget(t *testing.T) {
 	goalID, accID := uuid.New(), uuid.New()
 	repo := &mockGoalsRepo{goal: sqlite.Goal{ID: goalID, AccountID: accID, TargetAmountCents: 1000, InvestedTotalCents: 900, Status: "active"}}
 	accRepo := newScopedAccountRepo(t, accID, 5000, nil, nil)
-	svc := service.NewGoalsService(db, repo, accRepo)
+	svc := service.NewGoalsService(db, repo, accRepo, newTestLedgerSvc(db, accRepo, accID, 5000))
 	_, err := svc.AddLedgerEntry(service.AddGoalLedgerInput{GoalID: goalID, Amount: 1, Type: "contribution", Source: "manual", TimestampUTC: time.Now().UTC()})
 	if err != nil {
 		t.Fatalf("AddLedgerEntry: %v", err)
@@ -153,7 +153,7 @@ func TestGoals_UpdateTarget_AuditsAndRecomputesStatus(t *testing.T) {
 	goalID, accID := uuid.New(), uuid.New()
 	repo := &mockGoalsRepo{goal: sqlite.Goal{ID: goalID, AccountID: accID, TargetAmountCents: 1000, InvestedTotalCents: 900, Status: "active"}}
 	accRepo := newScopedAccountRepo(t, accID, 5000, nil, nil)
-	svc := service.NewGoalsService(db, repo, accRepo)
+	svc := service.NewGoalsService(db, repo, accRepo, nil)
 	v := 8.0
 	if err := svc.UpdateGoal(goalID, service.UpdateGoalInput{TargetAmount: &v}); err != nil {
 		t.Fatalf("UpdateGoal: %v", err)

@@ -114,7 +114,7 @@ func TestPayScheduleService_ConfirmPayday_UpdatesBalanceAndAnchor(t *testing.T) 
 		},
 	}
 
-	svc := service.NewPayScheduleService(db, psRepo, accRepo)
+	svc := service.NewPayScheduleService(db, psRepo, accRepo, newTestLedgerSvc(db, accRepo, accountID, 100000))
 	updated, err := svc.ConfirmPayday(scheduleID)
 	if err != nil {
 		t.Fatalf("ConfirmPayday error: %v", err)
@@ -145,7 +145,7 @@ func TestPayScheduleService_ConfirmPayday_GetScheduleError(t *testing.T) {
 	}
 	accRepo := &mockAccountsRepo{}
 
-	svc := service.NewPayScheduleService(db, psRepo, accRepo)
+	svc := service.NewPayScheduleService(db, psRepo, accRepo, nil)
 	_, err := svc.ConfirmPayday(scheduleID)
 	if err == nil {
 		t.Fatalf("expected error, got nil")

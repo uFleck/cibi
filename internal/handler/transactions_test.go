@@ -26,7 +26,6 @@ func TestListTransactions(t *testing.T) {
 					AccountID:   accountID,
 					Amount:      -2500,
 					Description: "Coffee",
-					Category:    "Food",
 					Timestamp:   now,
 					IsRecurring: false,
 				},
@@ -120,7 +119,6 @@ func TestUpdateTransaction(t *testing.T) {
 				AccountID:   accountID,
 				Amount:      -1550,
 				Description: newDesc,
-				Category:    "Food",
 				Timestamp:   now,
 				IsRecurring: false,
 			}, nil
@@ -188,7 +186,6 @@ func TestConfirmInstallment_HappyPath(t *testing.T) {
 				AccountID:         accountID,
 				Amount:            -5000,
 				Description:       "Phone",
-				Category:          "Electronics",
 				Timestamp:         now,
 				IsInstallment:     true,
 				TotalInstallments: &total,

@@ -15,7 +15,8 @@ CREATE TABLE "Transaction" (
 	account_id TEXT NOT NULL,
 	amount INTEGER NOT NULL,
 	description TEXT NOT NULL,
-	category TEXT NOT NULL,
+	type TEXT NOT NULL DEFAULT 'personal',
+	friend_id TEXT,
 	timestamp TEXT NOT NULL,
 	is_recurring BOOLEAN NOT NULL,
 	frequency TEXT,
@@ -40,16 +41,16 @@ func TestSumUpcomingObligations_IncludesOverdueUntilConfirmed(t *testing.T) {
 
 	insertRecurring := func(accountID uuid.UUID, amount int64, nextOccurrence string) {
 		_, err := db.Exec(
-			`INSERT INTO "Transaction" (id, account_id, amount, description, category, timestamp, is_recurring, next_occurrence, requires_confirmation, confirmed_at)
-			 VALUES (?, ?, ?, 'x', 'x', '2026-04-01T00:00:00Z', 1, ?, 0, NULL)`,
+			`INSERT INTO "Transaction" (id, account_id, amount, description, timestamp, is_recurring, next_occurrence, requires_confirmation, confirmed_at)
+			 VALUES (?, ?, ?, 'x', '2026-04-01T00:00:00Z', 1, ?, 0, NULL)`,
 			uuid.New().String(), accountID.String(), amount, nextOccurrence,
 		)
 		requireNoErr(t, "insert recurring txn", err)
 	}
 	insertPending := func(accountID uuid.UUID, amount int64, timestamp string, anchorDate *string) {
 		_, err := db.Exec(
-			`INSERT INTO "Transaction" (id, account_id, amount, description, category, timestamp, is_recurring, anchor_date, requires_confirmation, confirmed_at)
-			 VALUES (?, ?, ?, 'x', 'x', ?, 0, ?, 1, NULL)`,
+			`INSERT INTO "Transaction" (id, account_id, amount, description, timestamp, is_recurring, anchor_date, requires_confirmation, confirmed_at)
+			 VALUES (?, ?, ?, 'x', ?, 0, ?, 1, NULL)`,
 			uuid.New().String(), accountID.String(), amount, timestamp, anchorDate,
 		)
 		requireNoErr(t, "insert pending txn", err)
@@ -83,8 +84,8 @@ func TestIncrementPaidInstallments(t *testing.T) {
 	id := uuid.New()
 	total := int64(6)
 	_, err := db.Exec(
-		`INSERT INTO "Transaction" (id, account_id, amount, description, category, timestamp, is_recurring, requires_confirmation, is_installment, total_installments, paid_installments)
-		 VALUES (?, ?, -5000, 'Phone', 'Electronics', '2026-07-10T00:00:00Z', 0, 0, 1, ?, 0)`,
+		`INSERT INTO "Transaction" (id, account_id, amount, description, timestamp, is_recurring, requires_confirmation, is_installment, total_installments, paid_installments)
+		 VALUES (?, ?, -5000, 'Phone', '2026-07-10T00:00:00Z', 0, 0, 1, ?, 0)`,
 		id.String(), accountID.String(), total,
 	)
 	requireNoErr(t, "insert", err)
