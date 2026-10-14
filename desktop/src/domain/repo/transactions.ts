@@ -1,0 +1,319 @@
+// Port of internal/repo/sqlite/transactions.go.
+//
+// Times: written as formatDbTime (RFC3339, UTC, whole seconds, as Go's t.UTC().Format(RFC3339)).
+// Read with parseFlexTime, which is Go's parseFlexTime: RFC3339 first, then "YYYY-MM-DD" (UTC
+// midnight). The real rows hold both forms (timestamp and confirmed_at can be date-only).
+// Ids: see repo/accounts.ts. Booleans are written as 0/1.
+// Types: "personal" and "peer" rows share the table. GetByAccount returns every type (as Go does);
+// SumUpcomingObligations counts personal rows only. Insert always writes 'personal', as Go does.
+
+import type { Db, SqlParam } from '../db'
+import { ErrNoRows, wrap } from '../errors'
+import { formatDbTime, parseRfc3339, parseYmd } from '../dates'
+import { parseUuid } from '../uuid'
+import { boolCol, intCol, nullableIntCol, nullableTextCol, type Row, textCol } from './scan'
+
+/** Go ValidFrequencies: the allowed frequency values for recurring transactions. */
+export const VALID_FREQUENCIES: ReadonlySet<string> = new Set([
+  'weekly',
+  'bi-weekly',
+  'biweekly', // legacy alias from older web clients
+  'monthly',
+  'yearly',
+])
+
+/** Mirrors the Transaction schema row. */
+export interface Transaction {
+  id: string
+  accountId: string
+  /** 'personal' | 'peer'. A transaction built in memory has '' (Go's zero value) until stored. */
+  type: string
+  /** Set for type 'peer'. */
+  friendId: string | null
+  /** Cents; negative = debit, positive = credit. */
+  amount: number
+  description: string
+  /** UTC. */
+  timestamp: Date
+  isRecurring: boolean
+  frequency: string | null
+  /** UTC. */
+  anchorDate: Date | null
+  /** UTC. */
+  nextOccurrence: Date | null
+  requiresConfirmation: boolean
+  /** UTC. */
+  confirmedAt: Date | null
+  isInstallment: boolean
+  totalInstallments: number | null
+  paidInstallments: number
+}
+
+/** The fields Update can write. Go's nil pointer is `undefined` here (no change). */
+export interface UpdateTransaction {
+  description?: string
+  /** Cents. */
+  amount?: number
+  nextOccurrence?: Date
+  timestamp?: Date
+  totalInstallments?: number
+  isInstallment?: boolean
+  isRecurring?: boolean
+  frequency?: string
+  anchorDate?: Date
+}
+
+export interface TransactionsRepo {
+  insert(t: Transaction): Promise<void>
+  getByAccount(accountId: string): Promise<Transaction[]>
+  /** Rejects with an error wrapping ErrNoRows when the id is unknown. */
+  getById(id: string): Promise<Transaction>
+  update(id: string, upd: UpdateTransaction): Promise<void>
+  deleteById(id: string): Promise<void>
+  advanceNextOccurrence(id: string, next: Date): Promise<void>
+  markConfirmed(id: string, confirmedAt: Date): Promise<void>
+  /** Go's `after` is unused by the query and is accepted only to keep the Go signature. */
+  sumUpcomingObligations(accountId: string, after: Date, onOrBefore: Date): Promise<number>
+  incrementPaidInstallments(id: string): Promise<void>
+}
+
+const SELECT_TXN = `SELECT id, account_id, COALESCE(type, 'personal') AS type, friend_id, amount, description, timestamp,
+			is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at,
+			is_installment, total_installments, paid_installments`
+
+/** Go parseFlexTime: RFC3339, then the calendar date. */
+function parseFlexTime(s: string): Date {
+  try {
+    return parseRfc3339(s)
+  } catch {
+    return parseYmd(s)
+  }
+}
+
+function nullableTime(row: Row, name: string): Date | null {
+  const v = nullableTextCol(row, name)
+  return v === null ? null : parseFlexTime(v)
+}
+
+function scanTransaction(row: Row): Transaction {
+  const friendId = nullableTextCol(row, 'friend_id')
+  return {
+    id: parseUuid(textCol(row, 'id')),
+    accountId: parseUuid(textCol(row, 'account_id')),
+    type: textCol(row, 'type'),
+    // An empty friend_id is no friend (Go: Valid && String != "").
+    friendId: friendId === null || friendId === '' ? null : parseUuid(friendId),
+    amount: intCol(row, 'amount'),
+    description: textCol(row, 'description'),
+    timestamp: parseFlexTime(textCol(row, 'timestamp')),
+    isRecurring: boolCol(row, 'is_recurring'),
+    frequency: nullableTextCol(row, 'frequency'),
+    anchorDate: nullableTime(row, 'anchor_date'),
+    nextOccurrence: nullableTime(row, 'next_occurrence'),
+    requiresConfirmation: boolCol(row, 'requires_confirmation'),
+    confirmedAt: nullableTime(row, 'confirmed_at'),
+    isInstallment: boolCol(row, 'is_installment'),
+    totalInstallments: nullableIntCol(row, 'total_installments'),
+    paidInstallments: intCol(row, 'paid_installments'),
+  }
+}
+
+function bit(v: boolean): number {
+  return v ? 1 : 0
+}
+
+export class SqliteTxnsRepo implements TransactionsRepo {
+  private readonly db: Db
+
+  constructor(db: Db) {
+    this.db = db
+  }
+
+  async insert(t: Transaction): Promise<void> {
+    const args: SqlParam[] = [
+      t.id,
+      t.accountId,
+      t.amount,
+      t.description,
+      formatDbTime(t.timestamp),
+      bit(t.isRecurring),
+      t.frequency,
+      t.anchorDate === null ? null : formatDbTime(t.anchorDate),
+      t.nextOccurrence === null ? null : formatDbTime(t.nextOccurrence),
+      bit(t.requiresConfirmation),
+      null, // confirmed_at is never written by Insert (Go passes nil)
+      bit(t.isInstallment),
+      t.totalInstallments,
+      t.paidInstallments,
+    ]
+    try {
+      await this.db.query(
+        `INSERT INTO "Transaction"
+			(id, account_id, type, amount, description, timestamp, is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at, is_installment, total_installments, paid_installments)
+			VALUES (?, ?, 'personal', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args,
+      )
+    } catch (err) {
+      throw wrap('transactions.Insert', err)
+    }
+  }
+
+  async getByAccount(accountId: string): Promise<Transaction[]> {
+    let rows: Row[]
+    try {
+      rows = await this.db.query(`${SELECT_TXN}
+		FROM "Transaction" WHERE account_id = ?`, [accountId])
+    } catch (err) {
+      throw wrap('transactions.GetByAccount', err)
+    }
+    try {
+      return rows.map(scanTransaction)
+    } catch (err) {
+      throw wrap('transactions.GetByAccount: scan', err)
+    }
+  }
+
+  async getById(id: string): Promise<Transaction> {
+    let rows: Row[]
+    try {
+      rows = await this.db.query(`${SELECT_TXN}
+		FROM "Transaction" WHERE id = ?`, [id])
+    } catch (err) {
+      throw wrap('transactions.GetByID', err)
+    }
+    const row = rows[0]
+    // QueryRow semantics: no row is sql.ErrNoRows.
+    if (row === undefined) throw wrap('transactions.GetByID', ErrNoRows)
+    try {
+      return scanTransaction(row)
+    } catch (err) {
+      throw wrap('transactions.GetByID', err)
+    }
+  }
+
+  /** Writes each set field with its own statement, in Go's order. Run it inside db.tx() when Go used a tx. */
+  async update(id: string, upd: UpdateTransaction): Promise<void> {
+    if (upd.description !== undefined) {
+      await this.exec(`UPDATE "Transaction" SET description = ? WHERE id = ?`, [upd.description, id]).catch(
+        (err: unknown) => {
+          throw wrap('transactions.Update description', err)
+        },
+      )
+    }
+    if (upd.amount !== undefined) {
+      await this.exec(`UPDATE "Transaction" SET amount = ? WHERE id = ?`, [upd.amount, id]).catch((err: unknown) => {
+        throw wrap('transactions.Update amount', err)
+      })
+    }
+    if (upd.nextOccurrence !== undefined) {
+      await this.exec(`UPDATE "Transaction" SET next_occurrence = ? WHERE id = ?`, [
+        formatDbTime(upd.nextOccurrence),
+        id,
+      ]).catch((err: unknown) => {
+        throw wrap('transactions.Update next_occurrence', err)
+      })
+    }
+    if (upd.timestamp !== undefined) {
+      await this.exec(`UPDATE "Transaction" SET timestamp = ? WHERE id = ?`, [formatDbTime(upd.timestamp), id]).catch(
+        (err: unknown) => {
+          throw wrap('transactions.Update timestamp', err)
+        },
+      )
+    }
+    if (upd.totalInstallments !== undefined) {
+      await this.exec(`UPDATE "Transaction" SET total_installments = ? WHERE id = ?`, [
+        upd.totalInstallments,
+        id,
+      ]).catch((err: unknown) => {
+        throw wrap('transactions.Update total_installments', err)
+      })
+    }
+    if (upd.isInstallment !== undefined) {
+      await this.exec(`UPDATE "Transaction" SET is_installment = ? WHERE id = ?`, [bit(upd.isInstallment), id]).catch(
+        (err: unknown) => {
+          throw wrap('transactions.Update is_installment', err)
+        },
+      )
+    }
+    if (upd.isRecurring !== undefined) {
+      await this.exec(`UPDATE "Transaction" SET is_recurring = ? WHERE id = ?`, [bit(upd.isRecurring), id]).catch(
+        (err: unknown) => {
+          throw wrap('transactions.Update is_recurring', err)
+        },
+      )
+    }
+    if (upd.frequency !== undefined) {
+      await this.exec(`UPDATE "Transaction" SET frequency = ? WHERE id = ?`, [upd.frequency, id]).catch(
+        (err: unknown) => {
+          throw wrap('transactions.Update frequency', err)
+        },
+      )
+    }
+    if (upd.anchorDate !== undefined) {
+      await this.exec(`UPDATE "Transaction" SET anchor_date = ? WHERE id = ?`, [
+        formatDbTime(upd.anchorDate),
+        id,
+      ]).catch((err: unknown) => {
+        throw wrap('transactions.Update anchor_date', err)
+      })
+    }
+  }
+
+  async deleteById(id: string): Promise<void> {
+    await this.exec(`DELETE FROM "Transaction" WHERE id = ?`, [id]).catch((err: unknown) => {
+      throw wrap('transactions.DeleteByID', err)
+    })
+  }
+
+  async advanceNextOccurrence(id: string, next: Date): Promise<void> {
+    await this.exec(`UPDATE "Transaction" SET next_occurrence = ? WHERE id = ?`, [formatDbTime(next), id]).catch(
+      (err: unknown) => {
+        throw wrap('transactions.AdvanceNextOccurrence', err)
+      },
+    )
+  }
+
+  async markConfirmed(id: string, confirmedAt: Date): Promise<void> {
+    await this.exec(`UPDATE "Transaction" SET confirmed_at = ?, requires_confirmation = 0 WHERE id = ?`, [
+      formatDbTime(confirmedAt),
+      id,
+    ]).catch((err: unknown) => {
+      throw wrap('transactions.MarkConfirmed', err)
+    })
+  }
+
+  async incrementPaidInstallments(id: string): Promise<void> {
+    await this.exec(`UPDATE "Transaction" SET paid_installments = paid_installments + 1 WHERE id = ?`, [id]).catch(
+      (err: unknown) => {
+        throw wrap('transactions.IncrementPaidInstallments', err)
+      },
+    )
+  }
+
+  async sumUpcomingObligations(accountId: string, _after: Date, onOrBefore: Date): Promise<number> {
+    const onOrBeforeStr = formatDbTime(onOrBefore)
+    let rows: Row[]
+    try {
+      rows = await this.db.query(
+        `SELECT COALESCE(SUM(amount), 0) AS total
+		FROM "Transaction"
+		WHERE account_id = ?
+		AND COALESCE(type, 'personal') = 'personal'
+		AND (
+			(is_recurring = 1 AND next_occurrence < ?)
+			OR (is_recurring = 0 AND requires_confirmation = 1 AND confirmed_at IS NULL AND COALESCE(anchor_date, timestamp) < ?)
+		)`,
+        [accountId, onOrBeforeStr, onOrBeforeStr],
+      )
+    } catch (err) {
+      throw wrap('transactions.SumUpcomingObligations', err)
+    }
+    const row = rows[0]
+    if (row === undefined) throw wrap('transactions.SumUpcomingObligations', ErrNoRows)
+    return intCol(row, 'total')
+  }
+
+  private async exec(sql: string, params: SqlParam[]): Promise<void> {
+    await this.db.query(sql, params)
+  }
+}

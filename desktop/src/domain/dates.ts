@@ -81,21 +81,28 @@ export function formatDbTime(t: Date): string {
 }
 
 /**
+ * Go's time.Parse(time.RFC3339, s): a strict RFC3339 instant (an optional fraction and a "Z" or
+ * ±hh:mm offset). Throws for anything else, including the other two forms parseDbTime accepts.
+ */
+export function parseRfc3339(s: string): Date {
+  const rfc = RFC3339_RE.exec(s)
+  if (!rfc) throw new Error(`parsing time "${s}" as "2006-01-02T15:04:05Z07:00": cannot parse`)
+  const [, y, mo, d, h, mi, sec, frac, zone] = rfc
+  const instant = build(y, mo, d, h, mi, sec, frac)
+  if (zone === 'Z') return instant
+  const sign = zone.startsWith('-') ? -1 : 1
+  const offHours = Number(zone.slice(1, 3))
+  const offMinutes = Number(zone.slice(4, 6))
+  if (offHours > 23 || offMinutes > 59) throw new Error(`parsing time "${s}": invalid time zone offset`)
+  return new Date(instant.getTime() - sign * (offHours * 60 + offMinutes) * 60_000)
+}
+
+/**
  * Go's parseLedgerTime: RFC3339, then "2006-01-02 15:04:05", then "2006-01-02".
  * Throws for anything else, and for out-of-range fields (Go rejects Feb 30, hour 24, etc.).
  */
 export function parseDbTime(s: string): Date {
-  const rfc = RFC3339_RE.exec(s)
-  if (rfc) {
-    const [, y, mo, d, h, mi, sec, frac, zone] = rfc
-    const instant = build(y, mo, d, h, mi, sec, frac)
-    if (zone === 'Z') return instant
-    const sign = zone.startsWith('-') ? -1 : 1
-    const offHours = Number(zone.slice(1, 3))
-    const offMinutes = Number(zone.slice(4, 6))
-    if (offHours > 23 || offMinutes > 59) throw new Error(`parsing time "${s}": invalid time zone offset`)
-    return new Date(instant.getTime() - sign * (offHours * 60 + offMinutes) * 60_000)
-  }
+  if (RFC3339_RE.test(s)) return parseRfc3339(s)
   const space = SPACE_RE.exec(s)
   if (space) {
     const [, y, mo, d, h, mi, sec] = space

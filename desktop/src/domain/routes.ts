@@ -6,10 +6,12 @@ import { registerAccountsRoutes } from './handlers/accounts'
 import { registerLedgerRoutes } from './handlers/ledger'
 import { registerPayScheduleRoutes } from './handlers/paySchedule'
 import { registerProfileRoutes } from './handlers/profile'
+import { registerTransactionsRoutes } from './handlers/transactions'
 
 export function registerRoutes(app: App): void {
   registerAccountsRoutes(app)
   registerLedgerRoutes(app)
   registerPayScheduleRoutes(app)
   registerProfileRoutes(app)
+  registerTransactionsRoutes(app)
 }

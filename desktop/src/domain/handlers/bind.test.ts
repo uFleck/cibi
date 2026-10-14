@@ -31,3 +31,30 @@ describe('bindBody intPtr (Go *int)', () => {
     expect((caught as HttpError).status).toBe(400)
   })
 })
+
+describe('bindBody boolPtr (Go *bool)', () => {
+  const BOOL_SCHEMA = { is_installment: 'boolPtr' } as const
+
+  it.each([
+    ['an absent field is nil', {}, null],
+    ['a null field is nil', { is_installment: null }, null],
+    ['true is kept', { is_installment: true }, true],
+    ['false is a value, not nil', { is_installment: false }, false],
+  ])('%s', (_name, body, expected) => {
+    expect(bindBody(body, BOOL_SCHEMA).is_installment).toBe(expected)
+  })
+
+  it.each([
+    ['a string', { is_installment: 'true' }],
+    ['a number', { is_installment: 1 }],
+  ])('rejects %s with 400', (_name, body) => {
+    let caught: unknown
+    try {
+      bindBody(body, BOOL_SCHEMA)
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(HttpError)
+    expect((caught as HttpError).status).toBe(400)
+  })
+})

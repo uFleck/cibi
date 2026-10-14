@@ -1,0 +1,265 @@
+// @vitest-environment node
+// Ports of internal/handler/transactions_test.go (9 tests). The Go mockTransactionsService is a fake here,
+// injected through registerTransactionsRoutes(app, fake). Go's makeRequest/serveRequest are localFetch.
+import { afterEach, beforeEach, expect, it } from 'vitest'
+import { buildApp } from '../app'
+import { setDb } from '../db'
+import { ErrNoRows } from '../errors'
+import { localFetch, resetRoutesForTests } from '../http'
+import type { Transaction } from '../repo/transactions'
+import { createTestDb } from '../testing/testDb'
+import { addMonths } from '../dates'
+import {
+  registerTransactionsRoutes,
+  type TransactionResponse,
+  type TransactionsServiceIface,
+} from './transactions'
+import { FREQ_MONTHLY } from '../engine/engine'
+import type { NewTransaction } from '../service/transactions'
+
+type TestDb = Awaited<ReturnType<typeof createTestDb>>
+
+let db: TestDb
+
+beforeEach(async () => {
+  resetRoutesForTests()
+  db = await createTestDb()
+  setDb(db)
+})
+
+afterEach(() => {
+  resetRoutesForTests()
+  db.close()
+})
+
+/** Go mockTransactionsService: unset methods panic in Go; here they reject, so the test fails. */
+function fakeTransactionsService(overrides: Partial<TransactionsServiceIface>): TransactionsServiceIface {
+  const unset = async (): Promise<never> => {
+    throw new Error('not implemented')
+  }
+  return {
+    listTransactions: unset,
+    createTransaction: unset,
+    getTransaction: unset,
+    updateTransaction: unset,
+    deleteTransaction: unset,
+    confirmRecurring: unset,
+    confirmInstallment: unset,
+    ...overrides,
+  }
+}
+
+function withService(fake: TransactionsServiceIface): void {
+  registerTransactionsRoutes(buildApp(db), fake)
+}
+
+async function json<T>(res: Response): Promise<T> {
+  return (await res.json()) as T
+}
+
+/** A stored transaction with the fields the Go tests set; the rest are Go's zero values. */
+function storedTxn(over: Partial<Transaction>): Transaction {
+  return {
+    id: '',
+    accountId: '',
+    type: '',
+    friendId: null,
+    amount: 0,
+    description: '',
+    timestamp: new Date(0),
+    isRecurring: false,
+    frequency: null,
+    anchorDate: null,
+    nextOccurrence: null,
+    requiresConfirmation: false,
+    confirmedAt: null,
+    isInstallment: false,
+    totalInstallments: null,
+    paidInstallments: 0,
+    ...over,
+  }
+}
+
+// TestListTransactions: GET /api/transactions?account_id=<uuid> returns 200 with amounts in dollars.
+it('TestListTransactions', async () => {
+  const accountId = crypto.randomUUID()
+  const txnId = crypto.randomUUID()
+  const now = new Date()
+
+  withService(
+    fakeTransactionsService({
+      listTransactions: async (id: string): Promise<Transaction[]> => {
+        expect(id).toBe(accountId)
+        return [
+          storedTxn({
+            id: txnId,
+            accountId,
+            amount: -2500,
+            description: 'Coffee',
+            timestamp: now,
+            isRecurring: false,
+          }),
+        ]
+      },
+    }),
+  )
+
+  const res = await localFetch(`/api/transactions?account_id=${accountId}`)
+  expect(res.status).toBe(200)
+  const resp = await json<TransactionResponse[]>(res)
+  expect(resp).toHaveLength(1)
+  expect(resp[0]?.amount).toBe(-25.0)
+})
+
+// TestListTransactions_MissingAccountID: GET /api/transactions without account_id returns 400 with an error key.
+it('TestListTransactions_MissingAccountID', async () => {
+  withService(fakeTransactionsService({}))
+
+  const res = await localFetch('/api/transactions')
+  expect(res.status).toBe(400)
+  const resp = await json<Record<string, string>>(res)
+  expect(resp).toHaveProperty('error')
+})
+
+// TestCreateTransaction: POST /api/transactions with a valid body returns 201 (unknown fields are ignored).
+it('TestCreateTransaction', async () => {
+  const accountId = crypto.randomUUID()
+
+  withService(
+    fakeTransactionsService({
+      createTransaction: async (t: NewTransaction) => {
+        expect(t.accountId).toBe(accountId)
+      },
+    }),
+  )
+
+  const body = `{"account_id":"${accountId}","amount":-15.50,"description":"Lunch","category":"Food"}`
+  const res = await localFetch('/api/transactions', { method: 'POST', body })
+  expect(res.status).toBe(201)
+  const resp = await json<TransactionResponse>(res)
+  expect(resp.description).toBe('Lunch')
+  expect(resp.amount).toBe(-15.5)
+})
+
+// TestUpdateTransaction: PATCH /api/transactions/:id returns 200 with the stored transaction.
+it('TestUpdateTransaction', async () => {
+  const id = crypto.randomUUID()
+  const accountId = crypto.randomUUID()
+  const now = new Date()
+  const newDesc = 'Updated Lunch'
+
+  withService(
+    fakeTransactionsService({
+      updateTransaction: async () => undefined,
+      getTransaction: async (): Promise<Transaction> =>
+        storedTxn({
+          id,
+          accountId,
+          amount: -1550,
+          description: newDesc,
+          timestamp: now,
+          isRecurring: false,
+        }),
+    }),
+  )
+
+  const res = await localFetch(`/api/transactions/${id}`, {
+    method: 'PATCH',
+    body: '{"description":"Updated Lunch"}',
+  })
+  expect(res.status).toBe(200)
+  const resp = await json<TransactionResponse>(res)
+  expect(resp.description).toBe(newDesc)
+})
+
+// TestDeleteTransaction: DELETE /api/transactions/:id returns 204.
+it('TestDeleteTransaction', async () => {
+  const id = crypto.randomUUID()
+
+  withService(
+    fakeTransactionsService({
+      deleteTransaction: async () => undefined,
+    }),
+  )
+
+  const res = await localFetch(`/api/transactions/${id}`, { method: 'DELETE' })
+  expect(res.status).toBe(204)
+})
+
+// TestConfirmInstallment_HappyPath: an installment with one month paid returns 200, paid_installments 1, and
+// a computed next_occurrence (anchor + 1 month).
+it('TestConfirmInstallment_HappyPath', async () => {
+  const id = crypto.randomUUID()
+  const accountId = crypto.randomUUID()
+  const now = new Date()
+  const total = 6
+  const paid = 1
+  const anchor = addMonths(now, -1) // one month ago
+
+  withService(
+    fakeTransactionsService({
+      confirmInstallment: async (txnId: string) => {
+        expect(txnId).toBe(id)
+      },
+      getTransaction: async (): Promise<Transaction> =>
+        storedTxn({
+          id,
+          accountId,
+          amount: -5000,
+          description: 'Phone',
+          timestamp: now,
+          isInstallment: true,
+          totalInstallments: total,
+          paidInstallments: paid,
+          frequency: FREQ_MONTHLY,
+          anchorDate: anchor,
+        }),
+    }),
+  )
+
+  const res = await localFetch(`/api/transactions/${id}/confirm-installment`, { method: 'POST' })
+  expect(res.status).toBe(200)
+  const resp = await json<TransactionResponse>(res)
+  expect(resp.is_installment).toBe(true)
+  expect(resp.paid_installments).toBe(1)
+  // next_occurrence should be computed (anchor + 1 month for paid=1)
+  expect(resp.next_occurrence).not.toBeNull()
+})
+
+// TestConfirmInstallment_InvalidID_Returns400: a malformed id is a 400.
+it('TestConfirmInstallment_InvalidID_Returns400', async () => {
+  withService(fakeTransactionsService({}))
+
+  const res = await localFetch('/api/transactions/not-a-uuid/confirm-installment', { method: 'POST' })
+  expect(res.status).toBe(400)
+})
+
+// TestConfirmInstallment_NotFound_Returns404: sql.ErrNoRows is a 404.
+it('TestConfirmInstallment_NotFound_Returns404', async () => {
+  const id = crypto.randomUUID()
+  withService(
+    fakeTransactionsService({
+      confirmInstallment: async () => {
+        throw ErrNoRows
+      },
+    }),
+  )
+
+  const res = await localFetch(`/api/transactions/${id}/confirm-installment`, { method: 'POST' })
+  expect(res.status).toBe(404)
+})
+
+// TestConfirmInstallment_ServiceError_Returns400: any other service error of confirm-installment is a 400.
+it('TestConfirmInstallment_ServiceError_Returns400', async () => {
+  const id = crypto.randomUUID()
+  withService(
+    fakeTransactionsService({
+      confirmInstallment: async () => {
+        throw new Error('db error')
+      },
+    }),
+  )
+
+  const res = await localFetch(`/api/transactions/${id}/confirm-installment`, { method: 'POST' })
+  expect(res.status).toBe(400)
+})

@@ -15,7 +15,7 @@
 import { HttpError } from '../http'
 
 /** Go field types as the request structs declare them. */
-export type BindKind = 'string' | 'float' | 'int' | 'bool' | 'stringPtr' | 'floatPtr' | 'intPtr'
+export type BindKind = 'string' | 'float' | 'int' | 'bool' | 'stringPtr' | 'floatPtr' | 'intPtr' | 'boolPtr'
 
 interface BindTypes {
   string: string
@@ -25,6 +25,7 @@ interface BindTypes {
   stringPtr: string | null
   floatPtr: number | null
   intPtr: number | null
+  boolPtr: boolean | null
 }
 
 /** The TS type of each bound field. */
@@ -40,6 +41,7 @@ const ZERO: { [K in BindKind]: BindTypes[K] } = {
   stringPtr: null,
   floatPtr: null,
   intPtr: null,
+  boolPtr: null,
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -47,7 +49,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isPointer(kind: BindKind): boolean {
-  return kind === 'stringPtr' || kind === 'floatPtr' || kind === 'intPtr'
+  return kind === 'stringPtr' || kind === 'floatPtr' || kind === 'intPtr' || kind === 'boolPtr'
 }
 
 /** True when a non-null JSON value has the JSON type the Go field needs. */
@@ -63,6 +65,7 @@ function fits(kind: BindKind, value: unknown): boolean {
     case 'intPtr':
       return typeof value === 'number' && Number.isInteger(value)
     case 'bool':
+    case 'boolPtr':
       return typeof value === 'boolean'
   }
 }

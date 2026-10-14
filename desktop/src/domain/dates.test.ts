@@ -8,6 +8,7 @@ import {
   formatDbTime,
   formatYmd,
   parseDbTime,
+  parseRfc3339,
   parseYmd,
   sameDay,
   startOfDay,
@@ -76,6 +77,26 @@ describe('weekday, sameDay, startOfDay, formatYmd', () => {
 })
 
 // Sample values below are copied from the real database (ledger.posted_at, both shapes).
+describe('parseRfc3339 (Go time.Parse(time.RFC3339))', () => {
+  it.each([
+    ['a Z instant', '2026-09-12T02:26:36Z', new Date('2026-09-12T02:26:36Z')],
+    ['a fraction is kept to the millisecond', '2026-09-12T02:26:36.5Z', new Date('2026-09-12T02:26:36.500Z')],
+    ['a +hh:mm offset is converted to UTC', '2026-09-12T02:26:36+02:00', new Date('2026-09-12T00:26:36Z')],
+  ])('reads %s', (_name, input, expected) => {
+    expect(parseRfc3339(input)).toEqual(expected)
+  })
+
+  it.each([
+    ['the space-separated form parseDbTime accepts', '2026-09-11 20:01:19'],
+    ['a calendar date', '2026-09-12'],
+    ['a missing zone', '2026-09-11T20:01:19'],
+    ['a zone offset hour over 23', '2026-09-11T20:01:19+24:00'],
+    ['an empty string', ''],
+  ])('rejects %s', (_name, input) => {
+    expect(() => parseRfc3339(input)).toThrow()
+  })
+})
+
 describe('parseDbTime (Go parseLedgerTime)', () => {
   it.each([
     ['the space-separated form the old rows use', '2026-09-11 20:01:19', new Date('2026-09-11T20:01:19Z')],
