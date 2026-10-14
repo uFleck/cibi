@@ -1,5 +1,5 @@
 import type { DebtListItemVM } from '@/components/debt/shared-debt-list.types'
-import type { ParticipantResponse, PeerDebtResponse, PublicFriendGroupResponse } from '@/lib/api'
+import type { PeerDebtResponse } from '@/lib/api'
 import { formatDate, formatMoney } from '@/lib/format'
 
 export function debtStatus(debt: PeerDebtResponse): DebtListItemVM['status'] {
@@ -80,44 +80,3 @@ export function mapFriendDebtsToVM(input: PeerDebtResponse[]): DebtListItemVM[] 
   })
 }
 
-export function mapPublicDebtsToVM(input: PeerDebtResponse[]): DebtListItemVM[] {
-  return input.map((debt) => ({
-    id: debt.id,
-    title: debt.description,
-    subtitle: calculateNextPayDate(debt) ?? '-',
-    amount: getDisplayAmount(debt),
-    currency: 'BRL',
-    status: debtStatus(debt),
-    canConfirm: false,
-    canDelete: false,
-    canCopy: false,
-  }))
-}
-
-export function mapPublicGroupParticipantsToVM(input: Array<ParticipantResponse & { is_host?: boolean }>): DebtListItemVM[] {
-  return input.map((p, index) => ({
-    id: `${p.friend_id ?? 'host'}-${index}`,
-    title: p.name && p.name.trim().length > 0 ? p.name : (p.friend_id === null ? 'Host' : `Participant ${index + 1}`),
-    subtitle: p.is_host ? 'Host' : 'Participant',
-    amount: p.share_amount,
-    currency: 'BRL',
-    status: { label: p.is_confirmed ? 'Confirmed' : 'Pending', tone: p.is_confirmed ? 'default' : 'outline' },
-    canConfirm: false,
-    canDelete: false,
-    canCopy: false,
-  }))
-}
-
-export function mapHostedGroupParticipantsToVM(group: PublicFriendGroupResponse & { participants: Array<{ friend_id: string; friend_name: string; share_amount: number; is_confirmed: boolean }> }): DebtListItemVM[] {
-  return group.participants.map((p) => ({
-    id: `${group.event_id}-${p.friend_id}`,
-    title: p.friend_name,
-    subtitle: group.title,
-    amount: p.share_amount,
-    currency: 'BRL',
-    status: { label: p.is_confirmed ? 'Confirmed' : 'Pending', tone: p.is_confirmed ? 'default' : 'outline' },
-    canConfirm: true,
-    canDelete: false,
-    canCopy: false,
-  }))
-}

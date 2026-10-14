@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createRootRoute, createRoute, createRouter, Link, Outlet } from '@tanstack/react-router'
+import { createRootRoute, createRoute, createRouter, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useEffect, useContext } from 'react'
@@ -19,20 +19,10 @@ import { TransactionsPage } from '@/pages/transactions'
 import { FriendsPage } from '@/pages/friends'
 import { SettingsPage } from '@/pages/settings'
 import { GoalsPage } from '@/pages/goals'
-import { FriendPublicPage } from '@/pages/friend-public'
-import { GroupPublicPage } from '@/pages/group-public'
 import { fetchDefaultAccount, fetchAccounts, fetchTransactions, listPaySchedules, fetchFriendBreakdown } from '@/lib/api'
 import { AccountContext, RootLayout } from '@/App'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-
-function PublicLayout() {
-  return (
-    <div className="min-h-screen bg-background">
-      <Outlet />
-    </div>
-  )
-}
 
 function Dashboard() {
   const { selectedAccountId } = useContext(AccountContext)
@@ -224,25 +214,6 @@ const goalsRoute = createRoute({
   component: GoalsPage,
 })
 
-const publicRootRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  id: 'public',
-  staticData: { layout: 'public' },
-  component: PublicLayout,
-})
-
-const publicFriendRoute = createRoute({
-  getParentRoute: () => publicRootRoute,
-  path: '/public/friend/$token',
-  component: FriendPublicPage,
-})
-
-const publicGroupRoute = createRoute({
-  getParentRoute: () => publicRootRoute,
-  path: '/public/group/$token',
-  component: GroupPublicPage,
-})
-
 const routeTree = rootRoute.addChildren([
   indexRoute,
   accountsRoute,
@@ -250,11 +221,9 @@ const routeTree = rootRoute.addChildren([
   friendsRoute,
   settingsRoute,
   goalsRoute,
-  publicRootRoute.addChildren([publicFriendRoute, publicGroupRoute]),
 ])
 
 export const router = createRouter({ routeTree })
-export { publicFriendRoute, publicGroupRoute }
 
 declare module '@tanstack/react-router' {
   interface Register {

@@ -39,33 +39,6 @@ interface CreateFriendFormState {
 const EMPTY_FRIEND_FORM: CreateFriendFormState = { name: '', notes: '', pix_key: '' }
 const EMPTY_EVENT_FORM: GroupEventFormState = { title: '', date: '', total_amount: '', notes: '' }
 
-async function copyToClipboard(text: string): Promise<boolean> {
-  if (navigator.clipboard && window.isSecureContext) {
-    try {
-      await navigator.clipboard.writeText(text)
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  const textarea = document.createElement('textarea')
-  textarea.value = text
-  textarea.style.position = 'fixed'
-  textarea.style.opacity = '0'
-  document.body.appendChild(textarea)
-  textarea.select()
-
-  try {
-    document.execCommand('copy')
-    return true
-  } catch {
-    return false
-  } finally {
-    document.body.removeChild(textarea)
-  }
-}
-
 function FriendDetailsModal({
   friend,
   open,
@@ -602,13 +575,7 @@ export function FriendsPage() {
                 id: friend.id,
                 primary: friend.name,
                 secondary: friend.pix_key ? `PIX: ${friend.pix_key}` : undefined,
-                onCopy: async () => {
-                  const ok = await copyToClipboard(`${window.location.origin}/public/friend/${friend.public_token}`)
-                  if (ok) toast.success('Link copied')
-                  else toast.error('Failed to copy link')
-                },
                 onOpen: () => setActiveFriendId(friend.id),
-                copyAriaLabel: 'Copy public link',
                 openAriaLabel: 'Access friend details',
               }))}
 
@@ -647,13 +614,8 @@ export function FriendsPage() {
                 <>
                   {formatDate(event.date)} · <MoneyValue amount={event.total_amount} currency="BRL" showSign="auto" tone="auto" />
                 </>
-              ),              onCopy: async () => {
-                const ok = await copyToClipboard(`${window.location.origin}/public/group/${event.public_token}`)
-                if (ok) toast.success('Link copied')
-                else toast.error('Failed to copy link')
-              },
+              ),
               onOpen: () => setActiveEventId(event.id),
-              copyAriaLabel: 'Copy public link',
               openAriaLabel: 'Access group event details',
             }))}
           />

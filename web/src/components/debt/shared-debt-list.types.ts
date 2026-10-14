@@ -1,5 +1,5 @@
 export type DebtListMode = 'auto' | 'mobile' | 'desktop'
-export type DebtListView = 'owner' | 'public-friend' | 'public-group'
+export type DebtListView = 'owner'
 export type DebtStatusTone = 'default' | 'secondary' | 'outline'
 
 export interface DebtListStatusVM {

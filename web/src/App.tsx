@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components, react-hooks/set-state-in-effect */
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
-import { RouterProvider, Outlet, useLocation } from '@tanstack/react-router'
+import { RouterProvider, Outlet } from '@tanstack/react-router'
 import { Toaster } from '@/components/ui/sonner'
 import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import { router } from './router'
@@ -49,17 +49,6 @@ function RootLayoutWithNav() {
 }
 
 export function RootLayout() {
-  const location = useLocation()
-  const pathname = location.pathname || '/'
-
-  if (pathname.startsWith('/public/friend') || pathname.startsWith('/public/group')) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Outlet />
-      </div>
-    )
-  }
-
   return <RootLayoutWithNav />
 }
 
@@ -81,8 +70,6 @@ function getInitialTheme(): ThemeMode {
 }
 
 function AppShell() {
-  const isPublicView = typeof window !== 'undefined' && window.location.pathname.startsWith('/public/')
-
   const [selectedAccountId, setSelectedAccountIdState] = useState<string | null>(getInitialSelectedAccountId)
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme)
 
@@ -103,13 +90,12 @@ function AppShell() {
   } = useQuery({
     queryKey: ['accounts'],
     queryFn: fetchAccounts,
-    enabled: !isPublicView,
   })
 
   const { data: profile } = useQuery({
     queryKey: ['profile', selectedAccountId],
     queryFn: () => fetchProfile(selectedAccountId as string),
-    enabled: !isPublicView && !!selectedAccountId,
+    enabled: !!selectedAccountId,
   })
 
   useEffect(() => {
@@ -131,7 +117,6 @@ function AppShell() {
   }, [])
 
   useEffect(() => {
-    if (isPublicView) return
     if (accountsLoading) return
 
     if (accounts.length === 0) {
@@ -148,14 +133,13 @@ function AppShell() {
     if (fallbackAccountId && fallbackAccountId !== selectedAccountId) {
       setSelectedAccountId(fallbackAccountId)
     }
-  }, [accounts, accountsLoading, selectedAccountId, setSelectedAccountId, isPublicView])
+  }, [accounts, accountsLoading, selectedAccountId, setSelectedAccountId])
 
   const accountReady = useMemo(() => {
-    if (isPublicView) return true
     if (accountsLoading) return false
     if (accounts.length === 0) return true
     return !!selectedAccountId
-  }, [isPublicView, accounts.length, accountsLoading, selectedAccountId])
+  }, [accounts.length, accountsLoading, selectedAccountId])
 
   if (!accountReady) {
     return <div className="min-h-dvh bg-background" />

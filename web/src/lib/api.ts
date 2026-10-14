@@ -445,42 +445,6 @@ export interface GroupEventResponse {
   participants?: ParticipantResponse[]
 }
 
-export interface PublicFriendGroupResponse {
-  event_id: string
-  title: string
-  date: string
-  share_amount: number
-  is_confirmed: boolean
-  host_name: string
-  host_pix_key?: string | null
-  viewer_is_host?: boolean
-}
-
-export interface PublicFriendResponse {
-  name: string
-  friend_pix_key?: string | null
-  owner_pix_key?: string | null
-  balance: { friend_owes_user: number; user_owes_friend: number; net: number }
-  debts: PeerDebtResponse[]
-  groups: PublicFriendGroupResponse[]
-  hosted_groups?: Array<{
-    event_id: string
-    title: string
-    date: string
-    participants: Array<{ friend_id: string; friend_name: string; share_amount: number; is_confirmed: boolean }>
-  }>
-}
-
-export interface PublicGroupResponse {
-  title: string
-  date: string
-  total_amount: number
-  notes: string | null
-  host_name: string
-  host_pix_key?: string | null
-  participants: Array<ParticipantResponse & { is_host?: boolean }>
-}
-
 export interface CreateFriendRequest {
   name: string
   notes?: string
@@ -686,14 +650,6 @@ export function listGroupEventTransactions(eventId: string): Promise<GroupEventT
   return apiFetch<GroupEventTransactionResponse[]>(`/api/group-events/${eventId}/transactions`)
 }
 
-export interface PublicConfigResponse {
-  public_base_url: string
-}
-
-export function fetchPublicConfig(): Promise<PublicConfigResponse> {
-  return apiFetch<PublicConfigResponse>('/api/config')
-}
-
 export interface ProfileResponse {
   display_name: string
   pix_key?: string | null
@@ -715,43 +671,6 @@ export function updateProfile(accountId: string, data: UpdateProfileRequest): Pr
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
-  })
-}
-
-// Public (no auth required)
-export function fetchPublicFriend(token: string): Promise<PublicFriendResponse> {
-  return apiFetch<PublicFriendResponse>(`/public/friend/${token}`, {
-    headers: {
-      'Accept': 'application/json'
-    }
-  })
-}
-
-export function confirmPublicFriendGroupPayment(token: string, eventId: string, friendId: string): Promise<void> {
-  return apiFetch<void>(`/public/friend/${token}/groups/${eventId}/participants/${friendId}/confirm`, {
-    method: 'POST',
-  })
-}
-
-export function togglePublicFriendGroupPayment(token: string, eventId: string, friendId: string): Promise<void> {
-  return apiFetch<void>(`/public/friend/${token}/groups/${eventId}/participants/${friendId}/confirm-toggle`, {
-    method: 'POST',
-  })
-}
-
-export function fetchPublicGroup(token: string): Promise<PublicGroupResponse> {
-  return apiFetch<PublicGroupResponse>(`/public/group/${token}`, {
-    headers: {
-      'Accept': 'application/json'
-    }
-  })
-}
-
-export function updatePublicFriendPixKey(token: string, pixKey: string): Promise<void> {
-  return apiFetch<void>(`/public/friend/${token}/pix-key`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pix_key: pixKey }),
   })
 }
 
