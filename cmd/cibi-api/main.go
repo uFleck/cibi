@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -11,10 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/labstack/echo/v4/middleware"
 	"github.com/ufleck/cibi/internal/app"
 	"github.com/ufleck/cibi/internal/config"
-	"github.com/ufleck/cibi/internal/handler"
 )
 
 func main() {
@@ -27,32 +24,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize app: %v", err)
 	}
-
-	// Serve the built React SPA from the embedded web/dist directory.
-	// HTML5: true forwards unknown paths to index.html for client-side routing.
-	// MUST be registered after SetupRoutes (already called inside app.New).
-	distFS, err := WebDistFS()
-	if err != nil {
-		log.Fatalf("Failed to sub web/dist: %v", err)
-	}
-
-	// Read index.html and pass to handler for public routes
-	indexFile, err := distFS.Open("index.html")
-	if err != nil {
-		log.Fatalf("Failed to open index.html: %v", err)
-	}
-	indexContent, err := io.ReadAll(indexFile)
-	indexFile.Close()
-	if err != nil {
-		log.Fatalf("Failed to read index.html: %v", err)
-	}
-	handler.SetIndexHTML(indexContent)
-
-	application.Echo.Use(middleware.StaticWithConfig(middleware.StaticConfig{
-		HTML5:      true,
-		Root:       ".",
-		Filesystem: http.FS(distFS),
-	}))
 
 	// Start server in background goroutine.
 	go func() {

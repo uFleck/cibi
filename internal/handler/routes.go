@@ -25,7 +25,6 @@ func SetupRoutes(
 	groupEventSvc *service.GroupEventService,
 	profileSvc *service.ProfileService,
 	ledgerSvc *service.LedgerService,
-	publicBaseURL string,
 ) {
 	ah := NewAccountsHandler(accSvc)
 	th := NewTransactionsHandler(txnsSvc)
@@ -80,7 +79,6 @@ func SetupRoutes(
 	fh := NewFriendsHandler(friendSvc, peerDebtSvc, groupEventSvc)
 	pdh := NewPeerDebtHandler(peerDebtSvc)
 	geh := NewGroupEventHandler(groupEventSvc)
-	ph := NewPublicHandler(friendSvc, peerDebtSvc, groupEventSvc, profileSvc)
 	prh := NewProfileHandler(profileSvc)
 
 	// Authenticated friend ledger routes under /api.
@@ -121,19 +119,4 @@ func SetupRoutes(
 	profile := api.Group("/profile")
 	profile.GET("", prh.Get)
 	profile.PATCH("", prh.Patch)
-
-	// Config endpoint — exposes non-sensitive public config to frontend.
-	api.GET("/config", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, echo.Map{
-			"public_base_url": publicBaseURL,
-		})
-	})
-
-	// Public unauthenticated endpoints — no middleware.
-	pub := e.Group("/public")
-	pub.GET("/friend/:token", ph.GetFriendByToken)
-	pub.PATCH("/friend/:token/pix-key", ph.UpdatePixKey)
-	pub.POST("/friend/:token/groups/:eventID/participants/:friendID/confirm", ph.ConfirmHostedGroupPayment)
-	pub.POST("/friend/:token/groups/:eventID/participants/:friendID/confirm-toggle", ph.ToggleHostedGroupPayment)
-	pub.GET("/group/:token", ph.GetGroupByToken)
 }

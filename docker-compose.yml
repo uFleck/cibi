@@ -21,21 +21,12 @@ services:
           path: ./cmd
         - action: rebuild
           path: ./internal
-        - action: sync
-          path: ./web/src
-          target: /build/web/src
-          ignore:
-            - node_modules/
         - action: rebuild
           path: ./go.mod
         - action: rebuild
           path: ./go.sum
-        - action: rebuild
-          path: ./web/package.json
-        - action: rebuild
-          path: ./web/package-lock.json
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:42069/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:42069/api/docs"]
       interval: 30s
       timeout: 3s
       retries: 3

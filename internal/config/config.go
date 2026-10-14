@@ -16,9 +16,8 @@ const (
 
 // Config contains runtime settings needed to wire the application.
 type Config struct {
-	DatabasePath  string `yaml:"database_path"`
-	ServerPort    string `yaml:"server_port"`
-	PublicBaseURL string `yaml:"public_base_url"`
+	DatabasePath string `yaml:"database_path"`
+	ServerPort   string `yaml:"server_port"`
 }
 
 type loadOptions struct {
@@ -131,9 +130,6 @@ func applyEnv(cfg *Config) error {
 	}
 	if value, ok := os.LookupEnv("CIBI_SERVER_PORT"); ok {
 		cfg.ServerPort = value
-	}
-	if value, ok := os.LookupEnv("CIBI_PUBLIC_BASE_URL"); ok {
-		cfg.PublicBaseURL = value
 	}
 	return nil
 }

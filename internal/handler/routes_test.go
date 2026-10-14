@@ -23,7 +23,6 @@ func TestRoutesRegistersAPIEndpointsWithInjectedServices(t *testing.T) {
 		service.NewGroupEventService(nil, nil),
 		service.NewProfileService(nil),
 		nil,
-		"",
 	)
 
 	routes := map[string]bool{}
@@ -37,10 +36,19 @@ func TestRoutesRegistersAPIEndpointsWithInjectedServices(t *testing.T) {
 		"GET /api/accounts/:id",
 		"POST /api/check",
 		"GET /api/docs",
-		"GET /public/friend/:token",
 	} {
 		if !routes[route] {
 			t.Fatalf("expected route %q to be registered", route)
+		}
+	}
+
+	for _, route := range []string{
+		"GET /api/config",
+		"GET /public/friend/:token",
+		"GET /public/group/:token",
+	} {
+		if routes[route] {
+			t.Fatalf("expected route %q to be removed", route)
 		}
 	}
 

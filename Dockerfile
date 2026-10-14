@@ -1,4 +1,4 @@
-# Build stage: compile Go + build React
+# Build stage: compile Go
 FROM golang:1.25-alpine AS builder
 
 WORKDIR /build
@@ -7,19 +7,8 @@ WORKDIR /build
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
-# React dependencies - cached unless package.json/package-lock changes
-COPY web/package.json web/package-lock.json* ./web/
-RUN --mount=type=cache,target=/root/.npm \
-    apk add --no-cache nodejs npm && \
-    cd web && npm ci --prefer-offline
-
 # Copy source code
 COPY . .
-
-# Build React SPA
-RUN --mount=type=cache,target=/root/.npm \
-    cd web && npm run build && cd .. && \
-    rm -rf cmd/cibi-api/web/dist && cp -r web/dist cmd/cibi-api/web/dist
 
 # Build Go binaries
 RUN --mount=type=cache,target=/root/.cache/go-build \
@@ -43,9 +32,6 @@ EXPOSE 42069
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:42069/ || exit 1
-
-# Default env: db lives in mounted /data volume
-ENV CIBI_DATABASEPATH=/data/cibi.db
+    CMD wget --no-verbose --tries=1 --spider http://localhost:42069/api/docs || exit 1
 
 ENTRYPOINT ["/app/cibi-api"]
