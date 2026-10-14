@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, addMonths, daysInMonth, date, formatYmd, sameDay, startOfDay, weekday } from './dates'
+import {
+  addDays,
+  addMonths,
+  daysInMonth,
+  date,
+  formatApiTime,
+  formatDbTime,
+  formatYmd,
+  parseDbTime,
+  sameDay,
+  startOfDay,
+  weekday,
+} from './dates'
 
 describe('addMonths (Go AddDate(0, n, 0) normalization)', () => {
   it.each([
@@ -59,5 +71,62 @@ describe('weekday, sameDay, startOfDay, formatYmd', () => {
   it('formats YYYY-MM-DD with zero padding', () => {
     expect(formatYmd(date(2025, 2, 5))).toBe('2025-02-05')
     expect(formatYmd(date(999, 12, 1))).toBe('0999-12-01')
+  })
+})
+
+// Sample values below are copied from the real database (ledger.posted_at, both shapes).
+describe('parseDbTime (Go parseLedgerTime)', () => {
+  it.each([
+    ['the space-separated form the old rows use', '2026-09-11 20:01:19', new Date('2026-09-11T20:01:19Z')],
+    ['the RFC3339 form written by the Go server', '2026-09-12T02:26:36Z', new Date('2026-09-12T02:26:36Z')],
+    ['a fraction is kept to the millisecond', '2026-09-12T02:26:36.123Z', new Date('2026-09-12T02:26:36.123Z')],
+    ['a fraction past the millisecond is cut', '2026-09-12T02:26:36.1239Z', new Date('2026-09-12T02:26:36.123Z')],
+    ['a +hh:mm offset is converted to UTC', '2026-09-12T02:26:36+02:00', new Date('2026-09-12T00:26:36Z')],
+    ['a -hh:mm offset is converted to UTC', '2026-09-12T02:26:36-03:30', new Date('2026-09-12T05:56:36Z')],
+    ['a calendar date is midnight UTC', '2026-09-12', new Date('2026-09-12T00:00:00Z')],
+    ['leap day is valid in a leap year', '2024-02-29 00:00:00', new Date('2024-02-29T00:00:00Z')],
+  ])('reads %s', (_name, input, expected) => {
+    expect(parseDbTime(input)).toEqual(expected)
+  })
+
+  it.each([
+    ['a missing zone (not RFC3339, not the space form)', '2026-09-11T20:01:19'],
+    ['a February 30', '2026-02-30 10:00:00'],
+    ['a February 29 in a non-leap year', '2025-02-29'],
+    ['month 13', '2026-13-01'],
+    ['hour 24', '2026-09-11 24:00:00'],
+    ['second 60', '2026-09-11T20:01:60Z'],
+    ['a zone offset hour over 23', '2026-09-11T20:01:19+24:00'],
+    ['text', 'yesterday'],
+    ['an empty string', ''],
+  ])('rejects %s', (_name, input) => {
+    expect(() => parseDbTime(input)).toThrow()
+  })
+})
+
+describe('formatDbTime (Go t.UTC().Format(time.RFC3339))', () => {
+  it('writes whole seconds with a Z suffix', () => {
+    expect(formatDbTime(new Date('2026-09-12T02:26:36Z'))).toBe('2026-09-12T02:26:36Z')
+  })
+
+  it('drops the milliseconds (Go truncates the fraction in RFC3339)', () => {
+    expect(formatDbTime(new Date('2026-09-12T02:26:36.999Z'))).toBe('2026-09-12T02:26:36Z')
+  })
+
+  it('round-trips through parseDbTime', () => {
+    const text = formatDbTime(new Date('2026-01-02T03:04:05Z'))
+    expect(text).toBe('2026-01-02T03:04:05Z')
+    expect(parseDbTime(text)).toEqual(new Date('2026-01-02T03:04:05Z'))
+  })
+})
+
+describe('formatApiTime (Go time.Time JSON: RFC3339Nano, trailing zeros trimmed)', () => {
+  it.each([
+    ['whole seconds have no fraction', '2026-01-02T03:04:05.000Z', '2026-01-02T03:04:05Z'],
+    ['trailing zeros are trimmed', '2026-01-02T03:04:05.500Z', '2026-01-02T03:04:05.5Z'],
+    ['two digits keep both', '2026-01-02T03:04:05.120Z', '2026-01-02T03:04:05.12Z'],
+    ['three digits are kept', '2026-01-02T03:04:05.123Z', '2026-01-02T03:04:05.123Z'],
+  ])('%s', (_name, iso, expected) => {
+    expect(formatApiTime(new Date(iso))).toBe(expected)
   })
 })

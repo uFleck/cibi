@@ -65,3 +65,85 @@ export function formatYmd(t: Date): string {
   const d = String(t.getUTCDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
 }
+
+// Time columns. Go writes a time with t.UTC().Format(time.RFC3339) (whole seconds, "Z" suffix)
+// and reads it back by trying, in order: RFC3339 (any fraction, any ±hh:mm offset), then
+// "2006-01-02 15:04:05" (UTC), then "2006-01-02" (UTC midnight). The real database holds the
+// first two forms (ledger.posted_at), e.g. "2026-09-12T02:26:36Z" and "2026-09-11 20:01:19".
+
+const RFC3339_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d+)?(Z|[+-]\d{2}:\d{2})$/
+const SPACE_RE = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/
+const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
+
+/** Go t.UTC().Format(time.RFC3339): whole seconds, always "Z". Fractions are truncated, as Go does. */
+export function formatDbTime(t: Date): string {
+  return `${t.toISOString().slice(0, 19)}Z`
+}
+
+/**
+ * Go's parseLedgerTime: RFC3339, then "2006-01-02 15:04:05", then "2006-01-02".
+ * Throws for anything else, and for out-of-range fields (Go rejects Feb 30, hour 24, etc.).
+ */
+export function parseDbTime(s: string): Date {
+  const rfc = RFC3339_RE.exec(s)
+  if (rfc) {
+    const [, y, mo, d, h, mi, sec, frac, zone] = rfc
+    const instant = build(y, mo, d, h, mi, sec, frac)
+    if (zone === 'Z') return instant
+    const sign = zone.startsWith('-') ? -1 : 1
+    const offHours = Number(zone.slice(1, 3))
+    const offMinutes = Number(zone.slice(4, 6))
+    if (offHours > 23 || offMinutes > 59) throw new Error(`parsing time "${s}": invalid time zone offset`)
+    return new Date(instant.getTime() - sign * (offHours * 60 + offMinutes) * 60_000)
+  }
+  const space = SPACE_RE.exec(s)
+  if (space) {
+    const [, y, mo, d, h, mi, sec] = space
+    return build(y, mo, d, h, mi, sec)
+  }
+  const day = DATE_RE.exec(s)
+  if (day) {
+    const [, y, mo, d] = day
+    return build(y, mo, d, '0', '0', '0')
+  }
+  throw new Error(`parsing time "${s}" as "2006-01-02T15:04:05Z07:00": cannot parse`)
+}
+
+function build(
+  y: string,
+  mo: string,
+  d: string,
+  h: string,
+  mi: string,
+  sec: string,
+  frac?: string,
+): Date {
+  const year = Number(y)
+  const month = Number(mo)
+  const day = Number(d)
+  const hour = Number(h)
+  const minute = Number(mi)
+  const second = Number(sec)
+  if (month < 1 || month > 12) throw new Error('month out of range')
+  if (day < 1 || day > daysInMonth(year, month)) throw new Error('day out of range')
+  if (hour > 23) throw new Error('hour out of range')
+  if (minute > 59) throw new Error('minute out of range')
+  if (second > 59) throw new Error('second out of range')
+  const t = date(year, month, day)
+  // The first three fraction digits are the milliseconds; the rest are below what a Date holds.
+  const millis = frac === undefined ? 0 : Number(`${frac.slice(1)}000`.slice(0, 3))
+  t.setUTCHours(hour, minute, second, millis)
+  return t
+}
+
+/**
+ * Go's time.Time JSON form: RFC3339Nano with trailing zeros trimmed, e.g.
+ * 2026-01-02T03:04:05.5Z (no fraction at all when the milliseconds are 0).
+ * JS Dates carry milliseconds only, so the fraction has at most three digits.
+ */
+export function formatApiTime(t: Date): string {
+  const iso = t.toISOString() // YYYY-MM-DDTHH:MM:SS.mmmZ
+  const base = iso.slice(0, 19)
+  const fraction = iso.slice(20, 23).replace(/0+$/, '')
+  return fraction === '' ? `${base}Z` : `${base}.${fraction}Z`
+}
