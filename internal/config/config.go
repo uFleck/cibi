@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	DefaultDatabasePath = "db/cibi.db"
+	DefaultDatabasePath = "data/cibi.db"
 	DefaultServerPort   = ":42069"
 )
 

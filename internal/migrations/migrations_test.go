@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	cibidb "github.com/ufleck/cibi/db"
+	cibidb "github.com/ufleck/cibi/internal/db"
 )
 
 func openTempDB(t *testing.T) *sql.DB {

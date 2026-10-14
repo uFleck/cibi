@@ -1,8 +1,7 @@
-SHELL := /bin/sh
-
 DOCKER_BUILDKIT ?= 1
 COMPOSE_DOCKER_CLI_BUILD ?= 1
-DC := DOCKER_BUILDKIT=$(DOCKER_BUILDKIT) COMPOSE_DOCKER_CLI_BUILD=$(COMPOSE_DOCKER_CLI_BUILD) docker compose
+export DOCKER_BUILDKIT COMPOSE_DOCKER_CLI_BUILD
+DC := docker compose
 
 .PHONY: help up upd build rebuild down restart ps logs config pull prune
 

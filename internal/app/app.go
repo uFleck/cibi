@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/labstack/echo/v4"
-	"github.com/ufleck/cibi/db"
 	"github.com/ufleck/cibi/internal/config"
+	"github.com/ufleck/cibi/internal/db"
 	"github.com/ufleck/cibi/internal/handler"
 	"github.com/ufleck/cibi/internal/migrations"
 	reposqlite "github.com/ufleck/cibi/internal/repo/sqlite"
