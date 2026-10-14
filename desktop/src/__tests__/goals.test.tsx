@@ -1,13 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createGoal, addGoalLedgerEntry, reverseGoalLedgerEntry } from '@/lib/api'
+import { localFetch } from '@/domain/http'
+
+vi.mock('@/domain/http', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/domain/http')>()),
+  localFetch: vi.fn(),
+}))
 
 describe('goals api client', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.mocked(localFetch).mockClear()
   })
 
   it('createGoal posts decimal target', async () => {
-    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+    const mockFetch = vi.mocked(localFetch).mockResolvedValue(
       new Response(JSON.stringify({ id: '1' }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -20,7 +27,7 @@ describe('goals api client', () => {
   })
 
   it('add ledger contribution request shape', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+    vi.mocked(localFetch).mockResolvedValue(
       new Response(JSON.stringify({ id: '1' }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -31,7 +38,7 @@ describe('goals api client', () => {
   })
 
   it('reverse uses dedicated endpoint (no delete)', async () => {
-    const mockFetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+    const mockFetch = vi.mocked(localFetch).mockResolvedValue(
       new Response(JSON.stringify({ id: '1' }), {
         status: 200,
         headers: { 'content-type': 'application/json' },

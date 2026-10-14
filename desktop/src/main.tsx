@@ -4,6 +4,7 @@ import { configureBoneyard } from 'boneyard-js/react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import './index.css'
 import App from './App.tsx'
+import { startDomain } from './domain'
 
 const savedTheme = typeof window !== 'undefined' ? window.localStorage.getItem('cibi.theme') : null
 const initialTheme = savedTheme === 'light' || savedTheme === 'dark'
@@ -19,10 +20,26 @@ configureBoneyard({
   darkShimmerColor: '#232840',
 })
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <TooltipProvider>
-      <App />
-    </TooltipProvider>
-  </StrictMode>,
-)
+async function bootstrap(): Promise<void> {
+  const root = createRoot(document.getElementById('root')!)
+  try {
+    await startDomain()
+  } catch (err) {
+    root.render(
+      <div className="p-6 text-sm">
+        Could not open the database
+        <pre className="mt-2 whitespace-pre-wrap">{err instanceof Error ? err.message : String(err)}</pre>
+      </div>,
+    )
+    return
+  }
+  root.render(
+    <StrictMode>
+      <TooltipProvider>
+        <App />
+      </TooltipProvider>
+    </StrictMode>,
+  )
+}
+
+void bootstrap()
