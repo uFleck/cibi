@@ -38,7 +38,7 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(shell::on_window_event)
-        .invoke_handler(tauri::generate_handler![db::db_query, db::db_tx])
+        .invoke_handler(tauri::generate_handler![db::db_query])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
 }

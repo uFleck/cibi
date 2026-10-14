@@ -3,19 +3,11 @@ use rusqlite::{
     types::{Value as SqlValue, ValueRef},
     Connection,
 };
-use serde::Deserialize;
 use serde_json::{Map, Number, Value};
 use std::{path::Path, sync::Mutex};
 use tauri::State;
 
 pub struct Db(pub Mutex<Connection>);
-
-#[derive(Deserialize)]
-pub struct Stmt {
-    pub sql: String,
-    #[serde(default)]
-    pub params: Vec<Value>,
-}
 
 /// Opens the database with the same pragmas the Go server applies in internal/db/sqlite.go.
 pub fn open(path: &Path) -> Result<Connection, String> {
@@ -99,14 +91,6 @@ pub fn query(
     Ok(out)
 }
 
-pub fn tx(conn: &mut Connection, stmts: &[Stmt]) -> Result<(), String> {
-    let t = conn.transaction().map_err(|e| e.to_string())?;
-    for s in stmts {
-        query(&t, &s.sql, &s.params)?;
-    }
-    t.commit().map_err(|e| e.to_string())
-}
-
 #[tauri::command]
 pub async fn db_query(
     state: State<'_, Db>,
@@ -118,15 +102,6 @@ pub async fn db_query(
         .lock()
         .map_err(|_| "database lock poisoned".to_string())?;
     query(&conn, &sql, &params)
-}
-
-#[tauri::command]
-pub async fn db_tx(state: State<'_, Db>, statements: Vec<Stmt>) -> Result<(), String> {
-    let mut conn = state
-        .0
-        .lock()
-        .map_err(|_| "database lock poisoned".to_string())?;
-    tx(&mut conn, &statements)
 }
 
 #[cfg(test)]
@@ -225,37 +200,45 @@ mod tests {
     }
 
     #[test]
-    fn tx_commits_all() {
-        let mut c = mem();
-        let stmts = vec![
-            Stmt {
-                sql: "INSERT INTO t (name) VALUES (?1)".to_string(),
-                params: vec![json!("a")],
-            },
-            Stmt {
-                sql: "INSERT INTO t (name) VALUES (?1)".to_string(),
-                params: vec![json!("b")],
-            },
-        ];
-        tx(&mut c, &stmts).unwrap();
-        assert_eq!(count(&c, "SELECT COUNT(*) AS n FROM t"), 2);
+    fn begin_commit_persists() {
+        let c = mem();
+        query(&c, "BEGIN IMMEDIATE", &[]).unwrap();
+        query(
+            &c,
+            "INSERT INTO t (name, amount) VALUES (?1, ?2)",
+            &[json!("a"), json!(100)],
+        )
+        .unwrap();
+        query(&c, "COMMIT", &[]).unwrap();
+        assert_eq!(count(&c, "SELECT COUNT(*) AS n FROM t"), 1);
     }
 
     #[test]
-    fn tx_rolls_back_on_failure() {
-        let mut c = mem();
-        let stmts = vec![
-            Stmt {
-                sql: "INSERT INTO t (id, name) VALUES (?1, ?2)".to_string(),
-                params: vec![json!(1), json!("first")],
-            },
-            Stmt {
-                sql: "INSERT INTO t (id, name) VALUES (?1, ?2)".to_string(),
-                params: vec![json!(1), json!("duplicate")],
-            },
-        ];
-        assert!(tx(&mut c, &stmts).is_err());
+    fn begin_rollback_discards() {
+        let c = mem();
+        query(&c, "BEGIN IMMEDIATE", &[]).unwrap();
+        query(
+            &c,
+            "INSERT INTO t (name, amount) VALUES (?1, ?2)",
+            &[json!("a"), json!(100)],
+        )
+        .unwrap();
+        query(&c, "ROLLBACK", &[]).unwrap();
         assert_eq!(count(&c, "SELECT COUNT(*) AS n FROM t"), 0);
+    }
+
+    #[test]
+    fn write_then_read_inside_transaction() {
+        let c = mem();
+        query(&c, "BEGIN IMMEDIATE", &[]).unwrap();
+        query(
+            &c,
+            "INSERT INTO t (name, amount) VALUES (?1, ?2)",
+            &[json!("a"), json!(500)],
+        )
+        .unwrap();
+        assert_eq!(count(&c, "SELECT SUM(amount) AS n FROM t"), 500);
+        query(&c, "ROLLBACK", &[]).unwrap();
     }
 
     #[test]
