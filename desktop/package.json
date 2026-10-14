@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "tauri": "tauri"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",
@@ -16,6 +17,7 @@
     "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-query": "^5.99.0",
     "@tanstack/react-router": "^1.168.18",
+    "@tauri-apps/api": "^2.12.3",
     "@types/qrcode": "^1.5.6",
     "boneyard-js": "^1.7.6",
     "class-variance-authority": "^0.7.1",
@@ -36,6 +38,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@tauri-apps/cli": "^2.12.2",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/node": "^24.12.2",
