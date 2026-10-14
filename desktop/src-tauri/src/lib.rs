@@ -1,4 +1,5 @@
 mod db;
+mod shell;
 
 use std::path::PathBuf;
 use tauri::Manager;
@@ -6,6 +7,14 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            shell::show_main(app)
+        }))
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--hidden"]),
+        ))
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -24,8 +33,11 @@ pub fn run() {
             };
             let conn = db::open(&path)?;
             app.manage(db::Db(std::sync::Mutex::new(conn)));
+            shell::setup_tray(app)?;
+            shell::hide_if_requested(app);
             Ok(())
         })
+        .on_window_event(shell::on_window_event)
         .invoke_handler(tauri::generate_handler![db::db_query, db::db_tx])
         .run(tauri::generate_context!())
         .expect("error while building tauri application");
