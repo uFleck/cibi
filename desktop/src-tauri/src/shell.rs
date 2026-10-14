@@ -53,10 +53,13 @@ pub fn on_window_event(window: &Window, event: &WindowEvent) {
     }
 }
 
-pub fn hide_if_requested(app: &App) {
+/// The main window is created hidden (tauri.conf.json); show it at launch unless the process was
+/// started with --hidden (login autostart), so the window never appears on that path.
+pub fn show_on_launch(app: &App) {
     if std::env::args().any(|a| a == HIDDEN_ARG) {
-        if let Some(w) = app.get_webview_window(MAIN_WINDOW) {
-            let _ = w.hide();
-        }
+        return;
+    }
+    if let Some(w) = app.get_webview_window(MAIN_WINDOW) {
+        let _ = w.show();
     }
 }

@@ -34,7 +34,7 @@ pub fn run() {
             let conn = db::open(&path)?;
             app.manage(db::Db(std::sync::Mutex::new(conn)));
             shell::setup_tray(app)?;
-            shell::hide_if_requested(app);
+            shell::show_on_launch(app);
             Ok(())
         })
         .on_window_event(shell::on_window_event)
