@@ -1,11 +1,13 @@
 import { useContext, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Save, User, HandCoins, Palette } from 'lucide-react'
+import { Save, User, HandCoins, Palette, Power } from 'lucide-react'
+import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { fetchAccounts, fetchProfile, updateAccount, updateProfile } from '@/lib/api'
 import { AccountContext } from '@/App'
 
@@ -36,6 +38,45 @@ export function SettingsPage() {
   const [pixKeyDraft, setPixKeyDraft] = useState('')
   const [safetyBufferDraft, setSafetyBufferDraft] = useState('0')
   const [themeDraft, setThemeDraft] = useState('neutral-command')
+
+  // null = not read yet, false = the autostart plugin is unavailable (browser or tests).
+  const [autostartAvailable, setAutostartAvailable] = useState<boolean | null>(null)
+  const [autostartEnabled, setAutostartEnabled] = useState(false)
+  const [autostartPending, setAutostartPending] = useState(false)
+  const [autostartError, setAutostartError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    isEnabled()
+      .then((enabled) => {
+        if (!active) return
+        setAutostartEnabled(enabled)
+        setAutostartAvailable(true)
+      })
+      .catch(() => {
+        if (active) setAutostartAvailable(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  async function handleAutostartChange(next: boolean) {
+    setAutostartPending(true)
+    setAutostartError(null)
+    try {
+      if (next) await enable()
+      else await disable()
+      setAutostartEnabled(next)
+      toast.success(next ? 'Start at login enabled' : 'Start at login disabled')
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err)
+      setAutostartError(`Could not change start at login: ${detail}`)
+      toast.error('Could not change start at login')
+    } finally {
+      setAutostartPending(false)
+    }
+  }
 
   useEffect(() => {
     if (!profile) return
@@ -132,7 +173,7 @@ export function SettingsPage() {
             Profile preferences
           </CardTitle>
           <CardDescription>
-            This name is shown in public pages and shared views.
+            This name is shown in shared views.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -202,6 +243,35 @@ export function SettingsPage() {
               {updateSafetyBufferMutation.isPending ? 'Saving...' : 'Save safety buffer'}
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Power size={16} />
+            Startup
+          </CardTitle>
+          <CardDescription>
+            Open cibi when you sign in to Windows. It starts hidden in the tray.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-4">
+            <Label htmlFor="start-at-login">Start at login</Label>
+            <Switch
+              id="start-at-login"
+              checked={autostartEnabled}
+              disabled={autostartAvailable !== true || autostartPending}
+              onCheckedChange={(next) => void handleAutostartChange(next)}
+            />
+          </div>
+          {autostartAvailable === false && (
+            <p className="text-xs text-muted-foreground">Start at login is not available here.</p>
+          )}
+          {autostartError && (
+            <p role="alert" className="text-xs text-destructive">{autostartError}</p>
+          )}
         </CardContent>
       </Card>
     </div>

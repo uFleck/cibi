@@ -5,6 +5,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SettingsPage } from '@/pages/settings'
 import { AccountContext } from '@/App'
 import { fetchAccounts, fetchProfile, updateAccount, updateProfile } from '@/lib/api'
+import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
+
+vi.mock('@tauri-apps/plugin-autostart', () => ({
+  isEnabled: vi.fn(),
+  enable: vi.fn(),
+  disable: vi.fn(),
+}))
 
 vi.mock('@/lib/api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api')
@@ -31,6 +38,9 @@ const mockFetchProfile = vi.mocked(fetchProfile)
 const mockUpdateProfile = vi.mocked(updateProfile)
 const mockFetchAccounts = vi.mocked(fetchAccounts)
 const mockUpdateAccount = vi.mocked(updateAccount)
+const mockIsEnabled = vi.mocked(isEnabled)
+const mockEnable = vi.mocked(enable)
+const mockDisable = vi.mocked(disable)
 
 function renderPage() {
   const queryClient = new QueryClient({
@@ -53,6 +63,12 @@ describe('SettingsPage', () => {
     mockUpdateAccount.mockReset()
     toastSuccessMock.mockReset()
     toastErrorMock.mockReset()
+    mockIsEnabled.mockReset()
+    mockEnable.mockReset()
+    mockDisable.mockReset()
+    mockIsEnabled.mockResolvedValue(false)
+    mockEnable.mockResolvedValue()
+    mockDisable.mockResolvedValue()
 
     mockFetchProfile.mockResolvedValue({ display_name: 'Jane', pix_key: 'jane@pix.test', theme: 'neutral-command' })
     mockFetchAccounts.mockResolvedValue([
@@ -121,5 +137,80 @@ describe('SettingsPage', () => {
         theme: 'neutral-command',
       })
     })
+  })
+
+  it('shows Start at login off when autostart is disabled', async () => {
+    renderPage()
+
+    const toggle = await screen.findByRole('switch', { name: 'Start at login' })
+    await waitFor(() => expect(toggle).toHaveProperty('disabled', false))
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    expect(mockIsEnabled).toHaveBeenCalled()
+  })
+
+  it('reflects an enabled autostart on mount', async () => {
+    mockIsEnabled.mockResolvedValue(true)
+    renderPage()
+
+    const toggle = await screen.findByRole('switch', { name: 'Start at login' })
+    await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
+  })
+
+  it('enables and disables autostart when the switch is toggled', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const toggle = await screen.findByRole('switch', { name: 'Start at login' })
+    await waitFor(() => expect(toggle).toHaveProperty('disabled', false))
+
+    await user.click(toggle)
+    await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
+    expect(mockEnable).toHaveBeenCalledTimes(1)
+    expect(toastSuccessMock).toHaveBeenCalledWith('Start at login enabled')
+
+    await user.click(toggle)
+    await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'))
+    expect(mockDisable).toHaveBeenCalledTimes(1)
+    expect(toastSuccessMock).toHaveBeenCalledWith('Start at login disabled')
+  })
+
+  it('disables the switch while the change is pending', async () => {
+    const user = userEvent.setup()
+    let finish: () => void = () => undefined
+    mockEnable.mockReturnValue(new Promise<void>((resolve) => { finish = resolve }))
+    renderPage()
+
+    const toggle = await screen.findByRole('switch', { name: 'Start at login' })
+    await waitFor(() => expect(toggle).toHaveProperty('disabled', false))
+    await user.click(toggle)
+
+    await waitFor(() => expect(toggle).toHaveProperty('disabled', true))
+    finish()
+    await waitFor(() => expect(toggle).toHaveProperty('disabled', false))
+  })
+
+  it('shows an inline error and keeps the old state when enable fails', async () => {
+    const user = userEvent.setup()
+    mockEnable.mockRejectedValue(new Error('registry write denied'))
+    renderPage()
+
+    const toggle = await screen.findByRole('switch', { name: 'Start at login' })
+    await waitFor(() => expect(toggle).toHaveProperty('disabled', false))
+    await user.click(toggle)
+
+    expect((await screen.findByRole('alert')).textContent).toBe('Could not change start at login: registry write denied')
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    expect(toastErrorMock).toHaveBeenCalledWith('Could not change start at login')
+    expect(toastSuccessMock).not.toHaveBeenCalledWith('Start at login enabled')
+  })
+
+  it('shows the switch disabled when the autostart plugin is unavailable', async () => {
+    mockIsEnabled.mockRejectedValue(new Error('plugin not available'))
+    renderPage()
+
+    expect(await screen.findByText('Start at login is not available here.')).toBeTruthy()
+    const toggle = screen.getByRole('switch', { name: 'Start at login' })
+    expect(toggle).toHaveProperty('disabled', true)
+    expect(await screen.findByDisplayValue('Jane')).toBeTruthy()
   })
 })
