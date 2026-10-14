@@ -9,8 +9,7 @@ Thumbs.db
 .planning/
 .claude/
 node_modules/
-web/node_modules/
-web/dist/
+desktop/
 dist/
 build/
 *.db
