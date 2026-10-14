@@ -98,15 +98,42 @@ function decodeParam(raw: string): string {
 }
 
 /**
+ * Echo lets a route's last segment, when it is a param, take the rest of the path, slashes included
+ * (/api/friends/:id matches /api/friends/a/b with id "a/b", and Go answers 400 for it). That holds only
+ * when no other route continues below that param: /api/accounts/:id, which has /api/accounts/:id/set-default
+ * below it, does not match /api/accounts/a/b.
+ */
+function takesRestOfPath(r: Route): boolean {
+  const last = r.segments.length - 1
+  const tail = r.segments[last]
+  if (tail === undefined || !tail.isParam) return false
+  return !routes.some((q) => {
+    if (q === r || q.segments.length <= r.segments.length) return false
+    const qTail = q.segments[last]
+    if (qTail === undefined || !qTail.isParam) return false
+    for (let j = 0; j < last; j++) {
+      const a = r.segments[j]
+      const b = q.segments[j]
+      if (a === undefined || b === undefined || a.isParam !== b.isParam) return false
+      if (!a.isParam && a.text !== b.text) return false
+    }
+    return true
+  })
+}
+
+/**
  * Matches the raw path split on '/' (the leading empty part is included, as the pattern is
  * split the same way). A param must not be empty: Echo answers /api/accounts/ with 404.
  */
 function matchRoute(r: Route, parts: string[]): Record<string, string> | undefined {
-  if (r.segments.length !== parts.length) return undefined
+  const count = r.segments.length
+  const swallow = parts.length > count && takesRestOfPath(r)
+  if (!swallow && count !== parts.length) return undefined
   const params: Record<string, string> = {}
-  for (let i = 0; i < parts.length; i++) {
+  for (let i = 0; i < count; i++) {
     const segment = r.segments[i]
-    const part = parts[i]
+    // The tail param takes every remaining part, joined back with '/'.
+    const part = swallow && i === count - 1 ? parts.slice(i).join('/') : parts[i]
     if (segment === undefined || part === undefined) return undefined
     if (segment.isParam) {
       if (part === '') return undefined

@@ -100,9 +100,23 @@ describe('matching', () => {
 
   it('does not match a longer or shorter path, or an empty param (Echo: /api/accounts/ is 404)', async () => {
     route('GET', '/api/accounts/:id', async () => ({ body: 'x' }))
+    route('POST', '/api/accounts/:id/set-default', async () => ({ body: 'x' }))
+    // /api/accounts/:id has a route below it, so a longer path does not reach it (Echo).
     expect((await localFetch('/api/accounts/a/b')).status).toBe(404)
     expect((await localFetch('/api/accounts')).status).toBe(404)
     expect((await localFetch('/api/accounts/')).status).toBe(404)
+  })
+
+  it('a last param with no route below it takes the rest of the path, slashes included (Echo)', async () => {
+    route('GET', '/api/friends/:id', async (ctx) => ({ body: ctx.params.id }))
+    expect(await (await localFetch('/api/friends/a/b')).json()).toBe('a/b')
+    expect(await (await localFetch('/api/friends/abc/')).json()).toBe('abc/')
+    expect((await localFetch('/api/friends/')).status).toBe(404)
+  })
+
+  it('a tail param that takes the rest of the path still needs the static prefix to match', async () => {
+    route('GET', '/api/x/:id', async (ctx) => ({ body: ctx.params.id }))
+    expect((await localFetch('/api/y/a/b')).status).toBe(404)
   })
 
   it('decodes percent-encoded param segments (Echo: /api/accounts/a%20b gives id "a b")', async () => {

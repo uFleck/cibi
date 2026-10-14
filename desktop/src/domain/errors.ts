@@ -14,9 +14,22 @@ export class AppError extends Error {
   }
 }
 
-/** The err.Error() text of any thrown value. */
+const FOREIGN_KEY_DRIVER_TEXT = /(?<!constraint failed: )FOREIGN KEY constraint failed(?! \(787\))/g
+const FOREIGN_KEY_GO_TEXT = 'constraint failed: FOREIGN KEY constraint failed (787)'
+
+/**
+ * Gives a SQLite driver message the text the Go server shows. The Go driver (modernc.org/sqlite)
+ * reports a foreign key failure as "constraint failed: FOREIGN KEY constraint failed (787)", where
+ * node:sqlite (and rusqlite) report "FOREIGN KEY constraint failed". Only the driver's text is
+ * rewritten, and applying it twice changes nothing.
+ */
+export function goDriverText(text: string): string {
+  return text.replace(FOREIGN_KEY_DRIVER_TEXT, FOREIGN_KEY_GO_TEXT)
+}
+
+/** The err.Error() text of any thrown value, with the driver's constraint text as Go shows it. */
 export function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err)
+  return goDriverText(err instanceof Error ? err.message : String(err))
 }
 
 /** Mirrors fmt.Errorf("<message>: %w", err). */

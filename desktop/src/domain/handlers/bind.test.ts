@@ -58,3 +58,31 @@ describe('bindBody boolPtr (Go *bool)', () => {
     expect((caught as HttpError).status).toBe(400)
   })
 })
+
+// The array kind: a Go slice of structs. A missing or null value is a nil slice (null); [] is a
+// non-nil empty slice; any other JSON type is a bind error.
+describe('bindBody array (Go slice of structs)', () => {
+  const ARRAY_SCHEMA = { participants: 'array' } as const
+
+  it('returns the raw array, [] stays a non-nil empty array', () => {
+    expect(bindBody({ participants: [{ a: 1 }] }, ARRAY_SCHEMA).participants).toEqual([{ a: 1 }])
+    expect(bindBody({ participants: [] }, ARRAY_SCHEMA).participants).toEqual([])
+  })
+
+  it('a missing or null array is null (nil slice)', () => {
+    expect(bindBody({}, ARRAY_SCHEMA).participants).toBeNull()
+    expect(bindBody({ participants: null }, ARRAY_SCHEMA).participants).toBeNull()
+    expect(bindBody(undefined, ARRAY_SCHEMA).participants).toBeNull()
+  })
+
+  it.each([['"x"'], [1], [true], [{}]])('a non-array value %s is a 400', (value) => {
+    let caught: unknown
+    try {
+      bindBody({ participants: value }, ARRAY_SCHEMA)
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(HttpError)
+    expect((caught as HttpError).status).toBe(400)
+  })
+})

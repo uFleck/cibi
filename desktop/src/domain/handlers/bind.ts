@@ -15,7 +15,7 @@
 import { HttpError } from '../http'
 
 /** Go field types as the request structs declare them. */
-export type BindKind = 'string' | 'float' | 'int' | 'bool' | 'stringPtr' | 'floatPtr' | 'intPtr' | 'boolPtr'
+export type BindKind = 'string' | 'float' | 'int' | 'bool' | 'stringPtr' | 'floatPtr' | 'intPtr' | 'boolPtr' | 'array'
 
 interface BindTypes {
   string: string
@@ -26,6 +26,8 @@ interface BindTypes {
   floatPtr: number | null
   intPtr: number | null
   boolPtr: boolean | null
+  /** A Go slice of structs: the raw JSON array (its elements are bound by the caller); null = nil. */
+  array: unknown[] | null
 }
 
 /** The TS type of each bound field. */
@@ -42,6 +44,7 @@ const ZERO: { [K in BindKind]: BindTypes[K] } = {
   floatPtr: null,
   intPtr: null,
   boolPtr: null,
+  array: null,
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -67,6 +70,8 @@ function fits(kind: BindKind, value: unknown): boolean {
     case 'bool':
     case 'boolPtr':
       return typeof value === 'boolean'
+    case 'array':
+      return Array.isArray(value)
   }
 }
 

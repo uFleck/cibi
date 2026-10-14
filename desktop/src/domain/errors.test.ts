@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AppError, ErrNoRows, isErr, wrap, wrapping } from './errors'
+import { AppError, ErrNoRows, goDriverText, isErr, messageOf, wrap, wrapping } from './errors'
 
 describe('wrap (Go fmt.Errorf with %w)', () => {
   it('prefixes the message and keeps the cause', () => {
@@ -56,5 +56,33 @@ describe('wrapping', () => {
     expect(err).toBeInstanceOf(AppError)
     expect((err as AppError).message).toBe('op: db down')
     expect((err as AppError).cause).toBe(cause)
+  })
+})
+
+describe('goDriverText (the constraint text the Go server shows)', () => {
+  it('rewrites the node:sqlite and rusqlite foreign key text to the Go modernc text', () => {
+    expect(goDriverText('FOREIGN KEY constraint failed')).toBe(
+      'constraint failed: FOREIGN KEY constraint failed (787)',
+    )
+  })
+
+  it('leaves the Go text alone, so wrapping twice does not double it', () => {
+    const go = 'constraint failed: FOREIGN KEY constraint failed (787)'
+    expect(goDriverText(go)).toBe(go)
+    expect(goDriverText(goDriverText('FOREIGN KEY constraint failed'))).toBe(go)
+  })
+
+  it('leaves other messages alone', () => {
+    expect(goDriverText('UNIQUE constraint failed: Friend.id')).toBe('UNIQUE constraint failed: Friend.id')
+    expect(goDriverText('sql: no rows in result set')).toBe('sql: no rows in result set')
+  })
+
+  it('messageOf and wrap use the Go text for a driver error', () => {
+    const driver = new Error('FOREIGN KEY constraint failed')
+    expect(messageOf(driver)).toBe('constraint failed: FOREIGN KEY constraint failed (787)')
+    expect(wrap('friend.DeleteByID', driver).message).toBe(
+      'friend.DeleteByID: constraint failed: FOREIGN KEY constraint failed (787)',
+    )
+    expect(messageOf('FOREIGN KEY constraint failed')).toBe('constraint failed: FOREIGN KEY constraint failed (787)')
   })
 })
