@@ -23,8 +23,7 @@ RUN --mount=type=cache,target=/root/.npm \
 
 # Build Go binaries
 RUN --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 go build -ldflags="-s -w" -o cibi-api ./cmd/cibi-api && \
-    CGO_ENABLED=0 go build -ldflags="-s -w" -o cibi ./cmd/cibi
+    CGO_ENABLED=0 go build -ldflags="-s -w" -o cibi-api ./cmd/cibi-api
 
 # Runtime stage: minimal image
 FROM alpine:latest
@@ -35,7 +34,6 @@ WORKDIR /app
 
 # Copy binaries from builder
 COPY --from=builder /build/cibi-api /app/cibi-api
-COPY --from=builder /build/cibi /app/cibi
 
 # Create data directory for SQLite volume mount
 RUN mkdir -p /data

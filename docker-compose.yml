@@ -40,12 +40,3 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
-
-  cibi-cli-install:
-    build: .
-    container_name: cibi-cli-install
-    profiles: ["cli"]
-    volumes:
-      - /usr/local/bin:/install
-    entrypoint: ["/bin/sh", "-c", "cp /app/cibi /install/cibi && chmod +x /install/cibi && echo 'cibi CLI installed to /usr/local/bin'"]
-    restart: "no"
