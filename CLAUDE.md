@@ -23,5 +23,12 @@ Default behavior when uncertain: ask, do not implement.
 ## Post-ship requirement
 
 - After shipping any feature/change, always run:
-  - `make upd`
+  - `make upd` (builds the desktop app: `npm --prefix desktop run tauri build`)
 - Treat this as mandatory unless the user explicitly says not to.
+
+## Workflow
+
+- The app is `desktop/`: a Tauri 2 shell (Rust in `desktop/src-tauri`) around a React + TypeScript UI (`desktop/src`). The domain logic is TypeScript in `desktop/src/domain`. There is no Go server and no Docker.
+- Desktop work happens directly on `main` in this repo (no worktree); do not commit unless asked.
+- The app must run on its own: no change should need a server, Go code, or web code.
+- Do not open, copy, or change the personal database (`data/cibi.db`, or the app's `cibi.db` in `%APPDATA%\com.ufleck.cibi`) without asking.

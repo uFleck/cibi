@@ -10,7 +10,7 @@ Goal: Instant answer to *"If I buy this now, am I okay until next paycheck?"*
 ---
 
 ## 2. Domain Guidelines & Logic
-All interfaces (CLI, Web, MCP) must adhere to these rules:
+All interfaces (the desktop UI) must adhere to these rules:
 
 ### 2.1 Reserved Funds Concept
 - **Liquid**: Available now
@@ -31,39 +31,24 @@ All interfaces (CLI, Web, MCP) must adhere to these rules:
 
 ## 3. System Architecture
 
-CIBI follows a **Layered Hexagonal Architecture** to ensure the core logic is decoupled from the various interfaces (CLI, Web, MCP).
+CIBI keeps its domain logic (TypeScript in `desktop/src/domain`) separate from the desktop UI and from the SQLite access in the Rust shell. There is no HTTP server.
 
 ### 3.1 High-Level Diagram (Logical)
 ```mermaid
 graph TD
-    subgraph Interfaces
-        CLI[CLI - Typer/Click]
-        Web[Web App - Next.js/Tailwind]
-        API[REST API - FastAPI]
-        MCP[MCP Server - Claude/AI Agents]
-    end
-
-    subgraph Core_System
-        API --> Logic[Decision Engine]
-        CLI --> API
-        Web --> API
-        MCP --> API
-        Logic --> DB[(SQLite)]
-        Logic --> Schema[Domain Models/Pydantic]
-    end
-
-    subgraph Infrastructure
-        Tailscale[Tailscale Network]
+    subgraph Desktop_App[Tauri desktop app]
+        UI[React UI - desktop/src] --> Domain[Domain logic and decision engine - desktop/src/domain]
+        Domain -->|db_query| Shell[Rust shell - desktop/src-tauri]
+        Shell --> DB[(SQLite file in the app data dir)]
     end
 ```
 
-### 3.2 Tech Stack Recommendations
-*   **Language:** Python 3.11+ (Best for MCP and logic complexity).
-*   **API Framework:** FastAPI (Provides auto-generated OpenAPI docs for the Web/CLI).
-*   **Database:** SQLite (Single file, perfect for local-first/Tailscale setups).
-*   **CLI:** Typer (For a beautiful, type-safe command line).
-*   **Web:** Next.js or a lightweight HTMX setup.
-*   **AI Integration:** Model Context Protocol (MCP) to allow Claude to "read" your finances and act as a financial advisor.
+### 3.2 Tech Stack
+*   **Shell:** Tauri 2 (Rust). One window, a tray icon, a single instance, start at login (which starts hidden), and close hides the window.
+*   **UI:** React and TypeScript on Vite, with Tailwind CSS, Radix/shadcn components, TanStack Query and Router, and Recharts.
+*   **Domain:** TypeScript in `desktop/src/domain`, ported from the former Go server. It runs inside the app; there is no HTTP server.
+*   **Database:** SQLite, one file in the app data directory (`com.ufleck.cibi`), accessed from the Rust shell with bundled SQLite (rusqlite).
+*   **Tests:** Vitest with jsdom and Testing Library for the UI and domain; `cargo test` for the Rust shell.
 
 ---
 
@@ -120,23 +105,22 @@ graph TD
 
 ## 6. Implementation Roadmap
 
-### Phase 1: The Core (The "Engine")
-*   Set up SQLite schema.
-*   Implement FastAPI backend with Pydantic models.
-*   Implement the `Decision Engine` logic.
+### Done
+*   The core engine and the `Decision Engine` in TypeScript (`desktop/src/domain`).
+*   SQLite schema as a baseline migration. A database created by the former Go server is adopted in place (`user_version` set to 1).
+*   The desktop UI on six routes: dashboard, accounts, transactions, friends, goals, and settings.
+*   Tray icon, close-to-hide, single instance, and start at login.
 
-### Phase 2: The Interfaces (The "Arms")
-*   Build the CLI for rapid data entry.
-*   Build the MCP server so Claude can interact with the API.
-*   Build the Web Dashboard for visual overview.
+### Open
+*   Automated backups of the SQLite file (not implemented).
+*   Sign-off on the packaged desktop build (manual walk-through).
 
-### Phase 3: Connectivity (The "Nerves")
-*   Configure Tailscale access.
-*   Implement automated backups of the SQLite file.
+### Removed with the Go server
+*   The REST API, the CLI, the MCP server, the separate web app, Docker, and Tailscale access. None are planned for now.
 
 ***
 
 ### Instructions for Claude Code:
 *   **Rule 1:** Always refer to `CIBI_SPEC.md` before implementing new features.
-*   **Rule 2:** Do not bypass the API. All interfaces (CLI, Web, MCP) must communicate through the FastAPI layer to ensure the "Decision Engine" logic is centralized.
+*   **Rule 2:** Do not bypass the domain. The UI reads and writes data through the local API client (`desktop/src/lib/api.ts`), never directly through the database, so the "Decision Engine" logic stays centralized.
 *   **Rule 3:** Prioritize the `Decision Engine` accuracy above all else. If a transaction is recurring, it MUST be accounted for in all "Can I Buy It?" calculations.
