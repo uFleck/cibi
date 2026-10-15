@@ -4,7 +4,7 @@
 // arguments of Update are `undefined` here (no change); an empty string is written as ''.
 
 import type { Db } from '../db'
-import { ErrNoRows, wrap } from '../errors'
+import { AppError, ErrNoRows, wrap } from '../errors'
 import { parseUuid } from '../uuid'
 import { execRowsAffected } from './exec'
 import { type Row, nullableTextCol, textCol } from './scan'
@@ -17,6 +17,11 @@ export interface Friend {
   notes: string | null
   pixKey: string | null
 }
+
+/** deleteById rejects with an error wrapping this when the friend still has peer debts or group events. */
+export const ErrFriendInUse = new AppError(
+  'friend still has peer debts or group events; remove them before deleting the friend',
+)
 
 export interface FriendRepo {
   insert(f: Friend): Promise<void>
@@ -140,10 +145,18 @@ export class SqliteFriendRepo implements FriendRepo {
     })
   }
 
+  /**
+   * Deletes the friend. The schema does not cascade from Friend (Transaction.friend_id for peer
+   * debts, GroupEventParticipant.friend_id, GroupEvent.host_friend_id), so a friend that is still
+   * referenced fails on the foreign key; that is reported as ErrFriendInUse and nothing is deleted.
+   */
   async deleteById(id: string): Promise<void> {
     try {
       await this.db.query(`DELETE FROM Friend WHERE id = ?`, [id])
     } catch (err) {
+      if (/FOREIGN KEY constraint failed/.test(err instanceof Error ? err.message : String(err))) {
+        throw wrap('friend.DeleteByID', ErrFriendInUse)
+      }
       throw wrap('friend.DeleteByID', err)
     }
   }

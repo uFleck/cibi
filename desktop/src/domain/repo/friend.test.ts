@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { ErrNoRows, isErr } from '../errors'
 import { createTestDb } from '../testing/testDb'
-import { SqliteFriendRepo, type Friend } from './friend'
+import { ErrFriendInUse, SqliteFriendRepo, type Friend } from './friend'
 
 type TestDb = Awaited<ReturnType<typeof createTestDb>>
 
@@ -66,7 +66,7 @@ it('deleteById removes a friend that has no peer debts', async () => {
   await expect(repo.getById(a.id)).rejects.toThrow('sql: no rows in result set')
 })
 
-it('deleteById of a friend with a peer debt fails on the foreign key (Go: FOREIGN KEY constraint failed)', async () => {
+it('deleteById of a friend with a peer debt rejects with ErrFriendInUse (the foreign key failed)', async () => {
   const repo = new SqliteFriendRepo(db)
   const a = friend()
   const accountId = crypto.randomUUID()
@@ -79,6 +79,12 @@ it('deleteById of a friend with a peer debt fails on the foreign key (Go: FOREIG
 		VALUES (?, ?, 'peer', ?, -500, 'x', '2026-06-10', 0, 0, 0, 1)`,
     [crypto.randomUUID(), accountId, a.id],
   )
-  await expect(repo.deleteById(a.id)).rejects.toThrow('FOREIGN KEY constraint failed')
+  let err: unknown
+  try {
+    await repo.deleteById(a.id)
+  } catch (e) {
+    err = e
+  }
+  expect(isErr(err, ErrFriendInUse)).toBe(true)
   expect(await repo.getById(a.id)).toEqual(a)
 })

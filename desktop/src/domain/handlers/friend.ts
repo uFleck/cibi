@@ -4,13 +4,15 @@
 // Errors (Go's echo.NewHTTPError calls):
 // - a bad id, a missing or bad account_id: 400 with the route's text;
 // - a repo ErrNoRows: 404 "friend not found" (GET by id, Update, Delete);
-// - a service error: 500 with the error text (a foreign key failure on delete keeps Go's text, see errors.ts);
+// - Delete of a friend with peer debts or group events: 409 (Go: 500 foreign key text), nothing is deleted;
+// - a service error: 500 with the error text;
 // - Create's validation errors are 400 with the validator text.
 // Lists: the Go handler builds every list with make(), so an empty list is [] (never null).
 
 import type { App } from '../app'
-import { route } from '../http'
-import type { Friend } from '../repo/friend'
+import { isErr } from '../errors'
+import { HttpError, route } from '../http'
+import { ErrFriendInUse, type Friend } from '../repo/friend'
 import type { FriendDebtItem } from '../service/peerDebt'
 import type { FriendService } from '../service/friend'
 import type { GroupEventService } from '../service/groupEvent'
@@ -182,7 +184,10 @@ export function registerFriendRoutes(
 
   route('DELETE', '/api/friends/:id', async ({ params }) => {
     const id = parseIdOr400(params.id, INVALID_ID)
-    await svc.deleteFriend(id).catch(notFoundOr500(NOT_FOUND))
+    await svc.deleteFriend(id).catch((err: unknown) => {
+      if (isErr(err, ErrFriendInUse)) throw new HttpError(409, ErrFriendInUse.message)
+      return notFoundOr500(NOT_FOUND)(err)
+    })
     return { status: 204 }
   })
 }

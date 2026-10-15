@@ -158,14 +158,70 @@ it('DELETE /api/friends/:id: 204, and 204 again for the same id (Go does not che
   expect(await json(bad)).toEqual({ error: 'invalid friend id' })
 })
 
-it('DELETE /api/friends/:id with peer debts: 500 with the Go foreign key text', async () => {
+const FRIEND_IN_USE = 'friend still has peer debts or group events; remove them before deleting the friend'
+
+async function expectFriendKept(id: string): Promise<void> {
+  const res = await localFetch(`/api/friends/${id}`)
+  expect(res.status).toBe(200)
+}
+
+it('DELETE /api/friends/:id with peer debts: 409 with a clear message, nothing is deleted', async () => {
   const f = await createFriend('F')
-  await createDebt(f.id, 1000)
+  const debt = await createDebt(f.id, 1000)
   const res = await localFetch(`/api/friends/${f.id}`, { method: 'DELETE' })
-  expect(res.status).toBe(500)
-  expect(await json(res)).toEqual({
-    error: 'service.DeleteFriend: friend.DeleteByID: constraint failed: FOREIGN KEY constraint failed (787)',
+  expect(res.status).toBe(409)
+  expect(await json(res)).toEqual({ error: FRIEND_IN_USE })
+  await expectFriendKept(f.id)
+  const debts = await db.query(`SELECT id FROM "Transaction" WHERE id = ?`, [debt.id])
+  expect(debts).toHaveLength(1)
+})
+
+async function createEventWith(participants: unknown[], hostFriendId: string | null): Promise<GroupEventResponse> {
+  const ev = await post('/api/group-events', { account_id: accountId, title: 'Pizza', date: '2026-07-01', total_amount: 30 })
+  expect(ev.status).toBe(201)
+  const event = await json<GroupEventResponse>(ev)
+  const set = await localFetch(`/api/group-events/${event.id}/participants`, {
+    method: 'PUT',
+    body: JSON.stringify({ participants, host_friend_id: hostFriendId }),
   })
+  expect(set.status).toBe(204)
+  return event
+}
+
+it('DELETE /api/friends/:id as a group event participant: 409, nothing is deleted', async () => {
+  const host = await createFriend('Host')
+  const guest = await createFriend('Guest')
+  const event = await createEventWith(
+    [
+      { friend_id: null, share_amount: 10, is_confirmed: false },
+      { friend_id: host.id, share_amount: 10, is_confirmed: false },
+      { friend_id: guest.id, share_amount: 10, is_confirmed: false },
+    ],
+    host.id,
+  )
+  const res = await localFetch(`/api/friends/${guest.id}`, { method: 'DELETE' })
+  expect(res.status).toBe(409)
+  expect(await json(res)).toEqual({ error: FRIEND_IN_USE })
+  await expectFriendKept(guest.id)
+  const rows = await db.query(`SELECT friend_id FROM GroupEventParticipant WHERE event_id = ?`, [event.id])
+  expect(rows).toHaveLength(3)
+})
+
+it('DELETE /api/friends/:id as a group event host: 409, nothing is deleted', async () => {
+  const host = await createFriend('Host')
+  await createEventWith(
+    [
+      { friend_id: null, share_amount: 15, is_confirmed: false },
+      { friend_id: host.id, share_amount: 15, is_confirmed: false },
+    ],
+    host.id,
+  )
+  // Drop the host from the participants so only GroupEvent.host_friend_id still references the friend.
+  await db.query(`DELETE FROM GroupEventParticipant WHERE friend_id = ?`, [host.id])
+  const res = await localFetch(`/api/friends/${host.id}`, { method: 'DELETE' })
+  expect(res.status).toBe(409)
+  expect(await json(res)).toEqual({ error: FRIEND_IN_USE })
+  await expectFriendKept(host.id)
 })
 
 it('GET /api/friends/summary: 400 when account_id is missing, empty or bad', async () => {

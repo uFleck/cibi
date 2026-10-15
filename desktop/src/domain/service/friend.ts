@@ -227,7 +227,7 @@ export class FriendService {
     return wrapping('service.UpdateFriend', () => this.repo.update(id, name, notes, pixKey))
   }
 
-  /** Removes a friend. Go's foreign keys keep this from removing a friend that still has peer debts. */
+  /** Removes a friend. Rejects with ErrFriendInUse (nothing deleted) while peer debts or group events reference it. */
   deleteFriend(id: string): Promise<void> {
     return wrapping('service.DeleteFriend', () => this.repo.deleteById(id))
   }
