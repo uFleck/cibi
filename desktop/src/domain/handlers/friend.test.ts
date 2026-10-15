@@ -274,6 +274,32 @@ it('GET /api/friends/summary: an installment remainder with fractional cents is 
   expect(s.net).toBe(-6.67)
 })
 
+it('GET /api/friends/summary: a balance of 1,000,000 cents or more is 200 (no exponent-format failure)', async () => {
+  const f = await createFriend('J')
+  // Owed to the user: 2,000,000 cents in a lump sum and 4,500,000 in an installment debt (none paid).
+  await createDebt(f.id, 2000000)
+  await createDebt(f.id, 4500000, { is_installment: true, total_installments: 3, frequency: 'monthly' })
+  // The user owes 1,500,000 cents in a lump sum.
+  await createDebt(f.id, -1500000)
+
+  const res = await localFetch(`/api/friends/summary?account_id=${accountId}`)
+  expect(res.status).toBe(200)
+  const s = await json<FriendSummaryResponse>(res)
+  expect(s.total_owed_to_user).toBe(65000)
+  expect(s.total_user_owes).toBe(15000)
+  expect(s.net).toBe(50000)
+})
+
+it('GET /api/friends/:id: 200 for a friend with a fractional-cents installment remainder', async () => {
+  const f = await createFriend('K')
+  const debt = await createDebt(f.id, -1000, { is_installment: true, total_installments: 3, frequency: 'monthly' })
+  expect((await post(`/api/peer-debts/${debt.id}/confirm`, {})).status).toBe(204)
+
+  const res = await localFetch(`/api/friends/${f.id}`)
+  expect(res.status).toBe(200)
+  expect(await json<FriendResponse>(res)).toEqual(f)
+})
+
 it('GET /api/friends/breakdown: 400 when account_id is missing or bad', async () => {
   const missing = await localFetch('/api/friends/breakdown')
   expect(missing.status).toBe(400)

@@ -15,7 +15,6 @@
 import type { Db, SqlParam } from '../db'
 import { AppError, ErrNoRows, wrap } from '../errors'
 import { parseRfc3339OrYmd } from '../dates'
-import { goFloatText } from '../num'
 import { nextInstallmentDue } from '../engine/installment'
 import { parseUuid } from '../uuid'
 import { execRowsAffected } from './exec'
@@ -124,32 +123,20 @@ function scanPeerDebt(row: Row): PeerDebt {
   }
 }
 
-/** The two balance columns as Go names them (the expression text): the message names the column. */
-const GO_COL_OWED_TO_USER = 'COALESCE(SUM(CASE WHEN adj > 0 THEN adj ELSE 0 END), 0)'
-const GO_COL_USER_OWES = 'COALESCE(ABS(SUM(CASE WHEN adj < 0 THEN adj ELSE 0 END)), 0)'
-
 /**
- * Go quirk: the balance queries sum a float remainder
- * (CAST(amount AS REAL) / total_installments * (total_installments - paid_installments)) and Go
- * scans that SUM into an int64. A SUM that is not a whole number fails to scan:
- * database/sql formats the float with strconv 'g' and ParseInt rejects "566.666". A whole float of
- * 1e6 or more fails too, because 'g' prints it with an exponent ("2e+06"). A SUM of 0 is an integer
- * in SQLite (every nonzero SUM here is REAL), so 0 scans fine. The message is Go's, byte for byte
- * except for the driver value text, which is the same shortest float text (checked against the Go
- * server: GET /api/friends/summary returns it in the 500 body). getGlobalBalance rounds its two sums
- * to the nearest cent in SQL, so a fractional remainder no longer fails there (bug 3.2). The
- * per-friend balance still reproduces Go's failure.
+ * The balance queries sum a float remainder
+ * (CAST(amount AS REAL) / total_installments * (total_installments - paid_installments)). Go scans
+ * that SUM into an int64 and fails with a 500 when it has fractional cents ("566.666") or is a whole
+ * float of 1e6 or more (formatted as "2e+06"). Here both queries ROUND each sum to the nearest cent
+ * in SQL, so the value reaching this function is always a whole number of cents of any magnitude.
+ * (bug 3.2). A NULL cannot happen (COALESCE) and is still rejected.
  */
-// Go quirk: float remainder fails to scan into int64
-function scanBalanceSum(row: Row, column: string, goName: string, index: number, op: string): number {
+function scanBalanceSum(row: Row, column: string, op: string): number {
   const v = row[column]
   if (typeof v !== 'number') {
-    throw new AppError(`${op}: converting NULL to int64 is unsupported (column ${goName})`)
+    throw new AppError(`${op}: converting NULL to int64 is unsupported (column ${column})`)
   }
-  if (Number.isInteger(v) && Math.abs(v) < 1e6) return v
-  throw new AppError(
-    `${op}: sql: Scan error on column index ${index}, name "${goName}": converting driver.Value type float64 ("${goFloatText(v)}") to a int64: invalid syntax`,
-  )
+  return v
 }
 
 export class SqlitePeerDebtRepo implements PeerDebtRepo {
@@ -317,8 +304,8 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
     const op = 'peer_debt.GetBalanceByFriend'
     let query = `
 		SELECT
-		    COALESCE(SUM(CASE WHEN adj > 0 THEN adj ELSE 0 END), 0) AS friend_owes_user,
-		    COALESCE(ABS(SUM(CASE WHEN adj < 0 THEN adj ELSE 0 END)), 0) AS user_owes_friend
+		    ROUND(COALESCE(SUM(CASE WHEN adj > 0 THEN adj ELSE 0 END), 0)) AS friend_owes_user,
+		    ROUND(COALESCE(ABS(SUM(CASE WHEN adj < 0 THEN adj ELSE 0 END)), 0)) AS user_owes_friend
 		FROM (
 		    SELECT
 		        CASE
@@ -348,8 +335,8 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
     }
     const row = rows[0]
     if (row === undefined) throw wrap(op, ErrNoRows)
-    const friendOwesUser = scanBalanceSum(row, 'friend_owes_user', GO_COL_OWED_TO_USER, 0, op)
-    const userOwesFriend = scanBalanceSum(row, 'user_owes_friend', GO_COL_USER_OWES, 1, op)
+    const friendOwesUser = scanBalanceSum(row, 'friend_owes_user', op)
+    const userOwesFriend = scanBalanceSum(row, 'user_owes_friend', op)
     return { friendOwesUser, userOwesFriend, net: friendOwesUser - userOwesFriend }
   }
 
@@ -388,8 +375,8 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
     }
     const row = rows[0]
     if (row === undefined) throw wrap(op, ErrNoRows)
-    const totalOwedToUser = scanBalanceSum(row, 'total_owed_to_user', GO_COL_OWED_TO_USER, 0, op)
-    const totalUserOwes = scanBalanceSum(row, 'total_user_owes', GO_COL_USER_OWES, 1, op)
+    const totalOwedToUser = scanBalanceSum(row, 'total_owed_to_user', op)
+    const totalUserOwes = scanBalanceSum(row, 'total_user_owes', op)
     return { totalOwedToUser, totalUserOwes, net: totalOwedToUser - totalUserOwes }
   }
 

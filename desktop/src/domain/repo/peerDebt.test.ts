@@ -183,8 +183,8 @@ it('TestPeerDebtRepo_GetGlobalBalance_ExcludesConfirmed', async () => {
   expect(balance.totalOwedToUser).toBe(500)
 })
 
-describe('balance float-sum quirk (Go scans a float SUM into int64)', () => {
-  it('a remainder that is not a whole number fails like Go', async () => {
+describe('balance float sums (Go scans a float SUM into int64 and fails; here they round to cents)', () => {
+  it('a remainder that is not a whole number rounds to the nearest cent', async () => {
     const repo = new SqlitePeerDebtRepo(db)
     const friendId = crypto.randomUUID()
     const accountId = crypto.randomUUID()
@@ -201,10 +201,8 @@ describe('balance float-sum quirk (Go scans a float SUM into int64)', () => {
       frequency: 'monthly',
       isRecurring: 1,
     })
-    await expect(repo.getBalanceByFriend(friendId, null)).rejects.toThrow(
-      /^peer_debt\.GetBalanceByFriend: sql: Scan error on column index 1, name "COALESCE\(ABS\(SUM\(CASE WHEN adj < 0 THEN adj ELSE 0 END\)\), 0\)": converting driver\.Value type float64 \("666\.6+"\) to a int64: invalid syntax$/,
-    )
-    // The global balance rounds to the nearest cent: 666.67 cents becomes 667.
+    // Both balances round to the nearest cent: 666.67 cents becomes 667.
+    expect(await repo.getBalanceByFriend(friendId, null)).toEqual({ friendOwesUser: 0, userOwesFriend: 667, net: -667 })
     expect(await repo.getGlobalBalance(null)).toEqual({ totalOwedToUser: 0, totalUserOwes: 667, net: -667 })
   })
 
@@ -239,7 +237,7 @@ describe('balance float-sum quirk (Go scans a float SUM into int64)', () => {
     expect(await repo.getGlobalBalance(null)).toEqual({ totalOwedToUser: 0, totalUserOwes: 134584, net: -134584 })
   })
 
-  it('a whole remainder of 1e6 or more fails too (Go prints it as 2e+06)', async () => {
+  it('a whole remainder of 1e6 or more is returned as an integer (Go would print it as 2e+06 and fail)', async () => {
     const repo = new SqlitePeerDebtRepo(db)
     const friendId = crypto.randomUUID()
     const accountId = crypto.randomUUID()
@@ -256,9 +254,12 @@ describe('balance float-sum quirk (Go scans a float SUM into int64)', () => {
       frequency: 'monthly',
       isRecurring: 1,
     })
-    await expect(repo.getBalanceByFriend(friendId, null)).rejects.toThrow(
-      'peer_debt.GetBalanceByFriend: sql: Scan error on column index 0, name "COALESCE(SUM(CASE WHEN adj > 0 THEN adj ELSE 0 END), 0)": converting driver.Value type float64 ("2e+06") to a int64: invalid syntax',
-    )
+    expect(await repo.getBalanceByFriend(friendId, null)).toEqual({
+      friendOwesUser: 2000000,
+      userOwesFriend: 0,
+      net: 2000000,
+    })
+    expect(await repo.getGlobalBalance(null)).toEqual({ totalOwedToUser: 2000000, totalUserOwes: 0, net: 2000000 })
   })
 
   it('a balance of zero scans as an integer', async () => {
