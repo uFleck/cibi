@@ -52,6 +52,7 @@ tmp/
 pi-session-*.html
 plan.md
 
-# SQLite runtime sidecars
+# SQLite runtime sidecars and the personal DB
+data/*.db
 data/*.db-wal
 data/*.db-shm
