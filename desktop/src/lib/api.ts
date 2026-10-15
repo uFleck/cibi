@@ -484,6 +484,7 @@ export interface CreateGroupEventRequest {
   account_id: string
   title: string
   date: string
+  total_amount: number // dollars
   notes?: string
 }
 

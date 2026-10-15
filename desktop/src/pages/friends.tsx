@@ -510,11 +510,12 @@ export function FriendsPage() {
   })
 
   const createEventMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (totalAmount: number) =>
       createGroupEvent({
         account_id: selectedAccountId!,
         title: eventForm.title,
         date: eventForm.date,
+        total_amount: totalAmount,
         ...(eventForm.notes ? { notes: eventForm.notes } : {}),
       }),
     onSuccess: () => {
@@ -543,7 +544,7 @@ export function FriendsPage() {
       return
     }
 
-    createEventMutation.mutate()
+    createEventMutation.mutate(totalAmount)
   }
 
   return (
