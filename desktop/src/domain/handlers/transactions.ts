@@ -8,6 +8,7 @@
 // - a bad id, a bad account_id, a missing account_id, a bad date: 400 with the route's text;
 // - a repo ErrNoRows: 404 "transaction not found" (Update, Delete, Confirm, ConfirmInstallment);
 // - a service error: 500 with the error text (Create, Update, Delete, Confirm, List);
+// - Delete of a transaction that has a ledger row: 409 (deliberate fix; Go returned 500 on the FK error);
 //   ConfirmInstallment maps a service error other than ErrNoRows to 400 with the error text.
 // - Create's validation errors are 400 with the validator text.
 
@@ -18,7 +19,7 @@ import { ErrNoRows, isErr, messageOf } from '../errors'
 import { HttpError, route } from '../http'
 import { goRound } from '../num'
 import type { Transaction, UpdateTransaction } from '../repo/transactions'
-import type { TransactionsService } from '../service/transactions'
+import { ErrTransactionHasLedger, type TransactionsService } from '../service/transactions'
 import { parseUuid } from '../uuid'
 import { validateOrThrow, type FieldSpec } from '../validate'
 import { bindBody } from './bind'
@@ -227,7 +228,10 @@ export function registerTransactionsRoutes(app: App, svc: TransactionsServiceIfa
 
   route('DELETE', '/api/transactions/:id', async ({ params }) => {
     const id = parseIdOr400(params.id, 'invalid transaction id')
-    await svc.deleteTransaction(id).catch(notFoundOr500(NOT_FOUND))
+    await svc.deleteTransaction(id).catch((err: unknown) => {
+      if (isErr(err, ErrTransactionHasLedger)) throw new HttpError(409, ErrTransactionHasLedger.message)
+      return notFoundOr500(NOT_FOUND)(err)
+    })
     return { status: 204 }
   })
 

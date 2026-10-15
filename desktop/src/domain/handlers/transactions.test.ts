@@ -186,6 +186,34 @@ it('TestDeleteTransaction', async () => {
   expect(res.status).toBe(204)
 })
 
+// Not a Go test (Go returned 500 here): DELETE of a transaction that has a ledger row (every confirmed
+// payment) is 409 with a clear message, and nothing is deleted: the ledger rows are money records.
+it('DELETE of a transaction with a ledger row is 409 and deletes nothing', async () => {
+  const accountId = crypto.randomUUID()
+  await db.query(
+    `INSERT INTO Account (id, name, current_balance, currency, is_default, safety_buffer, version) VALUES (?, 'Main', 10000, 'BRL', 1, 0, 1)`,
+    [accountId],
+  )
+  registerTransactionsRoutes(buildApp(db))
+
+  // A one-time payment with no confirmation needed is applied on create: it gets a ledger row.
+  const created = await localFetch('/api/transactions', {
+    method: 'POST',
+    body: JSON.stringify({ account_id: accountId, amount: -25, description: 'Lunch' }),
+  })
+  expect(created.status).toBe(201)
+  const { id } = await json<TransactionResponse>(created)
+
+  const res = await localFetch(`/api/transactions/${id}`, { method: 'DELETE' })
+  expect(res.status).toBe(409)
+  expect(await res.json()).toEqual({ error: 'transaction has ledger entries and cannot be deleted' })
+
+  const txns = await db.query<{ n: number }>(`SELECT COUNT(*) AS n FROM "Transaction" WHERE id = ?`, [id])
+  expect(txns[0]?.n).toBe(1)
+  const ledger = await db.query<{ n: number }>(`SELECT COUNT(*) AS n FROM ledger WHERE transaction_id = ?`, [id])
+  expect(ledger[0]?.n).toBe(1)
+})
+
 // TestConfirmInstallment_HappyPath: an installment with one month paid returns 200, paid_installments 1, and
 // a computed next_occurrence (anchor + 1 month).
 it('TestConfirmInstallment_HappyPath', async () => {
