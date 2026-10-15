@@ -276,7 +276,7 @@ describe('check-impact browser contract', () => {
     expect(screen.getByLabelText('Emergency fund purchase impact')).toBeTruthy()
 
     expect(screen.getByText('Contribution capacity impact')).toBeTruthy()
-    expect(screen.getByText('This check does not move goal progress.', { exact: false })).toBeTruthy()
+    expect(screen.getByText((_, el) => el?.tagName === 'P' && (el.textContent ?? '').includes('This check does not move goal progress.'))).toBeTruthy()
   })
 
   it('makes check loading and error recovery visible without screenshots', async () => {

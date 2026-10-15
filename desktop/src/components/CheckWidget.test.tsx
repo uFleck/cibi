@@ -88,7 +88,7 @@ describe('CheckWidget impact wiring', () => {
     expect(screen.getByText('Contribution capacity impact')).toBeTruthy()
     expect(screen.getByText('high')).toBeTruthy()
     expect(screen.getByText('Min contribution / payment window')).toBeTruthy()
-    expect(screen.getByText('This check does not move goal progress.', { exact: false })).toBeTruthy()
+    expect(screen.getByText((_, el) => el?.tagName === 'P' && (el.textContent ?? '').includes('This check does not move goal progress.'))).toBeTruthy()
     expect(screen.getByText('leaves too little for your minimum window contribution', { exact: false })).toBeTruthy()
   })
 

@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import App, { AccountContext } from '@/App'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { GoalsPage } from '@/pages/goals'
 import {
   fetchAccounts,
@@ -114,9 +115,11 @@ function renderGoalsPageWithClient() {
   })
 
   render(
-    React.createElement(QueryClientProvider, { client: queryClient },
-      React.createElement(AccountContext.Provider, { value: { selectedAccountId: 'acct-1', setSelectedAccountId: vi.fn() } },
-        React.createElement(GoalsPage)
+    React.createElement(TooltipProvider, null,
+      React.createElement(QueryClientProvider, { client: queryClient },
+        React.createElement(AccountContext.Provider, { value: { selectedAccountId: 'acct-1', setSelectedAccountId: vi.fn() } },
+          React.createElement(GoalsPage)
+        )
       )
     )
   )
@@ -187,31 +190,35 @@ afterEach(() => {
 })
 
 describe('GoalsPage browser contract', () => {
-  it('boots the app on /goals with labelled controls, desktop layout hooks, keyboard focus, and progressbar semantics', async () => {
+  it('boots the app on /goals with a labelled create modal, keyboard focus, and progressbar semantics', async () => {
     window.history.pushState({}, '', '/goals')
 
-    render(React.createElement(App))
+    // main.tsx supplies TooltipProvider in the real app; App itself does not.
+    render(React.createElement(TooltipProvider, null, React.createElement(App)))
 
     expect(await screen.findByRole('heading', { name: 'Goals Tracking' })).toBeTruthy()
     expect(window.location.pathname).toBe('/goals')
 
-    const goalName = screen.getByLabelText('Goal name') as HTMLInputElement
-    const targetAmount = screen.getByLabelText('Target amount') as HTMLInputElement
-    const createButton = screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement
-    expect(goalName.className).toContain('focus-visible:ring')
-    expect(targetAmount.getAttribute('inputmode')).toBe('decimal')
-    expect(createButton.disabled).toBe(true)
+    const user = userEvent.setup()
 
-    const form = goalName.closest('form')
-    expect(form?.className).toContain('grid-cols-1')
-    expect(form?.className).toContain('sm:grid-cols-[minmax(0,1fr)_220px_120px]')
-
+    await user.click((await screen.findAllByRole('button', { name: 'View goal details' }))[0])
     const progress = await screen.findByRole('progressbar', { name: 'Emergency fund progress' })
     expect(progress.getAttribute('aria-valuemin')).toBe('0')
     expect(progress.getAttribute('aria-valuemax')).toBe('100')
     expect(progress.getAttribute('aria-valuenow')).toBe('42.5')
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('progressbar', { name: 'Emergency fund progress' })).toBeNull())
 
-    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'New Goal' }))
+    const dialog = await screen.findByRole('dialog')
+    const goalName = within(dialog).getByLabelText('Goal name') as HTMLInputElement
+    const targetAmount = within(dialog).getByLabelText('Target amount') as HTMLInputElement
+    const createButton = within(dialog).getByRole('button', { name: 'Create' }) as HTMLButtonElement
+    expect(goalName.className).toContain('focus-visible:ring')
+    expect(targetAmount.getAttribute('inputmode')).toBe('decimal')
+    expect(createButton.disabled).toBe(true)
+    expect(goalName.closest('form')?.className).toContain('grid-cols-1')
+
     goalName.focus()
     expect(document.activeElement).toBe(goalName)
     await user.tab()
@@ -221,7 +228,7 @@ describe('GoalsPage browser contract', () => {
     expect(createButton.disabled).toBe(false)
   })
 
-  it('keeps the mobile card flow observable with stacked classes and keyboard-friendly contribution controls', async () => {
+  it('keeps the mobile list flow observable with stacked classes and a keyboard-friendly contribution modal', async () => {
     setViewport(390, 844)
 
     renderGoalsPageWithClient()
@@ -231,34 +238,40 @@ describe('GoalsPage browser contract', () => {
     expect(pageShell?.className).toContain('px-4')
     expect(pageShell?.className).toContain('sm:px-6')
 
-    const goalCard = (await screen.findByText('Emergency fund')).closest('[data-slot="card"]') as HTMLElement
-    expect(goalCard).toBeTruthy()
-    expect(within(goalCard).getByLabelText('Quick contribution')).toBeTruthy()
-
-    const responsiveStats = within(goalCard).getByText('Invested').closest('.grid')
-    expect(responsiveStats?.className).toContain('grid-cols-1')
-    expect(responsiveStats?.className).toContain('min-[520px]:grid-cols-3')
-
-    const contributionForm = within(goalCard).getByLabelText('Quick contribution').closest('form')
-    expect(contributionForm?.className).toContain('flex')
-    expect(within(goalCard).getByRole('button', { name: 'Add' })).toHaveProperty('disabled', true)
+    // CompactEntityTable renders a mobile list (sm:hidden) and a desktop table; the first Add money button is the mobile one.
+    const addMoney = (await screen.findAllByRole('button', { name: 'Add money' }))[0]
+    expect(addMoney.closest('[class~="sm:hidden"]')).toBeTruthy()
 
     const user = userEvent.setup()
-    await user.click(within(goalCard).getByLabelText('Quick contribution'))
+    await user.click(addMoney)
+
+    const dialog = await screen.findByRole('dialog')
+    const quickContribution = within(dialog).getByLabelText('Quick contribution')
+    const submit = within(dialog).getByRole('button', { name: 'Add contribution' })
+    expect(quickContribution.closest('form')?.className).toContain('flex-col')
+    expect(submit).toHaveProperty('disabled', true)
+
+    await user.click(quickContribution)
     await user.keyboard('25{Tab}')
-    expect(document.activeElement).toBe(within(goalCard).getByRole('button', { name: 'Add' }))
-    expect(within(goalCard).getByRole('button', { name: 'Add' })).toHaveProperty('disabled', false)
+    expect(document.activeElement).toBe(submit)
+    expect(submit).toHaveProperty('disabled', false)
   })
 
-  it('surfaces empty and error recovery states without hiding the create controls', async () => {
+  it('surfaces empty and error recovery states without hiding the create entry point', async () => {
     mockFetchGoalsTracking.mockResolvedValueOnce(emptyTrackingFixture)
 
     renderGoalsPageWithClient()
 
     expect(await screen.findByText('No goals yet')).toBeTruthy()
     expect(screen.getByText(/Create your first goal and CIBI will track/)).toBeTruthy()
-    expect(screen.getByLabelText('Goal name')).toBeTruthy()
-    expect(screen.getByLabelText('Target amount')).toBeTruthy()
+    const newGoal = screen.getByRole('button', { name: 'New Goal' })
+    expect(newGoal).toHaveProperty('disabled', false)
+
+    const user = userEvent.setup()
+    await user.click(newGoal)
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByLabelText('Goal name')).toBeTruthy()
+    expect(within(dialog).getByLabelText('Target amount')).toBeTruthy()
 
     cleanup()
     vi.clearAllMocks()
@@ -272,6 +285,7 @@ describe('GoalsPage browser contract', () => {
     const alert = await screen.findByRole('alert', { name: 'Goals tracking error' })
     expect(alert.textContent).toContain('Could not load goals tracking.')
     expect(alert.textContent).toContain('Your saved goals were not changed')
+    expect(screen.getByRole('button', { name: 'New Goal' })).toHaveProperty('disabled', false)
 
     fireEvent.click(within(alert).getByRole('button', { name: 'Retry' }))
     await waitFor(() => expect(mockFetchGoalsTracking).toHaveBeenCalledTimes(2))
