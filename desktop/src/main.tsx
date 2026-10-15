@@ -5,7 +5,6 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import './index.css'
 import App from './App.tsx'
 import { startDomain } from './domain'
-import { startDueNotifications } from './lib/due-notifications'
 
 const savedTheme = typeof window !== 'undefined' ? window.localStorage.getItem('cibi.theme') : null
 const initialTheme = savedTheme === 'light' || savedTheme === 'dark'
@@ -41,7 +40,6 @@ async function bootstrap(): Promise<void> {
       </TooltipProvider>
     </StrictMode>,
   )
-  startDueNotifications()
 }
 
 void bootstrap()

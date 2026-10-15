@@ -26,4 +26,3 @@ tauri-plugin-log = "2"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
-tauri-plugin-notification = "2"
