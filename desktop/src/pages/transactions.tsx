@@ -499,7 +499,7 @@ export function TransactionsPage() {
     onError: () => toast.error('Failed to create debt'),
   })
 
-  const handleBatchConfirmDueNow = useCallback(() => {
+  const handleBatchConfirmDueNow = () => {
     const { nextPaydayDay } = getWindowBounds(paySchedules, nextPayday)
     const now = new Date()
     const dueNowIds = transactions
@@ -508,7 +508,7 @@ export function TransactionsPage() {
       .map(t => t.id)
     dueNowIds.forEach(id => confirmMutation.mutate(id))
     toast.success(`Confirmed ${dueNowIds.length} payment${dueNowIds.length !== 1 ? 's' : ''}`)
-  }, [transactions, nextPayday, paySchedules])
+  }
 
   const handleCreateClick = () => {
     setIsCreating(true)
@@ -588,8 +588,9 @@ export function TransactionsPage() {
 
   // Filter state persistence
   const FILTER_KEY = `cibi:filters:${currentAccountId}`
-  useEffect(() => {
-    if (!currentAccountId) return
+  const [filtersLoadedFor, setFiltersLoadedFor] = useState<string | undefined>(undefined)
+  if (currentAccountId && filtersLoadedFor !== currentAccountId) {
+    setFiltersLoadedFor(currentAccountId)
     try {
       const saved = sessionStorage.getItem(FILTER_KEY)
       if (saved) {
@@ -599,14 +600,14 @@ export function TransactionsPage() {
         if (state.sortDir) setSortDir(state.sortDir)
       }
     } catch { /* ignore */ }
-  }, [currentAccountId])
+  }
 
   useEffect(() => {
     if (!currentAccountId) return
     sessionStorage.setItem(FILTER_KEY, JSON.stringify({
       preset, sortField, sortDir,
     }))
-  }, [preset, sortField, sortDir, currentAccountId])
+  }, [preset, sortField, sortDir, currentAccountId, FILTER_KEY])
 
   const handleTransactionChange = (changes: Partial<FormData>) => {
     setFormData(prev => ({ ...prev, ...changes }))
