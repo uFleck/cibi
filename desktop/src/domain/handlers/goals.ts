@@ -10,17 +10,22 @@
 // - a service error: 400 with the error text (Create, Update, AddLedger, Reverse, Confirm); 500 with the
 //   error text for the list reads (List, ListLedger, Tracking, ListRecurring).
 // - Create's and AddLedger's validation errors are 400 with the validator text.
+// - an unknown goal id (Update) or an unknown goal or entry id (Reverse): 404 "goal not found" /
+//   "goal or ledger entry not found". Reversing an entry that is already reversed is 409
+//   "ledger entry already reversed" (deliberate fix; Go refunded twice). Go answered 400 with the sql error text, and Update on a known goal
+//   is unchanged. A malformed id stays 400.
 // - there is no DELETE route for goals: DELETE /api/goals/:id is 405, as in Go.
 // - ReverseLedger ignores a body that does not bind (Go `_ = c.Bind(&req)`).
 
 import type { App } from '../app'
 import { formatDbTime, parseRfc3339 } from '../dates'
-import { messageOf } from '../errors'
+import { ErrNoRows, isErr, messageOf } from '../errors'
 import { HttpError, route } from '../http'
 import { goRound } from '../num'
 import { VALID_GOAL_LEDGER_TYPES, type Goal, type GoalLedgerEntry } from '../repo/goals'
 import type { GoalRecurringDueItem } from '../service/goalsRecurring'
 import type { GoalsTrackingResponse } from '../service/goalsTracking'
+import { ErrLedgerEntryAlreadyReversed } from '../service/goals'
 import type { AddGoalLedgerInput, CreateGoalInput, GoalsService, UpdateGoalInput } from '../service/goals'
 import { validateOrThrow, type FieldSpec } from '../validate'
 import { bindBody } from './bind'
@@ -210,6 +215,14 @@ function badRequestOf(err: unknown): never {
   throw new HttpError(400, messageOf(err))
 }
 
+/** sql.ErrNoRows is a 404 with the route's not-found text; any other service error is a 400 with its text. */
+function notFoundOr400(notFound: string): (err: unknown) => never {
+  return (err: unknown): never => {
+    if (isErr(err, ErrNoRows)) throw new HttpError(404, notFound)
+    throw new HttpError(400, messageOf(err))
+  }
+}
+
 /** Parses an RFC3339 date from the body; any failure is a 400 with the route's text. */
 function parseDateOr400(raw: string, message: string): Date {
   try {
@@ -286,7 +299,7 @@ export function registerGoalsRoutes(app: App, svc: GoalsServiceIface = app.goals
       notes: req.notes ?? undefined,
       minContributionPerWindow: req.min_contribution_per_window ?? undefined,
     }
-    await svc.updateGoal(goalId, input).catch(badRequestOf)
+    await svc.updateGoal(goalId, input).catch(notFoundOr400('goal not found'))
     return { status: 204 }
   })
 
@@ -330,7 +343,11 @@ export function registerGoalsRoutes(app: App, svc: GoalsServiceIface = app.goals
     async ({ params, body }) => {
       const goalId = parseIdOr400(params.id, 'invalid goal id')
       const entryId = parseIdOr400(params.entryId, 'invalid entry id')
-      const entry = await svc.reverseLedgerEntry(goalId, entryId, reverseNote(body)).catch(badRequestOf)
+      const notFound = notFoundOr400('goal or ledger entry not found')
+      const entry = await svc.reverseLedgerEntry(goalId, entryId, reverseNote(body)).catch((err: unknown) => {
+        if (isErr(err, ErrLedgerEntryAlreadyReversed)) throw new HttpError(409, ErrLedgerEntryAlreadyReversed.message)
+        return notFound(err)
+      })
       return { status: 201, body: ledgerResponse(entry) }
     },
     { ignoreMalformedBody: true },

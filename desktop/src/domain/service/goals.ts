@@ -15,18 +15,26 @@
 // - AddLedgerEntry recomputes the status only as: completed when invested >= target, else active
 //   only when it was completed. A withdrawal can make invested negative (no check).
 // - Reversing an entry posts an "adjustment" with the opposite signed amount (negative for a reversed
-//   contribution, so the invested total goes down; Go added instead, a bug fixed here). It moves no money
-//   and does not link reverses_entry_id. Reversing the same entry twice is allowed. The goal id given is not checked against the entry's goal.
+//   contribution, so the invested total goes down; Go added instead, a bug fixed here), and moves the
+//   money the opposite way in the goal's account (owner decision: a reversed contribution refunds the
+//   account, a reversed withdrawal takes the money out again, a reversed adjustment moves none). It does
+//   link the new entry to the original in reverses_entry_id. An entry that another entry of the goal
+//   already reverses cannot be reversed again (ErrLedgerEntryAlreadyReversed, a 409 in the handler), so
+//   the account is refunded once. Reversals posted before the link was written are not detected.
+//   An entry of another goal is ErrNoRows, so the refund always goes to the entry's own account.
 
 import type { Db } from '../db'
 import { isZeroTime } from '../dates'
-import { AppError, wrapping } from '../errors'
+import { AppError, ErrNoRows, wrapping } from '../errors'
 import { goRound } from '../num'
 import type { AccountsRepo } from '../repo/accounts'
 import type { Goal, GoalLedgerEntry, GoalsRepo, UpdateGoal } from '../repo/goals'
 import type { LedgerService } from './ledger'
 import { confirmRecurringDue, listRecurringDue, type GoalRecurringDueItem } from './goalsRecurring'
 import { buildTracking, type GoalsTrackingResponse } from './goalsTracking'
+
+/** Reversing an entry that is already reversed (the handler answers 409). */
+export const ErrLedgerEntryAlreadyReversed = new AppError('ledger entry already reversed')
 
 /** Dollars to cents, as the Go service does it: int64(math.Round(v * 100)). */
 export function toCents(dollars: number): number {
@@ -195,6 +203,8 @@ export class GoalsService {
     e: Pick<GoalLedgerEntry, 'amountCents' | 'type' | 'source' | 'note' | 'timestampUtc'>,
     balanceDelta: number,
     investDelta: number,
+    description = `goal ${e.type}`,
+    reversesEntryId: string | null = null,
   ): Promise<GoalLedgerEntry> {
     return this.db.tx(async () => {
       const entry: GoalLedgerEntry = {
@@ -204,7 +214,7 @@ export class GoalsService {
         type: e.type,
         source: e.source,
         note: e.note,
-        reversesEntryId: null,
+        reversesEntryId,
         timestampUtc: e.timestampUtc,
         createdAtUtc: new Date(),
       }
@@ -217,7 +227,7 @@ export class GoalsService {
             payScheduleId: null,
             entryType: 'manual_adjustment',
             amount: balanceDelta,
-            description: `goal ${e.type}`,
+            description,
             postedAt: e.timestampUtc,
           },
           true,
@@ -240,18 +250,38 @@ export class GoalsService {
   }
 
   /**
-   * Undoes the entry's effect on the invested total by posting an adjustment of the opposite signed
-   * amount (a contribution or positive adjustment is subtracted, a withdrawal is given back).
+   * Undoes the entry by posting an adjustment of the opposite signed amount, and moves the money the
+   * other way in the same account: a reversed contribution refunds the account, a reversed withdrawal
+   * takes the money out again (and fails with "insufficient funds" when the account cannot cover it),
+   * a reversed adjustment moves no money. Rejects with ErrNoRows when the goal does not exist, or the
+   * entry does not exist or belongs to another goal, and with ErrLedgerEntryAlreadyReversed when another
+   * entry of the goal already reverses it.
    */
   async reverseLedgerEntry(goalId: string, entryId: string, note?: string | null): Promise<GoalLedgerEntry> {
-    const orig = await this.goals.getLedgerEntryById(entryId)
     const goal = await this.goals.getGoalById(goalId)
-    const origDelta = orig.type === 'withdrawal' ? -orig.amountCents : orig.amountCents
+    const orig = await this.goals.getLedgerEntryById(entryId)
+    if (orig.goalId !== goal.id) {
+      throw ErrNoRows
+    }
+    const entries = await this.goals.listLedgerByGoal(goal.id)
+    if (entries.some((e) => e.reversesEntryId === orig.id)) {
+      throw ErrLedgerEntryAlreadyReversed
+    }
+    const origInvestDelta = orig.type === 'withdrawal' ? -orig.amountCents : orig.amountCents
+    const balanceDelta = orig.type === 'contribution' ? orig.amountCents : orig.type === 'withdrawal' ? -orig.amountCents : 0
+    if (balanceDelta < 0) {
+      const acc = await this.accRepo.getById(goal.accountId)
+      if (acc.currentBalance < -balanceDelta) {
+        throw new AppError('insufficient funds')
+      }
+    }
     return this.postEntry(
       goal,
-      { amountCents: -origDelta, type: 'adjustment', source: 'system', note: note ?? null, timestampUtc: new Date() },
-      0,
-      -origDelta,
+      { amountCents: -origInvestDelta, type: 'adjustment', source: 'system', note: note ?? null, timestampUtc: new Date() },
+      balanceDelta,
+      -origInvestDelta,
+      'goal reversal',
+      orig.id,
     )
   }
 

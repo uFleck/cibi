@@ -206,6 +206,79 @@ describe('goals handlers beyond the Go tests (real service on the test DB)', () 
       top_goals: Record<string, unknown>[]
     }
     expect(after.top_goals[0]).toMatchObject({ invested_total: 0 })
+
+    const refunded = await db.query<{ current_balance: number }>(`SELECT current_balance FROM Account WHERE id = ?`, [ACC_ID])
+    expect(refunded[0]?.current_balance).toBe(100000)
+  })
+
+  it('reversing a withdrawal moves the money back out of the account', async () => {
+    registerGoalsRoutes(buildApp(db))
+    await db.query(`INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES (?, 'x', 100000, 'BRL', 1)`, [ACC_ID])
+    await db.query(`INSERT INTO ledger (id, account_id, entry_type, amount, description, posted_at) VALUES (?, ?, 'opening_balance', 100000, '', '2026-01-01T00:00:00Z')`, [crypto.randomUUID(), ACC_ID])
+    const created = await localFetch('/api/goals', {
+      method: 'POST',
+      body: JSON.stringify({ account_id: ACC_ID, name: 'Car', target_amount: 5000, start_date_utc: '2026-01-01T00:00:00Z' }),
+    })
+    const goalId = ((await created.json()) as { id: string }).id
+    const withdrawal = await localFetch(`/api/goals/${goalId}/ledger`, { method: 'POST', body: '{"amount":40,"type":"withdrawal"}' })
+    const entryId = ((await withdrawal.json()) as { id: string }).id
+    const balance = async () =>
+      (await db.query<{ current_balance: number }>(`SELECT current_balance FROM Account WHERE id = ?`, [ACC_ID]))[0]?.current_balance
+    expect(await balance()).toBe(104000)
+    const reversed = await localFetch(`/api/goals/${goalId}/ledger/${entryId}/reverse`, { method: 'POST', body: '{}' })
+    expect(reversed.status).toBe(201)
+    expect(await balance()).toBe(100000)
+  })
+
+  it('reversing the same entry twice is a 409 and the account is refunded only once', async () => {
+    registerGoalsRoutes(buildApp(db))
+    await db.query(`INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES (?, 'x', 100000, 'BRL', 1)`, [ACC_ID])
+    await db.query(`INSERT INTO ledger (id, account_id, entry_type, amount, description, posted_at) VALUES (?, ?, 'opening_balance', 100000, '', '2026-01-01T00:00:00Z')`, [crypto.randomUUID(), ACC_ID])
+    const created = await localFetch('/api/goals', {
+      method: 'POST',
+      body: JSON.stringify({ account_id: ACC_ID, name: 'Car', target_amount: 5000, start_date_utc: '2026-01-01T00:00:00Z' }),
+    })
+    const goalId = ((await created.json()) as { id: string }).id
+    const contribution = await localFetch(`/api/goals/${goalId}/ledger`, { method: 'POST', body: '{"amount":40,"type":"contribution"}' })
+    const entryId = ((await contribution.json()) as { id: string }).id
+    const balance = async () =>
+      (await db.query<{ current_balance: number }>(`SELECT current_balance FROM Account WHERE id = ?`, [ACC_ID]))[0]?.current_balance
+    expect(await balance()).toBe(96000)
+    const first = await localFetch(`/api/goals/${goalId}/ledger/${entryId}/reverse`, { method: 'POST', body: '{}' })
+    expect(first.status).toBe(201)
+    expect(await first.json()).toMatchObject({ reverses_entry_id: entryId })
+    expect(await balance()).toBe(100000)
+    const second = await localFetch(`/api/goals/${goalId}/ledger/${entryId}/reverse`, { method: 'POST', body: '{}' })
+    expect(second.status).toBe(409)
+    expect(await second.json()).toEqual({ error: 'ledger entry already reversed' })
+    expect(await balance()).toBe(100000)
+    const ledger = (await (await localFetch(`/api/goals/${goalId}/ledger`)).json()) as unknown[]
+    expect(ledger).toHaveLength(2)
+  })
+
+  it('unknown ids are 404 on update and reverse, and a malformed id stays 400', async () => {
+    registerGoalsRoutes(buildApp(db))
+    await db.query(`INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES (?, 'x', 100000, 'BRL', 1)`, [ACC_ID])
+    const created = await localFetch('/api/goals', {
+      method: 'POST',
+      body: JSON.stringify({ account_id: ACC_ID, name: 'Car', target_amount: 5000, start_date_utc: '2026-01-01T00:00:00Z' }),
+    })
+    const goalId = ((await created.json()) as { id: string }).id
+
+    const patchUnknown = await localFetch(`/api/goals/${GOAL_ID}`, { method: 'PATCH', body: '{"name":"x"}' })
+    expect(patchUnknown.status).toBe(404)
+    expect(await patchUnknown.json()).toEqual({ error: 'goal not found' })
+    const patchBad = await localFetch('/api/goals/not-a-uuid', { method: 'PATCH', body: '{"name":"x"}' })
+    expect(patchBad.status).toBe(400)
+
+    const unknownEntry = await localFetch(`/api/goals/${goalId}/ledger/${ENTRY_ID}/reverse`, { method: 'POST', body: '{}' })
+    expect(unknownEntry.status).toBe(404)
+    expect(await unknownEntry.json()).toEqual({ error: 'goal or ledger entry not found' })
+    const unknownGoal = await localFetch(`/api/goals/${GOAL_ID}/ledger/${ENTRY_ID}/reverse`, { method: 'POST', body: '{}' })
+    expect(unknownGoal.status).toBe(404)
+    const badEntry = await localFetch(`/api/goals/${goalId}/ledger/not-a-uuid/reverse`, { method: 'POST', body: '{}' })
+    expect(badEntry.status).toBe(400)
+    expect(await badEntry.json()).toEqual({ error: 'invalid entry id' })
   })
 
   it('error statuses: bad ids are 400 with the route text, unknown goals are 400 with the Go error text, and a delete is 405', async () => {

@@ -6,8 +6,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createTestDb } from '../testing/testDb'
 import { newTestLedgerSvc, trackingDb, type TxState } from '../testing/fakes'
-import { MockGoalsRepo, scopedAccountRepo, zeroGoal } from '../testing/fakesGoals'
-import { GoalsService } from './goals'
+import { MockGoalsRepo, scopedAccountRepo, zeroGoal, zeroLedgerEntry } from '../testing/fakesGoals'
+import { ErrNoRows, isErr } from '../errors'
+import { ErrLedgerEntryAlreadyReversed, GoalsService } from './goals'
 import type { Goal } from '../repo/goals'
 
 type TestDb = Awaited<ReturnType<typeof createTestDb>>
@@ -232,8 +233,8 @@ describe('goals service behavior beyond the Go tests', () => {
       createdAtUtc: new Date('2026-04-01T00:00:00Z'),
     }
     const repo = new MockGoalsRepo({ goal: goal({ id: goalId, accountId: accId, targetAmountCents: 100000, investedTotalCents: 4000 }), entry: original })
-    const accRepo = scopedAccountRepo(accId, 0)
-    const svc = new GoalsService(db, repo, accRepo, newTestLedgerSvc(db, accRepo, null, 0))
+    const accRepo = scopedAccountRepo(accId, 5000)
+    const svc = new GoalsService(db, repo, accRepo, newTestLedgerSvc(db, accRepo, accId, 5000))
     const reversal = await svc.reverseLedgerEntry(goalId, original.id)
     expect(reversal.type).toBe('adjustment')
     expect(reversal.amountCents).toBe(1000)
@@ -262,7 +263,88 @@ describe('goals service behavior beyond the Go tests', () => {
     expect(reversal.source).toBe('system')
     expect(reversal.amountCents).toBe(-2500)
     expect(reversal.note).toBe('oops')
-    expect(reversal.reversesEntryId).toBeNull()
+    expect(reversal.reversesEntryId).toBe(original.id)
+    expect(repo.goal.investedTotalCents).toBe(0)
+  })
+
+  it('contributing and then reversing leaves the account balance where it started', async () => {
+    const goalId = crypto.randomUUID()
+    const accId = crypto.randomUUID()
+    const repo = new MockGoalsRepo({ goal: goal({ id: goalId, accountId: accId, targetAmountCents: 100000, investedTotalCents: 0 }) })
+    const record: { newBalance?: number } = {}
+    const accRepo = scopedAccountRepo(accId, 5000, record)
+    const svc = new GoalsService(db, repo, accRepo, newTestLedgerSvc(db, accRepo, accId, 5000))
+    const contribution = await svc.addLedgerEntry({ goalId, amount: 25, type: 'contribution', source: 'manual', timestampUtc: new Date() })
+    expect(record.newBalance).toBe(2500)
+    expect(repo.goal.investedTotalCents).toBe(2500)
+    await svc.reverseLedgerEntry(goalId, contribution.id)
+    expect(record.newBalance).toBe(5000)
+    expect(repo.goal.investedTotalCents).toBe(0)
+  })
+
+  it('withdrawing and then reversing leaves the account balance where it started', async () => {
+    const goalId = crypto.randomUUID()
+    const accId = crypto.randomUUID()
+    const repo = new MockGoalsRepo({ goal: goal({ id: goalId, accountId: accId, targetAmountCents: 100000, investedTotalCents: 4000 }) })
+    const record: { newBalance?: number } = {}
+    const accRepo = scopedAccountRepo(accId, 5000, record)
+    const svc = new GoalsService(db, repo, accRepo, newTestLedgerSvc(db, accRepo, accId, 5000))
+    const withdrawal = await svc.addLedgerEntry({ goalId, amount: 10, type: 'withdrawal', source: 'manual', timestampUtc: new Date() })
+    expect(record.newBalance).toBe(6000)
+    await svc.reverseLedgerEntry(goalId, withdrawal.id)
+    expect(record.newBalance).toBe(5000)
+    expect(repo.goal.investedTotalCents).toBe(4000)
+  })
+
+  it('reversing an adjustment moves no money', async () => {
+    const goalId = crypto.randomUUID()
+    const accId = crypto.randomUUID()
+    const repo = new MockGoalsRepo({ goal: goal({ id: goalId, accountId: accId, targetAmountCents: 100000, investedTotalCents: 0 }) })
+    const record: { newBalance?: number } = {}
+    const accRepo = scopedAccountRepo(accId, 5000, record)
+    const svc = new GoalsService(db, repo, accRepo, newTestLedgerSvc(db, accRepo, accId, 5000))
+    const adjustment = await svc.addLedgerEntry({ goalId, amount: 10, type: 'adjustment', source: 'manual', timestampUtc: new Date() })
+    await svc.reverseLedgerEntry(goalId, adjustment.id)
+    expect(record.newBalance).toBeUndefined()
+    expect(repo.goal.investedTotalCents).toBe(0)
+  })
+
+  it('reversing a withdrawal with too little balance to give the money back fails and changes nothing', async () => {
+    const goalId = crypto.randomUUID()
+    const accId = crypto.randomUUID()
+    const original = { ...zeroLedgerEntry(), id: crypto.randomUUID(), goalId, amountCents: 1000, type: 'withdrawal', source: 'manual' }
+    const repo = new MockGoalsRepo({ goal: goal({ id: goalId, accountId: accId, targetAmountCents: 100000, investedTotalCents: 4000 }), entry: original })
+    const record: { newBalance?: number } = {}
+    const accRepo = scopedAccountRepo(accId, 500, record)
+    const svc = new GoalsService(db, repo, accRepo, newTestLedgerSvc(db, accRepo, accId, 500))
+    await expect(svc.reverseLedgerEntry(goalId, original.id)).rejects.toThrow('insufficient funds')
+    expect(record.newBalance).toBeUndefined()
+    expect(repo.goal.investedTotalCents).toBe(4000)
+  })
+
+  it('an entry of another goal is not found under this goal and refunds nothing', async () => {
+    const accId = crypto.randomUUID()
+    const original = { ...zeroLedgerEntry(), id: crypto.randomUUID(), goalId: crypto.randomUUID(), amountCents: 1000, type: 'contribution', source: 'manual' }
+    const repo = new MockGoalsRepo({ goal: goal({ accountId: accId }), entry: original })
+    const record: { newBalance?: number } = {}
+    const accRepo = scopedAccountRepo(accId, 500, record)
+    const svc = new GoalsService(db, repo, accRepo, newTestLedgerSvc(db, accRepo, accId, 500))
+    await expect(svc.reverseLedgerEntry(repo.goal.id, original.id)).rejects.toSatisfy((e: unknown) => isErr(e, ErrNoRows))
+    expect(record.newBalance).toBeUndefined()
+  })
+
+  it('an entry that another entry already reverses is not reversed again and refunds nothing', async () => {
+    const goalId = crypto.randomUUID()
+    const accId = crypto.randomUUID()
+    const original = { ...zeroLedgerEntry(), id: crypto.randomUUID(), goalId, amountCents: 1000, type: 'contribution', source: 'manual' }
+    const reversal = { ...zeroLedgerEntry(), id: crypto.randomUUID(), goalId, amountCents: -1000, type: 'adjustment', source: 'system', reversesEntryId: original.id }
+    const repo = new MockGoalsRepo({ goal: goal({ id: goalId, accountId: accId, targetAmountCents: 100000, investedTotalCents: 0 }), entry: original })
+    repo.listLedgerByGoalFn = async () => [original, reversal]
+    const record: { newBalance?: number } = {}
+    const accRepo = scopedAccountRepo(accId, 5000, record)
+    const svc = new GoalsService(db, repo, accRepo, newTestLedgerSvc(db, accRepo, accId, 5000))
+    await expect(svc.reverseLedgerEntry(goalId, original.id)).rejects.toSatisfy((e: unknown) => isErr(e, ErrLedgerEntryAlreadyReversed))
+    expect(record.newBalance).toBeUndefined()
     expect(repo.goal.investedTotalCents).toBe(0)
   })
 
