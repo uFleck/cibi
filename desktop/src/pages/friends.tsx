@@ -75,7 +75,7 @@ function FriendDetailsModal({
       toast.success('Friend deleted')
       onOpenChange(false)
     },
-    onError: () => toast.error('Failed to delete friend'),
+    onError: (error) => toast.error(error.message || 'Failed to delete friend'),
   })
 
   if (!friend) return null
@@ -95,7 +95,7 @@ function FriendDetailsModal({
             deleteFriendMutation.mutate()
           }}
           title={`Delete "${friend.name}"?`}
-          description="This removes friend and debt history."
+          description="The friend will be removed. Friends with debts or group events cannot be deleted."
           confirmLabel="Delete"
         />
 
@@ -536,6 +536,12 @@ export function FriendsPage() {
     const totalAmount = parseDecimalInput(eventForm.total_amount)
     if (totalAmount == null) {
       toast.error('Please enter a valid total amount')
+      return
+    }
+
+    // Stored as whole cents: anything that rounds to 0 (or below) would be saved as 0.
+    if (Math.round(totalAmount * 100) <= 0) {
+      toast.error('Total amount must be greater than 0.')
       return
     }
 

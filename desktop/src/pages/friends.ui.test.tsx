@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AccountContext } from '@/App'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { FriendsPage } from '@/pages/friends'
-import { createGroupEvent, listFriends, listGroupEvents } from '@/lib/api'
+import { toast } from 'sonner'
+import { createGroupEvent, deleteFriend, listFriends, listGroupEvents } from '@/lib/api'
 
 vi.mock('@/lib/api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api')
@@ -13,6 +14,7 @@ vi.mock('@/lib/api', async () => {
     listFriends: vi.fn(),
     listGroupEvents: vi.fn(),
     createGroupEvent: vi.fn(),
+    deleteFriend: vi.fn(),
   }
 })
 
@@ -23,6 +25,7 @@ vi.mock('sonner', () => ({
 const mockListFriends = vi.mocked(listFriends)
 const mockListGroupEvents = vi.mocked(listGroupEvents)
 const mockCreateGroupEvent = vi.mocked(createGroupEvent)
+const mockDeleteFriend = vi.mocked(deleteFriend)
 
 function renderFriendsPage() {
   const queryClient = new QueryClient({
@@ -83,5 +86,79 @@ describe('FriendsPage create group event', () => {
       total_amount: 45.5,
     })
     expect(typeof body.total_amount).toBe('number')
+  })
+
+  it.each([['0'], ['0,00'], ['0.001']])(
+    'rejects a total amount of %s client-side with no request and a message',
+    async (amount) => {
+      renderFriendsPage()
+
+      fireEvent.click(await screen.findByRole('button', { name: /new event/i }))
+
+      fireEvent.change(screen.getByPlaceholderText('Pizza Night'), { target: { value: 'Pizza Night' } })
+      fireEvent.change(document.querySelector('input[type="date"]') as HTMLInputElement, {
+        target: { value: '2026-07-01' },
+      })
+      fireEvent.change(screen.getByPlaceholderText('0.00'), { target: { value: amount } })
+      fireEvent.click(screen.getByRole('button', { name: 'Create Event' }))
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith('Total amount must be greater than 0.')
+      )
+      expect(mockCreateGroupEvent).not.toHaveBeenCalled()
+    }
+  )
+})
+
+describe('FriendsPage delete friend', () => {
+  beforeEach(() => {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+    mockListFriends.mockResolvedValue([{ id: 'f1', name: 'Alice', public_token: 'tok', notes: null, pix_key: null }])
+    mockListGroupEvents.mockResolvedValue([])
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.clearAllMocks()
+  })
+
+  async function openDeleteConfirm() {
+    renderFriendsPage()
+    // The row renders its open action in more than one layout; either one opens the same modal.
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Access friend details' }))[0]!)
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete friend' }))
+    expect(
+      await screen.findByText('The friend will be removed. Friends with debts or group events cannot be deleted.')
+    ).toBeTruthy()
+    expect(screen.queryByText(/debt history/i)).toBeNull()
+  }
+
+  it('shows the server message in the toast when the friend still has debts or events', async () => {
+    const serverMessage = 'friend still has peer debts or group events; remove them before deleting the friend'
+    mockDeleteFriend.mockRejectedValue(new Error(serverMessage))
+    await openDeleteConfirm()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(serverMessage))
+    expect(mockDeleteFriend).toHaveBeenCalledWith('f1')
+  })
+
+  it('falls back to the generic message when the error has no message', async () => {
+    mockDeleteFriend.mockRejectedValue(new Error(''))
+    await openDeleteConfirm()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to delete friend'))
   })
 })
