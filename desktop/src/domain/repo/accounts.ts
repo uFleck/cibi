@@ -160,8 +160,42 @@ export class SqliteAccountsRepo implements AccountsRepo {
 
   async deleteById(id: string): Promise<void> {
     await this.db.tx(async () => {
+      // Children go before parents: the ledger before the transactions and pay schedules it references.
+      await this.exec(`DELETE FROM ledger WHERE account_id = ?`, [id]).catch((err: unknown) => {
+        throw wrap('accounts.DeleteByID: delete ledger', err)
+      })
+      await this.exec(
+        `DELETE FROM GoalLedgerEntry WHERE goal_id IN (SELECT id FROM Goal WHERE account_id = ?)`,
+        [id],
+      ).catch((err: unknown) => {
+        throw wrap('accounts.DeleteByID: delete goal entries', err)
+      })
+      await this.exec(
+        `DELETE FROM GoalRecurringContribution WHERE goal_id IN (SELECT id FROM Goal WHERE account_id = ?)`,
+        [id],
+      ).catch((err: unknown) => {
+        throw wrap('accounts.DeleteByID: delete goal recurring', err)
+      })
+      await this.exec(
+        `DELETE FROM GoalTargetAudit WHERE goal_id IN (SELECT id FROM Goal WHERE account_id = ?)`,
+        [id],
+      ).catch((err: unknown) => {
+        throw wrap('accounts.DeleteByID: delete goal audits', err)
+      })
+      await this.exec(`DELETE FROM Goal WHERE account_id = ?`, [id]).catch((err: unknown) => {
+        throw wrap('accounts.DeleteByID: delete goals', err)
+      })
+      await this.exec(`DELETE FROM GroupEvent WHERE account_id = ?`, [id]).catch((err: unknown) => {
+        throw wrap('accounts.DeleteByID: delete group events', err)
+      })
+      await this.exec(`DELETE FROM PeerDebt WHERE account_id = ?`, [id]).catch((err: unknown) => {
+        throw wrap('accounts.DeleteByID: delete peer debts', err)
+      })
       await this.exec(`DELETE FROM "Transaction" WHERE account_id = ?`, [id]).catch((err: unknown) => {
         throw wrap('accounts.DeleteByID: delete txns', err)
+      })
+      await this.exec(`DELETE FROM PaySchedule WHERE account_id = ?`, [id]).catch((err: unknown) => {
+        throw wrap('accounts.DeleteByID: delete pay schedules', err)
       })
       let changed: number
       try {

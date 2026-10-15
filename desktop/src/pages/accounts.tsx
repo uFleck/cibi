@@ -368,8 +368,9 @@ export function AccountsPage() {
           setConfirmDelete(null)
         }}
         onCancel={() => setConfirmDelete(null)}
-        title={`Delete "${accountToDelete?.name}"?`}
-        description="This action cannot be undone."
+        title={`Permanently delete "${accountToDelete?.name}"?`}
+        description="This deletes the account and ALL of its transactions, ledger history, pay schedules, goals (with their contributions), group events and debts. Friends are not deleted. This cannot be undone."
+        confirmLabel="Delete account and all data"
       />
 
       <div className="flex items-center justify-between">
