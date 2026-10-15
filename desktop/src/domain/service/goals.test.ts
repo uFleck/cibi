@@ -217,7 +217,30 @@ describe('goals service behavior beyond the Go tests', () => {
     expect(repo.goal.status).toBe('active')
   })
 
-  it('reversing an entry posts an adjustment of the same amount that adds to the invested total', async () => {
+  it('reversing a withdrawal posts a positive adjustment that gives the amount back to the invested total', async () => {
+    const goalId = crypto.randomUUID()
+    const accId = crypto.randomUUID()
+    const original = {
+      id: crypto.randomUUID(),
+      goalId,
+      amountCents: 1000,
+      type: 'withdrawal',
+      source: 'manual',
+      note: null,
+      reversesEntryId: null,
+      timestampUtc: new Date('2026-04-01T00:00:00Z'),
+      createdAtUtc: new Date('2026-04-01T00:00:00Z'),
+    }
+    const repo = new MockGoalsRepo({ goal: goal({ id: goalId, accountId: accId, targetAmountCents: 100000, investedTotalCents: 4000 }), entry: original })
+    const accRepo = scopedAccountRepo(accId, 0)
+    const svc = new GoalsService(db, repo, accRepo, newTestLedgerSvc(db, accRepo, null, 0))
+    const reversal = await svc.reverseLedgerEntry(goalId, original.id)
+    expect(reversal.type).toBe('adjustment')
+    expect(reversal.amountCents).toBe(1000)
+    expect(repo.goal.investedTotalCents).toBe(5000)
+  })
+
+  it('reversing an entry posts an adjustment of the negated amount that subtracts from the invested total', async () => {
     const goalId = crypto.randomUUID()
     const accId = crypto.randomUUID()
     const original = {
@@ -237,10 +260,10 @@ describe('goals service behavior beyond the Go tests', () => {
     const reversal = await svc.reverseLedgerEntry(goalId, original.id, 'oops')
     expect(reversal.type).toBe('adjustment')
     expect(reversal.source).toBe('system')
-    expect(reversal.amountCents).toBe(2500)
+    expect(reversal.amountCents).toBe(-2500)
     expect(reversal.note).toBe('oops')
     expect(reversal.reversesEntryId).toBeNull()
-    expect(repo.goal.investedTotalCents).toBe(5000)
+    expect(repo.goal.investedTotalCents).toBe(0)
   })
 
   it('an unknown entry id to reverse is the ErrNoRows message', async () => {

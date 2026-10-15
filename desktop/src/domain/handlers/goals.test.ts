@@ -200,7 +200,12 @@ describe('goals handlers beyond the Go tests (real service on the test DB)', () 
     const entries = (await (await localFetch(`/api/goals/${goalId}/ledger`)).json()) as { id: string }[]
     const reversed = await localFetch(`/api/goals/${goalId}/ledger/${entries[0]?.id}/reverse`, { method: 'POST', body: '{"note":"undo"}' })
     expect(reversed.status).toBe(201)
-    expect(await reversed.json()).toMatchObject({ type: 'adjustment', source: 'system', note: 'undo', amount: 250 })
+    expect(await reversed.json()).toMatchObject({ type: 'adjustment', source: 'system', note: 'undo', amount: -250 })
+
+    const after = (await (await localFetch(`/api/goals/tracking?account_id=${ACC_ID}`)).json()) as {
+      top_goals: Record<string, unknown>[]
+    }
+    expect(after.top_goals[0]).toMatchObject({ invested_total: 0 })
   })
 
   it('error statuses: bad ids are 400 with the route text, unknown goals are 400 with the Go error text, and a delete is 405', async () => {

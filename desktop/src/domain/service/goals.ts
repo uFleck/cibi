@@ -14,9 +14,9 @@
 //   (an archived goal becomes active or completed).
 // - AddLedgerEntry recomputes the status only as: completed when invested >= target, else active
 //   only when it was completed. A withdrawal can make invested negative (no check).
-// - Reversing an entry posts an "adjustment" of the same amount, which ADDS to the invested total even
-//   when the original was a contribution, moves no money, and does not link reverses_entry_id.
-//   Reversing the same entry twice is allowed. The goal id given is not checked against the entry's goal.
+// - Reversing an entry posts an "adjustment" with the opposite signed amount (negative for a reversed
+//   contribution, so the invested total goes down; Go added instead, a bug fixed here). It moves no money
+//   and does not link reverses_entry_id. Reversing the same entry twice is allowed. The goal id given is not checked against the entry's goal.
 
 import type { Db } from '../db'
 import { isZeroTime } from '../dates'
@@ -186,16 +186,26 @@ export class GoalsService {
         throw new AppError('validation: invalid type')
     }
 
+    return this.postEntry(goal, { amountCents, type: input.type, source, note: input.note ?? null, timestampUtc }, balanceDelta, investDelta)
+  }
+
+  /** Writes the goal entry, the account movement (when balanceDelta is not 0) and the goal's total and status. */
+  private postEntry(
+    goal: Goal,
+    e: Pick<GoalLedgerEntry, 'amountCents' | 'type' | 'source' | 'note' | 'timestampUtc'>,
+    balanceDelta: number,
+    investDelta: number,
+  ): Promise<GoalLedgerEntry> {
     return this.db.tx(async () => {
       const entry: GoalLedgerEntry = {
         id: crypto.randomUUID(),
-        goalId: input.goalId,
-        amountCents,
-        type: input.type,
-        source,
-        note: input.note ?? null,
+        goalId: goal.id,
+        amountCents: e.amountCents,
+        type: e.type,
+        source: e.source,
+        note: e.note,
         reversesEntryId: null,
-        timestampUtc,
+        timestampUtc: e.timestampUtc,
         createdAtUtc: new Date(),
       }
       await this.goals.insertLedgerEntry(entry)
@@ -207,8 +217,8 @@ export class GoalsService {
             payScheduleId: null,
             entryType: 'manual_adjustment',
             amount: balanceDelta,
-            description: `goal ${input.type}`,
-            postedAt: timestampUtc,
+            description: `goal ${e.type}`,
+            postedAt: e.timestampUtc,
           },
           true,
         )
@@ -229,17 +239,20 @@ export class GoalsService {
     })
   }
 
-  /** Posts an adjustment of the same amount as the entry (see the quirks above). */
+  /**
+   * Undoes the entry's effect on the invested total by posting an adjustment of the opposite signed
+   * amount (a contribution or positive adjustment is subtracted, a withdrawal is given back).
+   */
   async reverseLedgerEntry(goalId: string, entryId: string, note?: string | null): Promise<GoalLedgerEntry> {
     const orig = await this.goals.getLedgerEntryById(entryId)
-    return this.addLedgerEntry({
-      goalId,
-      amount: orig.amountCents / 100,
-      type: 'adjustment',
-      source: 'system',
-      note: note ?? null,
-      timestampUtc: new Date(),
-    })
+    const goal = await this.goals.getGoalById(goalId)
+    const origDelta = orig.type === 'withdrawal' ? -orig.amountCents : orig.amountCents
+    return this.postEntry(
+      goal,
+      { amountCents: -origDelta, type: 'adjustment', source: 'system', note: note ?? null, timestampUtc: new Date() },
+      0,
+      -origDelta,
+    )
   }
 
   listLedger(goalId: string): Promise<GoalLedgerEntry[]> {
