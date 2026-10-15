@@ -259,6 +259,21 @@ it('GET /api/friends/summary: zeros for an account with no debts; amounts are do
   expect(s.net).toBe(7.5)
 })
 
+it('GET /api/friends/summary: an installment remainder with fractional cents is rounded to the nearest cent', async () => {
+  const f = await createFriend('I')
+  // The user owes 1000 cents in 3 installments; after one is paid the remainder is 666.666... cents.
+  const debt = await createDebt(f.id, -1000, { is_installment: true, total_installments: 3, frequency: 'monthly' })
+  expect((await post(`/api/peer-debts/${debt.id}/confirm`, {})).status).toBe(204)
+
+  const res = await localFetch(`/api/friends/summary?account_id=${accountId}`)
+  expect(res.status).toBe(200)
+  const s = await json<FriendSummaryResponse>(res)
+  // 666.67 cents rounds to 667 cents (nearest, not truncated to 666).
+  expect(s.total_owed_to_user).toBe(0)
+  expect(s.total_user_owes).toBe(6.67)
+  expect(s.net).toBe(-6.67)
+})
+
 it('GET /api/friends/breakdown: 400 when account_id is missing or bad', async () => {
   const missing = await localFetch('/api/friends/breakdown')
   expect(missing.status).toBe(400)

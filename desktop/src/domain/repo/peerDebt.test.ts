@@ -204,15 +204,13 @@ describe('balance float-sum quirk (Go scans a float SUM into int64)', () => {
     await expect(repo.getBalanceByFriend(friendId, null)).rejects.toThrow(
       /^peer_debt\.GetBalanceByFriend: sql: Scan error on column index 1, name "COALESCE\(ABS\(SUM\(CASE WHEN adj < 0 THEN adj ELSE 0 END\)\), 0\)": converting driver\.Value type float64 \("666\.6+"\) to a int64: invalid syntax$/,
     )
-    await expect(repo.getGlobalBalance(null)).rejects.toThrow(
-      /^peer_debt\.GetGlobalBalance: sql: Scan error on column index 1, name "COALESCE\(ABS\(SUM\(CASE WHEN adj < 0 THEN adj ELSE 0 END\)\), 0\)": converting driver\.Value type float64 \("666\.6+"\) to a int64: invalid syntax$/,
-    )
+    // The global balance rounds to the nearest cent: 666.67 cents becomes 667.
+    expect(await repo.getGlobalBalance(null)).toEqual({ totalOwedToUser: 0, totalUserOwes: 667, net: -667 })
   })
 
-  it('reproduces the Go server 500 body for the real row plus a non-whole remainder', async () => {
-    // Checked against the Go server on a scratch copy of the real data (GET /api/friends/summary):
-    // the real installment (-357112, 8 total, 5 paid) gives -133917; a -1000 installment (3 total, 1 paid)
-    // adds -666.666..., so the owed sum is 134583.666... and Go's 500 text is this (JSON-escaped in Go).
+  it('rounds the real row plus a non-whole remainder to the nearest cent in the global balance', async () => {
+    // The real installment (-357112, 8 total, 5 paid) gives -133917; a -1000 installment (3 total, 1 paid)
+    // adds -666.666..., so the owed sum is 134583.666... and rounds to 134584 cents.
     const repo = new SqlitePeerDebtRepo(db)
     const friendId = crypto.randomUUID()
     const accountId = crypto.randomUUID()
@@ -238,9 +236,7 @@ describe('balance float-sum quirk (Go scans a float SUM into int64)', () => {
       frequency: 'monthly',
       isRecurring: 1,
     })
-    await expect(repo.getGlobalBalance(null)).rejects.toThrow(
-      'peer_debt.GetGlobalBalance: sql: Scan error on column index 1, name "COALESCE(ABS(SUM(CASE WHEN adj < 0 THEN adj ELSE 0 END)), 0)": converting driver.Value type float64 ("134583.66666666666") to a int64: invalid syntax',
-    )
+    expect(await repo.getGlobalBalance(null)).toEqual({ totalOwedToUser: 0, totalUserOwes: 134584, net: -134584 })
   })
 
   it('a whole remainder of 1e6 or more fails too (Go prints it as 2e+06)', async () => {

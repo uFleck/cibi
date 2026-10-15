@@ -136,7 +136,9 @@ const GO_COL_USER_OWES = 'COALESCE(ABS(SUM(CASE WHEN adj < 0 THEN adj ELSE 0 END
  * 1e6 or more fails too, because 'g' prints it with an exponent ("2e+06"). A SUM of 0 is an integer
  * in SQLite (every nonzero SUM here is REAL), so 0 scans fine. The message is Go's, byte for byte
  * except for the driver value text, which is the same shortest float text (checked against the Go
- * server: GET /api/friends/summary returns it in the 500 body). Do not fix this here.
+ * server: GET /api/friends/summary returns it in the 500 body). getGlobalBalance rounds its two sums
+ * to the nearest cent in SQL, so a fractional remainder no longer fails there (bug 3.2). The
+ * per-friend balance still reproduces Go's failure.
  */
 // Go quirk: float remainder fails to scan into int64
 function scanBalanceSum(row: Row, column: string, goName: string, index: number, op: string): number {
@@ -355,8 +357,8 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
     const op = 'peer_debt.GetGlobalBalance'
     let query = `
 		SELECT
-		    COALESCE(SUM(CASE WHEN adj > 0 THEN adj ELSE 0 END), 0) AS total_owed_to_user,
-		    COALESCE(ABS(SUM(CASE WHEN adj < 0 THEN adj ELSE 0 END)), 0) AS total_user_owes
+		    ROUND(COALESCE(SUM(CASE WHEN adj > 0 THEN adj ELSE 0 END), 0)) AS total_owed_to_user,
+		    ROUND(COALESCE(ABS(SUM(CASE WHEN adj < 0 THEN adj ELSE 0 END)), 0)) AS total_user_owes
 		FROM (
 		    SELECT
 		        CASE
