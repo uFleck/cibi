@@ -214,11 +214,20 @@ it('PATCH /api/peer-debts/:id: no fields is a 500 with the Go text', async () =>
   expect(await json(res)).toEqual({ error: 'service.UpdateDebt: peer_debt.Update: no fields provided' })
 })
 
-it('DELETE /api/peer-debts/:id: 204, and the debt is gone', async () => {
+it('PATCH /api/peer-debts/:id: an unknown id with an empty body is a 404, not the no-fields 500', async () => {
+  const missing = await localFetch(`/api/peer-debts/${crypto.randomUUID()}`, { method: 'PATCH', body: '{}' })
+  expect(missing.status).toBe(404)
+  expect(await json(missing)).toEqual({ error: 'peer debt not found' })
+})
+
+it('DELETE /api/peer-debts/:id: 204, the debt is gone, and a second delete is 404', async () => {
   const d = await createDebt(1000)
   const res = await localFetch(`/api/peer-debts/${d.id}`, { method: 'DELETE' })
   expect(res.status).toBe(204)
   expect(await listAll()).toEqual([])
+  const again = await localFetch(`/api/peer-debts/${d.id}`, { method: 'DELETE' })
+  expect(again.status).toBe(404)
+  expect(await json(again)).toEqual({ error: 'peer debt not found' })
   const bad = await localFetch('/api/peer-debts/xyz', { method: 'DELETE' })
   expect(await json(bad)).toEqual({ error: 'invalid peer debt id' })
 })

@@ -73,9 +73,15 @@ export class GroupEventService {
     return wrapping('service.ListEventsByFriend', () => this.repo.getByFriend(friendId))
   }
 
-  /** Patches the given fields of an event (undefined = no change). */
+  /** Patches the given fields of an event (undefined = no change). An unknown id is ErrNoRows, even with no fields. */
   updateEvent(id: string, title?: string, date?: string, totalAmount?: number, notes?: string): Promise<void> {
-    return wrapping('service.UpdateEvent', () => this.repo.update(id, title, date, totalAmount, notes))
+    return wrapping('service.UpdateEvent', async () => {
+      // With nothing to change, the repo's no-fields error would hide an unknown id: look the id up first.
+      if (title === undefined && date === undefined && totalAmount === undefined && notes === undefined) {
+        await this.repo.getById(id)
+      }
+      await this.repo.update(id, title, date, totalAmount, notes)
+    })
   }
 
   /** Removes an event and its participants (cascade). */

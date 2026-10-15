@@ -190,14 +190,18 @@ describe('pay schedule routes on the real service', () => {
     expect(await json<{ error: string }>(res)).toEqual({ error: 'schedule not found' })
   })
 
-  it('answers an update or delete of an unknown schedule with 204', async () => {
-    const id = crypto.randomUUID()
-    const patch = await localFetch(`/api/pay-schedule/${id}`, {
+  it('answers an update of an unknown schedule with 404', async () => {
+    const patch = await localFetch(`/api/pay-schedule/${crypto.randomUUID()}`, {
       method: 'PATCH',
       body: JSON.stringify({ frequency: 'weekly', anchor_date: '2026-01-02', amount: 1 }),
     })
-    expect(patch.status).toBe(204)
-    const del = await localFetch(`/api/pay-schedule/${id}`, { method: 'DELETE' })
-    expect(del.status).toBe(204)
+    expect(patch.status).toBe(404)
+    expect(await json<{ error: string }>(patch)).toEqual({ error: 'schedule not found' })
+  })
+
+  it('answers a delete of an unknown schedule with 404', async () => {
+    const del = await localFetch(`/api/pay-schedule/${crypto.randomUUID()}`, { method: 'DELETE' })
+    expect(del.status).toBe(404)
+    expect(await json<{ error: string }>(del)).toEqual({ error: 'schedule not found' })
   })
 })

@@ -256,18 +256,24 @@ describe('accounts on the real service', () => {
     expect(await res.json()).toEqual({ error: 'account not found' })
   })
 
-  it('set-default on an unknown id returns 204 and clears the current default (Go quirk)', async () => {
+  it('set-default on an unknown id is 404 "account not found" and keeps the current default', async () => {
     realApp()
-    await postAccount({ name: 'A', current_balance: 0, currency: 'BRL', is_default: true })
+    const created = (await (
+      await postAccount({ name: 'A', current_balance: 0, currency: 'BRL', is_default: true })
+    ).json()) as AccountResponse
     const res = await localFetch('/api/accounts/77777777-7777-4777-8777-777777777777/set-default', { method: 'POST' })
-    expect(res.status).toBe(204)
-    expect((await localFetch('/api/accounts/default')).status).toBe(404)
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'account not found' })
+    const def = await localFetch('/api/accounts/default')
+    expect(def.status).toBe(200)
+    expect(((await def.json()) as AccountResponse).id).toBe(created.id)
   })
 
-  it('delete of an unknown id returns 204 (Go does not check rows affected)', async () => {
+  it('delete of an unknown id is 404 "account not found"', async () => {
     realApp()
     const res = await localFetch('/api/accounts/88888888-8888-4888-8888-888888888888', { method: 'DELETE' })
-    expect(res.status).toBe(204)
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: 'account not found' })
   })
 
   it('delete removes the account and its ledger entries', async () => {

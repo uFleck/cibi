@@ -55,7 +55,7 @@ export class PayScheduleService {
     return wrapping('service.ListPaySchedules', () => this.psRepo.listByAccountId(accountId))
   }
 
-  /** Updates the schedule with the given id. An unknown id is not an error (as in Go). */
+  /** Updates the schedule with the given id. Rejects with an error wrapping ErrNoRows when the id is unknown. */
   async updatePaySchedule(
     id: string,
     frequency: string,
@@ -69,7 +69,7 @@ export class PayScheduleService {
     )
   }
 
-  /** Deletes the schedule with the given id. An unknown id is not an error (as in Go). */
+  /** Deletes the schedule with the given id. Rejects with an error wrapping ErrNoRows when the id is unknown. */
   deletePaySchedule(id: string): Promise<void> {
     return wrapping('service.DeletePaySchedule', () => this.psRepo.deleteById(id))
   }

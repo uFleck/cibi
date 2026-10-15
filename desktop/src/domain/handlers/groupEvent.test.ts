@@ -174,11 +174,27 @@ it('PATCH /api/group-events/:id: 400 for a bad id, 404 for an unknown id', async
   expect(await json(missing)).toEqual({ error: 'group event not found' })
 })
 
-it('DELETE /api/group-events/:id: 204, and the event is gone', async () => {
+it('PATCH /api/group-events/:id: an unknown id with an empty body is a 404, not the no-fields 500', async () => {
+  const missing = await localFetch(`/api/group-events/${crypto.randomUUID()}`, { method: 'PATCH', body: '{}' })
+  expect(missing.status).toBe(404)
+  expect(await json(missing)).toEqual({ error: 'group event not found' })
+})
+
+it('PATCH /api/group-events/:id: an existing id with an empty body is the no-fields 500', async () => {
+  const e = await createEvent()
+  const res = await localFetch(`/api/group-events/${e.id}`, { method: 'PATCH', body: '{}' })
+  expect(res.status).toBe(500)
+  expect(await json(res)).toEqual({ error: 'service.UpdateEvent: group_event.Update: no fields provided' })
+})
+
+it('DELETE /api/group-events/:id: 204, the event is gone, and a second delete is 404', async () => {
   const e = await createEvent()
   const res = await localFetch(`/api/group-events/${e.id}`, { method: 'DELETE' })
   expect(res.status).toBe(204)
   expect((await localFetch(`/api/group-events/${e.id}`)).status).toBe(404)
+  const again = await localFetch(`/api/group-events/${e.id}`, { method: 'DELETE' })
+  expect(again.status).toBe(404)
+  expect(await json(again)).toEqual({ error: 'group event not found' })
   const bad = await localFetch('/api/group-events/xyz', { method: 'DELETE' })
   expect(await json(bad)).toEqual({ error: 'invalid group event id' })
 })
@@ -308,7 +324,7 @@ it('GET /api/group-events/:id/transactions: [] when there are none, then the tra
   expect(await json(bad)).toEqual({ error: 'invalid event id' })
 })
 
-it('DELETE /api/group-events/:id/transactions/:tid: 204; a bad transaction id is a 400', async () => {
+it('DELETE /api/group-events/:id/transactions/:tid: 204; an unknown id is a 404; a bad transaction id is a 400', async () => {
   const e = await createEvent()
   const t = await json<GroupEventTransactionResponse>(
     await post(`/api/group-events/${e.id}/transactions`, { description: 'a', amount: 100 }),
@@ -317,6 +333,10 @@ it('DELETE /api/group-events/:id/transactions/:tid: 204; a bad transaction id is
   expect(res.status).toBe(204)
   const list = await json<unknown[]>(await localFetch(`/api/group-events/${e.id}/transactions`))
   expect(list).toEqual([])
+
+  const again = await localFetch(`/api/group-events/${e.id}/transactions/${t.id}`, { method: 'DELETE' })
+  expect(again.status).toBe(404)
+  expect(await json(again)).toEqual({ error: 'group event transaction not found' })
 
   const bad = await localFetch(`/api/group-events/${e.id}/transactions/xyz`, { method: 'DELETE' })
   expect(bad.status).toBe(400)

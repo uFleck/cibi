@@ -228,7 +228,7 @@ export function registerGroupEventRoutes(app: App, svc: GroupEventServiceIface =
 
   route('DELETE', '/api/group-events/:id/transactions/:tid', async ({ params }) => {
     const id = parseIdOr400(params.tid, 'invalid transaction id')
-    await svc.removeEventTransaction(id).catch(rethrow500)
+    await svc.removeEventTransaction(id).catch(notFoundOr500('group event transaction not found'))
     return { status: 204 }
   })
 

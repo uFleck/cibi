@@ -196,9 +196,11 @@ describe('DELETE /api/ledger/:id', () => {
     expect(account.current_balance).toBe(0)
   })
 
-  it('an unknown id is 204 (no check), and a malformed id is 400 "invalid id"', async () => {
+  it('an unknown id is 404 "ledger entry not found", and a malformed id is 400 "invalid id"', async () => {
     registerLedgerRoutes(buildApp(db))
-    expect((await localFetch('/api/ledger/11111111-1111-4111-8111-111111111111', { method: 'DELETE' })).status).toBe(204)
+    const missing = await localFetch('/api/ledger/11111111-1111-4111-8111-111111111111', { method: 'DELETE' })
+    expect(missing.status).toBe(404)
+    expect(await missing.json()).toEqual({ error: 'ledger entry not found' })
     const bad = await localFetch('/api/ledger/income', { method: 'DELETE' })
     expect(bad.status).toBe(400)
     expect(await bad.json()).toEqual({ error: 'invalid id' })

@@ -12,6 +12,7 @@
 import type { Db, SqlParam } from '../db'
 import { ErrNoRows, wrap } from '../errors'
 import { parseUuid } from '../uuid'
+import { execRowsAffected } from './exec'
 import { boolCol, intCol, type Row, textCol } from './scan'
 
 /** Mirrors the Account schema row. */
@@ -140,9 +141,14 @@ export class SqliteAccountsRepo implements AccountsRepo {
       await this.unsetDefaults().catch((err: unknown) => {
         throw wrap('accounts.UpdateIsDefault: unset', err)
       })
-      await this.exec(`UPDATE Account SET is_default = ? WHERE id = ?`, [isDefault ? 1 : 0, id]).catch((err: unknown) => {
+      let changed: number
+      try {
+        changed = await execRowsAffected(this.db, `UPDATE Account SET is_default = ? WHERE id = ?`, [isDefault ? 1 : 0, id])
+      } catch (err) {
         throw wrap('accounts.UpdateIsDefault: exec', err)
-      })
+      }
+      // An unknown id rolls the transaction back, so the current default is kept.
+      if (changed === 0) throw wrap('accounts.UpdateIsDefault', ErrNoRows)
     })
   }
 
@@ -157,9 +163,13 @@ export class SqliteAccountsRepo implements AccountsRepo {
       await this.exec(`DELETE FROM "Transaction" WHERE account_id = ?`, [id]).catch((err: unknown) => {
         throw wrap('accounts.DeleteByID: delete txns', err)
       })
-      await this.exec(`DELETE FROM Account WHERE id = ?`, [id]).catch((err: unknown) => {
+      let changed: number
+      try {
+        changed = await execRowsAffected(this.db, `DELETE FROM Account WHERE id = ?`, [id])
+      } catch (err) {
         throw wrap('accounts.DeleteByID: delete account', err)
-      })
+      }
+      if (changed === 0) throw wrap('accounts.DeleteByID', ErrNoRows)
     })
   }
 

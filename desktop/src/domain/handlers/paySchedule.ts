@@ -7,7 +7,8 @@
 // - a bad account_id or schedule id: 400 with the route's text;
 // - a bad anchor_date: 400 "invalid anchor_date format, use YYYY-MM-DD";
 // - a service error is 500 with the error text itself (not the generic message), except that
-//   Confirm maps sql.ErrNoRows to 404 "schedule not found".
+//   Confirm, Update and Delete map sql.ErrNoRows to 404 "schedule not found" (Go answered 204 to an
+//   unknown id on Update and Delete; the port answers 404).
 // The Go handler also holds an account service, which none of its methods use: it is not ported.
 
 import type { App } from '../app'
@@ -99,6 +100,14 @@ function rethrow500(err: unknown): never {
   throw serverError(err)
 }
 
+const NOT_FOUND = 'schedule not found'
+
+/** An unknown schedule id (ErrNoRows) is a 404; any other service error is a 500 with its text. */
+function notFoundOr500(err: unknown): never {
+  if (isErr(err, ErrNoRows)) throw new HttpError(404, NOT_FOUND)
+  throw serverError(err)
+}
+
 /** Parses a path or query id; a malformed id is a 400 with the route's text. */
 function parseIdOr400(raw: string, message: string): string {
   try {
@@ -145,22 +154,19 @@ export function registerPayScheduleRoutes(app: App, svc: PayScheduleServiceIface
     const anchorDate = parseAnchorOr400(req.anchor_date)
     await svc
       .updatePaySchedule(id, req.frequency, anchorDate, req.day_of_month_2, req.label, goRound(req.amount * 100))
-      .catch(rethrow500)
+      .catch(notFoundOr500)
     return { status: 204 }
   })
 
   route('DELETE', '/api/pay-schedule/:id', async ({ params }) => {
     const id = parseIdOr400(params.id, 'invalid schedule id')
-    await svc.deletePaySchedule(id).catch(rethrow500)
+    await svc.deletePaySchedule(id).catch(notFoundOr500)
     return { status: 204 }
   })
 
   route('POST', '/api/pay-schedule/:id/confirm', async ({ params }) => {
     const id = parseIdOr400(params.id, 'invalid schedule id')
-    const ps = await svc.confirmPayday(id).catch((err: unknown) => {
-      if (isErr(err, ErrNoRows)) throw new HttpError(404, 'schedule not found')
-      throw serverError(err)
-    })
+    const ps = await svc.confirmPayday(id).catch(notFoundOr500)
     return { body: toPayScheduleResponse(ps) }
   })
 }

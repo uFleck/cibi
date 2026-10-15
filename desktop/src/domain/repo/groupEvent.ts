@@ -246,11 +246,13 @@ export class SqliteGroupEventRepo implements GroupEventRepo {
   }
 
   async deleteById(id: string): Promise<void> {
+    let changed: number
     try {
-      await this.db.query(`DELETE FROM GroupEvent WHERE id = ?`, [id])
+      changed = await execRowsAffected(this.db, `DELETE FROM GroupEvent WHERE id = ?`, [id])
     } catch (err) {
       throw wrap('group_event.DeleteByID', err)
     }
+    if (changed === 0) throw wrap('group_event.DeleteByID', ErrNoRows)
   }
 
   /**
@@ -451,11 +453,13 @@ export class SqliteGroupEventRepo implements GroupEventRepo {
   }
 
   async deleteTransactionById(id: string): Promise<void> {
+    let changed: number
     try {
-      await this.db.query(`DELETE FROM GroupEventTransaction WHERE id = ?`, [id])
+      changed = await execRowsAffected(this.db, `DELETE FROM GroupEventTransaction WHERE id = ?`, [id])
     } catch (err) {
       throw wrap('group_event.DeleteTransactionByID', err)
     }
+    if (changed === 0) throw wrap('group_event.DeleteTransactionByID', ErrNoRows)
   }
 
   async getTransactionsByEvent(eventId: string): Promise<GroupEventTransaction[]> {

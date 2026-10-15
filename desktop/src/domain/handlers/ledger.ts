@@ -6,6 +6,7 @@
 //   The validator text is still computed as in Go, and then thrown as a plain Error.
 
 import type { App } from '../app'
+import { ErrNoRows, isErr } from '../errors'
 import { HttpError, route } from '../http'
 import type { LedgerEntry } from '../repo/ledger'
 import type { LedgerService } from '../service/ledger'
@@ -74,7 +75,10 @@ export function registerLedgerRoutes(app: App, svc: LedgerServiceIface = app.led
 
   route('DELETE', '/api/ledger/:id', async ({ params }) => {
     const id = parseIdOr400(params.id, 'invalid id')
-    await svc.delete(id)
+    await svc.delete(id).catch((err: unknown) => {
+      if (isErr(err, ErrNoRows)) throw new HttpError(404, 'ledger entry not found')
+      throw err
+    })
     return { status: 204 }
   })
 

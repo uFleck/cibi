@@ -10,6 +10,7 @@ import type { Db, SqlParam } from '../db'
 import { ErrNoRows, wrap } from '../errors'
 import { formatDbTime, parseDbTime } from '../dates'
 import { parseUuid } from '../uuid'
+import { execRowsAffected } from './exec'
 import { intCol, nullableIntCol, nullableTextCol, type Row, textCol } from './scan'
 
 /** Mirrors the PaySchedule schema row. */
@@ -118,16 +119,19 @@ export class SqlitePayScheduleRepo implements PayScheduleRepo {
   }
 
   async updateById(id: string, ps: PayScheduleFields): Promise<void> {
-    await this.db
-      .query(
+    let changed: number
+    try {
+      changed = await execRowsAffected(
+        this.db,
         `UPDATE PaySchedule
 		 SET frequency = ?, anchor_date = ?, day_of_month2 = ?, label = ?, amount = ?
 		 WHERE id = ?`,
         [ps.frequency, formatDbTime(ps.anchorDate), ps.dayOfMonth2, ps.label, ps.amount, id],
       )
-      .catch((err: unknown) => {
-        throw wrap('pay_schedule.UpdateByID', err)
-      })
+    } catch (err) {
+      throw wrap('pay_schedule.UpdateByID', err)
+    }
+    if (changed === 0) throw wrap('pay_schedule.UpdateByID', ErrNoRows)
   }
 
   async updateAnchorDate(id: string, anchorDate: Date): Promise<void> {
@@ -139,8 +143,12 @@ export class SqlitePayScheduleRepo implements PayScheduleRepo {
   }
 
   async deleteById(id: string): Promise<void> {
-    await this.db.query(`DELETE FROM PaySchedule WHERE id = ?`, [id]).catch((err: unknown) => {
+    let changed: number
+    try {
+      changed = await execRowsAffected(this.db, `DELETE FROM PaySchedule WHERE id = ?`, [id])
+    } catch (err) {
       throw wrap('pay_schedule.DeleteByID', err)
-    })
+    }
+    if (changed === 0) throw wrap('pay_schedule.DeleteByID', ErrNoRows)
   }
 }

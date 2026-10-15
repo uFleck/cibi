@@ -146,13 +146,14 @@ it('PATCH /api/friends/:id: 400 for a bad id, 404 for an unknown id, 404 for an 
   expect(await json(noFields)).toEqual({ error: 'friend not found' })
 })
 
-it('DELETE /api/friends/:id: 204, and 204 again for the same id (Go does not check rows affected)', async () => {
+it('DELETE /api/friends/:id: 204, and 404 "friend not found" for the same id again', async () => {
   const f = await createFriend('E')
   const res = await localFetch(`/api/friends/${f.id}`, { method: 'DELETE' })
   expect(res.status).toBe(204)
   expect(await res.text()).toBe('')
   const again = await localFetch(`/api/friends/${f.id}`, { method: 'DELETE' })
-  expect(again.status).toBe(204)
+  expect(again.status).toBe(404)
+  expect(await json(again)).toEqual({ error: 'friend not found' })
   const bad = await localFetch('/api/friends/xyz', { method: 'DELETE' })
   expect(bad.status).toBe(400)
   expect(await json(bad)).toEqual({ error: 'invalid friend id' })

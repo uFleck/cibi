@@ -68,9 +68,15 @@ export class PeerDebtService {
     return row
   }
 
-  /** Patches the amount and/or the description (undefined = no change). */
+  /** Patches the amount and/or the description (undefined = no change). An unknown id is ErrNoRows, even with no fields. */
   updateDebt(id: string, amount?: number, description?: string): Promise<void> {
-    return wrapping('service.UpdateDebt', () => this.repo.update(id, amount, description, undefined, undefined))
+    return wrapping('service.UpdateDebt', async () => {
+      // With nothing to change, the repo's no-fields error would hide an unknown id: look the id up first.
+      if (amount === undefined && description === undefined) {
+        await this.repo.getById(id)
+      }
+      await this.repo.update(id, amount, description, undefined, undefined)
+    })
   }
 
   deleteDebt(id: string): Promise<void> {

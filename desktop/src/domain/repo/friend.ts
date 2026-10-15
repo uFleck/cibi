@@ -151,13 +151,15 @@ export class SqliteFriendRepo implements FriendRepo {
    * referenced fails on the foreign key; that is reported as ErrFriendInUse and nothing is deleted.
    */
   async deleteById(id: string): Promise<void> {
+    let changed: number
     try {
-      await this.db.query(`DELETE FROM Friend WHERE id = ?`, [id])
+      changed = await execRowsAffected(this.db, `DELETE FROM Friend WHERE id = ?`, [id])
     } catch (err) {
       if (/FOREIGN KEY constraint failed/.test(err instanceof Error ? err.message : String(err))) {
         throw wrap('friend.DeleteByID', ErrFriendInUse)
       }
       throw wrap('friend.DeleteByID', err)
     }
+    if (changed === 0) throw wrap('friend.DeleteByID', ErrNoRows)
   }
 }

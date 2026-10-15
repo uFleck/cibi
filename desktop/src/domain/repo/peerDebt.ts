@@ -293,11 +293,13 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
   }
 
   async deleteById(id: string): Promise<void> {
+    let changed: number
     try {
-      await this.db.query(`DELETE FROM "Transaction" WHERE id = ? AND type = 'peer'`, [id])
+      changed = await execRowsAffected(this.db, `DELETE FROM "Transaction" WHERE id = ? AND type = 'peer'`, [id])
     } catch (err) {
       throw wrap('peer_debt.DeleteByID', err)
     }
+    if (changed === 0) throw wrap('peer_debt.DeleteByID', ErrNoRows)
   }
 
   async getBalanceByFriend(friendId: string, accountId: string | null): Promise<PeerDebtBalance> {

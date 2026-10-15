@@ -4,7 +4,7 @@
 // transaction (db.tx) and the work runs inside it. A nested db.tx() would throw.
 
 import type { Db } from '../db'
-import { AppError, wrap, wrapping } from '../errors'
+import { AppError, ErrNoRows, wrap, wrapping } from '../errors'
 import type { AccountsRepo } from '../repo/accounts'
 import type { LedgerEntry, LedgerRepo, NewLedgerEntry } from '../repo/ledger'
 
@@ -41,10 +41,10 @@ export class LedgerService {
     await wrapping('update balance', () => this.accRepo.updateBalance(entry.accountId, newBalance))
   }
 
-  /** Removes a ledger entry by id and recomputes the account balance. A missing entry is a no-op. */
+  /** Removes a ledger entry by id and recomputes the account balance. Rejects with an error wrapping ErrNoRows when the entry does not exist. */
   async delete(id: string): Promise<void> {
     const entry = await wrapping('service.LedgerService.Delete: find', () => this.ledgerRepo.findById(id))
-    if (entry === null) return
+    if (entry === null) throw wrap('service.LedgerService.Delete', ErrNoRows)
     const accountId = entry.accountId
     await this.db.tx(async () => {
       await wrapping('service.LedgerService.Delete: delete', () => this.ledgerRepo.deleteById(id))
