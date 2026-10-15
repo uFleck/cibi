@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { Plus, Wallet, Edit2, Trash2, Check } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
@@ -44,6 +45,8 @@ type FormErrors = Partial<Record<keyof FormData, string>>
 
 export function AccountsPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const { schedules: schedulesParam } = useSearch({ from: '/accounts' })
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -74,6 +77,17 @@ export function AccountsPage() {
     queryKey: ['accounts'],
     queryFn: fetchAccounts,
   })
+
+  const schedulesParamAccountId = !isLoading && schedulesParam && accounts.some(a => a.id === schedulesParam)
+    ? schedulesParam
+    : null
+  if (schedulesParamAccountId && schedulesParamAccountId !== scheduleModalAccountId) {
+    setScheduleModalAccountId(schedulesParamAccountId)
+  }
+
+  useEffect(() => {
+    if (schedulesParam && !isLoading) navigate({ to: '/accounts', search: {}, replace: true })
+  }, [schedulesParam, isLoading, navigate])
 
   const {
     data: schedules = [],
@@ -485,7 +499,7 @@ export function AccountsPage() {
         onOpenChange={(open) => !open && closeScheduleModal()}
         title="Pay Schedules"
         description={scheduleModalAccountId ? accounts.find(a => a.id === scheduleModalAccountId)?.name : ''}
-        contentClassName="max-h-[80vh] sm:max-w-[calc(100vw-2rem)] lg:max-w-4xl"
+        contentClassName="md:w-[640px] md:max-w-[640px]"
       >
 
           {schedulesLoading ? (

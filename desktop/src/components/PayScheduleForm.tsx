@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { DateInput } from '@/components/ui/date-input'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { createPaySchedule, type CreatePayScheduleRequest } from '@/lib/api'
@@ -89,10 +90,9 @@ export function PayScheduleForm() {
 
         <div className="flex flex-col gap-2">
           <FieldLabel>First Pay Date</FieldLabel>
-          <Input
-            type="date"
+          <DateInput
             value={anchorDate}
-            onChange={e => setAnchorDate(e.target.value)}
+            onChange={setAnchorDate}
             className="h-11 bg-muted/50 border-border/60"
           />
         </div>

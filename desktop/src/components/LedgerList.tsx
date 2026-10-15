@@ -40,6 +40,7 @@ export function LedgerList({ account }: Props) {
     mutationFn: (id: string) => deleteLedgerEntry(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ledger', account.id] })
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
       toast.success('Entry deleted')
       setConfirmDeleteId(null)
     },

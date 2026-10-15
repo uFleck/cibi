@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { DateInput } from '@/components/ui/date-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -44,11 +45,10 @@ export function GroupEventForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <Label className="block text-sm font-medium mb-1">Date</Label>
-          <Input
-            type="date"
+          <DateInput
             required
             value={form.date}
-            onChange={e => onChange({ ...form, date: e.target.value })}
+            onChange={date => onChange({ ...form, date })}
           />
         </div>
         <div>

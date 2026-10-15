@@ -381,7 +381,7 @@ function GroupEventDetailsModal({
       onOpenChange={onOpenChange}
       title="Group Event Details"
       description="Manage event, participants, link access"
-      contentClassName="sm:max-w-[calc(100vw-2rem)] lg:max-w-5xl"
+      contentClassName="md:w-[720px] md:max-w-[720px]"
     >
 
         <ConfirmDialog

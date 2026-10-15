@@ -154,6 +154,7 @@ export function GoalsPage() {
     onSuccess: async () => {
       setEditContribution('')
       await qc.invalidateQueries({ queryKey: ['goals', 'tracking', accountId] })
+      await qc.invalidateQueries({ queryKey: ['accounts'] })
       toast.success('Contribution added')
     },
     onError: (e: Error & { code?: string }) => toast.error(e.code ? `${e.code}: ${e.message}` : e.message),
@@ -170,6 +171,7 @@ export function GoalsPage() {
       setEditWithdrawal('')
       setEditWithdrawalReason('')
       await qc.invalidateQueries({ queryKey: ['goals', 'tracking', accountId] })
+      await qc.invalidateQueries({ queryKey: ['accounts'] })
       toast.success('Money removed from goal')
     },
     onError: (e: Error & { code?: string }) => toast.error(e.code ? `${e.code}: ${e.message}` : e.message),

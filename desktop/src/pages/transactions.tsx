@@ -5,6 +5,7 @@ import { Plus, ArrowLeftRight, X, Users, History } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { DateInput } from '@/components/ui/date-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
@@ -1023,10 +1024,9 @@ export function TransactionsPage() {
           </div>
           <div className="flex flex-col gap-1">
             <Label>Date</Label>
-            <Input
-              type="date"
+            <DateInput
               value={debtForm.date}
-              onChange={e => setDebtForm(f => ({ ...f, date: e.target.value }))}
+              onChange={date => setDebtForm(f => ({ ...f, date }))}
             />
           </div>
           <div className="flex gap-2 justify-end">

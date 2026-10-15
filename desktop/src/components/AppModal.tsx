@@ -1,5 +1,12 @@
-import { type ReactNode, useCallback, useRef } from 'react'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import type { ReactNode } from 'react'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import { cn } from '@/lib/utils'
 
 interface AppModalProps {
@@ -21,72 +28,30 @@ export function AppModal({
   contentClassName,
   hideHeader = false,
 }: AppModalProps) {
-  const modalRef = useRef<HTMLDivElement | null>(null)
-  const dragState = useRef({
-    startY: 0,
-    dragging: false,
-    threshold: 96,
-  })
-
-  const resetTransform = useCallback(() => {
-    const el = modalRef.current
-    if (!el) return
-    el.style.transition = 'transform 180ms ease'
-    el.style.transform = 'translateY(0px)'
-    window.setTimeout(() => {
-      if (!modalRef.current) return
-      modalRef.current.style.transition = ''
-    }, 180)
-  }, [])
+  const isDesktop = useMediaQuery('(min-width: 768px)')
+  const side = isDesktop ? 'right' : 'bottom'
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        ref={modalRef}
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side={side}
         className={cn(
-          'max-h-[80dvh] overflow-y-auto sm:max-h-[85vh] sm:max-w-lg',
+          isDesktop
+            ? 'w-[480px] sm:max-w-[480px] overflow-y-auto flex flex-col gap-0'
+            : 'max-h-[85vh] overflow-y-auto flex flex-col gap-0',
           contentClassName,
         )}
-        onTouchStart={(e) => {
-          if (typeof window === 'undefined' || window.innerWidth >= 640) return
-          const el = modalRef.current
-          if (!el) return
-          const scrolledTop = el.scrollTop <= 0
-          dragState.current.dragging = scrolledTop
-          dragState.current.startY = e.touches[0]?.clientY ?? 0
-        }}
-        onTouchMove={(e) => {
-          if (!dragState.current.dragging) return
-          const el = modalRef.current
-          if (!el) return
-          const currentY = e.touches[0]?.clientY ?? 0
-          const delta = Math.max(0, currentY - dragState.current.startY)
-          if (delta <= 0) return
-          el.style.transition = ''
-          el.style.transform = `translateY(${delta}px)`
-        }}
-        onTouchEnd={() => {
-          if (!dragState.current.dragging) return
-          const el = modalRef.current
-          if (!el) return
-          const match = el.style.transform.match(/translateY\((\d+(?:\.\d+)?)px\)/)
-          const moved = match ? Number(match[1]) : 0
-          dragState.current.dragging = false
-          if (moved >= dragState.current.threshold) {
-            onOpenChange(false)
-            return
-          }
-          resetTransform()
-        }}
       >
         {!hideHeader && (title || description) ? (
-          <DialogHeader>
-            {title ? <DialogTitle>{title}</DialogTitle> : null}
-            {description ? <DialogDescription>{description}</DialogDescription> : null}
-          </DialogHeader>
+          <SheetHeader className="pb-4">
+            {title ? <SheetTitle>{title}</SheetTitle> : null}
+            {description ? <SheetDescription>{description}</SheetDescription> : null}
+          </SheetHeader>
         ) : null}
-        {children}
-      </DialogContent>
-    </Dialog>
+        <div className="flex-1 px-4 pb-4">
+          {children}
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }

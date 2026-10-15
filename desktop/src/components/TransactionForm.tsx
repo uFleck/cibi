@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
+import { DateInput } from '@/components/ui/date-input'
 import { Input } from '@/components/ui/input'
 import { ValueInput } from '@/components/ui/value-input'
 import { Label } from '@/components/ui/label'
@@ -181,11 +182,10 @@ export function TransactionForm({
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="txn-anchor" className="text-xs">First payment date</Label>
-            <Input
+            <DateInput
               id="txn-anchor"
-              type="date"
               value={formData.anchor_date || ''}
-              onChange={e => onChange({ anchor_date: e.target.value })}
+              onChange={anchor_date => onChange({ anchor_date })}
             />
           </div>
         </>
@@ -212,11 +212,10 @@ export function TransactionForm({
           )}
           <div className="flex flex-col gap-2">
             <Label htmlFor="txn-anchor" className="text-xs">{formData.is_recurring ? 'Anchor Date' : 'Pending date'}</Label>
-            <Input
+            <DateInput
               id="txn-anchor"
-              type="date"
               value={formData.anchor_date || ''}
-              onChange={e => onChange({ anchor_date: e.target.value })}
+              onChange={anchor_date => onChange({ anchor_date })}
             />
           </div>
         </>

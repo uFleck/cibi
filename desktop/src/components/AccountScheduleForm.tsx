@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
+import { DateInput } from '@/components/ui/date-input'
 import { Input } from '@/components/ui/input'
 import { ValueInput } from '@/components/ui/value-input'
 import { Label } from '@/components/ui/label'
@@ -70,12 +71,11 @@ export function AccountScheduleForm({
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="schedule-anchor" className="text-xs">Anchor Date *</Label>
-          <Input
+          <DateInput
             id="schedule-anchor"
-            type="date"
             value={scheduleForm.anchor_date}
-            onChange={e => {
-              onChange({ anchor_date: e.target.value })
+            onChange={anchor_date => {
+              onChange({ anchor_date })
               if (scheduleFormErrors.anchor_date) onClearError('anchor_date')
             }}
           />

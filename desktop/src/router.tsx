@@ -19,7 +19,7 @@ import { TransactionsPage } from '@/pages/transactions'
 import { FriendsPage } from '@/pages/friends'
 import { SettingsPage } from '@/pages/settings'
 import { GoalsPage } from '@/pages/goals'
-import { fetchDefaultAccount, fetchAccounts, fetchTransactions, listPaySchedules, fetchFriendBreakdown } from '@/lib/api'
+import { fetchAccounts, fetchTransactions, listPaySchedules, fetchFriendBreakdown } from '@/lib/api'
 import { AccountContext, RootLayout } from '@/App'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -30,6 +30,7 @@ function Dashboard() {
   const {
     data: allAccounts = [],
     isLoading: accountsLoading,
+    isError: accountsError,
   } = useQuery({
     queryKey: ['accounts'],
     queryFn: fetchAccounts,
@@ -37,18 +38,7 @@ function Dashboard() {
 
   const defaultAccount = allAccounts.find(a => a.is_default)
   const currentAccountId = selectedAccountId || defaultAccount?.id
-
-  const {
-    data: account,
-    isError: accountError,
-  } = useQuery({
-    queryKey: ['account', currentAccountId],
-    queryFn: () => {
-      if (!currentAccountId) return fetchDefaultAccount()
-      return Promise.resolve(allAccounts.find(a => a.id === currentAccountId)!)
-    },
-    enabled: !!currentAccountId || !allAccounts.length,
-  })
+  const account = allAccounts.find(a => a.id === currentAccountId) ?? defaultAccount ?? allAccounts[0]
 
   const {
     data: transactions = [],
@@ -83,10 +73,10 @@ function Dashboard() {
     : null
 
   useEffect(() => {
-    if (accountError || txnsError) {
+    if (accountsError || txnsError) {
       toast.error('Could not load financial data. Retrying in 30 seconds.')
     }
-  }, [accountError, txnsError])
+  }, [accountsError, txnsError])
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
@@ -105,7 +95,7 @@ function Dashboard() {
       ) : (
         <Skeleton
           name="dashboard"
-          loading={!account}
+          loading={accountsLoading}
           fallback={
             <div className="flex flex-col gap-4" role="status" aria-label="Loading dashboard">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -131,7 +121,7 @@ function Dashboard() {
                   <CardContent className="py-6 text-center">
                     <p className="font-semibold mb-2">Set up your finances</p>
                     <div className="text-sm text-muted-foreground text-left space-y-1 max-w-xs mx-auto">
-                      <p>&#9312; <Link to="/settings" className="underline">Add a pay schedule</Link> — tell us when you get paid</p>
+                      <p>&#9312; <Link to="/accounts" search={{ schedules: account.id }} className="underline">Add a pay schedule</Link> — tell us when you get paid</p>
                       <p>&#9313; <Link to="/transactions" className="underline">Create recurring bills</Link> — subscriptions, rent, etc.</p>
                       <p>&#9314; <span>Check what you can afford</span> — use "Can I Buy It?" above</p>
                     </div>
@@ -192,6 +182,9 @@ const accountsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/accounts',
   component: AccountsPage,
+  validateSearch: (search: Record<string, unknown>): { schedules?: string } => ({
+    schedules: typeof search.schedules === 'string' ? search.schedules : undefined,
+  }),
 })
 const transactionsRoute = createRoute({
   getParentRoute: () => rootRoute,

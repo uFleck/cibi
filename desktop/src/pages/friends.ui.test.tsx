@@ -71,9 +71,9 @@ describe('FriendsPage create group event', () => {
     fireEvent.click(await screen.findByRole('button', { name: /new event/i }))
 
     fireEvent.change(screen.getByPlaceholderText('Pizza Night'), { target: { value: 'Pizza Night' } })
-    fireEvent.change(document.querySelector('input[type="date"]') as HTMLInputElement, {
-      target: { value: '2026-07-01' },
-    })
+    const dateInput = document.querySelector('input[placeholder="DD/MM/AAAA"]') as HTMLInputElement
+    fireEvent.change(dateInput, { target: { value: '01/07/2026' } })
+    fireEvent.blur(dateInput)
     fireEvent.change(screen.getByPlaceholderText('0.00'), { target: { value: '45,5' } })
     fireEvent.click(screen.getByRole('button', { name: 'Create Event' }))
 
@@ -96,9 +96,9 @@ describe('FriendsPage create group event', () => {
       fireEvent.click(await screen.findByRole('button', { name: /new event/i }))
 
       fireEvent.change(screen.getByPlaceholderText('Pizza Night'), { target: { value: 'Pizza Night' } })
-      fireEvent.change(document.querySelector('input[type="date"]') as HTMLInputElement, {
-        target: { value: '2026-07-01' },
-      })
+      const dateInput = document.querySelector('input[placeholder="DD/MM/AAAA"]') as HTMLInputElement
+      fireEvent.change(dateInput, { target: { value: '01/07/2026' } })
+      fireEvent.blur(dateInput)
       fireEvent.change(screen.getByPlaceholderText('0.00'), { target: { value: amount } })
       fireEvent.click(screen.getByRole('button', { name: 'Create Event' }))
 
