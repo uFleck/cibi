@@ -62,19 +62,17 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
               )}
             >
               <span className="min-w-0 flex-1 truncate text-sm" title={t.description}>{t.description}</span>
-              {t.is_installment && (
-                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                  {t.paid_installments ?? 0}/{t.total_installments ?? '?'}
-                </span>
-              )}
+              <span className="w-8 shrink-0 text-right text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+                {t.is_installment ? `${t.paid_installments ?? 0}/${t.total_installments ?? '?'}` : null}
+              </span>
               <MoneyValue
                 amount={t.amount}
                 currency={currency}
                 tone="negative"
                 showSign="auto"
-                className="shrink-0 text-sm font-medium"
+                className="min-w-[6.5rem] shrink-0 text-right text-sm font-medium whitespace-nowrap"
               />
-              <span className="shrink-0 text-xs text-muted-foreground w-14 text-right tabular-nums">
+              <span className="w-[5.5rem] shrink-0 text-right text-xs text-muted-foreground tabular-nums whitespace-nowrap">
                 {formatDate(t.next_occurrence!)}
               </span>
             </div>
@@ -84,13 +82,15 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
             <span className="flex-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
               Total reserved
             </span>
+            <span aria-hidden className="w-8 shrink-0" />
             <MoneyValue
               amount={total}
               currency={currency}
               tone="negative"
               showSign="never"
-              className="text-sm font-semibold"
+              className="min-w-[6.5rem] shrink-0 text-right text-sm font-semibold whitespace-nowrap"
             />
+            <span aria-hidden className="w-[5.5rem] shrink-0" />
           </div>
         </div>
       )}
