@@ -75,7 +75,6 @@ export function mapFriendDebtsToVM(input: PeerDebtResponse[]): DebtListItemVM[] 
       status: debtStatus(debt),
       canConfirm,
       canDelete: true,
-      canCopy: false,
     }
   })
 }

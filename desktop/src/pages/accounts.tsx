@@ -9,11 +9,11 @@ import { PageHeader, pageShell } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { KvList } from '@/components/ui/kv-list'
-import { denseActiveRow, denseCell, denseHead, denseNumCell, denseRow, denseTable } from '@/components/ui/dense'
+import { DataList } from '@/components/ui/data-list'
+import { ROW_KEYS } from '@/lib/row-actions'
 import { AppModal } from '@/components/AppModal'
 import { EditSheet } from '@/components/EditSheet'
 import { MobileActionButton } from '@/components/MobileActionButton'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { AccountForm } from '@/components/AccountForm'
 import { AccountScheduleForm, type AccountScheduleFrequency } from '@/components/AccountScheduleForm'
 import {
@@ -32,7 +32,6 @@ import {
   type CreatePayScheduleRequest,
 } from '@/lib/api'
 import { MoneyValue } from '@/components/ui/money-value'
-import { cn } from '@/lib/utils'
 
 const CURRENCIES = [
   'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'MXN', 'BRL', 'INR', 'SGD', 'HKD',
@@ -438,82 +437,74 @@ export function AccountsPage() {
               </Button>
             </div>
           ) : (
-            <div className="rounded-md border border-line bg-surface overflow-x-auto">
-              <table className={denseTable}>
-                <thead>
-                  <tr>
-                    <th className={denseHead}>Name</th>
-                    <th className={cn(denseHead, 'hidden sm:table-cell')}>Currency</th>
-                    <th className={cn(denseHead, 'text-right')}>Balance</th>
-                    <th className={cn(denseHead, 'hidden sm:table-cell')}>Status</th>
-                    <th className={cn(denseHead, 'text-right')}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {accounts.map(account => (
-                    <tr key={account.id} className={cn(denseRow, editingId === account.id && denseActiveRow)}>
-                      <td className={cn(denseCell, 'pl-2.5 font-medium')}>{account.name}</td>
-                      <td className={cn(denseCell, 'hidden font-mono text-faint sm:table-cell')}>{account.currency}</td>
-                      <td className={denseNumCell}>
-                        <MoneyValue
-                          amount={account.current_balance}
-                          currency={account.currency}
-                          showSign="auto"
-                          tone="auto"
-                        />
-                      </td>
-                      <td className={cn(denseCell, 'hidden sm:table-cell')}>
-                        <Badge variant={account.is_default ? 'default' : 'secondary'}>
-                          {account.is_default ? 'Default' : 'Active'}
-                        </Badge>
-                      </td>
-                      <td className={denseCell}>
-                        <div className="flex justify-end gap-0.5">
-                          {!account.is_default && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => defaultMutation.mutate(account.id)}
-                              aria-label="Confirm"
-                            >
-                              <Check size={13} />
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => setScheduleModalAccountId(account.id)}
-                            aria-label="Open"
-                          >
-                            <Eye size={13} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => handleEditClick(account)}
-                            aria-label="Edit"
-                          >
-                            <Edit2 size={13} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-neg/70 hover:text-neg"
-                            onClick={() => setConfirmDelete(account.id)}
-                            aria-label="Delete"
-                          >
-                            <Trash2 size={13} />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataList
+              aria-label="Accounts"
+              rows={accounts}
+              rowId={account => account.id}
+              columns={[
+                { id: 'name', header: 'Name', cell: account => <span className="font-medium">{account.name}</span> },
+                {
+                  id: 'currency',
+                  header: 'Currency',
+                  className: 'hidden w-[12%] sm:table-cell',
+                  cell: account => <span className="font-mono text-faint">{account.currency}</span>,
+                },
+                {
+                  id: 'balance',
+                  header: 'Balance',
+                  align: 'right',
+                  numeric: true,
+                  className: 'w-[28%]',
+                  cell: account => (
+                    <MoneyValue amount={account.current_balance} currency={account.currency} showSign="auto" tone="auto" />
+                  ),
+                },
+                {
+                  id: 'status',
+                  header: 'Status',
+                  className: 'hidden w-[14%] sm:table-cell',
+                  cell: account => (
+                    <Badge variant={account.is_default ? 'default' : 'secondary'}>
+                      {account.is_default ? 'Default' : 'Active'}
+                    </Badge>
+                  ),
+                },
+              ]}
+              actions={account => [
+                ...(account.is_default
+                  ? []
+                  : [{
+                      id: 'default',
+                      label: 'Set as default',
+                      icon: Check,
+                      keys: ROW_KEYS.setDefault,
+                      run: () => defaultMutation.mutate(account.id),
+                    }]),
+                {
+                  id: 'schedules',
+                  label: 'Pay schedules',
+                  icon: Eye,
+                  keys: ROW_KEYS.open,
+                  run: () => setScheduleModalAccountId(account.id),
+                },
+                {
+                  id: 'edit',
+                  label: 'Edit',
+                  icon: Edit2,
+                  keys: ROW_KEYS.edit,
+                  primary: true,
+                  run: () => handleEditClick(account),
+                },
+                {
+                  id: 'delete',
+                  label: 'Delete',
+                  icon: Trash2,
+                  keys: ROW_KEYS.delete,
+                  variant: 'destructive',
+                  run: () => setConfirmDelete(account.id),
+                },
+              ]}
+            />
           )}
         </div>
       </Skeleton>
@@ -622,90 +613,55 @@ export function AccountsPage() {
                 ))}
               </div>
 
-              <div className="hidden sm:block rounded-md border border-line bg-surface overflow-x-auto">
-                <table className={denseTable}>
-                  <thead>
-                    <tr>
-                      <th className={denseHead}>Schedule</th>
-                      <th className={cn(denseHead, 'text-right')}>Amount</th>
-                      <th className={cn(denseHead, 'text-right w-28')}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {schedules.map((ps: PayScheduleResponse) => (
-                      <tr key={ps.id} className={denseRow}>
-                        <td className={cn(denseCell, 'pl-2.5')}>
-                          <div className="font-medium">{ps.label ?? ps.frequency}</div>
-                          <div className="text-[11px] text-faint">
+              <div className="hidden sm:block">
+                <DataList
+                  aria-label="Pay schedules"
+                  rows={schedules}
+                  rowId={(ps: PayScheduleResponse) => ps.id}
+                  columns={[
+                    {
+                      id: 'schedule',
+                      header: 'Schedule',
+                      title: (ps: PayScheduleResponse) => ps.label ?? ps.frequency,
+                      cell: (ps: PayScheduleResponse) => (
+                        <>
+                          <div className="truncate font-medium">{ps.label ?? ps.frequency}</div>
+                          <div className="truncate text-[11px] text-faint">
                             {ps.frequency} · <span className="font-mono">{ps.anchor_date}</span>
                             {ps.day_of_month_2 ? `/${ps.day_of_month_2}` : ''}
                           </div>
-                        </td>
-                        <td className={denseNumCell}>
-                          <MoneyValue
-                            amount={ps.amount}
-                            currency={scheduleCurrency}
-                            showSign="always"
-                            tone="positive"
-                          />
-                        </td>
-                        <td className={denseCell}>
-                          <div className="flex gap-0.5 justify-end">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  onClick={() => handleConfirmSchedule(ps.id)}
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  aria-label="Confirm schedule"
-                                  disabled={confirmScheduleMutation.isPending}
-                                >
-                                  <Check size={14} />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Confirm schedule</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  onClick={() => startEditSchedule(ps)}
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  aria-label="Edit schedule"
-                                >
-                                  <Edit2 size={14} />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Edit schedule</p>
-                              </TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  onClick={() => handleDeleteSchedule(ps.id)}
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  aria-label="Delete schedule"
-                                >
-                                  <Trash2 size={14} />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Delete schedule</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </>
+                      ),
+                    },
+                    {
+                      id: 'amount',
+                      header: 'Amount',
+                      align: 'right',
+                      numeric: true,
+                      className: 'w-[30%]',
+                      cell: (ps: PayScheduleResponse) => (
+                        <MoneyValue amount={ps.amount} currency={scheduleCurrency} showSign="always" tone="positive" />
+                      ),
+                    },
+                  ]}
+                  actions={(ps: PayScheduleResponse) => [
+                    {
+                      id: 'confirm',
+                      label: 'Confirm schedule',
+                      icon: Check,
+                      disabled: confirmScheduleMutation.isPending,
+                      run: () => handleConfirmSchedule(ps.id),
+                    },
+                    { id: 'edit', label: 'Edit schedule', icon: Edit2, run: () => startEditSchedule(ps) },
+                    {
+                      id: 'delete',
+                      label: 'Delete schedule',
+                      icon: Trash2,
+                      variant: 'destructive',
+                      run: () => handleDeleteSchedule(ps.id),
+                    },
+                  ]}
+                />
               </div>
 
               <div className="flex justify-end mt-3">

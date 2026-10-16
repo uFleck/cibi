@@ -2,16 +2,15 @@
 import { useContext, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Trash2, Save, Eye, type LucideIcon } from 'lucide-react'
+import { Plus, Trash2, Save, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PageHeader, pageShell } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { AppModal } from '@/components/AppModal'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { MoneyValue } from '@/components/ui/money-value'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { denseCell, denseHead, denseNumCell, denseRow, denseTable } from '@/components/ui/dense'
-import { cn } from '@/lib/utils'
+import { DataList } from '@/components/ui/data-list'
+import { ROW_KEYS } from '@/lib/row-actions'
 import { FriendForm } from '@/components/FriendForm'
 import { GroupEventForm, type GroupEventFormState } from '@/components/GroupEventForm'
 import { ParticipantEditor } from '@/components/ParticipantEditor'
@@ -45,28 +44,6 @@ const EMPTY_EVENT_FORM: GroupEventFormState = { title: '', date: '', total_amoun
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   return parts.slice(0, 2).map(part => part[0]).join('').toUpperCase() || '?'
-}
-
-interface RowActionProps {
-  label: string
-  tooltip: string
-  icon: LucideIcon
-  onClick: () => void
-}
-
-function RowAction({ label, tooltip, icon: Icon, onClick }: RowActionProps) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon" onClick={onClick} aria-label={label}>
-          <Icon size={14} />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>
-        <p>{tooltip}</p>
-      </TooltipContent>
-    </Tooltip>
-  )
 }
 
 function FriendDetailsModal({
@@ -611,46 +588,51 @@ export function FriendsPage() {
             <Button size="sm" className="mt-2" onClick={() => setShowCreateFriend(true)}>Add friend</Button>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-md border border-line bg-surface">
-            <table className={denseTable}>
-              <thead>
-                <tr>
-                  <th className={denseHead}>Friend</th>
-                  <th className={cn(denseHead, 'hidden sm:table-cell')}>PIX key</th>
-                  <th className={cn(denseHead, 'hidden md:table-cell')}>Notes</th>
-                  <th className={cn(denseHead, 'text-right')}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {friends.map(friend => (
-                  <tr key={friend.id} className={denseRow}>
-                    <td className={denseCell}>
-                      <div className="flex items-center gap-2">
-                        <span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-surface-3 font-mono text-[10px] font-medium text-muted-foreground">
-                          {initialsOf(friend.name)}
-                        </span>
-                        <span className="truncate font-medium text-foreground">{friend.name}</span>
-                      </div>
-                    </td>
-                    <td className={cn(denseCell, 'hidden font-mono text-muted-foreground sm:table-cell')}>{friend.pix_key || '—'}</td>
-                    <td className={cn(denseCell, 'hidden max-w-[200px] text-muted-foreground md:table-cell')}>
-                      <span className="block truncate">{friend.notes || '—'}</span>
-                    </td>
-                    <td className={cn(denseCell, 'text-right')}>
-                      <div className="flex justify-end">
-                        <RowAction
-                          label="Access friend details"
-                          tooltip="Access"
-                          icon={Eye}
-                          onClick={() => setActiveFriendId(friend.id)}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataList
+            aria-label="Friends"
+            rows={friends}
+            rowId={(friend) => friend.id}
+            columns={[
+              {
+                id: 'friend',
+                header: 'Friend',
+                title: (friend) => friend.name,
+                cell: (friend) => (
+                  <div className="flex items-center gap-2">
+                    <span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-surface-3 font-mono text-[10px] font-medium text-muted-foreground">
+                      {initialsOf(friend.name)}
+                    </span>
+                    <span className="truncate font-medium text-foreground">{friend.name}</span>
+                  </div>
+                ),
+              },
+              {
+                id: 'pix',
+                header: 'PIX key',
+                className: 'hidden w-[26%] sm:table-cell',
+                title: (friend) => friend.pix_key,
+                cell: (friend) => <span className="font-mono text-muted-foreground">{friend.pix_key || '—'}</span>,
+              },
+              {
+                id: 'notes',
+                header: 'Notes',
+                className: 'hidden w-[28%] md:table-cell',
+                title: (friend) => friend.notes,
+                cell: (friend) => <span className="text-muted-foreground">{friend.notes || '—'}</span>,
+              },
+            ]}
+            actions={(friend) => [
+              {
+                id: 'open',
+                label: 'Open',
+                ariaLabel: 'Access friend details',
+                icon: Eye,
+                keys: ROW_KEYS.open,
+                primary: true,
+                run: () => setActiveFriendId(friend.id),
+              },
+            ]}
+          />
         )}
       </section>
 
@@ -676,41 +658,34 @@ export function FriendsPage() {
             <p className="text-[12px] text-faint">Create event to split costs.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-md border border-line bg-surface">
-            <table className={denseTable}>
-              <thead>
-                <tr>
-                  <th className={denseHead}>Event</th>
-                  <th className={denseHead}>Date</th>
-                  <th className={cn(denseHead, 'text-right')}>Total</th>
-                  <th className={cn(denseHead, 'text-right')}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {groupEvents.map(event => (
-                  <tr key={event.id} className={denseRow}>
-                    <td className={cn(denseCell, 'max-w-[240px]')}>
-                      <span className="block truncate font-medium text-foreground">{event.title}</span>
-                    </td>
-                    <td className={cn(denseCell, 'font-mono text-muted-foreground')}>{formatDate(event.date)}</td>
-                    <td className={denseNumCell}>
-                      <MoneyValue amount={event.total_amount} currency="BRL" showSign="never" tone="neutral" />
-                    </td>
-                    <td className={cn(denseCell, 'text-right')}>
-                      <div className="flex justify-end">
-                        <RowAction
-                          label="Access group event details"
-                          tooltip="Access"
-                          icon={Eye}
-                          onClick={() => setActiveEventId(event.id)}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataList
+            aria-label="Group events"
+            rows={groupEvents}
+            rowId={(event) => event.id}
+            columns={[
+              { id: 'event', header: 'Event', cell: (event) => <span className="font-medium text-foreground">{event.title}</span> },
+              { id: 'date', header: 'Date', className: 'w-[22%]', cell: (event) => <span className="font-mono text-muted-foreground">{formatDate(event.date)}</span> },
+              {
+                id: 'total',
+                header: 'Total',
+                align: 'right',
+                numeric: true,
+                className: 'w-[22%]',
+                cell: (event) => <MoneyValue amount={event.total_amount} currency="BRL" showSign="never" tone="neutral" />,
+              },
+            ]}
+            actions={(event) => [
+              {
+                id: 'open',
+                label: 'Open',
+                ariaLabel: 'Access group event details',
+                icon: Eye,
+                keys: ROW_KEYS.open,
+                primary: true,
+                run: () => setActiveEventId(event.id),
+              },
+            ]}
+          />
         )}
       </section>
 

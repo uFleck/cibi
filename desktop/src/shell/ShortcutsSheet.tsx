@@ -1,6 +1,6 @@
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { shortcutRegistry, type ShortcutBinding } from '@/hooks/useKeyboardShortcuts'
-import { KeyChips } from './KeyChips'
+import { KeyChips } from '@/components/ui/key-chips'
 
 interface ShortcutsSheetProps {
   open: boolean

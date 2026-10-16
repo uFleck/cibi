@@ -20,8 +20,6 @@ export interface DebtListItemVM {
   meta?: string
   canConfirm?: boolean
   canDelete?: boolean
-  canCopy?: boolean
-  canOpen?: boolean
   canEdit?: boolean
 }
 
@@ -37,10 +35,10 @@ export interface SharedDebtListProps {
   onRetry?: () => void
   onConfirm?: (id: string) => void
   onDelete?: (id: string) => void
-  onCopy?: (id: string) => void
-  onOpen?: (id: string) => void
   onEdit?: (id: string) => void
-  /** The row to highlight. Rows are selectable only when onSelect is given. */
+  /** Label of the confirm action. Defaults to "Mark paid". */
+  confirmLabel?: string
+  /** The selected row, when the page owns it (e.g. for the inspector). Otherwise the list keeps its own. */
   selectedId?: string | null
-  onSelect?: (id: string) => void
+  onSelect?: (id: string | null) => void
 }

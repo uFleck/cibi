@@ -2,7 +2,7 @@ import { useContext, useMemo, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Skeleton } from 'boneyard-js/react'
 import { toast } from 'sonner'
-import { CircleMinus, CirclePlus, Eye, type LucideIcon } from 'lucide-react'
+import { CircleMinus, CirclePlus, Eye } from 'lucide-react'
 import { AccountContext } from '@/App'
 import {
   fetchAccounts,
@@ -21,9 +21,8 @@ import { ValueInput } from '@/components/ui/value-input'
 import { Badge } from '@/components/ui/badge'
 import { MoneyValue } from '@/components/ui/money-value'
 import { KvList } from '@/components/ui/kv-list'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { denseCell, denseHead, denseNumCell, denseRow, denseTable } from '@/components/ui/dense'
-import { cn } from '@/lib/utils'
+import { DataList } from '@/components/ui/data-list'
+import { ROW_KEYS } from '@/lib/row-actions'
 import { formatDate } from '@/lib/format'
 import { parseDecimalInput } from '@/lib/locale'
 import { formatUpdatedCue, parseContributionAmount, sourceVariant } from './goals-helpers'
@@ -49,28 +48,6 @@ function GoalSummaryCell({ label, value, hint }: GoalSummaryCellProps) {
       <span className="truncate text-lg font-semibold text-foreground">{value}</span>
       <span className="text-[11px] text-faint">{hint}</span>
     </div>
-  )
-}
-
-interface RowActionProps {
-  label: string
-  tooltip: string
-  icon: LucideIcon
-  onClick: () => void
-}
-
-function RowAction({ label, tooltip, icon: Icon, onClick }: RowActionProps) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon" onClick={onClick} aria-label={label}>
-          <Icon size={14} />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>
-        <p>{tooltip}</p>
-      </TooltipContent>
-    </Tooltip>
   )
 }
 
@@ -327,81 +304,96 @@ export function GoalsPage() {
         )}
       >
         {goals.length > 0 ? (
-          <div className="overflow-x-auto rounded-md border border-line bg-surface">
-            <table className={denseTable}>
-              <thead>
-                <tr>
-                  <th className={denseHead}>Goal</th>
-                  <th className={denseHead}>Progress</th>
-                  <th className={cn(denseHead, 'text-right')}>Invested / target</th>
-                  <th className={cn(denseHead, 'text-right')}>Remaining</th>
-                  <th className={cn(denseHead, 'text-right')}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {goals.map(g => {
+          <DataList
+            aria-label="Goals"
+            rows={goals}
+            rowId={(g) => g.id}
+            columns={[
+              {
+                id: 'goal',
+                header: 'Goal',
+                title: (g) => g.name,
+                cell: (g) => (
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate font-medium text-foreground">{g.name}</span>
+                    <span className="truncate text-[11px] capitalize text-faint">
+                      {g.status}{g.target_date_utc ? ` · ${formatDate(g.target_date_utc)}` : ''}
+                    </span>
+                  </div>
+                ),
+              },
+              {
+                id: 'progress',
+                header: 'Progress',
+                className: 'hidden w-[20%] sm:table-cell',
+                cell: (g) => {
                   const progress = clampProgress(g.progress_pct)
                   return (
-                    <tr key={g.id} className={denseRow}>
-                      <td className={cn(denseCell, 'max-w-[220px]')}>
-                        <div className="flex min-w-0 flex-col">
-                          <span className="truncate font-medium text-foreground">{g.name}</span>
-                          <span className="truncate text-[11px] capitalize text-faint">
-                            {g.status}{g.target_date_utc ? ` · ${formatDate(g.target_date_utc)}` : ''}
-                          </span>
-                        </div>
-                      </td>
-                      <td className={cn(denseCell, 'w-[200px]')}>
-                        <div className="flex items-center gap-2">
-                          <div aria-hidden="true" className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-3">
-                            <div className="h-full rounded-full bg-hl" style={{ width: `${progress}%` }} />
-                          </div>
-                          <Badge variant="secondary" className="num">{progress.toFixed(1)}%</Badge>
-                        </div>
-                      </td>
-                      <td className={denseNumCell}>
-                        <SafeMoneyValue amount={g.invested_total} currency={currency} className="text-foreground" />
-                        <span className="text-faint"> / </span>
-                        <SafeMoneyValue amount={g.target_amount} currency={currency} />
-                      </td>
-                      <td className={denseNumCell}>
-                        <SafeMoneyValue amount={g.remaining_amount} currency={currency} />
-                      </td>
-                      <td className={cn(denseCell, 'text-right')}>
-                        <div className="flex justify-end gap-0.5">
-                          <RowAction
-                            label="Add money"
-                            tooltip="Add contribution"
-                            icon={CirclePlus}
-                            onClick={() => {
-                              setContributionGoalId(g.id)
-                              setEditContribution('')
-                            }}
-                          />
-                          <RowAction
-                            label="Remove money"
-                            tooltip="Remove money"
-                            icon={CircleMinus}
-                            onClick={() => {
-                              setWithdrawGoalId(g.id)
-                              setEditWithdrawal('')
-                              setEditWithdrawalReason('')
-                            }}
-                          />
-                          <RowAction
-                            label="View goal details"
-                            tooltip="Access"
-                            icon={Eye}
-                            onClick={() => openGoalModal(g)}
-                          />
-                        </div>
-                      </td>
-                    </tr>
+                    <div className="flex items-center gap-2">
+                      <div aria-hidden="true" className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-3">
+                        <div className="h-full rounded-full bg-hl" style={{ width: `${progress}%` }} />
+                      </div>
+                      <Badge variant="secondary" className="num">{progress.toFixed(1)}%</Badge>
+                    </div>
                   )
-                })}
-              </tbody>
-            </table>
-          </div>
+                },
+              },
+              {
+                id: 'invested',
+                header: 'Invested / target',
+                align: 'right',
+                numeric: true,
+                className: 'w-[24%]',
+                cell: (g) => (
+                  <>
+                    <SafeMoneyValue amount={g.invested_total} currency={currency} className="text-foreground" />
+                    <span className="text-faint"> / </span>
+                    <SafeMoneyValue amount={g.target_amount} currency={currency} />
+                  </>
+                ),
+              },
+              {
+                id: 'remaining',
+                header: 'Remaining',
+                align: 'right',
+                numeric: true,
+                className: 'hidden w-[14%] md:table-cell',
+                cell: (g) => <SafeMoneyValue amount={g.remaining_amount} currency={currency} />,
+              },
+            ]}
+            actions={(g) => [
+              {
+                id: 'add',
+                label: 'Add money',
+                icon: CirclePlus,
+                keys: ROW_KEYS.add,
+                run: () => {
+                  setContributionGoalId(g.id)
+                  setEditContribution('')
+                },
+              },
+              {
+                id: 'remove',
+                label: 'Remove money',
+                icon: CircleMinus,
+                keys: ROW_KEYS.remove,
+                run: () => {
+                  setWithdrawGoalId(g.id)
+                  setEditWithdrawal('')
+                  setEditWithdrawalReason('')
+                },
+              },
+              {
+                id: 'open',
+                label: 'Open',
+                ariaLabel: 'View goal details',
+                icon: Eye,
+                keys: ROW_KEYS.open,
+                primary: true,
+                run: () => openGoalModal(g),
+              },
+            ]}
+          />
         ) : null}
       </Skeleton>
 
@@ -590,32 +582,25 @@ export function GoalsPage() {
           {activities.length === 0 ? (
             <p className="rounded-md border border-line bg-surface px-3 py-4 text-[12px] text-faint">No recent entries.</p>
           ) : (
-            <div className="overflow-x-auto rounded-md border border-line bg-surface">
-              <table className={denseTable}>
-                <thead>
-                  <tr>
-                    <th className={denseHead}>Goal</th>
-                    <th className={denseHead}>Type</th>
-                    <th className={denseHead}>Date</th>
-                    <th className={denseHead}>Source</th>
-                    <th className={cn(denseHead, 'text-right')}>Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activities.slice(0, 6).map(a => (
-                    <tr key={a.entry_id} className={denseRow}>
-                      <td className={cn(denseCell, 'max-w-[180px] truncate')}>{a.goal_name}</td>
-                      <td className={cn(denseCell, 'capitalize text-muted-foreground')}>{a.type}</td>
-                      <td className={cn(denseCell, 'text-muted-foreground')}>{formatDate(a.timestamp_utc)}</td>
-                      <td className={denseCell}><Badge variant={sourceVariant(a.source)}>{a.source}</Badge></td>
-                      <td className={denseNumCell}>
-                        <MoneyValue amount={a.amount} currency={currency} tone="neutral" showSign="auto" />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataList
+              aria-label="Recent goal activity"
+              rows={activities.slice(0, 6)}
+              rowId={(a) => a.entry_id}
+              columns={[
+                { id: 'goal', header: 'Goal', cell: (a) => a.goal_name },
+                { id: 'type', header: 'Type', className: 'w-[16%]', cell: (a) => <span className="capitalize text-muted-foreground">{a.type}</span> },
+                { id: 'date', header: 'Date', className: 'w-[18%]', cell: (a) => <span className="text-muted-foreground">{formatDate(a.timestamp_utc)}</span> },
+                { id: 'source', header: 'Source', className: 'hidden w-[16%] sm:table-cell', cell: (a) => <Badge variant={sourceVariant(a.source)}>{a.source}</Badge> },
+                {
+                  id: 'amount',
+                  header: 'Amount',
+                  align: 'right',
+                  numeric: true,
+                  className: 'w-[20%]',
+                  cell: (a) => <MoneyValue amount={a.amount} currency={currency} tone="neutral" showSign="auto" />,
+                },
+              ]}
+            />
           )}
         </section>
       </Skeleton>

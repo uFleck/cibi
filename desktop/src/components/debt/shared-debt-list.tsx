@@ -1,8 +1,12 @@
-import { Check, Copy, Eye, Pencil, Trash2 } from 'lucide-react'
+import { useMemo } from 'react'
+import { Check, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MoneyValue } from '@/components/ui/money-value'
+import { RowActions } from '@/components/ui/row-actions'
+import { ROW_GROUP, ROW_KEYS, type RowAction } from '@/lib/row-actions'
 import { cn } from '@/lib/utils'
-import type { SharedDebtListProps } from '@/components/debt/shared-debt-list.types'
+import { useListSelection, useLocalSelection } from '@/shell/selection'
+import type { DebtListItemVM, SharedDebtListProps } from '@/components/debt/shared-debt-list.types'
 
 export function SharedDebtList({
   items,
@@ -13,12 +17,35 @@ export function SharedDebtList({
   onRetry,
   onConfirm,
   onDelete,
-  onCopy,
-  onOpen,
   onEdit,
+  confirmLabel = 'Mark paid',
   selectedId = null,
   onSelect,
 }: SharedDebtListProps) {
+  const local = useLocalSelection()
+  const selection = useMemo(() => (onSelect ? { selectedId, select: onSelect } : local), [onSelect, selectedId, local])
+
+  const actionsOf = (item: DebtListItemVM): RowAction[] => [
+    ...(onConfirm && item.canConfirm
+      ? [{ id: 'confirm', label: confirmLabel, icon: Check, keys: ROW_KEYS.confirm, run: () => onConfirm(item.id) }]
+      : []),
+    ...(onEdit && item.canEdit
+      ? [{ id: 'edit', label: 'Edit', icon: Pencil, keys: ROW_KEYS.edit, primary: true, run: () => onEdit(item.id) }]
+      : []),
+    ...(onDelete && item.canDelete
+      ? [{ id: 'delete', label: 'Delete', icon: Trash2, keys: ROW_KEYS.delete, variant: 'destructive' as const, run: () => onDelete(item.id) }]
+      : []),
+  ]
+
+  const { selectedId: activeId, select, activate } = useListSelection({
+    ids: items.map(item => item.id),
+    actionsFor: id => {
+      const item = items.find(candidate => candidate.id === id)
+      return item ? actionsOf(item) : []
+    },
+    selection,
+  })
+
   if (loading) {
     return (
       <div className="flex flex-col gap-2" data-testid="shared-debt-list-loading">
@@ -50,17 +77,21 @@ export function SharedDebtList({
   }
 
   return (
-    <div className="@container flex flex-col overflow-hidden rounded-md border border-line bg-surface divide-y divide-line">
+    <div
+      className="@container flex flex-col overflow-hidden rounded-md border border-line bg-surface divide-y divide-line"
+      onPointerDown={activate}
+      onFocus={activate}
+    >
       {items.map(item => (
         <div
           key={item.id}
           data-row={item.id}
-          data-selected={item.id === selectedId}
-          onClick={onSelect ? () => onSelect(item.id) : undefined}
+          data-selected={item.id === activeId}
+          onClick={() => select(item.id)}
           className={cn(
-            'group flex items-center gap-3 px-3 py-1.5 transition-colors hover:bg-surface-2',
-            onSelect && 'cursor-pointer',
-            item.id === selectedId && 'bg-hl/10 shadow-[inset_2px_0_0_var(--color-hl)]',
+            ROW_GROUP,
+            'flex cursor-pointer items-center gap-3 px-3 py-1.5 transition-colors hover:bg-surface-2',
+            item.id === activeId && 'bg-hl/10 shadow-[inset_2px_0_0_var(--color-hl)]',
           )}
         >
           <div className={cn(
@@ -89,36 +120,7 @@ export function SharedDebtList({
             className="shrink-0 text-[12px] font-medium"
           />
 
-          <div
-            className="flex gap-0.5 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity"
-            onClick={event => event.stopPropagation()}
-          >
-            {onConfirm && item.canConfirm ? (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onConfirm(item.id)} aria-label="Confirm">
-                <Check size={13} />
-              </Button>
-            ) : null}
-            {onOpen && item.canOpen ? (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onOpen(item.id)} aria-label="Open">
-                <Eye size={13} />
-              </Button>
-            ) : null}
-            {onEdit && item.canEdit ? (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(item.id)} aria-label="Edit">
-                <Pencil size={13} />
-              </Button>
-            ) : null}
-            {onDelete && item.canDelete ? (
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-neg/70 hover:text-neg" onClick={() => onDelete(item.id)} aria-label="Delete">
-                <Trash2 size={13} />
-              </Button>
-            ) : null}
-            {onCopy && item.canCopy ? (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onCopy(item.id)} aria-label="Copy">
-                <Copy size={13} />
-              </Button>
-            ) : null}
-          </div>
+          <RowActions actions={actionsOf(item)} className="w-20" />
         </div>
       ))}
     </div>

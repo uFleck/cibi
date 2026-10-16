@@ -6,7 +6,7 @@ import { KvList } from '@/components/ui/kv-list'
 import { useLayout } from '@/widgets/layoutContext'
 import { InspectorList } from '@/widgets/InspectorList'
 import { useWorkspace } from '@/widgets/useWorkspace'
-import { KeyChips } from './KeyChips'
+import { KeyChips } from '@/components/ui/key-chips'
 import { SelectionDetailContext, useSelection, type SelectionDetail } from './selection'
 
 /** The inspector body: the selected row's detail when there is one, otherwise the saved widget list. */

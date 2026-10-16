@@ -4,7 +4,7 @@ import { Search } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Kbd } from '@/components/ui/kbd'
 import { cn } from '@/lib/utils'
-import { KeyChips } from './KeyChips'
+import { KeyChips } from '@/components/ui/key-chips'
 import { fuzzyMatch } from './fuzzy'
 
 export interface PaletteCommand {

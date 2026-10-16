@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button'
 import { PageHeader, pageShell } from '@/components/ui/page-header'
 import { Chip } from '@/components/ui/chip'
 import { DateInput } from '@/components/ui/date-input'
-import { denseCell, denseHead, denseNumCell, denseRow, denseTable } from '@/components/ui/dense'
+import { DataList } from '@/components/ui/data-list'
+import { ROW_KEYS } from '@/lib/row-actions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
@@ -48,7 +49,7 @@ import { getWindowLabels, matchesPresetFilter } from '@/lib/transactions-impact'
 import { AccountContext } from '@/App'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { focusWhenReady, useShellAction } from '@/shell/shellActions'
-import { usePublishSelection, useListSelection, type SelectionDetail } from '@/shell/selection'
+import { usePublishSelection, useSelection, type SelectionDetail } from '@/shell/selection'
 
 type KindFilter = 'all' | 'income' | 'expense' | 'recurring'
 
@@ -648,17 +649,7 @@ export function TransactionsPage() {
   useShellAction('new-transaction', handleCreateClick)
   useShellAction('focus-search', focusSearch)
 
-  const { selectedId, select } = useListSelection({
-    ids: activeTab === 'transactions' ? filteredAndSortedTxns.map(t => t.id) : [],
-    onEdit: id => {
-      const txn = transactions.find((t: TransactionResponse) => t.id === id)
-      if (txn) handleEditClick(txn)
-    },
-    onMarkPaid: id => {
-      const txn = transactions.find((t: TransactionResponse) => t.id === id)
-      if (txn && canConfirmTxn(txn)) handleConfirmClick(id)
-    },
-  })
+  const { selectedId, select } = useSelection()
 
   const [initialSelect] = useState(() => new URLSearchParams(window.location.search).get('select'))
   useEffect(() => {
@@ -696,11 +687,11 @@ export function TransactionsPage() {
       rows.push({ label: 'Confirmed', value: <span className="num">{txn.confirmed_at ? formatDate(txn.confirmed_at) : 'Not yet'}</span> })
     }
     const actions: SelectionDetail['actions'] = [
-      { id: 'edit', label: 'Edit', icon: Pencil, keys: 'e', variant: 'default', run: () => handleEditClick(txn) },
-      { id: 'delete', label: 'Delete', icon: Trash2, variant: 'destructive', run: () => setConfirmDelete(txn.id) },
+      { id: 'edit', label: 'Edit', icon: Pencil, keys: ROW_KEYS.edit, variant: 'default', run: () => handleEditClick(txn) },
+      { id: 'delete', label: 'Delete', icon: Trash2, keys: ROW_KEYS.delete, variant: 'destructive', run: () => setConfirmDelete(txn.id) },
     ]
     if (canConfirmTxn(txn)) {
-      actions.unshift({ id: 'paid', label: 'Mark paid', icon: Check, keys: 'm', variant: 'outline', run: () => handleConfirmClick(txn.id) })
+      actions.unshift({ id: 'paid', label: 'Mark paid', icon: Check, keys: ROW_KEYS.confirm, variant: 'outline', run: () => handleConfirmClick(txn.id) })
     }
     return {
       id: txn.id,
@@ -899,7 +890,7 @@ export function TransactionsPage() {
                 ? (txn.paid_installments ?? 0) < (txn.total_installments ?? 0)
                 : txn.is_recurring || (txn.requires_confirmation && !txn.confirmed_at),
               canDelete: true,
-              canOpen: true,
+              canEdit: true,
             }))}
             emptyTitle="No transactions match your filters"
             emptyHint="Adjust filters and try again"
@@ -907,7 +898,7 @@ export function TransactionsPage() {
             onDelete={setConfirmDelete}
             selectedId={selectedId}
             onSelect={select}
-            onOpen={(id) => {
+            onEdit={(id) => {
               const txn = transactions.find((t: TransactionResponse) => t.id === id)
               if (txn) handleEditClick(txn)
             }}
@@ -1022,28 +1013,32 @@ export function TransactionsPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="overflow-hidden rounded-md border border-line bg-surface">
-              <table className={denseTable}>
-                <thead>
-                  <tr className={denseHead}>
-                    <th className="px-2.5 text-left font-medium">Date</th>
-                    <th className="px-2.5 text-left font-medium">Description</th>
-                    <th className="px-2.5 text-right font-medium">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ledgerEntries.map((entry: LedgerEntryResponse) => (
-                    <tr key={entry.id} className={denseRow}>
-                      <td className={`${denseCell} num text-muted-foreground`}>{formatDate(entry.posted_at)}</td>
-                      <td className={`${denseCell} max-w-0 truncate`}>{entry.description}</td>
-                      <td className={`${denseNumCell} ${entry.amount >= 0 ? 'text-pos' : 'text-neg'}`}>
-                        {entry.amount >= 0 ? '+' : ''}{formatMoney(entry.amount, currentAccountCurrency)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataList
+              aria-label="Recent activity"
+              rows={ledgerEntries}
+              rowId={(entry: LedgerEntryResponse) => entry.id}
+              columns={[
+                {
+                  id: 'date',
+                  header: 'Date',
+                  className: 'w-[18%]',
+                  cell: (entry: LedgerEntryResponse) => <span className="num text-muted-foreground">{formatDate(entry.posted_at)}</span>,
+                },
+                { id: 'description', header: 'Description', cell: (entry: LedgerEntryResponse) => entry.description },
+                {
+                  id: 'amount',
+                  header: 'Amount',
+                  align: 'right',
+                  numeric: true,
+                  className: 'w-[24%]',
+                  cell: (entry: LedgerEntryResponse) => (
+                    <span className={entry.amount >= 0 ? 'text-pos' : 'text-neg'}>
+                      {entry.amount >= 0 ? '+' : ''}{formatMoney(entry.amount, currentAccountCurrency)}
+                    </span>
+                  ),
+                },
+              ]}
+            />
           )}
         </div>
       )}

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
-import { KeyChips } from '@/shell/KeyChips'
+import { KeyChips } from '@/components/ui/key-chips'
 
 interface ChipProps {
   active: boolean

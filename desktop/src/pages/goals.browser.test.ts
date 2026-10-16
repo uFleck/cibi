@@ -238,9 +238,10 @@ describe('GoalsPage browser contract', () => {
     expect(pageShell?.className).toContain('px-4')
     expect(pageShell?.className).toContain('sm:px-6')
 
-    // The dense goals table keeps one layout and scrolls horizontally on narrow viewports.
+    // The dense goals table keeps one fixed layout: it clamps long text and never scrolls sideways.
     const addMoney = (await screen.findAllByRole('button', { name: 'Add money' }))[0]
-    expect(addMoney.closest('.overflow-x-auto')).toBeTruthy()
+    expect(addMoney.closest('table')?.className).toContain('table-fixed')
+    expect(addMoney.closest('.overflow-x-auto')).toBeNull()
 
     const user = userEvent.setup()
     await user.click(addMoney)

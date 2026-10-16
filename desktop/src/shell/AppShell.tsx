@@ -21,7 +21,7 @@ import { SelectionDetailContext, useSelection } from './selection'
 import { ChordPopover } from './ChordPopover'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'
 import { HintBar, type HintItem } from './HintBar'
-import { KeyChips } from './KeyChips'
+import { KeyChips } from '@/components/ui/key-chips'
 import { ShortcutsSheet } from './ShortcutsSheet'
 
 const COMPACT_QUERY = '(max-width: 899px)'

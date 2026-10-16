@@ -1,21 +1,13 @@
 // Row selection shared by the shell and the pages. A page owns its rows and actions; it publishes the
 // selected row as a SelectionDetail, and the inspector (or a drawer on Overview) renders it.
 
-import { createContext, useContext, useEffect, useRef, type ReactNode } from 'react'
-import type { LucideIcon } from 'lucide-react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { KvRow } from '@/components/ui/kv-list'
+import type { RowAction } from '@/lib/row-actions'
+import { useActiveList } from '@/hooks/useActiveList'
 import { useKeyboardShortcuts, type ShortcutBinding } from '@/hooks/useKeyboardShortcuts'
 
-export interface SelectionAction {
-  id: string
-  label: string
-  icon?: LucideIcon
-  /** Shortcut shown on the button. The page binds it (see useListSelection). */
-  keys?: string
-  variant?: 'default' | 'outline' | 'destructive'
-  disabled?: boolean
-  run: () => void
-}
+export type SelectionAction = RowAction
 
 export interface SelectionDetail {
   id: string
@@ -60,18 +52,29 @@ export function usePublishSelection(detail: SelectionDetail | null) {
 export interface ListSelectionOptions {
   /** Row ids in display order. */
   ids: string[]
-  /** E or Enter on the selected row. */
-  onEdit?: (id: string) => void
-  /** M on the selected row. */
-  onMarkPaid?: (id: string) => void
+  /** The actions of one row. Each action with `keys` runs on the selected row; Enter runs the primary one. */
+  actionsFor?: (id: string) => RowAction[]
+  /** Who owns the selected id. Defaults to the shell, whose inspector shows the selected row's detail. */
+  selection?: SelectionApi
+}
+
+/** A selection a list keeps for itself, for lists whose rows have no inspector detail. */
+export function useLocalSelection(): SelectionApi {
+  const [selectedId, select] = useState<string | null>(null)
+  return useMemo(() => ({ selectedId, select }), [selectedId])
 }
 
 /**
- * List keyboard model for a page: J/K and the arrows move the selection, E or Enter edits, M marks
- * paid. Esc (clear selection) is global in the shell. Shortcuts exist only while the page is mounted.
+ * List keyboard model: J/K and the arrows move the selection; the selected row's actions run on their
+ * own keys (E edit, D delete, M mark paid...); Enter runs the primary action. Shortcuts exist only while
+ * the list is mounted and is the active one on the page (see useActiveList). Esc (clear selection) is
+ * global in the shell, so a list with its own selection binds it itself.
  */
-export function useListSelection({ ids, onEdit, onMarkPaid }: ListSelectionOptions) {
-  const { selectedId, select } = useSelection()
+export function useListSelection({ ids, actionsFor, selection }: ListSelectionOptions) {
+  const shell = useSelection()
+  const own = selection !== undefined
+  const { selectedId, select } = selection ?? shell
+  const { isActive, activate } = useActiveList(ids.length > 0)
   const present = selectedId !== null && ids.includes(selectedId)
   const selected = present ? selectedId : null
   const wasPresent = useRef(false)
@@ -96,29 +99,29 @@ export function useListSelection({ ids, onEdit, onMarkPaid }: ListSelectionOptio
     row?.scrollIntoView?.({ block: 'nearest' })
   }
 
-  const edit = () => {
-    if (selected !== null) onEdit?.(selected)
+  const actions = selected !== null && actionsFor ? actionsFor(selected) : []
+  const run = (action: RowAction) => {
+    if (!action.disabled) action.run()
   }
 
-  // Bound only while there are rows, so the arrow keys keep scrolling an empty page.
-  const bindings: ShortcutBinding[] = ids.length === 0 ? [] : [
+  // Bound only while there are rows and this is the active list, so the arrow keys keep scrolling an
+  // empty page and two lists on one page never answer the same key.
+  const bindings: ShortcutBinding[] = !isActive ? [] : [
     { keys: 'j', label: 'Next row', group: 'List', scope: 'list', run: () => move(1) },
     { keys: 'ArrowDown', label: 'Next row', group: 'List', scope: 'list', run: () => move(1) },
     { keys: 'k', label: 'Previous row', group: 'List', scope: 'list', run: () => move(-1) },
     { keys: 'ArrowUp', label: 'Previous row', group: 'List', scope: 'list', run: () => move(-1) },
-    { keys: 'e', label: 'Edit', group: 'List', scope: 'list', run: edit },
-    { keys: 'Enter', label: 'Edit', group: 'List', scope: 'list', skipInteractive: true, run: edit },
-    {
-      keys: 'm',
-      label: 'Mark paid',
-      group: 'List',
-      scope: 'list',
-      run: () => {
-        if (selected !== null) onMarkPaid?.(selected)
-      },
-    },
+    ...(own && selected !== null
+      ? [{ keys: 'Escape', label: 'Clear selection', group: 'List', scope: 'list' as const, run: () => select(null) }]
+      : []),
+    ...actions.flatMap(action => {
+      const list: ShortcutBinding[] = []
+      if (action.keys) list.push({ keys: action.keys, label: action.label, group: 'List', scope: 'list', run: () => run(action) })
+      if (action.primary) list.push({ keys: 'Enter', label: action.label, group: 'List', scope: 'list', skipInteractive: true, run: () => run(action) })
+      return list
+    }),
   ]
   useKeyboardShortcuts(bindings)
 
-  return { selectedId: selected, select }
+  return { selectedId: selected, select, activate }
 }

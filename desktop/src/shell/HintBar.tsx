@@ -1,5 +1,5 @@
 import { ChevronDown, Keyboard } from 'lucide-react'
-import { KeyChips } from './KeyChips'
+import { KeyChips } from '@/components/ui/key-chips'
 
 export interface HintItem {
   keys: string

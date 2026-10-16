@@ -9,8 +9,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EditSheet } from '@/components/EditSheet'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { denseCell, denseHead, denseNumCell, denseRow, denseTable } from '@/components/ui/dense'
+import { DataList } from '@/components/ui/data-list'
+import { ROW_KEYS } from '@/lib/row-actions'
 import { DEFAULT_CATEGORIES } from '@/domain/categories'
 import { MAX_DESCRIPTION_LENGTH, MAX_LABEL_LENGTH } from '@/domain/service/categories'
 import {
@@ -200,66 +200,51 @@ export function CategoriesPage() {
 
       <TryIt />
 
-      <section className="overflow-x-auto rounded-md border border-line bg-surface">
-        <table className={denseTable}>
-          <thead>
-            <tr>
-              <th className={denseHead}>Name</th>
-              <th className={denseHead}>Description</th>
-              <th className={`${denseHead} text-right`}>Transactions</th>
-              <th className={denseHead} aria-label="Actions" />
-            </tr>
-          </thead>
-          <tbody>
-            {categories.map((category) => (
-              <tr key={category.id} className={denseRow}>
-                <td className={`${denseCell} font-medium`}>{category.label}</td>
-                <td className={`${denseCell} max-w-[420px] truncate text-muted-foreground`} title={category.description}>
-                  {category.description || <span className="text-faint">No description: Laya only sees the name</span>}
-                </td>
-                <td className={denseNumCell}>{category.usage}</td>
-                <td className={`${denseCell} text-right`}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Edit ${category.label}`}
-                        onClick={() => setEditing({ kind: 'edit', category })}
-                      >
-                        <Pencil size={13} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Edit</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Delete ${category.label}`}
-                        onClick={() => setDeleting(category)}
-                      >
-                        <Trash2 size={13} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Delete</TooltipContent>
-                  </Tooltip>
-                </td>
-              </tr>
-            ))}
-            {!isLoading && categories.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-2.5 py-6 text-center text-xs text-faint">
-                  No categories yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </section>
+      <DataList
+        aria-label="Categories"
+        rows={categories}
+        rowId={(category) => category.id}
+        empty={isLoading ? undefined : 'No categories yet.'}
+        columns={[
+          {
+            id: 'name',
+            header: 'Name',
+            className: 'w-[24%]',
+            cell: (category) => <span className="font-medium">{category.label}</span>,
+          },
+          {
+            id: 'description',
+            header: 'Description',
+            title: (category) => category.description,
+            cell: (category) => (
+              <span className="text-muted-foreground">
+                {category.description || <span className="text-faint">No description: Laya only sees the name</span>}
+              </span>
+            ),
+          },
+          { id: 'usage', header: 'Transactions', align: 'right', numeric: true, className: 'w-[14%]', cell: (category) => category.usage },
+        ]}
+        actions={(category) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            ariaLabel: `Edit ${category.label}`,
+            icon: Pencil,
+            keys: ROW_KEYS.edit,
+            primary: true,
+            run: () => setEditing({ kind: 'edit', category }),
+          },
+          {
+            id: 'delete',
+            label: 'Delete',
+            ariaLabel: `Delete ${category.label}`,
+            icon: Trash2,
+            keys: ROW_KEYS.delete,
+            variant: 'destructive',
+            run: () => setDeleting(category),
+          },
+        ]}
+      />
 
       <EditSheet
         open={editing !== null}

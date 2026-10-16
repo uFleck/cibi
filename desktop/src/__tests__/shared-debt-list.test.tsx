@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { SharedDebtList } from '@/components/debt/shared-debt-list'
 import type { DebtListItemVM } from '@/components/debt/shared-debt-list.types'
 
@@ -13,7 +14,6 @@ const baseItems: DebtListItemVM[] = [
     status: { label: 'Unpaid', tone: 'outline' },
     canConfirm: true,
     canDelete: true,
-    canCopy: false,
   },
 ]
 
@@ -40,11 +40,11 @@ describe('SharedDebtList', () => {
   it('renders actions only when capability + callback exist', () => {
     const onConfirm = vi.fn()
     const onDelete = vi.fn()
-    render(<SharedDebtList view="owner" items={baseItems} mode="mobile" onConfirm={onConfirm} onDelete={onDelete} />)
+    render(<TooltipProvider><SharedDebtList view="owner" items={baseItems} mode="mobile" onConfirm={onConfirm} onDelete={onDelete} /></TooltipProvider>)
 
-    expect(screen.getByLabelText('Confirm')).toBeTruthy()
+    expect(screen.getByLabelText('Mark paid')).toBeTruthy()
     expect(screen.getByLabelText('Delete')).toBeTruthy()
-    expect(screen.queryByLabelText('Copy')).toBeNull()
+    expect(screen.queryByLabelText('Edit')).toBeNull()
   })
 
 })

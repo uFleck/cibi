@@ -37,8 +37,10 @@ const calls = { edit: [] as string[], paid: [] as string[] }
 function RowsPage() {
   const { selectedId, select } = useListSelection({
     ids: ROWS,
-    onEdit: id => calls.edit.push(id),
-    onMarkPaid: id => calls.paid.push(id),
+    actionsFor: id => [
+      { id: 'edit', label: 'Edit', keys: 'e', primary: true, run: () => calls.edit.push(id) },
+      { id: 'paid', label: 'Mark paid', keys: 'm', run: () => calls.paid.push(id) },
+    ],
   })
   const detail: SelectionDetail | null = selectedId
     ? {

@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { motion } from 'motion/react'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { shortcutRegistry } from '@/hooks/useKeyboardShortcuts'
-import { KeyChips } from './KeyChips'
+import { KeyChips } from '@/components/ui/key-chips'
 
 export function ChordPopover() {
   const chord = useSyncExternalStore(shortcutRegistry.subscribeChord, shortcutRegistry.getChord, () => null)
