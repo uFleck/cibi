@@ -27,7 +27,7 @@ export interface PeerDebt {
   friendId: string
   /** Cents; positive = friend owes user, negative = user owes friend. */
   amount: number
-  description: string
+  title: string
   /** Stored text, RFC3339 or YYYY-MM-DD, written as given. */
   date: string
   isInstallment: boolean
@@ -82,7 +82,7 @@ export interface PeerDebtRepo {
   /** Rejects with an error wrapping ErrNoRows when the id is unknown. */
   getById(id: string): Promise<PeerDebt>
   /** Each given field is written; undefined = no change. Rejects when no field is given or the row is missing. */
-  update(id: string, amount?: number, description?: string, isConfirmed?: boolean, paidInstallments?: number): Promise<void>
+  update(id: string, amount?: number, title?: string, isConfirmed?: boolean, paidInstallments?: number): Promise<void>
   deleteById(id: string): Promise<void>
   getBalanceByFriend(friendId: string, accountId: string | null): Promise<PeerDebtBalance>
   getGlobalBalance(accountId: string | null): Promise<GlobalPeerBalance>
@@ -102,7 +102,7 @@ function bit(v: boolean): number {
 }
 
 /** Column list of every peer debt query; the last column is the confirmed flag. */
-const PEER_SELECT = `SELECT id, account_id, friend_id, amount, title AS description, timestamp, is_installment,
+const PEER_SELECT = `SELECT id, account_id, friend_id, amount, title, timestamp, is_installment,
 	 total_installments, paid_installments, frequency, anchor_date,
 	 CASE WHEN confirmed_at IS NOT NULL THEN 1 ELSE 0 END AS is_confirmed`
 
@@ -112,7 +112,7 @@ function scanPeerDebt(row: Row): PeerDebt {
     accountId: parseUuid(textCol(row, 'account_id')),
     friendId: parseUuid(textCol(row, 'friend_id')),
     amount: intCol(row, 'amount'),
-    description: textCol(row, 'description'),
+    title: textCol(row, 'title'),
     date: textCol(row, 'timestamp'),
     isInstallment: boolCol(row, 'is_installment'),
     totalInstallments: nullableIntCol(row, 'total_installments'),
@@ -152,7 +152,7 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
       d.accountId,
       d.friendId,
       d.amount,
-      d.description,
+      d.title,
       d.date,
       bit(d.frequency !== null),
       d.frequency,
@@ -234,14 +234,14 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
   }
 
   /**
-   * Go Update: the amount, description and paid_installments fields are one UPDATE, the confirmation
+   * Go Update: the amount, title and paid_installments fields are one UPDATE, the confirmation
    * is a second UPDATE. A missing row sets the error but the other statement still runs; the error
    * (bare sql.ErrNoRows, as Go returns it) is reported at the end.
    */
   async update(
     id: string,
     amount?: number,
-    description?: string,
+    title?: string,
     isConfirmed?: boolean,
     paidInstallments?: number,
   ): Promise<void> {
@@ -251,9 +251,9 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
       setClauses.push('amount = ?')
       args.push(amount)
     }
-    if (description !== undefined) {
+    if (title !== undefined) {
       setClauses.push('title = ?')
-      args.push(description)
+      args.push(title)
     }
     if (paidInstallments !== undefined) {
       setClauses.push('paid_installments = ?')

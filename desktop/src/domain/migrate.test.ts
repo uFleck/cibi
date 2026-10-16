@@ -8,6 +8,7 @@ import appSettingSql from './migrations/0002_app_setting.sql?raw'
 import categorySql from './migrations/0003_category.sql?raw'
 import budgetSql from './migrations/0004_budget.sql?raw'
 import titleSql from './migrations/0005_transaction_title.sql?raw'
+import peerTitleSql from './migrations/0006_peer_debt_title.sql?raw'
 import { createTestDb, wrapDatabaseSync } from './testing/testDb'
 
 interface SchemaRow {
@@ -83,10 +84,10 @@ describe('splitStatements', () => {
 })
 
 describe('migrate', () => {
-  it('fresh database: sets user_version 5 and creates the baseline schema, AppSetting, the category column and the budget tables', async () => {
+  it('fresh database: sets user_version 6 and creates the baseline schema, AppSetting, the category column and the budget tables', async () => {
     const db = await createTestDb({ migrate: false })
     await migrate(db)
-    expect(await userVersion(db)).toBe(5)
+    expect(await userVersion(db)).toBe(6)
     expect(await transactionColumns(db)).toContain('category')
 
     const tables = (
@@ -102,6 +103,7 @@ describe('migrate', () => {
       ...splitStatements(categorySql),
       ...splitStatements(budgetSql),
       ...splitStatements(titleSql),
+      ...splitStatements(peerTitleSql),
     ]
     const expected = {
       table: statements.filter((s) => /^CREATE TABLE/i.test(s)).length,
@@ -126,12 +128,12 @@ describe('migrate', () => {
     const db = await createTestDb()
     const before = await schemaSnapshot(db)
     await migrate(db)
-    expect(await userVersion(db)).toBe(5)
+    expect(await userVersion(db)).toBe(6)
     expect(await schemaSnapshot(db)).toEqual(before)
     db.close()
   })
 
-  it('existing database path: user_version 0 with the schema present sets 5 and adds AppSetting, category and the budget tables', async () => {
+  it('existing database path: user_version 0 with the schema present sets 6 and adds AppSetting, category and the budget tables', async () => {
     const db = await createTestDb()
     await downgradeTitle(db)
     await db.query('PRAGMA user_version = 0')
@@ -140,7 +142,7 @@ describe('migrate', () => {
     await db.query('DROP TABLE BudgetExclusion')
     await db.query('DROP TABLE Budget')
     await migrate(db)
-    expect(await userVersion(db)).toBe(5)
+    expect(await userVersion(db)).toBe(6)
     expect((await db.query("SELECT name FROM sqlite_master WHERE name = 'AppSetting'")).length).toBe(1)
     expect(await transactionColumns(db)).toContain('category')
     db.close()
@@ -157,7 +159,7 @@ describe('migrate', () => {
     await db.query('DROP TABLE Budget')
     await db.query('PRAGMA user_version = 1')
     await migrate(db)
-    expect(await userVersion(db)).toBe(5)
+    expect(await userVersion(db)).toBe(6)
     expect(await db.query("SELECT id FROM Account")).toEqual([{ id: 'a1' }])
     await db.query("INSERT INTO AppSetting (key, value) VALUES ('k', '1')")
     expect(await db.query("SELECT value FROM AppSetting WHERE key = 'k'")).toEqual([{ value: '1' }])
@@ -178,7 +180,7 @@ describe('migrate', () => {
     await db.query('DROP TABLE Budget')
     await db.query('PRAGMA user_version = 2')
     await migrate(db)
-    expect(await userVersion(db)).toBe(5)
+    expect(await userVersion(db)).toBe(6)
     expect(await db.query('SELECT id, title, amount, category FROM "Transaction"')).toEqual([
       { id: 't1', title: 'Mercado Livre', amount: -1500, category: null },
     ])
@@ -200,7 +202,7 @@ describe('migrate', () => {
     await db.query('DROP TABLE Budget')
     await db.query('PRAGMA user_version = 3')
     await migrate(db)
-    expect(await userVersion(db)).toBe(5)
+    expect(await userVersion(db)).toBe(6)
     expect(await db.query('SELECT id, amount, category FROM "Transaction"')).toEqual([
       { id: 't1', amount: -1500, category: 'Compras' },
     ])
@@ -213,7 +215,7 @@ describe('migrate', () => {
     db.close()
   })
 
-  it('version 4 database: the description becomes the title, keeps its text, and peer debts still read it as description', async () => {
+  it('version 4 database: the description becomes the title, keeps its text, and the peer debts view exposes it as title', async () => {
     const db = await createTestDb({ migrate: false })
     await migrate(db)
     await downgradeTitle(db)
@@ -226,12 +228,12 @@ describe('migrate', () => {
     )
     await db.query('PRAGMA user_version = 4')
     await migrate(db)
-    expect(await userVersion(db)).toBe(5)
+    expect(await userVersion(db)).toBe(6)
     expect(await db.query(`SELECT id, title, description FROM "Transaction" ORDER BY id`)).toEqual([
       { id: 't1', title: 'Mercado Livre', description: null },
       { id: 't2', title: 'Pizza', description: null },
     ])
-    expect(await db.query('SELECT id, description FROM peer_debts')).toEqual([{ id: 't2', description: 'Pizza' }])
+    expect(await db.query('SELECT id, title FROM peer_debts')).toEqual([{ id: 't2', title: 'Pizza' }])
     await db.query("INSERT INTO TransactionLink (id, transaction_id, url) VALUES ('l1', 't1', 'https://example.com')")
     await db.query("DELETE FROM \"Transaction\" WHERE id = 't1'")
     expect(await db.query('SELECT id FROM TransactionLink')).toEqual([])
@@ -246,14 +248,14 @@ describe('migrate', () => {
     db.close()
   })
 
-  it.skipIf(!process.env.CIBI_TEST_DB)('real database copy migrates to version 5 and gains the category column, the budget tables, the title rename and the links table', async () => {
+  it.skipIf(!process.env.CIBI_TEST_DB)('real database copy migrates to version 6 and gains the category column, the budget tables, the title rename and the links table', async () => {
     const raw = new DatabaseSync(process.env.CIBI_TEST_DB ?? '')
     const db = wrapDatabaseSync(raw)
     try {
       const versionBefore = await userVersion(db)
       const before = await schemaSnapshot(db)
       await migrate(db)
-      expect(await userVersion(db)).toBe(5)
+      expect(await userVersion(db)).toBe(6)
       const after = await schemaSnapshot(db)
 
       const fresh = await createTestDb()

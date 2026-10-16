@@ -112,11 +112,11 @@ export function TransactionsPage() {
   const [debtForm, setDebtForm] = useState({
     friend_id: '',
     amount: '',
-    description: '',
+    title: '',
     date: new Date().toISOString().slice(0, 10),
   })
   const [editingDebtId, setEditingDebtId] = useState<string | null>(null)
-  const [editDebtDraft, setEditDebtDraft] = useState({ amount: '', description: '' })
+  const [editDebtDraft, setEditDebtDraft] = useState({ amount: '', title: '' })
   const [formData, setFormData] = useState<FormData>({
     account_id: '',
     amount: 0,
@@ -506,8 +506,8 @@ export function TransactionsPage() {
   })
 
   const updateDebtMutation = useMutation({
-    mutationFn: ({ id, amount, description }: { id: string; amount: number; description: string }) =>
-      updatePeerDebt(id, { amount, description }),
+    mutationFn: ({ id, amount, title }: { id: string; amount: number; title: string }) =>
+      updatePeerDebt(id, { amount, title }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       toast.success('Debt updated')
@@ -522,7 +522,7 @@ export function TransactionsPage() {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       toast.success('Debt created')
       setIsCreatingDebt(false)
-      setDebtForm({ friend_id: '', amount: '', description: '', date: new Date().toISOString().slice(0, 10) })
+      setDebtForm({ friend_id: '', amount: '', title: '', date: new Date().toISOString().slice(0, 10) })
     },
     onError: () => toast.error('Failed to create debt'),
   })
@@ -1004,7 +1004,7 @@ export function TransactionsPage() {
                 if (!txn) return
                 setEditDebtDraft({
                   amount: String(Math.abs(txn.amount)),
-                  description: txn.title,
+                  title: txn.title,
                 })
                 setEditingDebtId(id)
               }}
@@ -1060,14 +1060,14 @@ export function TransactionsPage() {
           className="flex flex-col gap-4"
           onSubmit={(e) => {
             e.preventDefault()
-            if (!debtForm.friend_id || !debtForm.amount || !debtForm.description) return
+            if (!debtForm.friend_id || !debtForm.amount || !debtForm.title) return
             const amt = parseFloat(debtForm.amount)
             if (isNaN(amt) || amt === 0) return
             createDebtMutation.mutate({
               account_id: currentAccountId!,
               friend_id: debtForm.friend_id,
               amount: Math.round(amt * 100),
-              description: debtForm.description,
+              title: debtForm.title,
               date: debtForm.date || new Date().toISOString(),
             })
           }}
@@ -1099,11 +1099,11 @@ export function TransactionsPage() {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label>Description</Label>
+            <Label>Title</Label>
             <Input
               placeholder="e.g. Dinner, Movie tickets"
-              value={debtForm.description}
-              onChange={e => setDebtForm(f => ({ ...f, description: e.target.value }))}
+              value={debtForm.title}
+              onChange={e => setDebtForm(f => ({ ...f, title: e.target.value }))}
               required
             />
           </div>
@@ -1127,7 +1127,7 @@ export function TransactionsPage() {
         open={!!editingDebtId}
         onOpenChange={(open) => !open && setEditingDebtId(null)}
         title="Edit Friend Debt"
-        description="Update amount or description."
+        description="Update amount or title."
       >
         <form
           className="flex flex-col gap-4"
@@ -1140,15 +1140,15 @@ export function TransactionsPage() {
             updateDebtMutation.mutate({
               id: editingDebtId!,
               amount: Math.round(signed * 100),
-              description: editDebtDraft.description,
+              title: editDebtDraft.title,
             })
           }}
         >
           <div className="flex flex-col gap-1">
-            <Label>Description</Label>
+            <Label>Title</Label>
             <Input
-              value={editDebtDraft.description}
-              onChange={e => setEditDebtDraft(d => ({ ...d, description: e.target.value }))}
+              value={editDebtDraft.title}
+              onChange={e => setEditDebtDraft(d => ({ ...d, title: e.target.value }))}
               required
             />
           </div>

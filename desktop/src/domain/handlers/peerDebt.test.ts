@@ -52,7 +52,7 @@ function debtBody(cents: number, extra: Record<string, unknown> = {}): Record<st
     account_id: accountId,
     friend_id: friendId,
     amount: cents,
-    description: 'lunch',
+    title: 'lunch',
     date: '2026-06-10',
     ...extra,
   }
@@ -113,11 +113,11 @@ it('GET /api/peer-debts?friend_id=: only that friend, with the amount in dollars
 })
 
 it('POST /api/peer-debts: 201, the request amount is cents, the response amount is dollars', async () => {
-  const res = await post('/api/peer-debts', debtBody(2000, { description: 'pix', frequency: 'monthly' }))
+  const res = await post('/api/peer-debts', debtBody(2000, { title: 'pix', frequency: 'monthly' }))
   expect(res.status).toBe(201)
   const created = await json<PeerDebtResponse>(res)
   expect(created.amount).toBe(20)
-  expect(created.description).toBe('pix')
+  expect(created.title).toBe('pix')
   expect(created.date).toBe('2026-06-10')
   expect(created.paid_installments).toBe(0)
   expect(created.is_confirmed).toBe(false)
@@ -179,19 +179,19 @@ it('POST /api/peer-debts: an unknown friend_id is a 500 with the Go foreign key 
   })
 })
 
-it('PATCH /api/peer-debts/:id: 204, the amount is cents and the description changes', async () => {
+it('PATCH /api/peer-debts/:id: 204, the amount is cents and the title changes', async () => {
   const d = await createDebt(1000)
-  const res = await patch(`/api/peer-debts/${d.id}`, { amount: 2550, description: 'edited' })
+  const res = await patch(`/api/peer-debts/${d.id}`, { amount: 2550, title: 'edited' })
   expect(res.status).toBe(204)
   expect(await res.text()).toBe('')
   const [updated] = await listAll()
   expect(updated?.amount).toBe(25.5)
-  expect(updated?.description).toBe('edited')
+  expect(updated?.title).toBe('edited')
 })
 
 it('PATCH /api/peer-debts/:id: an absent amount keeps the value; a fractional amount rounds', async () => {
   const d = await createDebt(1000)
-  expect((await patch(`/api/peer-debts/${d.id}`, { description: 'only text' })).status).toBe(204)
+  expect((await patch(`/api/peer-debts/${d.id}`, { title: 'only text' })).status).toBe(204)
   expect((await listAll())[0]?.amount).toBe(10)
   await patch(`/api/peer-debts/${d.id}`, { amount: 99.5 })
   expect((await listAll())[0]?.amount).toBe(1)

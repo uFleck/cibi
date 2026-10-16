@@ -75,7 +75,7 @@ it('deleteById of a friend with a peer debt rejects with ErrFriendInUse (the for
     accountId,
   ])
   await db.query(
-    `INSERT INTO "Transaction" (id, account_id, type, friend_id, amount, description, timestamp, is_recurring, is_installment, paid_installments, requires_confirmation)
+    `INSERT INTO "Transaction" (id, account_id, type, friend_id, amount, title, timestamp, is_recurring, is_installment, paid_installments, requires_confirmation)
 		VALUES (?, ?, 'peer', ?, -500, 'x', '2026-06-10', 0, 0, 0, 1)`,
     [crypto.randomUUID(), accountId, a.id],
   )

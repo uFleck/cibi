@@ -297,7 +297,7 @@ describe('peer debt paths the Go tests do not reach', () => {
       accountId,
       friendId,
       amount: -357112,
-      description: 'row',
+      title: 'row',
       date: '2026-06-10',
       isInstallment: true,
       totalInstallments: 8,
@@ -325,7 +325,7 @@ describe('peer debt paths the Go tests do not reach', () => {
       accountId,
       friendId,
       amount: -2000,
-      description: 'lunch',
+      title: 'lunch',
       date: '2026-06-10',
       isInstallment: false,
       totalInstallments: null,
@@ -357,7 +357,7 @@ describe('peer debt paths the Go tests do not reach', () => {
     await repo.update(id, -700, 'changed')
     const after = await repo.getById(id)
     expect(after.amount).toBe(-700)
-    expect(after.description).toBe('changed')
+    expect(after.title).toBe('changed')
 
     await expect(repo.update(crypto.randomUUID(), -1)).rejects.toThrow(/^sql: no rows in result set$/)
     await expect(repo.update(id)).rejects.toThrow('peer_debt.Update: no fields provided')

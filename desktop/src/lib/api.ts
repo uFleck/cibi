@@ -490,7 +490,7 @@ export interface PeerDebtResponse {
   account_id: string
   friend_id: string
   amount: number
-  description: string
+  title: string
   date: string
   is_installment: boolean
   total_installments: number | null
@@ -535,7 +535,7 @@ export interface CreatePeerDebtRequest {
   account_id: string
   friend_id: string
   amount: number
-  description: string
+  title: string
   date: string
   is_installment?: boolean
   total_installments?: number
@@ -544,7 +544,7 @@ export interface CreatePeerDebtRequest {
 
 export interface PatchPeerDebtRequest {
   amount?: number
-  description?: string
+  title?: string
   date?: string
   is_installment?: boolean
   total_installments?: number

@@ -151,7 +151,7 @@ it('createDebt assigns a new id and passes the row to the repo', async () => {
     accountId: crypto.randomUUID(),
     friendId: crypto.randomUUID(),
     amount: -500,
-    description: 'coffee',
+    title: 'coffee',
     date: '2026-06-10',
     isInstallment: false,
     totalInstallments: null,

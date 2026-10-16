@@ -68,7 +68,7 @@ export function mapFriendDebtsToVM(input: PeerDebtResponse[]): DebtListItemVM[] 
 
     return {
       id: debt.id,
-      title: debt.description,
+      title: debt.title,
       subtitle,
       amount: remainingAmount,
       currency: 'BRL',

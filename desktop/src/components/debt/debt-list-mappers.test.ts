@@ -8,7 +8,7 @@ function makeInstallmentDebt(overrides: Partial<PeerDebtResponse> = {}): PeerDeb
     account_id: 'acct-1',
     friend_id: 'friend-1',
     amount: -1200,
-    description: 'Phone split',
+    title: 'Phone split',
     date: '2026-05-01',
     is_installment: true,
     total_installments: 3,

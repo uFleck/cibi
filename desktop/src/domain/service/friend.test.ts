@@ -87,7 +87,7 @@ it('getPublicFriendView: the host sees the hosted group; a blank friend name rea
     accountId,
     friendId: ana.id,
     amount: -500,
-    description: 'x',
+    title: 'x',
     date: '2026-06-10',
     isInstallment: false,
     totalInstallments: null,

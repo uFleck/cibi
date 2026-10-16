@@ -36,7 +36,7 @@ export interface PeerDebtResponse {
   account_id: string
   friend_id: string
   amount: number
-  description: string
+  title: string
   date: string
   is_installment: boolean
   total_installments: number | null
@@ -50,7 +50,7 @@ const CREATE_SCHEMA = {
   account_id: 'string',
   friend_id: 'string',
   amount: 'float',
-  description: 'string',
+  title: 'string',
   date: 'string',
   is_installment: 'bool',
   total_installments: 'intPtr',
@@ -62,13 +62,13 @@ const CREATE_FIELDS: FieldSpec[] = [
   { goName: 'AccountID', jsonName: 'account_id', rules: 'required' },
   { goName: 'FriendID', jsonName: 'friend_id', rules: 'required' },
   { goName: 'Amount', jsonName: 'amount', rules: 'required' },
-  { goName: 'Description', jsonName: 'description', rules: 'required' },
+  { goName: 'Title', jsonName: 'title', rules: 'required' },
   { goName: 'Date', jsonName: 'date', rules: 'required' },
 ]
 
 const PATCH_SCHEMA = {
   amount: 'floatPtr',
-  description: 'stringPtr',
+  title: 'stringPtr',
 } as const
 
 /** Go peerDebtToResponse: the amount is cents / 100. */
@@ -78,7 +78,7 @@ export function toPeerDebtResponse(d: PeerDebt): PeerDebtResponse {
     account_id: d.accountId,
     friend_id: d.friendId,
     amount: d.amount / 100,
-    description: d.description,
+    title: d.title,
     date: d.date,
     is_installment: d.isInstallment,
     total_installments: d.totalInstallments,
@@ -118,7 +118,7 @@ export function registerPeerDebtRoutes(app: App, svc: PeerDebtServiceIface = app
       accountId,
       friendId,
       amount: goRound(req.amount),
-      description: req.description,
+      title: req.title,
       date: req.date,
       isInstallment: req.is_installment,
       totalInstallments: req.total_installments,
@@ -136,7 +136,7 @@ export function registerPeerDebtRoutes(app: App, svc: PeerDebtServiceIface = app
     const req = bindBody(body, PATCH_SCHEMA)
     // The amount is in cents here too (no *100). A null pointer field is nil: no change.
     const amount = req.amount === null ? undefined : goRound(req.amount)
-    await svc.updateDebt(id, amount, req.description ?? undefined).catch(notFoundOr500(NOT_FOUND))
+    await svc.updateDebt(id, amount, req.title ?? undefined).catch(notFoundOr500(NOT_FOUND))
     return { status: 204 }
   })
 

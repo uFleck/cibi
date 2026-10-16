@@ -64,7 +64,7 @@ async function seedAccount(accountId: string): Promise<void> {
   ])
   await db.query(`INSERT INTO Friend (id, name, public_token) VALUES (?, 'friend', ?)`, [friendId, `tok-${friendId}`])
   await db.query(
-    `INSERT INTO "Transaction" (id, account_id, amount, description, timestamp) VALUES (?, ?, -1000, 'rent', ?)`,
+    `INSERT INTO "Transaction" (id, account_id, amount, title, timestamp) VALUES (?, ?, -1000, 'rent', ?)`,
     [transactionId, accountId, ts],
   )
   await db.query(

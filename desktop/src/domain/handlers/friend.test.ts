@@ -57,7 +57,7 @@ async function createDebt(friendId: string, cents: number, extra: Record<string,
     account_id: accountId,
     friend_id: friendId,
     amount: cents,
-    description: 'd',
+    title: 'd',
     date: '2026-06-10',
     ...extra,
   })
