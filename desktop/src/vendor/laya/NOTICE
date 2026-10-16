@@ -1,0 +1,19 @@
+laya (TypeScript runtime), vendored
+
+Upstream: https://github.com/NandhaKishorM/laya
+Path:     laya-ts/src
+Commit:   4ac226d5ee88ed6df8db288a05c766d7a34ee682
+Author:   Convai Innovations
+License:  Apache License 2.0 (see LICENSE in this folder)
+
+Local changes in this copy (all other files are byte-identical to the upstream commit):
+- providers.ts: the onnxruntime module is loaded through setOrtLoader() instead of a
+  non-literal dynamic import, so the browser build bundles onnxruntime-web. The app registers
+  it in src/lib/laya.ts.
+- providers.ts: the browser encoder session requests ["wasm"] only, not ["webgpu", "wasm"]. The
+  0.8 threshold was calibrated on WASM output.
+- common.ts: an unused parameter in buildQuestionPrefixUncached is renamed _maxLen.
+- shortlist.ts: an unused callback parameter is renamed _s.
+
+The upstream laya-ts/scripts/export_onnx.py is not vendored; scripts/export-laya.ps1 fetches it
+from the same commit.

@@ -81,7 +81,7 @@ describe('suggestCategory', () => {
   })
 
   it('passes the options to the classifier', async () => {
-    let seen: CategoryOption[] = []
+    let seen: readonly CategoryOption[] = []
     setClassifier({
       classify: async (_d, options) => {
         seen = options

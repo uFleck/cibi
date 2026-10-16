@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { backfillCategories, fetchAccounts, fetchProfile, updateAccount, updateProfile } from '@/lib/api'
+import { activateLaya } from '@/lib/laya'
 import { AccountContext, ThemeContext } from '@/App'
 
 function SettingsPanel({ icon: Icon, title, description, children }: {
@@ -45,6 +46,11 @@ export function SettingsPage() {
     queryFn: fetchAccounts,
   })
   const selectedAccount = accounts.find(account => account.id === selectedAccountId) ?? null
+  const { data: layaStatus } = useQuery({
+    queryKey: ['classifier-status'],
+    queryFn: activateLaya,
+    staleTime: Infinity,
+  })
 
   const [displayNameDraft, setDisplayNameDraft] = useState('')
   const [pixKeyDraft, setPixKeyDraft] = useState('')
@@ -255,6 +261,11 @@ export function SettingsPage() {
             {backfillCategoriesMutation.isPending ? 'Categorizing...' : 'Categorize uncategorized transactions'}
           </Button>
         </div>
+        <p className="text-xs text-faint" data-testid="classifier-status">
+          {layaStatus?.state === 'active' && 'Classifier: rules, then the on-device Laya model.'}
+          {layaStatus?.state === 'missing' && `Classifier: rules only. Laya model not found in ${layaStatus.folder}. Run scripts\\export-laya.ps1 to install it.`}
+          {(layaStatus === undefined || layaStatus.state === 'rules') && 'Classifier: rules only.'}
+        </p>
       </SettingsPanel>
 
       <SettingsPanel

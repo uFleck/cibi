@@ -111,11 +111,14 @@ export class TransactionsService {
     return t
   }
 
-  /** The classifier's category for a description. A failure is no category: it never fails the save. */
+  /**
+   * The classifier's category for a description. Only a model that is already loaded is asked, so a
+   * save never waits for it. A failure is no category: it never fails the save.
+   */
   private async autoCategory(description: string): Promise<string | null> {
     try {
       const options = categoryOptions(await this.txnsRepo.distinctCategories())
-      return (await suggestCategory(description, options))?.category ?? null
+      return (await suggestCategory(description, options, { onlyIfReady: true }))?.category ?? null
     } catch {
       return null
     }

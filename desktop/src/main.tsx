@@ -5,6 +5,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import './index.css'
 import App from './App.tsx'
 import { startDomain } from './domain'
+import { activateLaya } from './lib/laya'
 
 const savedTheme = typeof window !== 'undefined' ? window.localStorage.getItem('cibi.theme') : null
 const initialTheme = savedTheme === 'light' ? 'light' : 'dark'
@@ -20,6 +21,7 @@ configureBoneyard({
 
 async function bootstrap(): Promise<void> {
   const root = createRoot(document.getElementById('root')!)
+  void activateLaya()
   try {
     await startDomain()
   } catch (err) {

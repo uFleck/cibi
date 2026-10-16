@@ -1,9 +1,12 @@
 // @vitest-environment node
 // Category auto-fill on create (see service/transactions.ts). Runs on the real schema and the real
 // services, built by buildApp, so the stored row is what the app would store.
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildApp, type App } from '../app'
 import { rulesClassifier, setClassifier, type Classification, type Classifier } from '../classifier'
+import { composeClassifiers } from '../classifier/compose'
+import { createLayaClassifier, type LayaAgent } from '../classifier/laya'
+import { DEFAULT_CATEGORIES } from '../categories'
 import { FREQ_MONTHLY } from '../engine/engine'
 import { createTestDb } from '../testing/testDb'
 import type { NewTransaction } from './transactions'
@@ -125,5 +128,31 @@ describe('create: category auto-fill', () => {
     await app.txnsSvc.createTransaction(input({ description: 'Pet shop' }))
     expect(offered).toContain('Pet')
     expect(offered).toContain('Mercado')
+  })
+})
+
+describe('create: never waits for the model', () => {
+  it('saves at once without a category when the model is not loaded, and does not start loading it', async () => {
+    const load = vi.fn(() => new Promise<LayaAgent>(() => {}))
+    setClassifier(composeClassifiers(rulesClassifier, createLayaClassifier(load, { loadTimeoutMs: 60_000 })))
+    const started = Date.now()
+    const created = await app.txnsSvc.createTransaction(input({ description: 'Pet shop' }))
+    expect(Date.now() - started).toBeLessThan(2000)
+    expect(await storedCategory(created.id)).toBeNull()
+    expect(load).not.toHaveBeenCalled()
+  })
+
+  it('uses the model once it is loaded', async () => {
+    const agent: LayaAgent = {
+      predict: async () => ({ answers: { category: { type: 'choice', choice: 'Outros', answer_confidence: 0.95 } } }),
+    }
+    const laya = createLayaClassifier(async () => agent)
+    laya.warm?.()
+    setClassifier(composeClassifiers(rulesClassifier, laya))
+    await vi.waitFor(async () => {
+      expect(await laya.classify('Pet shop', DEFAULT_CATEGORIES, { onlyIfReady: true })).not.toBeNull()
+    })
+    const created = await app.txnsSvc.createTransaction(input({ description: 'Pet shop' }))
+    expect(await storedCategory(created.id)).toBe('Outros')
   })
 })

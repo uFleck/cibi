@@ -1,11 +1,11 @@
 // Picks a category from a transaction description. The active classifier is set once at startup;
-// the rules classifier is the default. A model (Phase 5b) plugs in with setClassifier().
+// the rules classifier is the default. The Laya model is registered in src/lib/laya.ts.
 
 import type { CategoryOption } from '../categories'
 import { rulesClassifier } from './rules'
-import type { Classification, Classifier } from './types'
+import type { Classification, Classifier, ClassifyOptions } from './types'
 
-export type { Classification, Classifier } from './types'
+export type { Classification, Classifier, ClassifyOptions } from './types'
 export { rulesClassifier } from './rules'
 
 /** A suggestion below this confidence is not offered or stored. */
@@ -28,11 +28,12 @@ export function getClassifier(): Classifier {
 export async function suggestCategory(
   description: string,
   categories: readonly CategoryOption[],
+  options?: ClassifyOptions,
 ): Promise<Classification | null> {
   if (description.trim() === '' || categories.length === 0) return null
   try {
-    const result = await getClassifier().classify(description, [...categories])
-    if (result === null || result.confidence < MIN_CONFIDENCE) return null
+    const result = await getClassifier().classify(description, [...categories], options)
+    if (result === null || result.confidence < (result.minConfidence ?? MIN_CONFIDENCE)) return null
     return categories.some((c) => c.label === result.category) ? result : null
   } catch {
     return null

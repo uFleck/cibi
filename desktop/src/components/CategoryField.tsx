@@ -1,8 +1,10 @@
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { fetchCategories, suggestCategory } from '@/lib/api'
+import { warmLaya } from '@/lib/laya'
 
 const SUGGEST_DELAY_MS = 400
 
@@ -19,6 +21,9 @@ export interface CategoryFieldProps {
  */
 export function CategoryField({ id, value, description, onChange }: CategoryFieldProps) {
   const listId = `${id}-options`
+  useEffect(() => {
+    warmLaya()
+  }, [])
   const { data: options = [] } = useQuery({ queryKey: ['categories'], queryFn: fetchCategories })
 
   const blank = value.trim() === ''

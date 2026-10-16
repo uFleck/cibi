@@ -3,7 +3,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { buildApp, type App } from '../app'
 import { DEFAULT_CATEGORIES } from '../categories'
-import { rulesClassifier, setClassifier } from '../classifier'
+import { rulesClassifier, setClassifier, type Classification } from '../classifier'
+import { composeClassifiers } from '../classifier/compose'
+import { createLayaClassifier } from '../classifier/laya'
 import { createTestDb } from '../testing/testDb'
 
 type TestDb = Awaited<ReturnType<typeof createTestDb>>
@@ -59,6 +61,33 @@ describe('CategoriesService.suggest', () => {
 })
 
 describe('CategoriesService.backfill', () => {
+  it('does not hang when the model load stalls: the rules still categorize', async () => {
+    setClassifier(composeClassifiers(rulesClassifier, createLayaClassifier(() => new Promise(() => {}), { loadTimeoutMs: 20 })))
+    const ml = await insertTxn('Mercado Livre', -1500, null)
+    const unmatched = await insertTxn('Pix para Maria', -2000, null)
+    expect(await app.categoriesSvc.backfill()).toEqual({ scanned: 2, categorized: 1, skipped: 1 })
+    expect(await categoryOf(ml)).toBe('Compras')
+    expect(await categoryOf(unmatched)).toBeNull()
+  })
+
+  it('yields to the event loop between rows, so the UI is not blocked', async () => {
+    for (const description of ['Pix A', 'Pix B', 'Pix C']) await insertTxn(description, -100, null)
+    let timerFired = false
+    setTimeout(() => {
+      timerFired = true
+    }, 0)
+    const seen: boolean[] = []
+    setClassifier({
+      classify: async (): Promise<Classification | null> => {
+        seen.push(timerFired)
+        return null
+      },
+    })
+    await app.categoriesSvc.backfill()
+    expect(seen).toHaveLength(3)
+    expect(seen.at(-1)).toBe(true)
+  })
+
   it('categorizes the uncategorized expenses it is confident about and reports the counts', async () => {
     const ml = await insertTxn('Mercado Livre', -1500, null)
     const unmatched = await insertTxn('Pix para Maria', -2000, null)

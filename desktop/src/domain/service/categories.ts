@@ -3,8 +3,14 @@
 import type { Db } from '../db'
 import { wrapping } from '../errors'
 import { categoryOptions, type CategoryOption } from '../categories'
-import { suggestCategory, type Classification } from '../classifier'
+import { getClassifier, suggestCategory, type Classification } from '../classifier'
 import type { TransactionsRepo } from '../repo/transactions'
+
+const WRITE_BATCH = 50
+
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0))
+}
 
 export interface BackfillResult {
   /** Uncategorized expenses the classifier looked at. */
@@ -38,24 +44,30 @@ export class CategoriesService {
 
   /**
    * Categorizes the uncategorized expenses the classifier is confident about. The classifier runs
-   * first, outside the transaction; the transaction only holds the writes. A row a user categorizes
+   * first, outside any transaction, and yields to the event loop between rows so the UI stays
+   * responsive. The writes go in short transactions of WRITE_BATCH rows. A row a user categorizes
    * meanwhile is left as the user set it.
    */
   backfill(): Promise<BackfillResult> {
     return wrapping('service.BackfillCategories', async () => {
+      getClassifier().warm?.()
       const options = await this.list()
       const rows = await this.txnsRepo.listUncategorized()
       const hits: { id: string; category: string }[] = []
       for (const row of rows) {
         const hit = await suggestCategory(row.description, options)
         if (hit !== null) hits.push({ id: row.id, category: hit.category })
+        await yieldToEventLoop()
       }
       let categorized = 0
-      await this.db.tx(async () => {
-        for (const hit of hits) {
-          if (await this.txnsRepo.setCategoryIfBlank(hit.id, hit.category)) categorized++
-        }
-      })
+      for (let start = 0; start < hits.length; start += WRITE_BATCH) {
+        await this.db.tx(async () => {
+          for (const hit of hits.slice(start, start + WRITE_BATCH)) {
+            if (await this.txnsRepo.setCategoryIfBlank(hit.id, hit.category)) categorized++
+          }
+        })
+        await yieldToEventLoop()
+      }
       return { scanned: rows.length, categorized, skipped: rows.length - categorized }
     })
   }
