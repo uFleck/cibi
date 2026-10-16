@@ -251,7 +251,7 @@ export function TransactionForm({
           </div>
         </>
       )}
-      <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm flex gap-2 pt-4 pb-1">
+      <div className="sticky bottom-0 bg-popover/95 backdrop-blur-sm flex gap-2 pt-4 pb-1">
         <Button type="submit" size="sm" disabled={isPending}>
           {isPending
             ? editingId

@@ -113,7 +113,7 @@ export function AccountScheduleForm({
           </div>
         )}
       </div>
-      <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm flex gap-2 mt-4 pt-2 pb-1">
+      <div className="sticky bottom-0 bg-popover/95 backdrop-blur-sm flex gap-2 mt-4 pt-2 pb-1">
         <Button type="submit" size="sm" disabled={isPending}>
           {editingScheduleId ? 'Update Schedule' : 'Add Schedule'}
         </Button>
