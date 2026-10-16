@@ -61,9 +61,9 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
                 t.id === selectedId && 'bg-hl/10 shadow-[inset_2px_0_0_var(--color-hl)]',
               )}
             >
-              <span className="flex-1 text-sm">{t.description}</span>
+              <span className="min-w-0 flex-1 truncate text-sm" title={t.description}>{t.description}</span>
               {t.is_installment && (
-                <span className="text-xs text-muted-foreground tabular-nums">
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                   {t.paid_installments ?? 0}/{t.total_installments ?? '?'}
                 </span>
               )}
@@ -72,9 +72,9 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
                 currency={currency}
                 tone="negative"
                 showSign="auto"
-                className="text-sm font-medium"
+                className="shrink-0 text-sm font-medium"
               />
-              <span className="text-xs text-muted-foreground w-14 text-right tabular-nums">
+              <span className="shrink-0 text-xs text-muted-foreground w-14 text-right tabular-nums">
                 {formatDate(t.next_occurrence!)}
               </span>
             </div>

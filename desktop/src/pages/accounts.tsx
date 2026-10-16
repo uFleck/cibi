@@ -437,7 +437,7 @@ export function AccountsPage() {
               <table className={denseTable}>
                 <thead>
                   <tr>
-                    <th className={cn(denseHead, 'pl-2.5')}>Name</th>
+                    <th className={denseHead}>Name</th>
                     <th className={cn(denseHead, 'hidden sm:table-cell')}>Currency</th>
                     <th className={cn(denseHead, 'text-right')}>Balance</th>
                     <th className={cn(denseHead, 'hidden sm:table-cell')}>Status</th>
@@ -621,7 +621,7 @@ export function AccountsPage() {
                 <table className={denseTable}>
                   <thead>
                     <tr>
-                      <th className={cn(denseHead, 'pl-2.5')}>Schedule</th>
+                      <th className={denseHead}>Schedule</th>
                       <th className={cn(denseHead, 'text-right')}>Amount</th>
                       <th className={cn(denseHead, 'text-right w-28')}>Actions</th>
                     </tr>
