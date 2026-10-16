@@ -10,7 +10,9 @@
 import type { Db, SqlParam } from '../db'
 import { ErrNoRows, wrap } from '../errors'
 import { formatDbTime, parseRfc3339, parseYmd } from '../dates'
+import { normalizeCategory } from '../categories'
 import { parseUuid } from '../uuid'
+import { execRowsAffected } from './exec'
 import { boolCol, intCol, nullableIntCol, nullableTextCol, type Row, textCol } from './scan'
 
 /** Go ValidFrequencies: the allowed frequency values for recurring transactions. */
@@ -33,6 +35,8 @@ export interface Transaction {
   /** Cents; negative = debit, positive = credit. */
   amount: number
   description: string
+  /** Free text; null when uncategorized. */
+  category: string | null
   /** UTC. */
   timestamp: Date
   isRecurring: boolean
@@ -52,6 +56,8 @@ export interface Transaction {
 /** The fields Update can write. Go's nil pointer is `undefined` here (no change). */
 export interface UpdateTransaction {
   description?: string
+  /** Null clears the category. */
+  category?: string | null
   /** Cents. */
   amount?: number
   nextOccurrence?: Date
@@ -66,6 +72,12 @@ export interface UpdateTransaction {
 export interface TransactionsRepo {
   insert(t: Transaction): Promise<void>
   getByAccount(accountId: string): Promise<Transaction[]>
+  /** Expenses of type personal with no category: the rows the classifier may categorize. */
+  listUncategorized(): Promise<Transaction[]>
+  /** The distinct non-blank category values stored, trimmed. */
+  distinctCategories(): Promise<string[]>
+  /** Sets the category only while the row is still uncategorized. Resolves true when it was set. */
+  setCategoryIfBlank(id: string, category: string): Promise<boolean>
   /** Rejects with an error wrapping ErrNoRows when the id is unknown. */
   getById(id: string): Promise<Transaction>
   update(id: string, upd: UpdateTransaction): Promise<void>
@@ -77,7 +89,7 @@ export interface TransactionsRepo {
   incrementPaidInstallments(id: string): Promise<void>
 }
 
-const SELECT_TXN = `SELECT id, account_id, COALESCE(type, 'personal') AS type, friend_id, amount, description, timestamp,
+const SELECT_TXN = `SELECT id, account_id, COALESCE(type, 'personal') AS type, friend_id, amount, description, category, timestamp,
 			is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at,
 			is_installment, total_installments, paid_installments`
 
@@ -105,6 +117,7 @@ function scanTransaction(row: Row): Transaction {
     friendId: friendId === null || friendId === '' ? null : parseUuid(friendId),
     amount: intCol(row, 'amount'),
     description: textCol(row, 'description'),
+    category: nullableTextCol(row, 'category'),
     timestamp: parseFlexTime(textCol(row, 'timestamp')),
     isRecurring: boolCol(row, 'is_recurring'),
     frequency: nullableTextCol(row, 'frequency'),
@@ -135,6 +148,7 @@ export class SqliteTxnsRepo implements TransactionsRepo {
       t.accountId,
       t.amount,
       t.description,
+      t.category,
       formatDbTime(t.timestamp),
       bit(t.isRecurring),
       t.frequency,
@@ -149,8 +163,8 @@ export class SqliteTxnsRepo implements TransactionsRepo {
     try {
       await this.db.query(
         `INSERT INTO "Transaction"
-			(id, account_id, type, amount, description, timestamp, is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at, is_installment, total_installments, paid_installments)
-			VALUES (?, ?, 'personal', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			(id, account_id, type, amount, description, category, timestamp, is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at, is_installment, total_installments, paid_installments)
+			VALUES (?, ?, 'personal', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args,
       )
     } catch (err) {
@@ -171,6 +185,50 @@ export class SqliteTxnsRepo implements TransactionsRepo {
     } catch (err) {
       throw wrap('transactions.GetByAccount: scan', err)
     }
+  }
+
+  async listUncategorized(): Promise<Transaction[]> {
+    let rows: Row[]
+    try {
+      rows = await this.db.query(`${SELECT_TXN}
+		FROM "Transaction"
+		WHERE (category IS NULL OR TRIM(category) = '')
+		AND COALESCE(type, 'personal') = 'personal'
+		AND amount < 0`)
+    } catch (err) {
+      throw wrap('transactions.ListUncategorized', err)
+    }
+    try {
+      return rows.map(scanTransaction)
+    } catch (err) {
+      throw wrap('transactions.ListUncategorized: scan', err)
+    }
+  }
+
+  async setCategoryIfBlank(id: string, category: string): Promise<boolean> {
+    try {
+      const changed = await execRowsAffected(
+        this.db,
+        `UPDATE "Transaction" SET category = ? WHERE id = ? AND (category IS NULL OR TRIM(category) = '')`,
+        [normalizeCategory(category), id],
+      )
+      return changed > 0
+    } catch (err) {
+      throw wrap('transactions.SetCategoryIfBlank', err)
+    }
+  }
+
+  async distinctCategories(): Promise<string[]> {
+    let rows: Row[]
+    try {
+      rows = await this.db.query(`SELECT DISTINCT TRIM(category) AS category
+		FROM "Transaction"
+		WHERE category IS NOT NULL AND TRIM(category) <> ''
+		ORDER BY category`)
+    } catch (err) {
+      throw wrap('transactions.DistinctCategories', err)
+    }
+    return rows.map((row) => textCol(row, 'category'))
   }
 
   async getById(id: string): Promise<Transaction> {
@@ -199,6 +257,11 @@ export class SqliteTxnsRepo implements TransactionsRepo {
           throw wrap('transactions.Update description', err)
         },
       )
+    }
+    if (upd.category !== undefined) {
+      await this.exec(`UPDATE "Transaction" SET category = ? WHERE id = ?`, [normalizeCategory(upd.category), id]).catch((err: unknown) => {
+        throw wrap('transactions.Update category', err)
+      })
     }
     if (upd.amount !== undefined) {
       await this.exec(`UPDATE "Transaction" SET amount = ? WHERE id = ?`, [upd.amount, id]).catch((err: unknown) => {

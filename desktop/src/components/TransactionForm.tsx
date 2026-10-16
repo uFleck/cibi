@@ -5,11 +5,13 @@ import { Input } from '@/components/ui/input'
 import { ValueInput } from '@/components/ui/value-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { CategoryField } from '@/components/CategoryField'
 
 export interface TransactionFormValues {
   account_id: string
   amount: number
   description: string
+  category?: string
   is_recurring?: boolean
   frequency?: string
   anchor_date?: string
@@ -117,6 +119,15 @@ export function TransactionForm({
             </p>
           )}
         </div>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="txn-category" className="text-xs">Category</Label>
+        <CategoryField
+          id="txn-category"
+          value={formData.category ?? ''}
+          description={formData.description}
+          onChange={category => onChange({ category })}
+        />
       </div>
       <div className="flex flex-col gap-2">
         <Label className="text-xs">Type</Label>

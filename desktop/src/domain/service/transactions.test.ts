@@ -39,6 +39,7 @@ function txn(over: Partial<Transaction> = {}): Transaction {
     friendId: null,
     amount: 0,
     description: '',
+    category: null,
     timestamp: new Date(0),
     isRecurring: false,
     frequency: null,

@@ -12,6 +12,8 @@ export interface DebtListItemVM {
   id: string
   title: string
   subtitle: string
+  /** Shown as a chip on wide containers. Omit it for lists without categories. */
+  category?: string | null
   amount: number
   currency: string
   status: DebtListStatusVM

@@ -1,13 +1,13 @@
 import { useContext, useEffect, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Save, User, HandCoins, Palette, Power, type LucideIcon } from 'lucide-react'
+import { Save, User, HandCoins, Palette, Power, Tags, type LucideIcon } from 'lucide-react'
 import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { fetchAccounts, fetchProfile, updateAccount, updateProfile } from '@/lib/api'
+import { backfillCategories, fetchAccounts, fetchProfile, updateAccount, updateProfile } from '@/lib/api'
 import { AccountContext, ThemeContext } from '@/App'
 
 function SettingsPanel({ icon: Icon, title, description, children }: {
@@ -129,6 +129,16 @@ export function SettingsPage() {
     onError: () => toast.error('Could not save safety buffer'),
   })
 
+  const backfillCategoriesMutation = useMutation({
+    mutationFn: backfillCategories,
+    onSuccess: ({ scanned, categorized }) => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      toast.success(scanned === 0 ? 'No uncategorized expenses' : `Categorized ${categorized} of ${scanned} expenses`)
+    },
+    onError: () => toast.error('Could not categorize transactions'),
+  })
+
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
       <section className="flex flex-col gap-0.5">
@@ -226,6 +236,23 @@ export function SettingsPage() {
           >
             <Save size={14} />
             {updateSafetyBufferMutation.isPending ? 'Saving...' : 'Save safety buffer'}
+          </Button>
+        </div>
+      </SettingsPanel>
+
+      <SettingsPanel
+        icon={Tags}
+        title="Categories"
+        description="Set the category of uncategorized expenses from their descriptions. Categories you already set are not changed."
+      >
+        <div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => backfillCategoriesMutation.mutate()}
+            disabled={backfillCategoriesMutation.isPending}
+          >
+            {backfillCategoriesMutation.isPending ? 'Categorizing...' : 'Categorize uncategorized transactions'}
           </Button>
         </div>
       </SettingsPanel>

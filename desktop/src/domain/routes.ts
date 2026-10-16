@@ -3,6 +3,7 @@
 
 import type { App } from './app'
 import { registerAccountsRoutes } from './handlers/accounts'
+import { registerCategoriesRoutes } from './handlers/categories'
 import { registerCheckRoutes } from './handlers/check'
 import { registerFriendRoutes } from './handlers/friend'
 import { registerGoalsRoutes } from './handlers/goals'
@@ -26,4 +27,5 @@ export function registerRoutes(app: App): void {
   registerGroupEventRoutes(app)
   registerGoalsRoutes(app)
   registerCheckRoutes(app)
+  registerCategoriesRoutes(app)
 }

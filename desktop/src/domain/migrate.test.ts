@@ -5,6 +5,7 @@ import type { Db } from './db'
 import { migrate, splitStatements } from './migrate'
 import baselineSql from './migrations/0001_baseline.sql?raw'
 import appSettingSql from './migrations/0002_app_setting.sql?raw'
+import categorySql from './migrations/0003_category.sql?raw'
 import { createTestDb, wrapDatabaseSync } from './testing/testDb'
 
 interface SchemaRow {
@@ -24,6 +25,10 @@ async function schemaSnapshot(db: Db): Promise<SchemaRow[]> {
 
 async function userVersion(db: Db): Promise<number> {
   return (await db.query<{ user_version: number }>('PRAGMA user_version'))[0].user_version
+}
+
+async function transactionColumns(db: Db): Promise<string[]> {
+  return (await db.query<{ name: string }>(`PRAGMA table_info("Transaction")`)).map((r) => r.name)
 }
 
 function normalizeSql(sql: string | null): string | null {
@@ -64,10 +69,11 @@ describe('splitStatements', () => {
 })
 
 describe('migrate', () => {
-  it('fresh database: sets user_version 2 and creates the baseline schema and AppSetting', async () => {
+  it('fresh database: sets user_version 3 and creates the baseline schema, AppSetting and the category column', async () => {
     const db = await createTestDb({ migrate: false })
     await migrate(db)
-    expect(await userVersion(db)).toBe(2)
+    expect(await userVersion(db)).toBe(3)
+    expect(await transactionColumns(db)).toContain('category')
 
     const tables = (
       await db.query<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
@@ -76,7 +82,7 @@ describe('migrate', () => {
       expect(tables).toContain(table)
     }
 
-    const statements = [...splitStatements(baselineSql), ...splitStatements(appSettingSql)]
+    const statements = [...splitStatements(baselineSql), ...splitStatements(appSettingSql), ...splitStatements(categorySql)]
     const expected = {
       table: statements.filter((s) => /^CREATE TABLE/i.test(s)).length,
       view: statements.filter((s) => /^CREATE VIEW/i.test(s)).length,
@@ -100,32 +106,55 @@ describe('migrate', () => {
     const db = await createTestDb()
     const before = await schemaSnapshot(db)
     await migrate(db)
-    expect(await userVersion(db)).toBe(2)
+    expect(await userVersion(db)).toBe(3)
     expect(await schemaSnapshot(db)).toEqual(before)
     db.close()
   })
 
-  it('existing database path: user_version 0 with the schema present sets 2 and adds AppSetting', async () => {
+  it('existing database path: user_version 0 with the schema present sets 3 and adds AppSetting and category', async () => {
     const db = await createTestDb()
     await db.query('PRAGMA user_version = 0')
     await db.query('DROP TABLE AppSetting')
+    await db.query('ALTER TABLE "Transaction" DROP COLUMN category')
     await migrate(db)
-    expect(await userVersion(db)).toBe(2)
+    expect(await userVersion(db)).toBe(3)
     expect((await db.query("SELECT name FROM sqlite_master WHERE name = 'AppSetting'")).length).toBe(1)
+    expect(await transactionColumns(db)).toContain('category')
     db.close()
   })
 
-  it('version 1 database gets AppSetting and keeps its rows', async () => {
+  it('version 1 database gets AppSetting and category and keeps its rows', async () => {
     const db = await createTestDb({ migrate: false })
     await migrate(db)
     await db.query("INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES ('a1', 'A', 0, 'BRL', 1)")
     await db.query('DROP TABLE AppSetting')
+    await db.query('ALTER TABLE "Transaction" DROP COLUMN category')
     await db.query('PRAGMA user_version = 1')
     await migrate(db)
-    expect(await userVersion(db)).toBe(2)
+    expect(await userVersion(db)).toBe(3)
     expect(await db.query("SELECT id FROM Account")).toEqual([{ id: 'a1' }])
     await db.query("INSERT INTO AppSetting (key, value) VALUES ('k', '1')")
     expect(await db.query("SELECT value FROM AppSetting WHERE key = 'k'")).toEqual([{ value: '1' }])
+    db.close()
+  })
+
+  it('version 2 database gets category and keeps its transactions uncategorized', async () => {
+    const db = await createTestDb({ migrate: false })
+    await migrate(db)
+    await db.query("INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES ('a1', 'A', 0, 'BRL', 1)")
+    await db.query(
+      `INSERT INTO "Transaction" (id, account_id, amount, description, timestamp, is_recurring, requires_confirmation)
+       VALUES ('t1', 'a1', -1500, 'Mercado Livre', '2026-10-01T00:00:00Z', 0, 0)`,
+    )
+    await db.query('ALTER TABLE "Transaction" DROP COLUMN category')
+    await db.query('PRAGMA user_version = 2')
+    await migrate(db)
+    expect(await userVersion(db)).toBe(3)
+    expect(await db.query('SELECT id, description, amount, category FROM "Transaction"')).toEqual([
+      { id: 't1', description: 'Mercado Livre', amount: -1500, category: null },
+    ])
+    await db.query(`UPDATE "Transaction" SET category = 'Compras' WHERE id = 't1'`)
+    expect(await db.query('SELECT category FROM "Transaction"')).toEqual([{ category: 'Compras' }])
     db.close()
   })
 
@@ -137,19 +166,28 @@ describe('migrate', () => {
     db.close()
   })
 
-  it.skipIf(!process.env.CIBI_TEST_DB)('real database copy keeps its schema', async () => {
+  it.skipIf(!process.env.CIBI_TEST_DB)('real database copy migrates to version 3 and gains only the category column', async () => {
     const raw = new DatabaseSync(process.env.CIBI_TEST_DB ?? '')
     const db = wrapDatabaseSync(raw)
     try {
+      const versionBefore = await userVersion(db)
       const before = await schemaSnapshot(db)
       await migrate(db)
-      expect(await userVersion(db)).toBe(2)
-      expect(await schemaSnapshot(db)).toEqual(before)
+      expect(await userVersion(db)).toBe(3)
+      const after = await schemaSnapshot(db)
 
       const fresh = await createTestDb()
       const freshSchema = schemaSet(await schemaSnapshot(fresh))
       fresh.close()
-      expect(schemaSet(before)).toEqual(freshSchema)
+      expect(schemaSet(after)).toEqual(freshSchema)
+
+      if (versionBefore === 2) {
+        const priorSql = new Map(before.map((r) => [`${r.type}|${r.name}`, normalizeSql(r.sql)]))
+        const changed = after
+          .filter((r) => priorSql.get(`${r.type}|${r.name}`) !== normalizeSql(r.sql))
+          .map((r) => `${r.type}|${r.name}`)
+        expect(changed).toEqual(['table|Transaction'])
+      }
     } finally {
       db.close()
     }

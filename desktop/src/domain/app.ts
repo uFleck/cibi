@@ -17,6 +17,7 @@ import { FriendService } from './service/friend'
 import { PeerDebtService } from './service/peerDebt'
 import { GroupEventService } from './service/groupEvent'
 import { GoalsService } from './service/goals'
+import { CategoriesService } from './service/categories'
 import { EngineService } from './service/engine'
 import { SqliteAccountsRepo, type AccountsRepo } from './repo/accounts'
 import { SqliteLedgerRepo, type LedgerRepo } from './repo/ledger'
@@ -54,6 +55,7 @@ export interface App {
   goalsSvc: GoalsService
   engineSvc: EngineService
   settingSvc: AppSettingService
+  categoriesSvc: CategoriesService
 }
 
 export function buildApp(db: Db, config: Partial<Config> = {}): App {
@@ -78,6 +80,7 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
   const profileSvc = new ProfileService(profileRepo)
   const appSettingRepo = new SqliteAppSettingRepo(db)
   const settingSvc = new AppSettingService(appSettingRepo)
+  const categoriesSvc = new CategoriesService(db, txnsRepo)
   return {
     db,
     config: { ...DEFAULT_CONFIG, ...config },
@@ -102,5 +105,6 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
     goalsSvc,
     engineSvc,
     settingSvc,
+    categoriesSvc,
   }
 }

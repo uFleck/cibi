@@ -50,7 +50,7 @@ export function SharedDebtList({
   }
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-md border border-line bg-surface divide-y divide-line">
+    <div className="@container flex flex-col overflow-hidden rounded-md border border-line bg-surface divide-y divide-line">
       {items.map(item => (
         <div
           key={item.id}
@@ -74,6 +74,12 @@ export function SharedDebtList({
             <div className="truncate text-[12px] font-medium">{item.title}</div>
             <div className="truncate text-[11px] text-muted-foreground">{item.subtitle}</div>
           </div>
+
+          {item.category ? (
+            <span className="hidden max-w-[10rem] shrink-0 truncate rounded-full border border-line bg-surface-2 px-2 py-px text-[10.5px] text-muted-foreground @md:inline-block">
+              {item.category}
+            </span>
+          ) : null}
 
           <MoneyValue
             amount={item.amount}

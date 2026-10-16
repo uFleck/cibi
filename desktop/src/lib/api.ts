@@ -1,4 +1,6 @@
 import { localFetch } from '../domain/http'
+import type { CategoryOption } from '../domain/categories'
+import type { Classification } from '../domain/classifier'
 
 export interface AccountResponse {
   id: string
@@ -16,7 +18,7 @@ export interface TransactionResponse {
   friend_id?: string | null
   amount: number
   description: string
-  category?: string
+  category: string | null
   timestamp: string
   is_recurring: boolean
   requires_confirmation: boolean
@@ -333,6 +335,7 @@ export function createTransaction(data: {
   account_id: string
   amount: number
   description: string
+  category?: string
   is_recurring?: boolean
   requires_confirmation?: boolean
   frequency?: string
@@ -352,6 +355,7 @@ export function updateTransaction(
   data: Partial<{
     amount: number
     description: string
+    category: string
     is_recurring: boolean
     requires_confirmation: boolean
     frequency: string
@@ -365,6 +369,28 @@ export function updateTransaction(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
+}
+
+// Categories
+export type { CategoryOption }
+
+export function fetchCategories(): Promise<CategoryOption[]> {
+  return apiFetch<CategoryOption[]>('/api/categories')
+}
+
+/** The classifier's confident suggestion for a description, or null. */
+export function suggestCategory(description: string): Promise<Classification | null> {
+  return apiFetch<Classification | null>(`/api/categories/suggest?description=${encodeURIComponent(description)}`)
+}
+
+export interface CategoryBackfillResponse {
+  scanned: number
+  categorized: number
+  skipped: number
+}
+
+export function backfillCategories(): Promise<CategoryBackfillResponse> {
+  return apiFetch<CategoryBackfillResponse>('/api/categories/backfill', { method: 'POST' })
 }
 
 export function deleteTransaction(id: string): Promise<void> {

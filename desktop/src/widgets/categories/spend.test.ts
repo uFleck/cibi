@@ -25,6 +25,7 @@ function txn(overrides: Partial<TransactionResponse>): TransactionResponse {
     type: 'personal',
     amount: -10,
     description: 'x',
+    category: null,
     timestamp: '2026-10-01T00:00:00Z',
     is_recurring: false,
     requires_confirmation: false,
@@ -120,6 +121,21 @@ describe('spendByCategory', () => {
     process.env.TZ = 'UTC'
     expect(spendByCategory([payment], [], new Date(2026, 9, 15, 12)).total).toBe(0)
     expect(spendByCategory([payment], [], new Date(2026, 10, 15, 12)).total).toBe(75)
+  })
+
+  it('groups by the category column, and a transaction with no category is Uncategorized', () => {
+    const transactions = [txn({ id: 'gym', category: 'Saúde' }), txn({ id: 'misc', category: null })]
+    const entries = [
+      entry({ id: '1', transaction_id: 'gym', amount: -80 }),
+      entry({ id: '2', transaction_id: 'misc', amount: -20 }),
+    ]
+    expect(spendByCategory(entries, transactions, now)).toEqual({
+      rows: [
+        { category: 'Saúde', amount: 80 },
+        { category: UNCATEGORIZED, amount: 20 },
+      ],
+      total: 100,
+    })
   })
 
   it('skips a payment whose timestamp cannot be parsed', () => {

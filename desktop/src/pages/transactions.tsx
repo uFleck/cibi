@@ -87,6 +87,7 @@ interface FormData {
   account_id: string
   amount: number
   description: string
+  category?: string
   is_recurring?: boolean
   frequency?: string
   anchor_date?: string
@@ -126,6 +127,7 @@ export function TransactionsPage() {
     is_recurring: false,
     frequency: 'monthly',
     anchor_date: '',
+    category: '',
     requires_confirmation: false,
     is_installment: false,
     total_installments: undefined,
@@ -303,6 +305,7 @@ export function TransactionsPage() {
         is_recurring: false,
         frequency: 'monthly',
         anchor_date: '',
+        category: '',
         requires_confirmation: false,
         is_installment: false,
         total_installments: undefined,
@@ -348,6 +351,7 @@ export function TransactionsPage() {
         is_recurring: false,
         frequency: 'monthly',
         anchor_date: '',
+        category: '',
         requires_confirmation: false,
         is_installment: false,
         total_installments: undefined,
@@ -561,6 +565,7 @@ export function TransactionsPage() {
       is_recurring: false,
       frequency: 'monthly',
       anchor_date: '',
+      category: '',
       requires_confirmation: false,
       is_installment: false,
       total_installments: undefined,
@@ -578,6 +583,7 @@ export function TransactionsPage() {
       is_recurring: txn.is_recurring,
       frequency: txn.frequency || 'monthly',
       anchor_date: toDateInputValue(txn.anchor_date),
+      category: txn.category ?? '',
       requires_confirmation: txn.requires_confirmation,
       is_installment: txn.is_installment,
       total_installments: txn.total_installments ?? undefined,
@@ -616,6 +622,7 @@ export function TransactionsPage() {
       is_recurring: false,
       frequency: 'monthly',
       anchor_date: '',
+      category: '',
       requires_confirmation: false,
       is_installment: false,
       total_installments: undefined,
@@ -696,6 +703,7 @@ export function TransactionsPage() {
     const dateValue = txn.is_recurring ? txn.next_occurrence || txn.anchor_date : txn.anchor_date || txn.timestamp
     const rows: SelectionDetail['rows'] = [
       { label: 'Account', value: accounts.find(a => a.id === txn.account_id)?.name ?? '-' },
+      { label: 'Category', value: txn.category ?? '-' },
       { label: txn.is_recurring ? 'Next' : 'Date', value: <span className="num">{dateValue ? formatDate(dateValue) : '-'}</span> },
     ]
     if (txn.is_recurring) rows.push({ label: 'Frequency', value: txn.frequency ?? '-' })
@@ -894,6 +902,7 @@ export function TransactionsPage() {
             items={filteredAndSortedTxns.map((txn: TransactionResponse) => ({
               id: txn.id,
               title: txn.description,
+              category: txn.category,
               subtitle: txn.is_installment
                 ? `Installment · ${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'} paid · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : '-'}`
                 : txn.is_recurring

@@ -55,12 +55,14 @@ export interface TransactionResponse {
   is_installment: boolean
   total_installments: number | null
   paid_installments: number
+  category: string | null
 }
 
 const CREATE_SCHEMA = {
   account_id: 'string',
   amount: 'float',
   description: 'string',
+  category: 'stringPtr',
   is_recurring: 'bool',
   frequency: 'stringPtr',
   anchor_date: 'stringPtr',
@@ -77,6 +79,7 @@ const CREATE_FIELDS: FieldSpec[] = [
 
 const PATCH_SCHEMA = {
   description: 'stringPtr',
+  category: 'stringPtr',
   amount: 'floatPtr',
   next_occurrence: 'stringPtr',
   total_installments: 'intPtr',
@@ -94,6 +97,7 @@ export function toTransactionResponse(t: Transaction): TransactionResponse {
     type: t.type === '' ? 'personal' : t.type,
     amount: t.amount / 100,
     description: t.description,
+    category: t.category,
     timestamp: formatDbTime(t.timestamp),
     is_recurring: t.isRecurring,
     frequency: t.frequency,
@@ -177,6 +181,7 @@ export function registerTransactionsRoutes(app: App, svc: TransactionsServiceIfa
       friendId: null,
       amount: goRound(req.amount * 100),
       description: req.description,
+      category: req.category,
       timestamp: new Date(),
       isRecurring: req.is_recurring,
       frequency: req.frequency,
@@ -192,8 +197,8 @@ export function registerTransactionsRoutes(app: App, svc: TransactionsServiceIfa
     if (req.anchor_date !== null && req.anchor_date !== '') {
       t.anchorDate = parseDateOr400(req.anchor_date, 'invalid anchor_date: must be RFC3339')
     }
-    await svc.createTransaction(t).catch(rethrow500)
-    return { status: 201, body: toTransactionResponse(t) }
+    const created = await svc.createTransaction(t).catch(rethrow500)
+    return { status: 201, body: toTransactionResponse(created) }
   })
 
   route('PATCH', '/api/transactions/:id', async ({ params, body }) => {
@@ -203,6 +208,7 @@ export function registerTransactionsRoutes(app: App, svc: TransactionsServiceIfa
     // A null pointer field is nil in Go: no change.
     const upd: UpdateTransaction = {
       description: req.description ?? undefined,
+      category: req.category ?? undefined,
       totalInstallments: req.total_installments ?? undefined,
       isInstallment: req.is_installment ?? undefined,
       isRecurring: req.is_recurring ?? undefined,

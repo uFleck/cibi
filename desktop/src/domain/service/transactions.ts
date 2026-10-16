@@ -11,6 +11,8 @@ import type { Db } from '../db'
 import { AppError, wrapping } from '../errors'
 import { addDays } from '../dates'
 import { addMonthClamped, FREQ_BI_WEEKLY, FREQ_MONTHLY, FREQ_WEEKLY, FREQ_YEARLY } from '../engine/engine'
+import { categoryOptions, normalizeCategory } from '../categories'
+import { suggestCategory } from '../classifier'
 import type { AccountsRepo } from '../repo/accounts'
 import { VALID_FREQUENCIES, type Transaction, type TransactionsRepo, type UpdateTransaction } from '../repo/transactions'
 import type { LedgerService } from './ledger'
@@ -18,8 +20,15 @@ import type { LedgerService } from './ledger'
 /** deleteTransaction on a transaction that has a ledger row. The handler maps it to 409. */
 export const ErrTransactionHasLedger = new AppError('transaction has ledger entries and cannot be deleted')
 
-/** A transaction to create: id and timestamp are filled in when they are undefined (Go: uuid.Nil, zero time). */
-export type NewTransaction = Omit<Transaction, 'id' | 'timestamp'> & { id?: string; timestamp?: Date }
+/**
+ * A transaction to create: id and timestamp are filled in when they are undefined (Go: uuid.Nil, zero time).
+ * A blank category is filled in by the classifier when the transaction is an expense.
+ */
+export type NewTransaction = Omit<Transaction, 'id' | 'timestamp' | 'category'> & {
+  id?: string
+  timestamp?: Date
+  category?: string | null
+}
 
 export class TransactionsService {
   private readonly db: Db
@@ -36,13 +45,14 @@ export class TransactionsService {
   /**
    * Validates and inserts a new transaction. anchor_date is required when is_recurring is true,
    * and frequency must be a valid one then. D-01: the insert and the balance update (when the
-   * transaction should impact the balance now) happen in one transaction.
+   * transaction should impact the balance now) happen in one transaction. Returns the stored row.
    */
-  async createTransaction(input: NewTransaction): Promise<void> {
+  async createTransaction(input: NewTransaction): Promise<Transaction> {
     const t: Transaction = {
       ...input,
       id: input.id || crypto.randomUUID(),
       timestamp: input.timestamp ?? new Date(),
+      category: normalizeCategory(input.category),
     }
 
     if (t.isRecurring) {
@@ -73,6 +83,10 @@ export class TransactionsService {
       }
     }
 
+    if (t.category === null && t.amount < 0) {
+      t.category = await this.autoCategory(t.description)
+    }
+
     const applyToBalance = shouldApplyBalanceOnCreate(t, new Date())
 
     await this.db.tx(async () => {
@@ -94,6 +108,17 @@ export class TransactionsService {
         )
       }
     })
+    return t
+  }
+
+  /** The classifier's category for a description. A failure is no category: it never fails the save. */
+  private async autoCategory(description: string): Promise<string | null> {
+    try {
+      const options = categoryOptions(await this.txnsRepo.distinctCategories())
+      return (await suggestCategory(description, options))?.category ?? null
+    } catch {
+      return null
+    }
   }
 
   /** All transactions of an account (every type, as Go's GetByAccount). */

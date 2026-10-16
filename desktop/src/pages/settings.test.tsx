@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SettingsPage } from '@/pages/settings'
 import { AccountContext } from '@/App'
-import { fetchAccounts, fetchProfile, updateAccount, updateProfile } from '@/lib/api'
+import { backfillCategories, fetchAccounts, fetchProfile, updateAccount, updateProfile } from '@/lib/api'
 import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
 
 vi.mock('@tauri-apps/plugin-autostart', () => ({
@@ -21,6 +21,7 @@ vi.mock('@/lib/api', async () => {
     updateProfile: vi.fn(),
     fetchAccounts: vi.fn(),
     updateAccount: vi.fn(),
+    backfillCategories: vi.fn(),
   }
 })
 
@@ -114,6 +115,19 @@ describe('SettingsPage', () => {
       expect(mockUpdateAccount).toHaveBeenCalledWith('acct-1', { safety_buffer: 250.5 })
     })
     expect(toastSuccessMock).toHaveBeenCalledWith('Safety buffer saved')
+  })
+
+  it('categorizes uncategorized transactions and reports the counts', async () => {
+    const user = userEvent.setup()
+    vi.mocked(backfillCategories).mockResolvedValue({ scanned: 3, categorized: 2, skipped: 1 })
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Categorize uncategorized transactions' }))
+
+    await waitFor(() => {
+      expect(backfillCategories).toHaveBeenCalledTimes(1)
+    })
+    expect(toastSuccessMock).toHaveBeenCalledWith('Categorized 2 of 3 expenses')
   })
 
   it('keeps profile save behavior unchanged', async () => {

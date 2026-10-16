@@ -16,6 +16,9 @@ export function fakeTransactionsRepo(overrides: Partial<TransactionsRepo> = {}):
   return {
     insert: async () => undefined,
     getByAccount: async () => [],
+    listUncategorized: async () => [],
+    distinctCategories: async () => [],
+    setCategoryIfBlank: async () => false,
     getById: async (): Promise<Transaction> => {
       throw ErrNoRows
     },

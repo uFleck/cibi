@@ -66,6 +66,7 @@ function storedTxn(over: Partial<Transaction>): Transaction {
     friendId: null,
     amount: 0,
     description: '',
+    category: null,
     timestamp: new Date(0),
     isRecurring: false,
     frequency: null,
@@ -129,6 +130,7 @@ it('TestCreateTransaction', async () => {
     fakeTransactionsService({
       createTransaction: async (t: NewTransaction) => {
         expect(t.accountId).toBe(accountId)
+        return storedTxn({ ...t, id: t.id ?? '', timestamp: t.timestamp ?? new Date(0) })
       },
     }),
   )
