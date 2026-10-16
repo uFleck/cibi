@@ -1,12 +1,12 @@
-/* eslint-disable react-refresh/only-export-components, react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/set-state-in-effect */
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { RouterProvider, Outlet } from '@tanstack/react-router'
 import { Toaster } from '@/components/ui/sonner'
-import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { router } from './router'
-import { MobileHeader } from '@/components/MobileHeader'
-import { MobileBottomNav } from '@/components/MobileBottomNav'
 import { fetchAccounts } from '@/lib/api'
+import { AppShell } from '@/shell/AppShell'
+import { AccountContext, ThemeContext, type ThemeMode } from '@/shell/contexts'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,40 +18,15 @@ const queryClient = new QueryClient({
   },
 })
 
-export const AccountContext = createContext<{
-  selectedAccountId: string | null
-  setSelectedAccountId: (id: string | null) => void
-}>({
-  selectedAccountId: null,
-  setSelectedAccountId: () => {},
-})
-
-export type ThemeMode = 'light' | 'dark'
-
-export const ThemeContext = createContext<{
-  theme: ThemeMode
-  setTheme: (theme: ThemeMode) => void
-  toggleTheme: () => void
-}>({
-  theme: 'dark',
-  setTheme: () => {},
-  toggleTheme: () => {},
-})
-
-function RootLayoutWithNav() {
-  return (
-    <div className="flex h-dvh bg-background">
-      <MobileHeader />
-      <main className="flex-1 overflow-auto pt-[calc(4.25rem+env(safe-area-inset-top))] pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
-        <Outlet />
-      </main>
-      <MobileBottomNav />
-    </div>
-  )
-}
+export { AccountContext, ThemeContext }
+export type { ThemeMode }
 
 export function RootLayout() {
-  return <RootLayoutWithNav />
+  return (
+    <AppShell>
+      <Outlet />
+    </AppShell>
+  )
 }
 
 const SELECTED_ACCOUNT_STORAGE_KEY = 'cibi.selectedAccountId'
@@ -67,7 +42,7 @@ function getInitialTheme(): ThemeMode {
   return window.localStorage.getItem(THEME_STORAGE_KEY) === 'light' ? 'light' : 'dark'
 }
 
-function AppShell() {
+function AppProviders() {
   const [selectedAccountId, setSelectedAccountIdState] = useState<string | null>(getInitialSelectedAccountId)
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme)
 
@@ -145,7 +120,7 @@ function AppShell() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppShell />
+      <AppProviders />
     </QueryClientProvider>
   )
 }

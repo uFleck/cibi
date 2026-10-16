@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { formatDate } from '@/lib/format'
 import { parseDecimalInput } from '@/lib/locale'
 import { postCheck, type CheckGoalImpactResponse, type CheckResponse } from '@/lib/api'
+import { focusWhenReady, useShellAction } from '@/shell/shellActions'
 
 export const LAST_CHECK_RESULT_KEY = 'cibi:last-check-result'
 
@@ -70,6 +71,7 @@ type CheckWidgetProps = {
 }
 
 export function CheckWidget({ accountId }: CheckWidgetProps) {
+  useShellAction('focus-check', () => focusWhenReady('#check-amount'))
   const [state, setState] = useState<WidgetState>('idle')
   const [amount, setAmount] = useState('')
   const [result, setResult] = useState<CheckResponse | null>(null)

@@ -48,6 +48,7 @@ import {
 } from '@/lib/transactions-impact'
 import { AccountContext } from '@/App'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { focusWhenReady, useShellAction } from '@/shell/shellActions'
 
 interface FormData {
   account_id: string
@@ -618,10 +619,12 @@ export function TransactionsPage() {
     setFormData(prev => ({ ...prev, amount: parsed ?? 0 }))
   }
 
-  useKeyboardShortcuts({
-    'n': handleCreateClick,
-    'f': () => document.querySelector<HTMLInputElement>('[data-filter-search]')?.focus(),
-  })
+  const focusSearch = () => focusWhenReady('[data-filter-search]')
+  useShellAction('new-transaction', handleCreateClick)
+  useShellAction('focus-search', focusSearch)
+  useKeyboardShortcuts([
+    { keys: 'f', label: 'Search', group: 'Transactions', scope: 'list', run: focusSearch },
+  ])
 
   if (isError || accountsLoading) {
     return (
