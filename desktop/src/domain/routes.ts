@@ -13,6 +13,7 @@ import { registerLedgerRoutes } from './handlers/ledger'
 import { registerPayScheduleRoutes } from './handlers/paySchedule'
 import { registerPeerDebtRoutes } from './handlers/peerDebt'
 import { registerProfileRoutes } from './handlers/profile'
+import { registerReserveRoutes } from './handlers/reserve'
 import { registerSettingsRoutes } from './handlers/settings'
 import { registerTransactionsRoutes } from './handlers/transactions'
 
@@ -30,4 +31,5 @@ export function registerRoutes(app: App): void {
   registerCheckRoutes(app)
   registerCategoriesRoutes(app)
   registerBudgetRoutes(app)
+  registerReserveRoutes(app)
 }

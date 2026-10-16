@@ -82,7 +82,7 @@ const frameIds = () => Array.from(document.querySelectorAll<HTMLElement>('[data-
 
 async function renderLoaded(editMode = true, setEditMode?: (on: boolean) => void) {
   renderWall(editMode, setEditMode)
-  await waitFor(() => expect(frameIds()).toHaveLength(11))
+  await waitFor(() => expect(frameIds()).toHaveLength(12))
 }
 
 beforeEach(() => {
@@ -110,7 +110,7 @@ describe('WallGrid', () => {
     await renderLoaded()
     expect(frameIds()).toEqual([
       'kpis', 'projection', 'check', 'budget', 'upcoming', 'recent',
-      'categories', 'payday', 'goals', 'accounts', 'friends',
+      'categories', 'payday', 'goals', 'accounts', 'reserve', 'friends',
     ])
     expect(frame('kpis')?.parentElement?.style.gridColumn).toBe('span 12 / span 12')
   })
@@ -145,7 +145,7 @@ describe('WallGrid', () => {
     await renderLoaded()
     fireEvent.keyDown(frame('recent')!, { key: 'Delete' })
     expect(frame('recent')).toBeNull()
-    expect(frameIds()).toHaveLength(10)
+    expect(frameIds()).toHaveLength(11)
   })
 
   it('Delete moves focus to the next widget, so keyboard focus is not lost', async () => {
@@ -187,16 +187,16 @@ describe('WallGrid', () => {
     await renderLoaded()
     fireEvent.click(screen.getByRole('button', { name: 'W2 Projection' }))
     expect(frameIds().slice(0, 2)).toEqual(['kpis', 'projection'])
-    expect(frameIds()).toHaveLength(11)
+    expect(frameIds()).toHaveLength(12)
     expect(screen.getByRole('button', { name: 'W2 Projection', pressed: true })).toBeTruthy()
   })
 
   it('Reset returns the wall to the last applied preset after an edit', async () => {
     await renderLoaded()
     fireEvent.keyDown(frame('kpis')!, { key: 'Delete' })
-    expect(frameIds()).toHaveLength(10)
-    fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
     expect(frameIds()).toHaveLength(11)
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
+    expect(frameIds()).toHaveLength(12)
     expect(frameIds()[0]).toBe('kpis')
   })
 

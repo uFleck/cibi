@@ -832,3 +832,66 @@ export function recordIncome(payload: {
     body: JSON.stringify(payload),
   })
 }
+
+// Reserve (the safety buffer as a pot that fills on each payday). Money is dollars.
+export interface ReserveEntryResponse {
+  id: string
+  amount: number
+  kind: 'contribution' | 'withdrawal'
+  note: string | null
+  payday: string | null
+  posted_at: string
+  moved_at: string | null
+}
+
+export interface ReserveResponse {
+  enabled: boolean
+  target_months: number
+  start_amount: number
+  step_amount: number
+  cap_percent: number
+  balance: number
+  target: number
+  monthly_obligations: number
+  months_covered: number | null
+  progress: number
+  next_contribution: { amount: number; payday: string; label: string | null } | null
+  /** The payday (YYYY-MM-DD) on which the target is reached at the current pace; null when it never is. */
+  eta: string | null
+  /** Contributions the user has not yet moved to a real place. */
+  pending_transfers: ReserveEntryResponse[]
+  entries: ReserveEntryResponse[]
+}
+
+export interface ReserveConfigRequest {
+  account_id: string
+  enabled: boolean
+  target_months: number
+  start_amount: number
+  step_amount: number
+  cap_percent: number
+}
+
+export function fetchReserve(accountId: string): Promise<ReserveResponse> {
+  return apiFetch<ReserveResponse>(`/api/reserve?account_id=${accountId}`)
+}
+
+export function saveReserveConfig(data: ReserveConfigRequest): Promise<ReserveResponse> {
+  return apiFetch<ReserveResponse>('/api/reserve/config', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export function withdrawReserve(data: { account_id: string; amount: number; note: string }): Promise<ReserveResponse> {
+  return apiFetch<ReserveResponse>('/api/reserve/withdraw', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export function markReserveMoved(id: string): Promise<void> {
+  return apiFetch<void>(`/api/reserve/entries/${id}/moved`, { method: 'POST' })
+}

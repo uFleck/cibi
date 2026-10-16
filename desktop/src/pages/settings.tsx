@@ -222,7 +222,7 @@ export function SettingsPage() {
 
       <SettingsPanel
         title="Account safety buffer"
-        description="Reserve this amount in dollars in the selected account before approving purchases."
+        description="Keep this amount in dollars in the selected account before approving purchases. It stops applying once the Reserve widget is switched on, because the reserve balance takes its place."
       >
         <div className="grid grid-cols-[120px_1fr] items-center gap-x-4">
           <Label htmlFor="safety-buffer" className="text-muted-foreground">Safety buffer ($)</Label>

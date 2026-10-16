@@ -5,6 +5,7 @@ import {
   BudgetBody,
   CategoriesBody,
   CheckBody,
+  ReserveBody,
   KpisBody,
   PaydayBody,
   ProjectionBody,
@@ -40,4 +41,5 @@ export const WIDGETS: Record<WidgetId, WidgetDef> = {
   categories: def('categories', CategoriesBody),
   check: def('check', CheckBody),
   friends: def('friends', FriendLedgerWidget),
+  reserve: def('reserve', ReserveBody),
 }

@@ -21,6 +21,8 @@ import { SqliteCategoriesRepo } from './repo/categories'
 import { CategoriesService } from './service/categories'
 import { BudgetService } from './service/budget'
 import { EstimateService } from './service/estimate'
+import { ReserveService } from './service/reserve'
+import { SqliteReserveRepo } from './repo/reserve'
 import { SqliteEstimateRepo } from './repo/estimate'
 import { EngineService } from './service/engine'
 import { SqliteAccountsRepo, type AccountsRepo } from './repo/accounts'
@@ -64,6 +66,7 @@ export interface App {
   budgetRepo: BudgetRepo
   budgetSvc: BudgetService
   estimateSvc: EstimateService
+  reserveSvc: ReserveService
 }
 
 export function buildApp(db: Db, config: Partial<Config> = {}): App {
@@ -81,14 +84,15 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
   const txnsSvc = new TransactionsService(db, txnsRepo, accountsRepo, ledgerSvc, () => categoriesSvc.list(), estimateSvc)
   const goalsRepo = new SqliteGoalsRepo(db)
   const goalsSvc = new GoalsService(db, goalsRepo, accountsRepo, ledgerSvc)
-  const engineSvc = new EngineService(accountsRepo, txnsRepo, psRepo, peerDebtRepo, groupEventRepo, goalsRepo, estimateSvc)
-  const payScheduleSvc = new PayScheduleService(db, psRepo, accountsRepo, ledgerSvc)
+  const appSettingRepo = new SqliteAppSettingRepo(db)
+  const reserveSvc = new ReserveService(db, new SqliteReserveRepo(db), appSettingRepo, txnsRepo, psRepo, estimateSvc)
+  const engineSvc = new EngineService(accountsRepo, txnsRepo, psRepo, peerDebtRepo, groupEventRepo, goalsRepo, estimateSvc, reserveSvc)
+  const payScheduleSvc = new PayScheduleService(db, psRepo, accountsRepo, ledgerSvc, reserveSvc)
   const friendSvc = new FriendService(friendRepo)
   const peerDebtSvc = new PeerDebtService(peerDebtRepo)
   const groupEventSvc = new GroupEventService(groupEventRepo, friendRepo)
   const profileRepo = new SqliteProfileRepo(db)
   const profileSvc = new ProfileService(profileRepo)
-  const appSettingRepo = new SqliteAppSettingRepo(db)
   const settingSvc = new AppSettingService(appSettingRepo)
   const budgetRepo = new SqliteBudgetRepo(db)
   const budgetSvc = new BudgetService(db, budgetRepo, txnsRepo, () => categoriesSvc.list(), estimateSvc)
@@ -120,5 +124,6 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
     budgetRepo,
     budgetSvc,
     estimateSvc,
+    reserveSvc,
   }
 }

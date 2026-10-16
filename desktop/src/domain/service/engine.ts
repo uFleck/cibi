@@ -21,6 +21,7 @@ import type { PayScheduleRepo, PaySchedule } from '../repo/paySchedule'
 import type { PeerDebtRepo } from '../repo/peerDebt'
 import type { TransactionsRepo } from '../repo/transactions'
 import type { EstimateService } from './estimate'
+import type { ReserveService } from './reserve'
 import { advanceOccurrence } from './transactions'
 
 /** Go ErrPayScheduleRequired: the account has no pay schedule. The message is the code the UI reads. */
@@ -163,6 +164,7 @@ export class EngineService {
   private readonly groupEventRepo: GroupEventRepo
   private readonly goalsRepo: GoalsRepo
   private readonly estimator: Pick<EstimateService, 'effectiveAmount'>
+  private readonly reserve: Pick<ReserveService, 'bufferFor'>
 
   constructor(
     accRepo: AccountsRepo,
@@ -172,6 +174,7 @@ export class EngineService {
     groupEventRepo: GroupEventRepo,
     goalsRepo: GoalsRepo,
     estimator: Pick<EstimateService, 'effectiveAmount'>,
+    reserve: Pick<ReserveService, 'bufferFor'>,
   ) {
     this.accRepo = accRepo
     this.txnsRepo = txnsRepo
@@ -180,6 +183,7 @@ export class EngineService {
     this.groupEventRepo = groupEventRepo
     this.goalsRepo = goalsRepo
     this.estimator = estimator
+    this.reserve = reserve
   }
 
   /**
@@ -251,7 +255,10 @@ export class EngineService {
     )
     const goals = await wrapping('engine.CanIBuyIt: list goals', () => this.goalsRepo.getGoalsByAccount(accountId))
 
-    const purchasingPower = acc.currentBalance + obligations + peerObligations + groupObligations - acc.safetyBuffer
+    // The buffer is the reserve while it is on, so money already set aside is never offered as spendable.
+    const buffer = await wrapping('engine.CanIBuyIt: reserve', () => this.reserve.bufferFor(accountId, acc.safetyBuffer))
+
+    const purchasingPower = acc.currentBalance + obligations + peerObligations + groupObligations - buffer
     const canBuy = purchasingPower >= itemPrice
     const bufferRemaining = wrapInt64(BigInt(purchasingPower) - BigInt(itemPrice))
 
@@ -271,7 +278,7 @@ export class EngineService {
         canBuy: true,
         purchasingPower,
         bufferRemaining,
-        riskLevel: classifyRisk(bufferRemaining, acc.safetyBuffer),
+        riskLevel: classifyRisk(bufferRemaining, buffer),
         willAffordAfterPayday: false,
         waitUntil: null,
         goalImpacts,
@@ -282,7 +289,7 @@ export class EngineService {
     // Cannot buy now: WAIT if the balance after the earliest payday would cover it.
     const projectedBalance = acc.currentBalance + earliestSchedule.amount
     const projectedPurchasingPower =
-      projectedBalance + obligations + peerObligations + groupObligations - acc.safetyBuffer
+      projectedBalance + obligations + peerObligations + groupObligations - buffer
     const willAfford = projectedPurchasingPower >= itemPrice
 
     return {

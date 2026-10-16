@@ -12,6 +12,7 @@ export const WIDGET_IDS = [
   'categories',
   'check',
   'friends',
+  'reserve',
 ] as const
 
 export type WidgetId = (typeof WIDGET_IDS)[number]
@@ -39,6 +40,7 @@ export const WIDGET_META: Record<WidgetId, WidgetMeta> = {
   categories: { id: 'categories', title: 'Spending by category', span: 6 },
   check: { id: 'check', title: 'Can I buy it?', span: 4 },
   friends: { id: 'friends', title: 'Friend ledger', span: 4 },
+  reserve: { id: 'reserve', title: 'Reserve', span: 4 },
 }
 
 export function isWidgetId(value: unknown): value is WidgetId {

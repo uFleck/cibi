@@ -8,6 +8,8 @@ import { AccountsWidget } from './accounts/AccountsWidget'
 import { BudgetWidget } from './budget/BudgetWidget'
 import { CategoriesWidget } from './categories/CategoriesWidget'
 import { CheckWidget } from './check/CheckWidget'
+import { ReserveWidget } from './reserve/ReserveWidget'
+import { useBufferDollars } from './reserve/useReserve'
 import { useSelection } from '@/shell/selection'
 import type { WidgetData } from './useWorkspace'
 
@@ -16,13 +18,14 @@ export interface WidgetBodyProps {
 }
 
 export function KpisBody({ data }: WidgetBodyProps) {
+  const safetyBuffer = useBufferDollars(data.account)
   return (
     <StatCards
       account={data.account}
       recurringTxns={data.transactions}
       nextPayday={data.nextPayday}
       friendBreakdown={data.friendBreakdown}
-      safetyBuffer={data.account.safety_buffer ?? 0}
+      safetyBuffer={safetyBuffer}
     />
   )
 }
@@ -37,6 +40,10 @@ export function ProjectionBody({ data }: WidgetBodyProps) {
       nextPayday={data.nextPayday}
     />
   )
+}
+
+export function ReserveBody({ data }: WidgetBodyProps) {
+  return <ReserveWidget accountId={data.account.id} currency={data.account.currency} />
 }
 
 export function BudgetBody({ data }: WidgetBodyProps) {

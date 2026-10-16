@@ -9,18 +9,27 @@ import { nextPayday } from '../engine/engine'
 import type { AccountsRepo } from '../repo/accounts'
 import type { PaySchedule, PayScheduleRepo } from '../repo/paySchedule'
 import type { LedgerService } from './ledger'
+import type { ReserveService } from './reserve'
 
 export class PayScheduleService {
   private readonly db: Db
   private readonly psRepo: PayScheduleRepo
   private readonly accRepo: AccountsRepo
   private readonly ledgerSvc: LedgerService
+  private readonly reserve: Pick<ReserveService, 'contributeForPayday'>
 
-  constructor(db: Db, psRepo: PayScheduleRepo, accRepo: AccountsRepo, ledgerSvc: LedgerService) {
+  constructor(
+    db: Db,
+    psRepo: PayScheduleRepo,
+    accRepo: AccountsRepo,
+    ledgerSvc: LedgerService,
+    reserve: Pick<ReserveService, 'contributeForPayday'> = { contributeForPayday: async () => null },
+  ) {
     this.db = db
     this.psRepo = psRepo
     this.accRepo = accRepo
     this.ledgerSvc = ledgerSvc
+    this.reserve = reserve
   }
 
   /** Checks that the account exists, then inserts the schedule with a new id. */
@@ -104,6 +113,8 @@ export class PayScheduleService {
           true,
         ),
       )
+      // The reserve is funded from the payday being confirmed, so it uses the schedule as it was before the anchor moves.
+      await wrapping('service.ConfirmPayday: fund reserve', () => this.reserve.contributeForPayday(ps))
       await wrapping('service.ConfirmPayday: update anchor', () =>
         this.psRepo.updateAnchorDate(ps.id, nextAfterUpcoming),
       )
