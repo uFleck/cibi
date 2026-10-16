@@ -39,6 +39,14 @@ export interface NextContribution {
   label: string | null
 }
 
+/** What the reserve takes from a coming paycheck. */
+export interface UpcomingContribution {
+  scheduleId: string
+  payday: Date
+  /** Cents, more than 0. */
+  amount: number
+}
+
 export interface ReserveState {
   config: ReserveConfig
   /** Cents. */
@@ -54,6 +62,8 @@ export interface ReserveState {
   nextContribution: NextContribution | null
   /** The payday on which the target is reached at the current pace; null when it never is. */
   eta: Date | null
+  /** The contributions of the next UPCOMING_MONTHS months of paydays, so a projection can take them off the income. */
+  upcomingContributions: UpcomingContribution[]
   pendingTransfers: ReserveEntry[]
   entries: ReserveEntry[]
 }
@@ -62,6 +72,7 @@ const RECENT_ENTRIES = 20
 const ETA_HORIZON_DAYS = 20 * 366
 const ETA_MAX_PAYDAYS = 2000
 const PAYDAY_STEP_DAYS = 3
+const UPCOMING_DAYS = 731
 
 function settingKey(accountId: string): string {
   return `reserve.${accountId}`
@@ -203,6 +214,9 @@ export class ReserveService {
     const monthlyObligations = await this.monthlyObligations(accountId)
     const target = reserveTarget(config.targetMonths, monthlyObligations)
     const schedules = await wrapping('service.Reserve.State: pay schedules', () => this.psRepo.listByAccountId(accountId))
+    const forecast = config.enabled
+      ? this.forecast(config, schedules, balance, target, now)
+      : { eta: null, upcomingContributions: [] }
 
     return {
       config,
@@ -212,7 +226,8 @@ export class ReserveService {
       monthsCovered: monthlyObligations > 0 ? balance / monthlyObligations : null,
       progress: target > 0 ? Math.min(1, Math.max(0, balance / target)) : 0,
       nextContribution: config.enabled ? this.nextContribution(config, schedules, balance, target, now) : null,
-      eta: config.enabled ? this.eta(config, schedules, balance, target, now) : null,
+      eta: forecast.eta,
+      upcomingContributions: forecast.upcomingContributions,
       pendingTransfers: await this.repo.listPendingTransfers(accountId),
       entries: await this.repo.list(accountId, RECENT_ENTRIES),
     }
@@ -241,10 +256,21 @@ export class ReserveService {
     return { amount, payday: best.payday, label: best.ps.label }
   }
 
-  /** Replays the coming paydays, all schedules merged by date, until the balance reaches the target. */
-  private eta(config: ReserveConfig, schedules: PaySchedule[], balance: number, target: number, now: Date): Date | null {
-    if (target <= 0 || balance >= target || schedules.length === 0) return null
+  /**
+   * Replays the coming paydays, all schedules merged by date, until the balance reaches the target.
+   * It gives the payday that reaches it and what each payday of the next two years puts in.
+   */
+  private forecast(
+    config: ReserveConfig,
+    schedules: PaySchedule[],
+    balance: number,
+    target: number,
+    now: Date,
+  ): { eta: Date | null; upcomingContributions: UpcomingContribution[] } {
+    const upcomingContributions: UpcomingContribution[] = []
+    if (target <= 0 || balance >= target || schedules.length === 0) return { eta: null, upcomingContributions }
     const horizon = addDays(now, ETA_HORIZON_DAYS).getTime()
+    const listedUntil = addDays(now, UPCOMING_DAYS).getTime()
     const upcoming = schedules.map((ps) => ({
       ps,
       schedule: { frequency: ps.frequency, anchorDate: ps.anchorDate, dayOfMonth2: ps.dayOfMonth2 },
@@ -253,21 +279,25 @@ export class ReserveService {
     let simulated = balance
     for (let i = 0; i < ETA_MAX_PAYDAYS; i++) {
       let soonest = upcoming[0]
-      if (soonest === undefined) return null
+      if (soonest === undefined) return { eta: null, upcomingContributions }
       for (const u of upcoming) if (u.next.getTime() < soonest.next.getTime()) soonest = u
-      if (soonest.next.getTime() > horizon) return null
-      simulated += contributionFor({
+      if (soonest.next.getTime() > horizon) return { eta: null, upcomingContributions }
+      const amount = contributionFor({
         config,
         scheduleAmountCents: soonest.ps.amount,
         payday: soonest.next,
         balanceCents: simulated,
         targetCents: target,
       })
-      if (simulated >= target) return soonest.next
+      simulated += amount
+      if (amount > 0 && soonest.next.getTime() <= listedUntil) {
+        upcomingContributions.push({ scheduleId: soonest.ps.id, payday: soonest.next, amount })
+      }
+      if (simulated >= target) return { eta: soonest.next, upcomingContributions }
       // nextPayday returns the same date again when a payday was moved back to a business day (12-05 -> 12-04),
       // so step from a few days later, which is still before the following payday of any frequency.
       soonest.next = nextPayday(soonest.schedule, addDays(soonest.next, PAYDAY_STEP_DAYS))
     }
-    return null
+    return { eta: null, upcomingContributions }
   }
 }

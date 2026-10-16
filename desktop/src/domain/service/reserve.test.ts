@@ -200,6 +200,22 @@ describe('reserve service', () => {
     // R$ 200 a month towards R$ 1.000: the fifth payday after 2026-09-20 reaches it.
     expect(state.nextContribution?.amount).toBe(20000)
     expect(state.eta?.toISOString().slice(0, 10)).toBe('2027-02-05')
+    // Each of those paydays is listed with what it puts in, for the projection to take off the income.
+    expect(state.upcomingContributions.map((c) => [c.scheduleId, c.amount])).toEqual(
+      Array.from({ length: 5 }, () => [scheduleId, 20000]),
+    )
+    expect(state.upcomingContributions.map((c) => c.payday.toISOString().slice(0, 10))).toEqual([
+      '2026-10-05',
+      '2026-11-05',
+      '2026-12-04',
+      '2027-01-05',
+      '2027-02-05',
+    ])
+  })
+
+  it('lists no upcoming contributions while it is off', async () => {
+    const state = await app.reserveSvc.state(accountId, new Date('2026-09-20T12:00:00Z'))
+    expect(state.upcomingContributions).toEqual([])
   })
 
   it('takes money out only with a reason and only what it holds', async () => {

@@ -9,7 +9,8 @@ import { BudgetWidget } from './budget/BudgetWidget'
 import { CategoriesWidget } from './categories/CategoriesWidget'
 import { CheckWidget } from './check/CheckWidget'
 import { ReserveWidget } from './reserve/ReserveWidget'
-import { useBufferDollars } from './reserve/useReserve'
+import { useBufferDollars, useReserve } from './reserve/useReserve'
+import { reserveAdjustment } from '@/lib/reserve-adjustment'
 import { useSelection } from '@/shell/selection'
 import type { WidgetData } from './useWorkspace'
 
@@ -31,6 +32,7 @@ export function KpisBody({ data }: WidgetBodyProps) {
 }
 
 export function ProjectionBody({ data }: WidgetBodyProps) {
+  const { data: reserve } = useReserve(data.account.id)
   return (
     <ProjectionWidget
       account={data.account}
@@ -38,6 +40,7 @@ export function ProjectionBody({ data }: WidgetBodyProps) {
       paySchedules={data.paySchedules}
       friendBreakdown={data.friendBreakdown}
       nextPayday={data.nextPayday}
+      reserve={reserveAdjustment(reserve)}
     />
   )
 }

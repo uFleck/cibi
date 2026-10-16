@@ -1,4 +1,5 @@
 import { nextPaydayAfter } from '@/lib/pay-schedule'
+import type { ReserveAdjustment } from '@/lib/reserve-adjustment'
 import type { AccountResponse, FriendDebtBreakdownItem, PayScheduleResponse, TransactionResponse } from '@/lib/api'
 
 export interface MonthlyProjection {
@@ -65,6 +66,8 @@ export interface CustomProjection {
   windowStart: Date
   windowEnd: Date
   income: number
+  /** What the reserve takes from that income (0 while it is off). */
+  reserveContribution: number
   obligations: number
   net: number
   projectedEndBalance: number
@@ -78,16 +81,21 @@ export function computeCustomProjection(
   windowStart: Date,
   windowEnd: Date,
   excludeBalance: boolean,
+  reserve: ReserveAdjustment | null = null,
 ): CustomProjection {
   const now = new Date()
 
   const incomeStart = now > windowStart ? now : windowStart
   let income = 0
+  let reserveContribution = 0
   for (const schedule of paySchedules) {
     let occurrence = nextPaydayAfter(schedule, new Date(incomeStart.getTime() - 1))
     let safety = 0
     while (occurrence.getTime() < windowEnd.getTime() && safety < 52) {
-      if (occurrence.getTime() >= incomeStart.getTime()) income += schedule.amount
+      if (occurrence.getTime() >= incomeStart.getTime()) {
+        income += schedule.amount
+        reserveContribution += reserve?.contributionAt(schedule.id, occurrence) ?? 0
+      }
       occurrence = nextPaydayAfter(schedule, occurrence)
       safety++
     }
@@ -109,9 +117,10 @@ export function computeCustomProjection(
     .reduce((sum, d) => sum + d.next_payment, 0)
 
   const obligations = recurringObligations + installmentObligations + peerObligations
-  const net = income - obligations
-  const startBalance = excludeBalance ? 0 : account.current_balance
+  const net = income - reserveContribution - obligations
+  // The reserve is part of the balance but not spendable, so it stays out of the starting point.
+  const startBalance = excludeBalance ? 0 : account.current_balance - (reserve?.balance ?? 0)
   const projectedEndBalance = startBalance + net
 
-  return { windowStart, windowEnd, income, obligations, net, projectedEndBalance }
+  return { windowStart, windowEnd, income, reserveContribution, obligations, net, projectedEndBalance }
 }

@@ -1,4 +1,5 @@
 import { nextPaydayAfter } from '@/lib/pay-schedule'
+import type { ReserveAdjustment } from '@/lib/reserve-adjustment'
 import type { FriendDebtBreakdownItem, PayScheduleResponse, TransactionResponse } from '@/lib/api'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -18,6 +19,8 @@ export interface BalanceSeriesInput {
   end: Date
   /** Everyday spending that is not a scheduled obligation, subtracted once per day. */
   dailyBaseline: number
+  /** The reserve, when it is on: each payday then adds only what is left after it takes its share. */
+  reserve?: ReserveAdjustment | null
 }
 
 function startOfUTCDay(value: Date): number {
@@ -49,7 +52,7 @@ export function averageDailySpend(transactions: TransactionResponse[], now: Date
  * down a little every day.
  */
 export function computeBalanceSeries(input: BalanceSeriesInput): BalancePoint[] {
-  const { startBalance, transactions, paySchedules, friendBreakdown, start, end, dailyBaseline } = input
+  const { startBalance, transactions, paySchedules, friendBreakdown, start, end, dailyBaseline, reserve } = input
   const firstDay = startOfUTCDay(start)
   const dayCount = Math.max(1, Math.round((startOfUTCDay(end) - firstDay) / DAY_MS))
   const delta = new Array<number>(dayCount + 1).fill(0)
@@ -63,7 +66,7 @@ export function computeBalanceSeries(input: BalanceSeriesInput): BalancePoint[] 
     let occurrence = nextPaydayAfter(schedule, new Date(start.getTime() - 1))
     let safety = 0
     while (occurrence.getTime() < end.getTime() && safety < 60) {
-      add(occurrence, schedule.amount)
+      add(occurrence, schedule.amount - (reserve?.contributionAt(schedule.id, occurrence) ?? 0))
       occurrence = nextPaydayAfter(schedule, occurrence)
       safety += 1
     }

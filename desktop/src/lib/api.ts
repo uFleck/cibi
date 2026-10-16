@@ -858,6 +858,8 @@ export interface ReserveResponse {
   next_contribution: { amount: number; payday: string; label: string | null } | null
   /** The payday (YYYY-MM-DD) on which the target is reached at the current pace; null when it never is. */
   eta: string | null
+  /** What each payday of the next two years puts in; a projection takes it off the income. */
+  upcoming_contributions: { schedule_id: string; payday: string; amount: number }[]
   /** Contributions the user has not yet moved to a real place. */
   pending_transfers: ReserveEntryResponse[]
   entries: ReserveEntryResponse[]

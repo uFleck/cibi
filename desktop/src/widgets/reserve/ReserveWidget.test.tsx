@@ -33,6 +33,7 @@ function reserve(over: Partial<ReserveResponse> = {}): ReserveResponse {
     progress: 0.2,
     next_contribution: { amount: 70, payday: '2026-11-05', label: 'salary' },
     eta: '2027-08-05',
+    upcoming_contributions: [],
     pending_transfers: [],
     entries: [],
     ...over,

@@ -11,6 +11,7 @@ import { NoPaySchedule } from '@/widgets/payday/PayWindowBar'
 import type { CustomProjectionConfig } from '@/components/CustomProjectionSheet'
 import type { CustomProjection } from '@/lib/monthly-projection'
 import { effectiveAmount } from '@/lib/api'
+import type { ReserveAdjustment } from '@/lib/reserve-adjustment'
 import type { AccountResponse, FriendDebtBreakdownItem, PayScheduleResponse, TransactionResponse } from '@/lib/api'
 
 interface ProjectionWidgetProps {
@@ -19,6 +20,8 @@ interface ProjectionWidgetProps {
   paySchedules: PayScheduleResponse[]
   friendBreakdown: FriendDebtBreakdownItem[]
   nextPayday: string | null
+  /** The reserve, when it is on: the projection is of the money you can spend, so the reserve is left out of it. */
+  reserve?: ReserveAdjustment | null
 }
 
 function isInWindow(occurrence: string, start: Date, end: Date): boolean {
@@ -33,6 +36,7 @@ export function ProjectionWidget({
   paySchedules,
   friendBreakdown,
   nextPayday,
+  reserve = null,
 }: ProjectionWidgetProps) {
   const [mode, setMode] = useState<'window' | 'custom'>('window')
   const [customConfig, setCustomConfig] = useState<CustomProjectionConfig | null>(null)
@@ -74,7 +78,8 @@ export function ProjectionWidget({
     return sum
   }, 0)
 
-  const projectedStartBalance = account.current_balance - currentRecurringReserved - currentInstallmentReserved - currentPeerReserved
+  const projectedStartBalance =
+    account.current_balance - (reserve?.balance ?? 0) - currentRecurringReserved - currentInstallmentReserved - currentPeerReserved
 
   const nextRecurringObligations = transactions
     .filter(t => t.is_recurring && t.next_occurrence !== null && isInWindow(t.next_occurrence, windowStart, windowEnd))
@@ -93,17 +98,21 @@ export function ProjectionWidget({
   const nextObligations = nextRecurringObligations + nextInstallmentObligations + nextPeerObligations
 
   let incoming = 0
+  let toReserve = 0
   for (const schedule of paySchedules) {
     let occurrence = nextPaydayAfter(schedule, new Date(windowStart.getTime() - 1))
     let safety = 0
     while (occurrence.getTime() < windowEnd.getTime() && safety < 24) {
-      if (occurrence.getTime() >= windowStart.getTime()) incoming += schedule.amount
+      if (occurrence.getTime() >= windowStart.getTime()) {
+        incoming += schedule.amount
+        toReserve += reserve?.contributionAt(schedule.id, occurrence) ?? 0
+      }
       occurrence = nextPaydayAfter(schedule, occurrence)
       safety += 1
     }
   }
 
-  const windowNet = incoming - nextObligations
+  const windowNet = incoming - toReserve - nextObligations
   const windowProjectedEndBalance = projectedStartBalance + windowNet
 
   const isCustom = mode === 'custom' && customConfig !== null
@@ -117,11 +126,13 @@ export function ProjectionWidget({
       customConfig.windowStart,
       customConfig.windowEnd,
       customConfig.excludeBalance,
+      reserve,
     )
   }
 
   const displayIncome = isCustom ? custom!.income : incoming
   const displayObligations = isCustom ? custom!.obligations : nextObligations
+  const displayReserve = isCustom ? custom!.reserveContribution : toReserve
   const displayEndBalance = isCustom ? custom!.projectedEndBalance : windowProjectedEndBalance
   const displayStart = isCustom ? customConfig!.windowStart : windowStart
   const displayEnd = isCustom ? customConfig!.windowEnd : windowEnd
@@ -129,7 +140,7 @@ export function ProjectionWidget({
   const dailyBaseline = averageDailySpend(transactions, now)
   const seriesStart = isCustom && customConfig!.windowStart < now ? now : displayStart
   const seriesStartBalance = isCustom
-    ? (customConfig!.excludeBalance ? 0 : account.current_balance)
+    ? (customConfig!.excludeBalance ? 0 : account.current_balance - (reserve?.balance ?? 0))
     : projectedStartBalance
   const series = displayEnd.getTime() > seriesStart.getTime()
     ? computeBalanceSeries({
@@ -140,6 +151,7 @@ export function ProjectionWidget({
         start: seriesStart,
         end: displayEnd,
         dailyBaseline,
+        reserve,
       })
     : null
 
@@ -177,7 +189,7 @@ export function ProjectionWidget({
               </span>
               <span>
                 <i className="mr-1.5 inline-block h-0.5 w-2.5 rounded-sm bg-neg align-middle opacity-70" />
-                Safety buffer
+                {reserve ? 'Reserve left out' : 'Safety buffer'}
               </span>
               {dailyBaseline > 0 && (
                 <span className="ml-auto">
@@ -187,7 +199,7 @@ export function ProjectionWidget({
             </div>
             <BalanceChart
               points={series}
-              floor={account.safety_buffer ?? 0}
+              floor={reserve ? 0 : (account.safety_buffer ?? 0)}
               currency={account.currency}
               endsOnPayday={!isCustom}
             />
@@ -196,7 +208,9 @@ export function ProjectionWidget({
 
         {mode === 'window' && (
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Projected start balance</span>
+            <span className="text-muted-foreground">
+              Projected start balance{reserve ? ' (without the reserve)' : ''}
+            </span>
             <span className="tabular-nums">{formatMoney(projectedStartBalance, account.currency)}</span>
           </div>
         )}
@@ -209,6 +223,17 @@ export function ProjectionWidget({
             showSign="always"
           />
         </div>
+        {reserve && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Set aside for the reserve</span>
+            <MoneyValue
+              amount={-displayReserve}
+              currency={account.currency}
+              tone="neutral"
+              showSign="always"
+            />
+          </div>
+        )}
         <div className="flex justify-between">
           <span className="text-muted-foreground">Obligations</span>
           <MoneyValue

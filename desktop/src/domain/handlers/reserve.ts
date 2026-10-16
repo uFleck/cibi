@@ -41,6 +41,8 @@ export interface ReserveResponse {
   progress: number
   next_contribution: { amount: number; payday: string; label: string | null } | null
   eta: string | null
+  /** What each payday of the next two years puts in, so a projection can take it off the income. */
+  upcoming_contributions: { schedule_id: string; payday: string; amount: number }[]
   pending_transfers: ReserveEntryResponse[]
   entries: ReserveEntryResponse[]
 }
@@ -93,6 +95,11 @@ export function reserveResponse(s: ReserveState): ReserveResponse {
             label: s.nextContribution.label,
           },
     eta: s.eta === null ? null : formatYmd(s.eta),
+    upcoming_contributions: s.upcomingContributions.map((c) => ({
+      schedule_id: c.scheduleId,
+      payday: formatYmd(c.payday),
+      amount: c.amount / 100,
+    })),
     pending_transfers: s.pendingTransfers.map(entryResponse),
     entries: s.entries.map(entryResponse),
   }
