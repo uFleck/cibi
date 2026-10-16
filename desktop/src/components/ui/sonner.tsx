@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
@@ -10,9 +9,9 @@ const Toaster = ({
   closeButton: closeButtonProp,
   toastOptions: toastOptionsProp,
   swipeDirections: swipeDirectionsProp,
+  theme = "dark",
   ...props
 }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
   const [responsivePosition, setResponsivePosition] = useState<ToasterProps["position"]>("bottom-right")
 
   const toastOptions: ToasterProps["toastOptions"] = {
@@ -46,7 +45,7 @@ const Toaster = ({
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={theme}
       position={positionProp ?? responsivePosition}
       className="toaster group"
       icons={{
@@ -68,9 +67,9 @@ const Toaster = ({
       }}
       style={
         {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
+          "--normal-bg": "var(--foreground)",
+          "--normal-text": "var(--background)",
+          "--normal-border": "transparent",
           "--border-radius": "var(--radius)",
         } as React.CSSProperties
       }

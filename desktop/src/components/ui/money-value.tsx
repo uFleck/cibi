@@ -27,18 +27,18 @@ function getSignPrefix(amount: number, showSign: MoneySign): string {
 
 function getToneClass(amount: number, tone: MoneyTone): string {
   if (tone === 'positive') {
-    return 'text-green-600'
+    return 'text-pos'
   }
 
   if (tone === 'negative') {
-    return 'text-red-500'
+    return 'text-neg'
   }
 
   if (tone === 'neutral') {
     return 'text-muted-foreground'
   }
 
-  return amount >= 0 ? 'text-green-600' : 'text-red-500'
+  return amount >= 0 ? 'text-pos' : 'text-neg'
 }
 
 export function MoneyValue({
@@ -53,7 +53,7 @@ export function MoneyValue({
   const toneClass = getToneClass(amount, tone)
 
   return (
-    <span className={cn('tabular-nums', toneClass, className)}>
+    <span className={cn('num', toneClass, className)}>
       {signPrefix}
       {formattedValue}
     </span>

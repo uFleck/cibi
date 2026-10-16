@@ -7,9 +7,7 @@ import App from './App.tsx'
 import { startDomain } from './domain'
 
 const savedTheme = typeof window !== 'undefined' ? window.localStorage.getItem('cibi.theme') : null
-const initialTheme = savedTheme === 'light' || savedTheme === 'dark'
-  ? savedTheme
-  : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+const initialTheme = savedTheme === 'light' ? 'light' : 'dark'
 
 document.documentElement.classList.toggle('dark', initialTheme === 'dark')
 document.documentElement.style.colorScheme = initialTheme

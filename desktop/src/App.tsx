@@ -6,7 +6,7 @@ import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import { router } from './router'
 import { MobileHeader } from '@/components/MobileHeader'
 import { MobileBottomNav } from '@/components/MobileBottomNav'
-import { fetchAccounts, fetchProfile } from '@/lib/api'
+import { fetchAccounts } from '@/lib/api'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,9 +30,11 @@ export type ThemeMode = 'light' | 'dark'
 
 export const ThemeContext = createContext<{
   theme: ThemeMode
+  setTheme: (theme: ThemeMode) => void
   toggleTheme: () => void
 }>({
   theme: 'dark',
+  setTheme: () => {},
   toggleTheme: () => {},
 })
 
@@ -62,11 +64,7 @@ function getInitialSelectedAccountId(): string | null {
 
 function getInitialTheme(): ThemeMode {
   if (typeof window === 'undefined') return 'dark'
-
-  const saved = window.localStorage.getItem(THEME_STORAGE_KEY)
-  if (saved === 'light' || saved === 'dark') return saved
-
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  return window.localStorage.getItem(THEME_STORAGE_KEY) === 'light' ? 'light' : 'dark'
 }
 
 function AppShell() {
@@ -91,17 +89,6 @@ function AppShell() {
     queryKey: ['accounts'],
     queryFn: fetchAccounts,
   })
-
-  const { data: profile } = useQuery({
-    queryKey: ['profile', selectedAccountId],
-    queryFn: () => fetchProfile(selectedAccountId as string),
-    enabled: !!selectedAccountId,
-  })
-
-  useEffect(() => {
-    const theme = profile?.theme ?? 'neutral-command'
-    document.documentElement.setAttribute('data-theme', theme)
-  }, [profile?.theme])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -146,10 +133,10 @@ function AppShell() {
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
       <AccountContext.Provider value={{ selectedAccountId, setSelectedAccountId }}>
         <RouterProvider router={router} />
-        <Toaster />
+        <Toaster theme={theme} />
       </AccountContext.Provider>
     </ThemeContext.Provider>
   )

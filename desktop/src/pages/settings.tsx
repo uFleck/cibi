@@ -9,19 +9,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { fetchAccounts, fetchProfile, updateAccount, updateProfile } from '@/lib/api'
-import { AccountContext } from '@/App'
-
-const THEMES: { id: string; label: string; primary: string }[] = [
-  { id: 'green-anchor',    label: 'Green',   primary: 'oklch(0.62 0.19 142)' },
-  { id: 'neutral-command', label: 'Navy',    primary: 'oklch(0.55 0.10 240)' },
-  { id: 'teal-bridge',     label: 'Teal',    primary: 'oklch(0.60 0.14 195)' },
-  { id: 'warm-amber',      label: 'Amber',   primary: 'oklch(0.72 0.17 70)'  },
-  { id: 'rose-noir',       label: 'Rose',    primary: 'oklch(0.60 0.16 340)' },
-]
+import { AccountContext, ThemeContext } from '@/App'
 
 export function SettingsPage() {
   const queryClient = useQueryClient()
   const { selectedAccountId } = useContext(AccountContext)
+  const { theme, setTheme } = useContext(ThemeContext)
 
   const { data: profile } = useQuery({
     queryKey: ['profile', selectedAccountId],
@@ -104,12 +97,6 @@ export function SettingsPage() {
     onError: () => toast.error('Could not save preferences'),
   })
 
-  function handleThemeSelect(themeId: string) {
-    setThemeDraft(themeId)
-    document.documentElement.setAttribute('data-theme', themeId)
-    updateProfileMutation.mutate({ theme: themeId })
-  }
-
   const updateSafetyBufferMutation = useMutation({
     mutationFn: () => {
       if (!selectedAccount) throw new Error('No selected account')
@@ -137,30 +124,22 @@ export function SettingsPage() {
             Appearance
           </CardTitle>
           <CardDescription>
-            Choose a color theme for this account. Applied immediately.
+            Light or dark. Applied immediately on this device.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-3 flex-wrap">
-            {THEMES.map(t => (
-              <button
-                key={t.id}
+          <div className="flex gap-2">
+            {(['dark', 'light'] as const).map(mode => (
+              <Button
+                key={mode}
                 type="button"
-                aria-label={t.label}
-                aria-pressed={themeDraft === t.id}
-                onClick={() => handleThemeSelect(t.id)}
-                className={`flex flex-col items-center gap-1.5 rounded-lg p-2 border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                  themeDraft === t.id
-                    ? 'border-primary bg-primary/10 ring-2 ring-primary'
-                    : 'border-border hover:border-muted-foreground'
-                }`}
+                variant={theme === mode ? 'default' : 'outline'}
+                aria-pressed={theme === mode}
+                onClick={() => setTheme(mode)}
+                className="capitalize"
               >
-                <span
-                  className="w-8 h-8 rounded-full block"
-                  style={{ background: t.primary }}
-                />
-                <span className="text-xs text-muted-foreground">{t.label}</span>
-              </button>
+                {mode}
+              </Button>
             ))}
           </div>
         </CardContent>

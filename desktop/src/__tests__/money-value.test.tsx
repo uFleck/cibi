@@ -17,16 +17,22 @@ describe('MoneyValue', () => {
     expect(value.textContent?.startsWith('+')).toBe(false)
   })
 
-  it("maps tone='positive' to text-green-600", () => {
+  it("maps tone='positive' to text-pos", () => {
     render(<MoneyValue amount={10} tone="positive" />)
 
-    expect(screen.getByText(/R\$/).className).toContain('text-green-600')
+    expect(screen.getByText(/R\$/).className).toContain('text-pos')
   })
 
-  it("maps tone='negative' to text-red-500", () => {
+  it("maps tone='negative' to text-neg", () => {
     render(<MoneyValue amount={-10} tone="negative" />)
 
-    expect(screen.getByText(/R\$/).className).toContain('text-red-500')
+    expect(screen.getByText(/R\$/).className).toContain('text-neg')
+  })
+
+  it('uses the mono tabular number class', () => {
+    render(<MoneyValue amount={10} />)
+
+    expect(screen.getByText(/R\$/).className).toContain('num')
   })
 
   it("maps tone='neutral' to text-muted-foreground", () => {
