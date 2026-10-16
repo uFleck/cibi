@@ -150,32 +150,33 @@ describe('AppShell', () => {
     expect(await screen.findByRole('dialog', { name: 'Monthly budget' })).toBeTruthy()
   })
 
-  it('collapses the hint bar to a pill, restores it, and remembers the choice', async () => {
+  it('starts the hint bar collapsed, expands it from the pill, and remembers the choice', async () => {
     window.localStorage.removeItem('cibi.hintbar.collapsed')
     renderShell('/')
     await screen.findByRole('link', { name: 'Overview' })
-    expect(screen.getByRole('note', { name: 'Keyboard hints' })).toBeTruthy()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Hide keyboard hints' }))
     expect(screen.queryByRole('note', { name: 'Keyboard hints' })).toBeNull()
-    expect(window.localStorage.getItem('cibi.hintbar.collapsed')).toBe('1')
 
     fireEvent.click(screen.getByRole('button', { name: 'Show keyboard hints' }))
     expect(screen.getByRole('note', { name: 'Keyboard hints' })).toBeTruthy()
     expect(window.localStorage.getItem('cibi.hintbar.collapsed')).toBe('0')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide keyboard hints' }))
+    expect(screen.queryByRole('note', { name: 'Keyboard hints' })).toBeNull()
+    expect(window.localStorage.getItem('cibi.hintbar.collapsed')).toBe('1')
+    window.localStorage.removeItem('cibi.hintbar.collapsed')
   })
 
-  it('starts collapsed when saved, and toggles the hints with H', async () => {
-    window.localStorage.setItem('cibi.hintbar.collapsed', '1')
+  it('starts expanded when saved as expanded, and toggles the hints with H', async () => {
+    window.localStorage.setItem('cibi.hintbar.collapsed', '0')
     renderShell('/')
     await screen.findByRole('link', { name: 'Overview' })
-    expect(screen.getByRole('button', { name: 'Show keyboard hints' })).toBeTruthy()
-
-    press('h')
     expect(screen.getByRole('note', { name: 'Keyboard hints' })).toBeTruthy()
 
     press('h')
     expect(screen.getByRole('button', { name: 'Show keyboard hints' })).toBeTruthy()
+
+    press('h')
+    expect(screen.getByRole('note', { name: 'Keyboard hints' })).toBeTruthy()
     window.localStorage.removeItem('cibi.hintbar.collapsed')
   })
 

@@ -40,8 +40,8 @@ const HINT_ITEMS: HintItem[] = [
 const HINTS_COLLAPSED_STORAGE_KEY = 'cibi.hintbar.collapsed'
 
 function readHintsCollapsed(): boolean {
-  if (typeof window === 'undefined') return false
-  return window.localStorage.getItem(HINTS_COLLAPSED_STORAGE_KEY) === '1'
+  if (typeof window === 'undefined') return true
+  return window.localStorage.getItem(HINTS_COLLAPSED_STORAGE_KEY) !== '0'
 }
 
 const LINK_BASE = 'relative flex items-center justify-center rounded-md outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/25'
