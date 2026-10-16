@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { RouterProvider, Outlet } from '@tanstack/react-router'
+import { MotionConfig } from 'motion/react'
 import { Toaster } from '@/components/ui/sonner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { router } from './router'
@@ -122,8 +123,10 @@ function AppProviders() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AppProviders />
-    </QueryClientProvider>
+    <MotionConfig reducedMotion="user">
+      <QueryClientProvider client={queryClient}>
+        <AppProviders />
+      </QueryClientProvider>
+    </MotionConfig>
   )
 }

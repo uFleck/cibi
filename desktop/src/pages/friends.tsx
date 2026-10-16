@@ -603,6 +603,7 @@ export function FriendsPage() {
           <div className="flex flex-col items-center gap-1 rounded-md border border-line bg-surface py-8 text-center">
             <p className="text-[13px] font-semibold text-foreground">No friends yet</p>
             <p className="text-[12px] text-faint">Add friend to track debts.</p>
+            <Button size="sm" className="mt-2" onClick={() => setShowCreateFriend(true)}>Add friend</Button>
           </div>
         ) : (
           <div className="overflow-x-auto rounded-md border border-line bg-surface">
@@ -610,8 +611,8 @@ export function FriendsPage() {
               <thead>
                 <tr>
                   <th className={denseHead}>Friend</th>
-                  <th className={denseHead}>PIX key</th>
-                  <th className={denseHead}>Notes</th>
+                  <th className={cn(denseHead, 'hidden sm:table-cell')}>PIX key</th>
+                  <th className={cn(denseHead, 'hidden md:table-cell')}>Notes</th>
                   <th className={cn(denseHead, 'text-right')}>Actions</th>
                 </tr>
               </thead>
@@ -626,8 +627,8 @@ export function FriendsPage() {
                         <span className="truncate font-medium text-foreground">{friend.name}</span>
                       </div>
                     </td>
-                    <td className={cn(denseCell, 'font-mono text-muted-foreground')}>{friend.pix_key || '—'}</td>
-                    <td className={cn(denseCell, 'max-w-[200px] text-muted-foreground')}>
+                    <td className={cn(denseCell, 'hidden font-mono text-muted-foreground sm:table-cell')}>{friend.pix_key || '—'}</td>
+                    <td className={cn(denseCell, 'hidden max-w-[200px] text-muted-foreground md:table-cell')}>
                       <span className="block truncate">{friend.notes || '—'}</span>
                     </td>
                     <td className={cn(denseCell, 'text-right')}>

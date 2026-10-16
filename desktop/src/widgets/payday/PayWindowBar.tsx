@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MoneyValue } from '@/components/ui/money-value'
@@ -34,10 +35,23 @@ function getPreviousPayday(schedule: PayScheduleResponse): Date | null {
   return parseDateOnlyUTC(prev.toISOString().slice(0, 10))
 }
 
+/** Shown by the payday and projection widgets until a pay schedule exists. */
+export function NoPaySchedule() {
+  return (
+    <div className="flex flex-col items-start gap-3">
+      <p className="text-sm text-muted-foreground">No pay schedule yet. Add one to see your next payday.</p>
+      <Button size="sm" variant="outline" asChild>
+        <Link to="/accounts">Add pay schedule</Link>
+      </Button>
+    </div>
+  )
+}
+
 export function PayWindowBar({ nextPayday, paySchedules }: PayWindowBarProps) {
   const [expanded, setExpanded] = useState(false)
 
-  if (!nextPayday || paySchedules.length === 0) return null
+  if (paySchedules.length === 0) return <NoPaySchedule />
+  if (!nextPayday) return null
 
   const primary = paySchedules.reduce(
     (earliest, ps) => (ps.next_payday < earliest.next_payday ? ps : earliest),

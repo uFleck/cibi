@@ -1,3 +1,5 @@
+import { Link } from '@tanstack/react-router'
+import { Button } from '@/components/ui/button'
 import { MoneyValue } from '@/components/ui/money-value'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/format'
@@ -40,9 +42,12 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
     <div className="flex flex-col">
 
       {obligations.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No upcoming obligations.
-        </p>
+        <div className="flex flex-col items-start gap-3">
+          <p className="text-sm text-muted-foreground">No upcoming obligations.</p>
+          <Button size="sm" variant="outline" asChild>
+            <Link to="/transactions">Add recurring bill</Link>
+          </Button>
+        </div>
       ) : (
         <div className="flex flex-col">
           {obligations.map(t => (

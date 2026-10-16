@@ -145,6 +145,7 @@ export function GoalsSnapshotWidget() {
                 <p className="max-w-[24rem] text-xs text-muted-foreground text-pretty">
                   Open Goals to create your first target and start tracking progress, money, and purchase impact.
                 </p>
+                <Button size="xs" onClick={() => navigate({ to: '/goals' })}>New goal</Button>
               </CardContent>
             </Card>
           ) : !trackingQuery.isError ? (

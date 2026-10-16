@@ -7,6 +7,7 @@ import { isInCurrentPayWindow } from '@/lib/financial-window'
 import { earliestPaydayAfter, nextPaydayAfter, parseDateOnlyUTC } from '@/lib/pay-schedule'
 import { computeCustomProjection } from '@/lib/monthly-projection'
 import { CustomProjectionSheet } from '@/components/CustomProjectionSheet'
+import { NoPaySchedule } from '@/widgets/payday/PayWindowBar'
 import type { CustomProjectionConfig } from '@/components/CustomProjectionSheet'
 import type { CustomProjection } from '@/lib/monthly-projection'
 import type { AccountResponse, FriendDebtBreakdownItem, PayScheduleResponse, TransactionResponse } from '@/lib/api'
@@ -37,7 +38,8 @@ export function ProjectionWidget({
   const [customConfig, setCustomConfig] = useState<CustomProjectionConfig | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
 
-  if (!nextPayday || paySchedules.length === 0) return null
+  if (paySchedules.length === 0) return <NoPaySchedule />
+  if (!nextPayday) return null
 
   const now = new Date()
   const windowStart = parseDateOnlyUTC(nextPayday)

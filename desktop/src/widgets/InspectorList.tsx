@@ -15,9 +15,10 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { LayoutGrid } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { cn } from '@/lib/utils'
 import { useShell } from '@/shell/contexts'
-import { Tray } from './EditBar'
+import { EmptyZone, Tray } from './EditBar'
 import { INSP_ZONE_ID, TRAY_ZONE_ID, type DragData } from './dnd'
 import type { LayoutApi } from './layoutContext'
 import { POSITIONS, type InspectorPos, type InspItem } from './layoutStore'
@@ -179,11 +180,7 @@ function InspectorZone({ empty, editing, children }: { empty: boolean; editing: 
   return (
     <div ref={setNodeRef} className="flex min-h-16 flex-col gap-2.5">
       {children}
-      {empty && (
-        <p className="py-6 text-center text-sm text-muted-foreground">
-          {editing ? 'Drag widgets here' : 'Nothing here yet. Press L to customize.'}
-        </p>
-      )}
+      {empty && <EmptyZone editing={editing} label="No widgets in the inspector." />}
     </div>
   )
 }
@@ -197,10 +194,12 @@ interface SortableRowProps {
 }
 
 function SortableRow({ id, editing, data, onKeyDown, onRemove }: SortableRowProps) {
+  const reduce = useReducedMotion()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     disabled: !editing,
     data: { id, from: 'insp' } satisfies DragData,
+    transition: reduce ? null : undefined,
   })
   const Body = WIDGETS[id].component
 

@@ -5,7 +5,7 @@ import { ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MoneyValue } from '@/components/ui/money-value'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { fetchFriendSummary, fetchFriendBreakdown } from '@/lib/api'
+import { fetchFriendSummary, fetchFriendBreakdown, listFriends } from '@/lib/api'
 import { formatDate } from '@/lib/format'
 import { AccountContext } from '@/App'
 
@@ -24,7 +24,12 @@ export function FriendLedgerWidget() {
     enabled: !!selectedAccountId,
   })
 
-  const isLoading = summaryLoading || breakdownLoading
+  const { data: friends, isLoading: friendsLoading } = useQuery({
+    queryKey: ['friends'],
+    queryFn: listFriends,
+  })
+
+  const isLoading = summaryLoading || breakdownLoading || friendsLoading
 
   return (
     <div className="flex flex-col gap-2">
@@ -118,6 +123,13 @@ export function FriendLedgerWidget() {
                 ))}
               </div>
             )}
+          </div>
+        ) : friends?.length === 0 ? (
+          <div className="flex flex-col items-start gap-3">
+            <p className="text-sm text-muted-foreground">No friends yet.</p>
+            <Button size="sm" asChild>
+              <Link to="/friends">Add friend</Link>
+            </Button>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground text-center py-2">

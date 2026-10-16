@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
+import { Button } from '@/components/ui/button'
 import { fetchAccounts } from '@/lib/api'
 import {
   Select,
@@ -16,13 +18,21 @@ interface AccountSelectorProps {
 }
 
 export function AccountSelector({ selectedAccountId, onSelectAccount, fullWidth, compact = false }: AccountSelectorProps) {
-  const { data: accounts = [] } = useQuery({
+  const { data: accounts = [], isLoading, isError } = useQuery({
     queryKey: ['accounts'],
     queryFn: fetchAccounts,
   })
 
-  if (accounts.length === 0) {
+  if (isLoading || isError) {
     return null
+  }
+
+  if (accounts.length === 0) {
+    return (
+      <Button asChild variant="outline" className={`${compact ? 'h-8 text-xs' : 'h-10 text-sm'}${fullWidth ? ' w-full' : ''}`}>
+        <Link to="/accounts">Create account</Link>
+      </Button>
+    )
   }
 
   const defaultAccount = accounts.find(a => a.is_default)

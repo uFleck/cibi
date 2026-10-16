@@ -54,6 +54,33 @@ export function EditBar({ layout }: EditBarProps) {
   )
 }
 
+const TRAY_SELECTOR = '[aria-label="Widgets not on this page"] button'
+
+interface EmptyZoneProps {
+  editing: boolean
+  label: string
+}
+
+/** A zone with no widgets. Outside edit mode the button opens edit mode, which shows the tray. */
+export function EmptyZone({ editing, label }: EmptyZoneProps) {
+  const shell = useShell()
+
+  function openTray() {
+    if (shell.editMode) document.querySelector<HTMLElement>(TRAY_SELECTOR)?.focus()
+    else shell.setEditMode(true)
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
+      <p>{editing ? 'Drag widgets here' : label}</p>
+      <Button type="button" size="sm" onClick={openTray}>
+        <Plus />
+        Add widget
+      </Button>
+    </div>
+  )
+}
+
 interface TrayProps {
   available: WidgetId[]
   onAdd: (id: WidgetId) => void

@@ -276,6 +276,7 @@ export function GoalsPage() {
         <div className="flex flex-col items-center gap-2 rounded-md border border-line bg-surface py-10 text-center">
           <p className="text-[13px] font-semibold text-foreground">No goals yet</p>
           <p className="max-w-sm text-[12px] text-muted-foreground">Create your first goal and CIBI will track contributions, progress, and purchase impact over time.</p>
+          <Button size="sm" className="mt-2" onClick={() => setIsCreateModalOpen(true)} disabled={!accountId}>New goal</Button>
         </div>
       ) : null}
 

@@ -161,4 +161,14 @@ describe('FriendsPage delete friend', () => {
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to delete friend'))
   })
+
+  it('offers an Add friend action in the empty state that opens the friend form', async () => {
+    mockListFriends.mockResolvedValue([])
+    renderFriendsPage()
+
+    expect(await screen.findByText('No friends yet')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Add friend' }))
+
+    expect(await screen.findByText('New Friend')).toBeTruthy()
+  })
 })

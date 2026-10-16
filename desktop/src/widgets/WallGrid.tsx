@@ -16,8 +16,9 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { MotionConfig, motion } from 'motion/react'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useShell } from '@/shell/contexts'
-import { EditBar } from './EditBar'
+import { EditBar, EmptyZone } from './EditBar'
 import { WIDGET_META, WALL_SPANS, type WallSpan, type WidgetId } from './meta'
 import { TRAY_ZONE_ID, WALL_ZONE_ID, type DragData } from './dnd'
 import { effectiveSpan, useWallMode } from './responsive'
@@ -60,6 +61,7 @@ interface WallGridProps {
 export function WallGrid({ layout, data }: WallGridProps) {
   const shell = useShell()
   const mode = useWallMode()
+  const reduce = useReducedMotion()
   const [drag, setDrag] = useState<DragState | null>(null)
   /** A selector to focus after the next render (set by moves and removals). */
   const pendingFocus = useRef<string | null>(null)
@@ -137,7 +139,7 @@ export function WallGrid({ layout, data }: WallGridProps) {
   }
 
   return (
-    <MotionConfig reducedMotion="user" transition={{ duration: 0.25, ease: EASE }}>
+    <MotionConfig reducedMotion={reduce ? 'always' : 'user'} transition={{ duration: 0.25, ease: EASE }}>
       <DndContext
         sensors={sensors}
         collisionDetection={collision}
@@ -149,7 +151,7 @@ export function WallGrid({ layout, data }: WallGridProps) {
         <div className="flex flex-col gap-3">
           {editing && <EditBar layout={layout} />}
           <SortableContext items={ids} strategy={rectSortingStrategy}>
-            <WallZone empty={wall.length === 0}>
+            <WallZone empty={wall.length === 0} editing={editing}>
               {wall.map((item, index) => {
                 const span = effectiveSpan(item.span, mode)
                 return (
@@ -182,13 +184,15 @@ export function WallGrid({ layout, data }: WallGridProps) {
   )
 }
 
-function WallZone({ empty, children }: { empty: boolean; children: ReactNode }) {
+function WallZone({ empty, editing, children }: { empty: boolean; editing: boolean; children: ReactNode }) {
   const { setNodeRef } = useDroppable({ id: WALL_ZONE_ID })
   return (
     <div ref={setNodeRef} className="grid min-h-16 grid-cols-12 gap-3">
       {children}
       {empty && (
-        <p className="col-span-12 py-8 text-center text-sm text-muted-foreground">Nothing here yet. Press L to customize.</p>
+        <div className="col-span-12">
+          <EmptyZone editing={editing} label="No widgets on this wall." />
+        </div>
       )}
     </div>
   )
@@ -207,15 +211,17 @@ interface SortableCellProps {
 }
 
 function SortableCell({ item, span, editing, drop, data, onKeyDown, onResize, onRemove }: SortableCellProps) {
+  const reduce = useReducedMotion()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
     disabled: !editing,
     data: { id: item.id, from: 'wall' } satisfies DragData,
+    transition: reduce ? null : undefined,
   })
   const Body = WIDGETS[item.id].component
 
   return (
-    <motion.div layout className="min-w-0" style={{ gridColumn: `span ${span} / span ${span}` }}>
+    <motion.div layout={!reduce} className="min-w-0" style={{ gridColumn: `span ${span} / span ${span}` }}>
       <WidgetFrame
         id={item.id}
         span={item.span}

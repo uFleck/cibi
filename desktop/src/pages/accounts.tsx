@@ -438,9 +438,9 @@ export function AccountsPage() {
                 <thead>
                   <tr>
                     <th className={cn(denseHead, 'pl-2.5')}>Name</th>
-                    <th className={denseHead}>Currency</th>
+                    <th className={cn(denseHead, 'hidden sm:table-cell')}>Currency</th>
                     <th className={cn(denseHead, 'text-right')}>Balance</th>
-                    <th className={denseHead}>Status</th>
+                    <th className={cn(denseHead, 'hidden sm:table-cell')}>Status</th>
                     <th className={cn(denseHead, 'text-right')}>Actions</th>
                   </tr>
                 </thead>
@@ -448,7 +448,7 @@ export function AccountsPage() {
                   {accounts.map(account => (
                     <tr key={account.id} className={cn(denseRow, editingId === account.id && denseActiveRow)}>
                       <td className={cn(denseCell, 'pl-2.5 font-medium')}>{account.name}</td>
-                      <td className={cn(denseCell, 'font-mono text-faint')}>{account.currency}</td>
+                      <td className={cn(denseCell, 'hidden font-mono text-faint sm:table-cell')}>{account.currency}</td>
                       <td className={denseNumCell}>
                         <MoneyValue
                           amount={account.current_balance}
@@ -457,7 +457,7 @@ export function AccountsPage() {
                           tone="auto"
                         />
                       </td>
-                      <td className={denseCell}>
+                      <td className={cn(denseCell, 'hidden sm:table-cell')}>
                         <Badge variant={account.is_default ? 'default' : 'secondary'}>
                           {account.is_default ? 'Default' : 'Active'}
                         </Badge>

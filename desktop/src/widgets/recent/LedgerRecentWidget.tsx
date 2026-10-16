@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
+import { Button } from '@/components/ui/button'
 import { fetchLedger, type AccountResponse, type LedgerEntryResponse } from '@/lib/api'
 import { formatDate, formatMoney } from '@/lib/format'
+import { requestShellAction } from '@/shell/shellActions'
 
 interface Props {
   account: AccountResponse
@@ -17,7 +19,20 @@ export function LedgerRecentWidget({ account }: Props) {
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading activity...</p>
 
   if (!entries || entries.length === 0) {
-    return <p className="text-sm text-muted-foreground">No activity yet.</p>
+    return (
+      <div className="flex flex-col items-start gap-3">
+        <p className="text-sm text-muted-foreground">No activity yet.</p>
+        <Button
+          size="sm"
+          onClick={() => {
+            void navigate({ to: '/transactions' })
+            requestShellAction('new-transaction')
+          }}
+        >
+          Add transaction
+        </Button>
+      </div>
+    )
   }
 
   const recent = entries.slice(0, 5)

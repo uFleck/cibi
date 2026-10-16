@@ -183,6 +183,16 @@ describe('GoalsSnapshotWidget', () => {
     expect(screen.getByText(/Open Goals to create your first target/)).toBeTruthy()
   })
 
+  it('offers a New goal action in the empty state that navigates to goals', async () => {
+    mockFetchGoalsTracking.mockResolvedValue(emptyTrackingFixture)
+
+    renderWidget()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'New goal' }))
+
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/goals' })
+  })
+
   it('keeps loading state observable', () => {
     mockFetchGoalsTracking.mockReturnValue(new Promise<GoalsTrackingResponse>(() => {}))
 

@@ -1,3 +1,5 @@
+import { Link } from '@tanstack/react-router'
+import { Button } from '@/components/ui/button'
 import { MoneyValue } from '@/components/ui/money-value'
 import type { AccountResponse } from '@/lib/api'
 
@@ -7,7 +9,14 @@ interface AccountsWidgetProps {
 
 export function AccountsWidget({ accounts }: AccountsWidgetProps) {
   if (accounts.length === 0) {
-    return <p className="text-sm text-muted-foreground">No accounts yet.</p>
+    return (
+      <div className="flex flex-col items-start gap-3">
+        <p className="text-sm text-muted-foreground">No accounts yet.</p>
+        <Button size="sm" asChild>
+          <Link to="/accounts">Create account</Link>
+        </Button>
+      </div>
+    )
   }
 
   return (

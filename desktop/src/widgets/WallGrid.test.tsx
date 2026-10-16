@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
+import { useSortable } from '@dnd-kit/sortable'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AccountResponse } from '@/lib/api'
 import { ShellContext, type ShellState } from '@/shell/contexts'
@@ -12,6 +13,11 @@ import type { WidgetData } from './useWorkspace'
 const apiMock = vi.hoisted(() => ({ getSetting: vi.fn(), putSetting: vi.fn() }))
 
 vi.mock('@/lib/api', () => apiMock)
+
+vi.mock('@dnd-kit/sortable', async importOriginal => {
+  const actual = await importOriginal<typeof import('@dnd-kit/sortable')>()
+  return { ...actual, useSortable: vi.fn(actual.useSortable) }
+})
 
 vi.mock('@/widgets/registry', async () => {
   const { WIDGET_IDS, WIDGET_META, WALL_SPANS } = await import('@/widgets/meta')
@@ -200,5 +206,38 @@ describe('WallGrid', () => {
     await renderLoaded(true, setEditMode)
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(setEditMode).toHaveBeenCalledWith(false)
+  })
+
+  it('explains an empty wall and opens edit mode from its Add widget button', async () => {
+    apiMock.getSetting.mockImplementation(async (key: string) => (key === 'layout.v1' ? { pos: 'right', wall: [], insp: [] } : null))
+    const setEditMode = vi.fn()
+    renderWall(false, setEditMode)
+
+    expect(await screen.findByText('No widgets on this wall.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Add widget' }))
+    expect(setEditMode).toHaveBeenCalledWith(true)
+  })
+})
+
+describe('WallGrid sortable transitions', () => {
+  it('uses the default transition when reduced motion is not requested', async () => {
+    await renderLoaded()
+    expect(useSortable).toHaveBeenCalledWith(expect.objectContaining({ id: 'kpis' }))
+    expect(useSortable).not.toHaveBeenCalledWith(expect.objectContaining({ transition: null }))
+  })
+
+  it('turns the sortable transition off when reduced motion is requested', async () => {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query === '(min-width: 1100px)' || query === '(prefers-reduced-motion: reduce)',
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+    await renderLoaded()
+    expect(useSortable).toHaveBeenCalledWith(expect.objectContaining({ id: 'kpis', transition: null }))
   })
 })

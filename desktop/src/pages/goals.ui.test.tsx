@@ -257,6 +257,17 @@ describe('GoalsPage compact + modal flow', () => {
   })
 })
 
+describe('GoalsPage empty state', () => {
+  it('offers a New goal action that opens the create form', async () => {
+    setup(emptyTrackingFixture)
+
+    expect(await screen.findByText('No goals yet')).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'New goal' }))
+
+    expect(await screen.findByLabelText('Goal name')).toBeTruthy()
+  })
+})
+
 describe('GoalsPage create-goal flow still works', () => {
   it('creates goal with comma decimal target', async () => {
     const { invalidateSpy } = setup(emptyTrackingFixture)

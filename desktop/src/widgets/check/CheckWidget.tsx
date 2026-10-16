@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { formatDate } from '@/lib/format'
 import { parseDecimalInput } from '@/lib/locale'
 import { postCheck, type CheckGoalImpactResponse, type CheckResponse } from '@/lib/api'
+import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { focusWhenReady, useShellAction } from '@/shell/shellActions'
 
 export const LAST_CHECK_RESULT_KEY = 'cibi:last-check-result'
@@ -71,6 +72,7 @@ type CheckWidgetProps = {
 }
 
 export function CheckWidget({ accountId }: CheckWidgetProps) {
+  const reduceMotion = useReducedMotion()
   useShellAction('focus-check', () => focusWhenReady('#check-amount'))
   const [state, setState] = useState<WidgetState>('idle')
   const [amount, setAmount] = useState('')
@@ -181,9 +183,9 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
               const isWait = !result.can_buy && result.will_afford_after_payday
               return (
                 <motion.div
-                  initial={{ scale: 0.90, opacity: 0 }}
+                  initial={reduceMotion ? false : { scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: reduceMotion ? 0 : 0.32, ease: [0.16, 1, 0.3, 1] }}
                   className="rounded-xl p-4 flex flex-col gap-4 border shadow-sm"
                   style={{
                     background: result.can_buy
@@ -192,15 +194,15 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
                         ? 'var(--color-verdict-wait-tint)'
                         : 'var(--color-verdict-no-tint)',
                     borderColor: result.can_buy
-                      ? 'oklch(0.72 0.19 142 / 0.35)'
+                      ? 'color-mix(in oklab, var(--color-verdict-yes) 35%, transparent)'
                       : isWait
-                        ? 'oklch(0.78 0.17 85 / 0.35)'
-                        : 'oklch(0.65 0.22 25 / 0.35)',
+                        ? 'color-mix(in oklab, var(--color-verdict-wait) 35%, transparent)'
+                        : 'color-mix(in oklab, var(--color-verdict-no) 35%, transparent)',
                     boxShadow: result.can_buy
-                      ? '0 0 32px oklch(0.72 0.19 142 / 0.20)'
+                      ? '0 0 32px color-mix(in oklab, var(--color-verdict-yes) 20%, transparent)'
                       : isWait
-                        ? '0 0 32px oklch(0.78 0.17 85 / 0.20)'
-                        : '0 0 32px oklch(0.65 0.22 25 / 0.20)',
+                        ? '0 0 32px color-mix(in oklab, var(--color-verdict-wait) 20%, transparent)'
+                        : '0 0 32px color-mix(in oklab, var(--color-verdict-no) 20%, transparent)',
                   }}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -224,8 +226,8 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
                       className="text-xs font-semibold uppercase tracking-widest px-2 py-1 rounded-full w-fit border"
                       style={{
                         color: RISK_COLORS[result.risk_level],
-                        background: `${RISK_COLORS[result.risk_level]}1a`,
-                        borderColor: `${RISK_COLORS[result.risk_level]}40`,
+                        background: `color-mix(in oklab, ${RISK_COLORS[result.risk_level]} 10%, transparent)`,
+                        borderColor: `color-mix(in oklab, ${RISK_COLORS[result.risk_level]} 25%, transparent)`,
                       }}
                     >
                       {result.risk_level} RISK
