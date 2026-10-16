@@ -11,6 +11,7 @@ import { DateInput } from '@/components/ui/date-input'
 import { DataList } from '@/components/ui/data-list'
 import { ROW_KEYS } from '@/lib/row-actions'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { MoneyValue } from '@/components/ui/money-value'
@@ -933,40 +934,43 @@ export function TransactionsPage() {
           <div className="flex flex-wrap gap-2 items-end">
             <div className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground">Friend</span>
-              <select
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={peerDebtFilter.friendId}
-                onChange={e => setPeerDebtFilter(f => ({ ...f, friendId: e.target.value }))}
-              >
-                <option value="all">All friends</option>
-                {friends.map((fr: FriendResponse) => (
-                  <option key={fr.id} value={fr.id}>{fr.name}</option>
-                ))}
-              </select>
+              <Select value={peerDebtFilter.friendId} onValueChange={v => setPeerDebtFilter(f => ({ ...f, friendId: v }))}>
+                <SelectTrigger className="h-9 min-w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All friends</SelectItem>
+                  {friends.map((fr: FriendResponse) => (
+                    <SelectItem key={fr.id} value={fr.id}>{fr.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground">Direction</span>
-              <select
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={peerDebtFilter.direction}
-                onChange={e => setPeerDebtFilter(f => ({ ...f, direction: e.target.value as typeof f.direction }))}
-              >
-                <option value="all">All</option>
-                <option value="i-owe">I owe</option>
-                <option value="they-owe">They owe</option>
-              </select>
+              <Select value={peerDebtFilter.direction} onValueChange={v => setPeerDebtFilter(f => ({ ...f, direction: v as typeof f.direction }))}>
+                <SelectTrigger className="h-9 min-w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="i-owe">I owe</SelectItem>
+                  <SelectItem value="they-owe">They owe</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground">Status</span>
-              <select
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={peerDebtFilter.status}
-                onChange={e => setPeerDebtFilter(f => ({ ...f, status: e.target.value as typeof f.status }))}
-              >
-                <option value="all">All</option>
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-              </select>
+              <Select value={peerDebtFilter.status} onValueChange={v => setPeerDebtFilter(f => ({ ...f, status: v as typeof f.status }))}>
+                <SelectTrigger className="h-9 min-w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <Skeleton
@@ -1095,17 +1099,16 @@ export function TransactionsPage() {
         >
           <div className="flex flex-col gap-1">
             <Label>Friend</Label>
-            <select
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-              value={debtForm.friend_id}
-              onChange={e => setDebtForm(f => ({ ...f, friend_id: e.target.value }))}
-              required
-            >
-              <option value="">Select friend...</option>
-              {friends.map((fr: FriendResponse) => (
-                <option key={fr.id} value={fr.id}>{fr.name}</option>
-              ))}
-            </select>
+            <Select value={debtForm.friend_id} onValueChange={v => setDebtForm(f => ({ ...f, friend_id: v }))}>
+              <SelectTrigger className="w-full h-9" aria-label="Friend">
+                <SelectValue placeholder="Select friend..." />
+              </SelectTrigger>
+              <SelectContent>
+                {friends.map((fr: FriendResponse) => (
+                  <SelectItem key={fr.id} value={fr.id}>{fr.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-col gap-1">
             <Label>Amount</Label>
