@@ -205,6 +205,19 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
+
+  .chart-reveal {
+    animation: chart-wipe 1.3s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+  }
+}
+
+@keyframes chart-wipe {
+  from {
+    clip-path: inset(-6px 100% -6px 0);
+  }
+  to {
+    clip-path: inset(-6px -6px -6px 0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,17 +1,16 @@
 import { useState } from 'react'
-import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from 'recharts'
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { MoneyValue } from '@/components/ui/money-value'
 import { formatDate, formatMoney } from '@/lib/format'
 import { isInCurrentPayWindow } from '@/lib/financial-window'
 import { earliestPaydayAfter, nextPaydayAfter, parseDateOnlyUTC } from '@/lib/pay-schedule'
 import { computeCustomProjection } from '@/lib/monthly-projection'
+import { averageDailySpend, computeBalanceSeries } from '@/lib/balance-series'
+import { BalanceChart } from './BalanceChart'
 import { CustomProjectionSheet } from '@/components/CustomProjectionSheet'
 import { NoPaySchedule } from '@/widgets/payday/PayWindowBar'
 import type { CustomProjectionConfig } from '@/components/CustomProjectionSheet'
 import type { CustomProjection } from '@/lib/monthly-projection'
 import type { AccountResponse, FriendDebtBreakdownItem, PayScheduleResponse, TransactionResponse } from '@/lib/api'
-import type { ChartConfig } from '@/components/ui/chart'
 
 interface ProjectionWidgetProps {
   account: AccountResponse
@@ -121,32 +120,27 @@ export function ProjectionWidget({
   }
 
   const displayIncome = isCustom ? custom!.income : incoming
-  const displayRecurring = isCustom ? 0 : nextRecurringObligations
-  const displayInstallments = isCustom ? 0 : nextInstallmentObligations
-  const displayPeer = isCustom ? 0 : nextPeerObligations
   const displayObligations = isCustom ? custom!.obligations : nextObligations
-  const displayNet = isCustom ? custom!.net : windowNet
   const displayEndBalance = isCustom ? custom!.projectedEndBalance : windowProjectedEndBalance
   const displayStart = isCustom ? customConfig!.windowStart : windowStart
   const displayEnd = isCustom ? customConfig!.windowEnd : windowEnd
 
-  const chartData = isCustom
-    ? [
-        { name: 'Income', value: displayIncome, fill: 'var(--color-verdict-yes)' },
-        { name: 'Bills', value: -displayObligations, fill: 'var(--color-verdict-no)' },
-        { name: 'Net', value: displayNet, fill: displayNet >= 0 ? 'var(--color-verdict-yes)' : 'var(--color-verdict-no)' },
-      ]
-    : [
-        { name: 'Income', value: displayIncome, fill: 'var(--color-verdict-yes)' },
-        { name: 'Bills', value: -displayRecurring, fill: 'var(--color-verdict-no)' },
-        ...(displayInstallments > 0 ? [{ name: 'Installments', value: -displayInstallments, fill: 'var(--color-risk-medium)' }] : []),
-        ...(displayPeer > 0 ? [{ name: 'Peer debts', value: -displayPeer, fill: 'var(--color-risk-medium)' }] : []),
-        { name: 'Net', value: displayNet, fill: displayNet >= 0 ? 'var(--color-verdict-yes)' : 'var(--color-verdict-no)' },
-      ]
-
-  const chartConfig = {
-    value: { label: 'Amount' },
-  } satisfies ChartConfig
+  const dailyBaseline = averageDailySpend(transactions, now)
+  const seriesStart = isCustom && customConfig!.windowStart < now ? now : displayStart
+  const seriesStartBalance = isCustom
+    ? (customConfig!.excludeBalance ? 0 : account.current_balance)
+    : projectedStartBalance
+  const series = displayEnd.getTime() > seriesStart.getTime()
+    ? computeBalanceSeries({
+        startBalance: seriesStartBalance,
+        transactions,
+        paySchedules,
+        friendBreakdown,
+        start: seriesStart,
+        end: displayEnd,
+        dailyBaseline,
+      })
+    : null
 
   return (
     <>
@@ -173,28 +167,31 @@ export function ProjectionWidget({
           </div>
       </div>
       <div className="space-y-3">
-        <ChartContainer config={chartConfig} className="h-36 w-full">
-          <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="name" axisLine={false} tickLine={false} tickMargin={8} fontSize={11} />
-            <YAxis hide domain={['auto', 'auto']} />
-            <ReferenceLine y={0} stroke="var(--color-border)" />
-            <ChartTooltip
-              cursor={false}
-              content={
-                <ChartTooltipContent
-                  hideLabel
-                  formatter={value => formatMoney(Number(value), account.currency)}
-                />
-              }
+        {series && (
+          <>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-faint @max-[340px]/widget:hidden">
+              <span>
+                <i className="mr-1.5 inline-block h-0.5 w-2.5 rounded-sm bg-foreground align-middle" />
+                Balance
+              </span>
+              <span>
+                <i className="mr-1.5 inline-block h-0.5 w-2.5 rounded-sm bg-neg align-middle opacity-70" />
+                Safety buffer
+              </span>
+              {dailyBaseline > 0 && (
+                <span className="ml-auto">
+                  includes ~{formatMoney(dailyBaseline, account.currency)}/day average spending
+                </span>
+              )}
+            </div>
+            <BalanceChart
+              points={series}
+              floor={account.safety_buffer ?? 0}
+              currency={account.currency}
+              endsOnPayday={!isCustom}
             />
-            <Bar dataKey="value" radius={6}>
-              {chartData.map(point => (
-                <Cell key={point.name} fill={point.fill} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ChartContainer>
+          </>
+        )}
 
         {mode === 'window' && (
           <div className="flex justify-between">
