@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 
-export type ShellActionName = 'new-transaction' | 'focus-search' | 'focus-check'
+export type ShellActionName = 'new-transaction' | 'focus-search' | 'focus-check' | 'open-budget'
 
 type ShellActionHandler = () => void
 

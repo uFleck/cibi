@@ -6,6 +6,7 @@ import { migrate, splitStatements } from './migrate'
 import baselineSql from './migrations/0001_baseline.sql?raw'
 import appSettingSql from './migrations/0002_app_setting.sql?raw'
 import categorySql from './migrations/0003_category.sql?raw'
+import budgetSql from './migrations/0004_budget.sql?raw'
 import { createTestDb, wrapDatabaseSync } from './testing/testDb'
 
 interface SchemaRow {
@@ -69,20 +70,25 @@ describe('splitStatements', () => {
 })
 
 describe('migrate', () => {
-  it('fresh database: sets user_version 3 and creates the baseline schema, AppSetting and the category column', async () => {
+  it('fresh database: sets user_version 4 and creates the baseline schema, AppSetting, the category column and the budget tables', async () => {
     const db = await createTestDb({ migrate: false })
     await migrate(db)
-    expect(await userVersion(db)).toBe(3)
+    expect(await userVersion(db)).toBe(4)
     expect(await transactionColumns(db)).toContain('category')
 
     const tables = (
       await db.query<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
     ).map((r) => r.name)
-    for (const table of ['Account', 'Transaction', 'ledger', 'GoalLedgerEntry', 'AppSetting']) {
+    for (const table of ['Account', 'Transaction', 'ledger', 'GoalLedgerEntry', 'AppSetting', 'Budget', 'BudgetExclusion']) {
       expect(tables).toContain(table)
     }
 
-    const statements = [...splitStatements(baselineSql), ...splitStatements(appSettingSql), ...splitStatements(categorySql)]
+    const statements = [
+      ...splitStatements(baselineSql),
+      ...splitStatements(appSettingSql),
+      ...splitStatements(categorySql),
+      ...splitStatements(budgetSql),
+    ]
     const expected = {
       table: statements.filter((s) => /^CREATE TABLE/i.test(s)).length,
       view: statements.filter((s) => /^CREATE VIEW/i.test(s)).length,
@@ -106,18 +112,20 @@ describe('migrate', () => {
     const db = await createTestDb()
     const before = await schemaSnapshot(db)
     await migrate(db)
-    expect(await userVersion(db)).toBe(3)
+    expect(await userVersion(db)).toBe(4)
     expect(await schemaSnapshot(db)).toEqual(before)
     db.close()
   })
 
-  it('existing database path: user_version 0 with the schema present sets 3 and adds AppSetting and category', async () => {
+  it('existing database path: user_version 0 with the schema present sets 4 and adds AppSetting, category and the budget tables', async () => {
     const db = await createTestDb()
     await db.query('PRAGMA user_version = 0')
     await db.query('DROP TABLE AppSetting')
     await db.query('ALTER TABLE "Transaction" DROP COLUMN category')
+    await db.query('DROP TABLE BudgetExclusion')
+    await db.query('DROP TABLE Budget')
     await migrate(db)
-    expect(await userVersion(db)).toBe(3)
+    expect(await userVersion(db)).toBe(4)
     expect((await db.query("SELECT name FROM sqlite_master WHERE name = 'AppSetting'")).length).toBe(1)
     expect(await transactionColumns(db)).toContain('category')
     db.close()
@@ -129,9 +137,11 @@ describe('migrate', () => {
     await db.query("INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES ('a1', 'A', 0, 'BRL', 1)")
     await db.query('DROP TABLE AppSetting')
     await db.query('ALTER TABLE "Transaction" DROP COLUMN category')
+    await db.query('DROP TABLE BudgetExclusion')
+    await db.query('DROP TABLE Budget')
     await db.query('PRAGMA user_version = 1')
     await migrate(db)
-    expect(await userVersion(db)).toBe(3)
+    expect(await userVersion(db)).toBe(4)
     expect(await db.query("SELECT id FROM Account")).toEqual([{ id: 'a1' }])
     await db.query("INSERT INTO AppSetting (key, value) VALUES ('k', '1')")
     expect(await db.query("SELECT value FROM AppSetting WHERE key = 'k'")).toEqual([{ value: '1' }])
@@ -147,14 +157,41 @@ describe('migrate', () => {
        VALUES ('t1', 'a1', -1500, 'Mercado Livre', '2026-10-01T00:00:00Z', 0, 0)`,
     )
     await db.query('ALTER TABLE "Transaction" DROP COLUMN category')
+    await db.query('DROP TABLE BudgetExclusion')
+    await db.query('DROP TABLE Budget')
     await db.query('PRAGMA user_version = 2')
     await migrate(db)
-    expect(await userVersion(db)).toBe(3)
+    expect(await userVersion(db)).toBe(4)
     expect(await db.query('SELECT id, description, amount, category FROM "Transaction"')).toEqual([
       { id: 't1', description: 'Mercado Livre', amount: -1500, category: null },
     ])
     await db.query(`UPDATE "Transaction" SET category = 'Compras' WHERE id = 't1'`)
     expect(await db.query('SELECT category FROM "Transaction"')).toEqual([{ category: 'Compras' }])
+    db.close()
+  })
+
+  it('version 3 database gets the budget tables and keeps its rows', async () => {
+    const db = await createTestDb({ migrate: false })
+    await migrate(db)
+    await db.query("INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES ('a1', 'A', 0, 'BRL', 1)")
+    await db.query(
+      `INSERT INTO "Transaction" (id, account_id, amount, description, timestamp, is_recurring, requires_confirmation, category)
+       VALUES ('t1', 'a1', -1500, 'Mercado Livre', '2026-10-01T00:00:00Z', 0, 0, 'Compras')`,
+    )
+    await db.query('DROP TABLE BudgetExclusion')
+    await db.query('DROP TABLE Budget')
+    await db.query('PRAGMA user_version = 3')
+    await migrate(db)
+    expect(await userVersion(db)).toBe(4)
+    expect(await db.query('SELECT id, amount, category FROM "Transaction"')).toEqual([
+      { id: 't1', amount: -1500, category: 'Compras' },
+    ])
+    await db.query("INSERT INTO Budget (category, monthly_limit, is_fixed) VALUES ('Compras', 50000, 0)")
+    await db.query(`INSERT INTO BudgetExclusion (transaction_id, month) VALUES ('t1', '2026-10')`)
+    expect(await db.query('SELECT category FROM Budget')).toEqual([{ category: 'Compras' }])
+    expect(await db.query('SELECT transaction_id, month FROM BudgetExclusion')).toEqual([
+      { transaction_id: 't1', month: '2026-10' },
+    ])
     db.close()
   })
 
@@ -166,14 +203,14 @@ describe('migrate', () => {
     db.close()
   })
 
-  it.skipIf(!process.env.CIBI_TEST_DB)('real database copy migrates to version 3 and gains only the category column', async () => {
+  it.skipIf(!process.env.CIBI_TEST_DB)('real database copy migrates to version 4 and gains only the category column and the budget tables', async () => {
     const raw = new DatabaseSync(process.env.CIBI_TEST_DB ?? '')
     const db = wrapDatabaseSync(raw)
     try {
       const versionBefore = await userVersion(db)
       const before = await schemaSnapshot(db)
       await migrate(db)
-      expect(await userVersion(db)).toBe(3)
+      expect(await userVersion(db)).toBe(4)
       const after = await schemaSnapshot(db)
 
       const fresh = await createTestDb()
@@ -184,7 +221,7 @@ describe('migrate', () => {
       if (versionBefore === 2) {
         const priorSql = new Map(before.map((r) => [`${r.type}|${r.name}`, normalizeSql(r.sql)]))
         const changed = after
-          .filter((r) => priorSql.get(`${r.type}|${r.name}`) !== normalizeSql(r.sql))
+          .filter((r) => priorSql.has(`${r.type}|${r.name}`) && priorSql.get(`${r.type}|${r.name}`) !== normalizeSql(r.sql))
           .map((r) => `${r.type}|${r.name}`)
         expect(changed).toEqual(['table|Transaction'])
       }

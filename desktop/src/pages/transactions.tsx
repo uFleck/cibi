@@ -323,6 +323,7 @@ export function TransactionsPage() {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
+      queryClient.invalidateQueries({ queryKey: ['budget'] })
     },
   })
 
@@ -369,6 +370,7 @@ export function TransactionsPage() {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
+      queryClient.invalidateQueries({ queryKey: ['budget'] })
     },
   })
 
@@ -422,6 +424,7 @@ export function TransactionsPage() {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
+      queryClient.invalidateQueries({ queryKey: ['budget'] })
     },
   })
 
@@ -452,6 +455,7 @@ export function TransactionsPage() {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
+      queryClient.invalidateQueries({ queryKey: ['budget'] })
     },
   })
 
@@ -482,6 +486,7 @@ export function TransactionsPage() {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
+      queryClient.invalidateQueries({ queryKey: ['budget'] })
     },
   })
 

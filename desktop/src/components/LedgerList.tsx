@@ -41,6 +41,7 @@ export function LedgerList({ account }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ledger', account.id] })
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['budget'] })
       toast.success('Entry deleted')
       setConfirmDeleteId(null)
     },

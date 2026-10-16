@@ -18,6 +18,7 @@ import { PeerDebtService } from './service/peerDebt'
 import { GroupEventService } from './service/groupEvent'
 import { GoalsService } from './service/goals'
 import { CategoriesService } from './service/categories'
+import { BudgetService } from './service/budget'
 import { EngineService } from './service/engine'
 import { SqliteAccountsRepo, type AccountsRepo } from './repo/accounts'
 import { SqliteLedgerRepo, type LedgerRepo } from './repo/ledger'
@@ -30,6 +31,7 @@ import { SqliteGroupEventRepo, type GroupEventRepo } from './repo/groupEvent'
 import { SqliteGoalsRepo, type GoalsRepo } from './repo/goals'
 import { AppSettingService } from './service/appSetting'
 import { SqliteAppSettingRepo, type AppSettingRepo } from './repo/appSetting'
+import { SqliteBudgetRepo, type BudgetRepo } from './repo/budget'
 
 export interface App {
   db: Db
@@ -56,6 +58,8 @@ export interface App {
   engineSvc: EngineService
   settingSvc: AppSettingService
   categoriesSvc: CategoriesService
+  budgetRepo: BudgetRepo
+  budgetSvc: BudgetService
 }
 
 export function buildApp(db: Db, config: Partial<Config> = {}): App {
@@ -81,6 +85,8 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
   const appSettingRepo = new SqliteAppSettingRepo(db)
   const settingSvc = new AppSettingService(appSettingRepo)
   const categoriesSvc = new CategoriesService(db, txnsRepo)
+  const budgetRepo = new SqliteBudgetRepo(db)
+  const budgetSvc = new BudgetService(db, budgetRepo, txnsRepo)
   return {
     db,
     config: { ...DEFAULT_CONFIG, ...config },
@@ -106,5 +112,7 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
     engineSvc,
     settingSvc,
     categoriesSvc,
+    budgetRepo,
+    budgetSvc,
   }
 }

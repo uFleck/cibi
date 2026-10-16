@@ -5,6 +5,7 @@ import { LedgerRecentWidget } from './recent/LedgerRecentWidget'
 import { PayScheduleList } from './payday/PayScheduleList'
 import { PayWindowBar } from './payday/PayWindowBar'
 import { AccountsWidget } from './accounts/AccountsWidget'
+import { BudgetWidget } from './budget/BudgetWidget'
 import { CategoriesWidget } from './categories/CategoriesWidget'
 import { CheckWidget } from './check/CheckWidget'
 import { useSelection } from '@/shell/selection'
@@ -38,8 +39,8 @@ export function ProjectionBody({ data }: WidgetBodyProps) {
   )
 }
 
-export function BudgetBody() {
-  return <p className="text-sm text-muted-foreground">Monthly budget limits arrive in the next update.</p>
+export function BudgetBody({ data }: WidgetBodyProps) {
+  return <BudgetWidget currency={data.account.currency} />
 }
 
 export function UpcomingBody({ data }: WidgetBodyProps) {

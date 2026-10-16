@@ -140,6 +140,16 @@ describe('AppShell', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
   })
 
+  it('opens the monthly budget with B from another page', async () => {
+    const router = renderShell('/transactions')
+    await screen.findByRole('link', { name: 'Transactions' })
+
+    press('b')
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+    expect(await screen.findByRole('dialog', { name: 'Monthly budget' })).toBeTruthy()
+  })
+
   it('shows the bottom bar instead of the rail at compact widths', async () => {
     renderShell('/', true)
 

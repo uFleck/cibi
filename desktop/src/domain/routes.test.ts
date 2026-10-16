@@ -97,13 +97,17 @@ const EXPECTED_ROUTES: string[] = [
   'PATCH /api/profile',
 ]
 
-// Desktop-only routes (no Go counterpart): app settings (migration 0002) and categories (migration 0003).
+// Desktop-only routes (no Go counterpart): app settings (migration 0002) and categories (migration 0003) and budget (migration 0004).
 const DESKTOP_ROUTES = [
   'GET /api/settings/:key',
   'PUT /api/settings/:key',
   'GET /api/categories',
   'GET /api/categories/suggest',
   'POST /api/categories/backfill',
+  'GET /api/budget',
+  'PUT /api/budget/limits',
+  'POST /api/budget/exclusions',
+  'DELETE /api/budget/exclusions/:transactionId/:month',
 ]
 
 describe('route table', () => {

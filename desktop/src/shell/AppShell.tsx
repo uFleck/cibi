@@ -1,7 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from '@tanstack/react-router'
 import { motion } from 'motion/react'
-import { toast } from 'sonner'
 import { Calculator, ChevronRight, Keyboard, LayoutGrid, Moon, PanelRight, PieChart, Plus, Search, Sun, Wallet, X } from 'lucide-react'
 import { AccountSelector } from '@/components/AccountSelector'
 import { Button } from '@/components/ui/button'
@@ -12,6 +11,7 @@ import { useReducedMotion } from '@/hooks/useReducedMotion'
 import { useLayout } from '@/widgets/layoutContext'
 import { DEFAULT_POS, type InspectorPos } from '@/widgets/layoutStore'
 import { cn } from '@/lib/utils'
+import { BudgetEditor } from '@/widgets/budget/BudgetEditor'
 import { AccountContext, ShellContext, ThemeContext, useShell, type ShellState } from './contexts'
 import { Inspector } from './Inspector'
 import { NAV_ITEMS, navItemFor, type NavTo } from './nav'
@@ -125,7 +125,7 @@ function ShellFrame({ pathname, children }: { pathname: string; children: ReactN
       run: () => void navigate({ to: item.to }),
     })),
     { id: 'new-transaction', label: 'New transaction', group: 'Actions', icon: Plus, keys: 'n', run: () => openPage('/transactions', 'new-transaction') },
-    { id: 'budget', label: 'Monthly budget', group: 'Actions', icon: PieChart, keys: 'b', run: () => toast('Monthly budget is coming soon') },
+    { id: 'budget', label: 'Monthly budget', group: 'Actions', icon: PieChart, keys: 'b', run: () => openPage('/', 'open-budget') },
     { id: 'check', label: 'Can I buy it?', group: 'Actions', icon: Calculator, keys: 'c', run: () => openPage('/', 'focus-check') },
     { id: 'search', label: 'Search transactions', group: 'Actions', icon: Search, keys: '/', run: () => openPage('/transactions', 'focus-search') },
     { id: 'inspector', label: 'Toggle inspector', group: 'View', icon: PanelRight, keys: 'i', run: toggleInspector },
@@ -167,6 +167,7 @@ function ShellFrame({ pathname, children }: { pathname: string; children: ReactN
         </div>
         <ChordPopover />
         <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} commands={actions} />
+        <BudgetEditor />
         <ShortcutsSheet open={helpOpen} onOpenChange={setHelpOpen} />
       </TooltipProvider>
     </ShellContext.Provider>

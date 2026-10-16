@@ -1,5 +1,6 @@
 import { localFetch } from '../domain/http'
 import type { CategoryOption } from '../domain/categories'
+import type { BudgetLimit, BudgetResponse } from '../domain/budget'
 import type { Classification } from '../domain/classifier'
 
 export interface AccountResponse {
@@ -391,6 +392,39 @@ export interface CategoryBackfillResponse {
 
 export function backfillCategories(): Promise<CategoryBackfillResponse> {
   return apiFetch<CategoryBackfillResponse>('/api/categories/backfill', { method: 'POST' })
+}
+
+// Monthly budget (money in cents; month is YYYY-MM, default the current local month)
+export type {
+  BudgetLimit,
+  BudgetPace,
+  BudgetResponse,
+  BudgetRow,
+  BudgetStatus,
+  BudgetTotals,
+  ScheduledBill,
+} from '../domain/budget'
+
+export function fetchBudget(month?: string): Promise<BudgetResponse> {
+  const query = month ? `?month=${encodeURIComponent(month)}` : ''
+  return apiFetch<BudgetResponse>(`/api/budget${query}`)
+}
+
+/** Replaces the whole set of category limits. */
+export function saveBudgetLimits(limits: BudgetLimit[]): Promise<void> {
+  return apiFetch<void>('/api/budget/limits', { method: 'PUT', body: JSON.stringify(limits) })
+}
+
+/** Leaves a scheduled bill out of the budget for one month only. */
+export function addBudgetExclusion(transactionId: string, month: string): Promise<void> {
+  return apiFetch<void>('/api/budget/exclusions', {
+    method: 'POST',
+    body: JSON.stringify({ transactionId, month }),
+  })
+}
+
+export function removeBudgetExclusion(transactionId: string, month: string): Promise<void> {
+  return apiFetch<void>(`/api/budget/exclusions/${transactionId}/${month}`, { method: 'DELETE' })
 }
 
 export function deleteTransaction(id: string): Promise<void> {
