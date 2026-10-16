@@ -176,6 +176,39 @@ describe('engine', () => {
   })
 })
 
+describe('engine with fixed recurring bills', () => {
+  it('counts a weekly bill once for every occurrence before the next payday', async () => {
+    await app.ledgerSvc.recordEntry({
+      accountId,
+      transactionId: null,
+      payScheduleId: null,
+      entryType: 'income',
+      amount: 100000,
+      description: 'seed',
+      postedAt: new Date('2026-03-20T12:00:00Z'),
+    })
+    // Weekly on 04-17 and 04-24 before the 04-29 payday: two bills of -5000.
+    await variableMarket({ source: '', key: '', amount: -5000, next: '2026-04-17T00:00:00Z' })
+    const result = await app.engineSvc.canIBuyIt(accountId, 1000, new Date('2026-04-16T12:00:00Z'))
+    expect(result.purchasingPower).toBe(100000 - 10000)
+  })
+
+  it('counts a bill that is due once, and an overdue one once', async () => {
+    await app.ledgerSvc.recordEntry({
+      accountId,
+      transactionId: null,
+      payScheduleId: null,
+      entryType: 'income',
+      amount: 100000,
+      description: 'seed',
+      postedAt: new Date('2026-03-20T12:00:00Z'),
+    })
+    await variableMarket({ source: '', key: '', amount: -5000, next: '2026-04-28T00:00:00Z' })
+    const result = await app.engineSvc.canIBuyIt(accountId, 1000, new Date('2026-04-16T12:00:00Z'))
+    expect(result.purchasingPower).toBe(100000 - 5000)
+  })
+})
+
 describe('confirm', () => {
   it('debits the amount you typed, else the current estimate, and a fixed one always debits its own amount', async () => {
     await paidExpense(20000, 'Extra', 'Groceries', '2026-03-08T12:00:00Z')

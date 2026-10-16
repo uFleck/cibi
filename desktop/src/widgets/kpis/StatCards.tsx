@@ -10,6 +10,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { isInCurrentPayWindow } from '@/lib/financial-window'
 import { formatMoney } from '@/lib/format'
 import { effectiveAmount, updateAccount } from '@/lib/api'
+import { countInCurrentPayWindow } from '@/lib/occurrences'
 import type {
   AccountResponse,
   TransactionResponse,
@@ -114,11 +115,8 @@ export function StatCards({
   const now = new Date()
 
   const recurringReserved = recurringTxns
-    .filter(
-      t => t.is_recurring && t.next_occurrence !== null
-        && isInCurrentPayWindow(t.next_occurrence, now, nextPayday),
-    )
-    .reduce((sum, t) => sum + Math.abs(effectiveAmount(t)), 0)
+    .filter(t => t.is_recurring)
+    .reduce((sum, t) => sum + Math.abs(effectiveAmount(t)) * countInCurrentPayWindow(t, nextPayday), 0)
 
   const peerObligations = friendBreakdown.reduce((sum, debt) => {
     if (!debt.next_payment_date) return sum + debt.next_payment

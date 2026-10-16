@@ -109,8 +109,8 @@ export interface TransactionsRepo {
   markConfirmed(id: string, confirmedAt: Date): Promise<void>
   /** Go's `after` is unused by the query and is accepted only to keep the Go signature. */
   sumUpcomingObligations(accountId: string, after: Date, onOrBefore: Date): Promise<number>
-  /** Recurring personal transactions with an estimated amount that are due before `onOrBefore`. */
-  listDueVariable(accountId: string, onOrBefore: Date): Promise<Transaction[]>
+  /** Recurring personal transactions, fixed or estimated, whose next occurrence is before `onOrBefore`. */
+  listDueRecurring(accountId: string, onOrBefore: Date): Promise<Transaction[]>
   incrementPaidInstallments(id: string): Promise<void>
 }
 
@@ -441,23 +441,23 @@ export class SqliteTxnsRepo implements TransactionsRepo {
     return intCol(row, 'total')
   }
 
-  async listDueVariable(accountId: string, onOrBefore: Date): Promise<Transaction[]> {
+  async listDueRecurring(accountId: string, onOrBefore: Date): Promise<Transaction[]> {
     let rows: Row[]
     try {
       rows = await this.db.query(
         `${SELECT_TXN}
 		FROM "Transaction"
 		WHERE account_id = ? AND COALESCE(type, 'personal') = 'personal'
-		AND is_recurring = 1 AND estimate_source IS NOT NULL AND next_occurrence < ?`,
+		AND is_recurring = 1 AND next_occurrence < ?`,
         [accountId, formatDbTime(onOrBefore)],
       )
     } catch (err) {
-      throw wrap('transactions.ListDueVariable', err)
+      throw wrap('transactions.ListDueRecurring', err)
     }
     try {
       return rows.map(scanTransaction)
     } catch (err) {
-      throw wrap('transactions.ListDueVariable: scan', err)
+      throw wrap('transactions.ListDueRecurring: scan', err)
     }
   }
 

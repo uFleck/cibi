@@ -1,3 +1,5 @@
+import { effectiveAmount } from '@/lib/api'
+import { occurrenceDates } from '@/lib/occurrences'
 import { nextPaydayAfter } from '@/lib/pay-schedule'
 import type { ReserveAdjustment } from '@/lib/reserve-adjustment'
 import type { FriendDebtBreakdownItem, PayScheduleResponse, TransactionResponse } from '@/lib/api'
@@ -77,6 +79,11 @@ export function computeBalanceSeries(input: BalanceSeriesInput): BalancePoint[] 
     const isBill = t.is_recurring && !t.is_installment
     const isInstallment = t.is_installment && t.amount < 0
     if (!isBill && !isInstallment) continue
+    if (isBill) {
+      // A weekly bill is due again within the window, so every occurrence steps the line down.
+      for (const date of occurrenceDates(t, end, start)) add(date, -Math.abs(effectiveAmount(t)))
+      continue
+    }
     const date = inRange(t.next_occurrence, start, end)
     if (date) add(date, -Math.abs(t.amount))
   }

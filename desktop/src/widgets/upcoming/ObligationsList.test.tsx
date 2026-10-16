@@ -52,4 +52,35 @@ describe('ObligationsList', () => {
     expect(label.classList.contains('truncate')).toBe(true)
     expect(label.getAttribute('title')).toBe(description)
   })
+
+  it('reserves a weekly bill once for every time it falls before the payday', () => {
+    const market: TransactionResponse = {
+      id: 'tx-market',
+      account_id: 'acc-1',
+      type: 'personal',
+      amount: -100,
+      title: 'Market',
+      description: null,
+      links: [],
+      category: null,
+      timestamp: '2026-09-01T00:00:00Z',
+      is_recurring: true,
+      requires_confirmation: false,
+      confirmed_at: null,
+      frequency: 'weekly',
+      anchor_date: '2026-09-01',
+      next_occurrence: '2026-10-05T00:00:00Z',
+      is_installment: false,
+      total_installments: null,
+      paid_installments: 0,
+    }
+
+    // Oct 5, 12 and 19 fall before the Oct 20 payday.
+    render(<ObligationsList transactions={[market]} nextPayday="2026-10-20" currency="BRL" />)
+
+    expect(screen.getByText('×3')).toBeTruthy()
+    const flat = (text: string) => text.replace(/\s/g, ' ')
+    const total = screen.getByText('Total reserved').parentElement as HTMLElement
+    expect(flat(total.textContent ?? '')).toContain(flat('R$ 300,00'))
+  })
 })

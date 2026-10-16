@@ -1,3 +1,5 @@
+import { effectiveAmount } from '@/lib/api'
+import { countOccurrences } from '@/lib/occurrences'
 import { nextPaydayAfter } from '@/lib/pay-schedule'
 import type { ReserveAdjustment } from '@/lib/reserve-adjustment'
 import type { AccountResponse, FriendDebtBreakdownItem, PayScheduleResponse, TransactionResponse } from '@/lib/api'
@@ -42,9 +44,8 @@ export function computeMonthlyProjection(
   }
 
   const recurringObligations = transactions
-    .filter(t => t.is_recurring && !t.is_installment && t.next_occurrence !== null
-      && isInMonth(t.next_occurrence, monthStart, monthEnd))
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+    .filter(t => t.is_recurring && !t.is_installment)
+    .reduce((sum, t) => sum + Math.abs(effectiveAmount(t)) * countOccurrences(t, monthEnd, monthStart), 0)
 
   const installmentObligations = transactions
     .filter(t => t.is_installment && t.next_occurrence !== null && t.amount < 0
@@ -103,9 +104,8 @@ export function computeCustomProjection(
 
   const obStart = now > windowStart ? now : windowStart
   const recurringObligations = transactions
-    .filter(t => t.is_recurring && !t.is_installment && t.next_occurrence !== null
-      && isInMonth(t.next_occurrence, obStart, windowEnd))
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+    .filter(t => t.is_recurring && !t.is_installment)
+    .reduce((sum, t) => sum + Math.abs(effectiveAmount(t)) * countOccurrences(t, windowEnd, obStart), 0)
 
   const installmentObligations = transactions
     .filter(t => t.is_installment && t.next_occurrence !== null && t.amount < 0

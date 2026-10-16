@@ -4,6 +4,7 @@ import { MoneyValue } from '@/components/ui/money-value'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/format'
 import { isInCurrentPayWindow } from '@/lib/financial-window'
+import { countInCurrentPayWindow } from '@/lib/occurrences'
 import { effectiveAmount, type TransactionResponse } from '@/lib/api'
 
 interface ObligationsListProps {
@@ -36,7 +37,9 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
       new Date(a.next_occurrence!).getTime() - new Date(b.next_occurrence!).getTime()
     )
 
-  const total = obligations.reduce((sum, t) => sum + Math.abs(effectiveAmount(t)), 0)
+  // A bill due several times before the payday (a weekly one) is reserved once for each.
+  const timesDue = (t: TransactionResponse) => (t.is_recurring ? countInCurrentPayWindow(t, nextPayday) : 1)
+  const total = obligations.reduce((sum, t) => sum + Math.abs(effectiveAmount(t)) * timesDue(t), 0)
 
   return (
     <div className="flex flex-col">
@@ -63,7 +66,9 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
             >
               <span className="min-w-0 flex-1 truncate text-[13px]" title={t.title}>{t.title}</span>
               <span className="w-8 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
-                {t.is_installment ? `${t.paid_installments ?? 0}/${t.total_installments ?? '?'}` : null}
+                {t.is_installment
+                  ? `${t.paid_installments ?? 0}/${t.total_installments ?? '?'}`
+                  : timesDue(t) > 1 ? `×${timesDue(t)}` : null}
               </span>
               <MoneyValue
                 amount={effectiveAmount(t)}

@@ -20,7 +20,7 @@ import type { Goal, GoalsRepo } from '../repo/goals'
 import type { PayScheduleRepo, PaySchedule } from '../repo/paySchedule'
 import type { PeerDebtRepo } from '../repo/peerDebt'
 import type { TransactionsRepo } from '../repo/transactions'
-import type { EstimateService } from './estimate'
+import { isVariable, type EstimateService } from './estimate'
 import type { ReserveService } from './reserve'
 import { advanceOccurrence } from './transactions'
 
@@ -187,21 +187,22 @@ export class EngineService {
   }
 
   /**
-   * The estimated recurring expenses due before the payday: each one's estimate, once for every
-   * occurrence that falls before it (a weekly market run counts twice in a bi-weekly window).
+   * What recurring expenses add beyond the first occurrence that the repo's sum already holds. A bill
+   * counts once for every occurrence before the payday (a weekly bill counts twice in a bi-weekly
+   * window). A bill with an estimated amount is not in that sum at all, so every occurrence is added.
    */
-  private async sumVariableObligations(accountId: string, payday: Date): Promise<number> {
-    const due = await this.txnsRepo.listDueVariable(accountId, payday)
+  private async sumRepeatedObligations(accountId: string, payday: Date): Promise<number> {
+    const due = await this.txnsRepo.listDueRecurring(accountId, payday)
     let total = 0
     for (const t of due) {
-      const amount = await this.estimator.effectiveAmount(t)
       let count = 0
       let next = t.nextOccurrence
       while (next !== null && next.getTime() < payday.getTime() && count < MAX_OCCURRENCES) {
         count++
         next = t.frequency === null ? null : advanceOccurrence(next, t.frequency)
       }
-      total += amount * count
+      if (isVariable(t)) total += (await this.estimator.effectiveAmount(t)) * count
+      else total += t.amount * Math.max(0, count - 1)
     }
     return total
   }
@@ -243,10 +244,10 @@ export class EngineService {
     const fixedObligations = await wrapping('engine.CanIBuyIt: sum obligations', () =>
       this.txnsRepo.sumUpcomingObligations(accountId, now, earliestPayday),
     )
-    const variableObligations = await wrapping('engine.CanIBuyIt: sum variable obligations', () =>
-      this.sumVariableObligations(accountId, earliestPayday),
+    const repeatedObligations = await wrapping('engine.CanIBuyIt: sum repeated obligations', () =>
+      this.sumRepeatedObligations(accountId, earliestPayday),
     )
-    const obligations = fixedObligations + variableObligations
+    const obligations = fixedObligations + repeatedObligations
     const peerObligations = await wrapping('engine.CanIBuyIt: sum peer obligations', () =>
       this.peerDebtRepo.sumUpcomingPeerObligations(accountId, now, earliestPayday),
     )
