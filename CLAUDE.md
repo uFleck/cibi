@@ -25,6 +25,7 @@ Default behavior when uncertain: ask, do not implement.
 The plan-and-approve policy above applies to the main (orchestrating) agent only.
 
 - The main agent plans, gets the user's approval, then delegates the approved work to subagents. Prefer cheap models (Haiku) for small, well-scoped edits; run independent tasks in parallel.
+- Model routing follows the global `model-routing` rule (`~/.claude/CLAUDE.md`). In this repo the deny-list, which always stays with Sonnet directly, is: `desktop/src-tauri/src/db.rs`, `lib.rs`, `shell.rs`, `backup.rs`, anything that changes the Rust↔TS command contract or the DB schema, `desktop/src/lib/laya*.ts`, `desktop/src/vendor/`, and `scripts/`. Delegate to the `haiku-implementer` agent only mechanical edits in the UI (`desktop/src/components`, `pages`) and in domain code with a clear spec and tests.
 - A subagent receives the distilled, already-approved task. It must **not** ask for plan approval, re-plan, or ask for confirmation. It implements exactly the task it was given, runs the requested checks, and reports the exact edits and results.
 - A subagent should only stop to ask when the task is genuinely impossible or contradicts the code it finds. State the blocker; do not ask for permission to proceed.
 - Every delegation brief must be self-contained: exact files and lines, the exact change, which files not to touch, what to verify, and "do not commit, push, or build".
