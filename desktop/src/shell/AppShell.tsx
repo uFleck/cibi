@@ -37,6 +37,13 @@ const HINT_ITEMS: HintItem[] = [
   { keys: '?', label: 'All shortcuts' },
 ]
 
+const HINTS_COLLAPSED_STORAGE_KEY = 'cibi.hintbar.collapsed'
+
+function readHintsCollapsed(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.localStorage.getItem(HINTS_COLLAPSED_STORAGE_KEY) === '1'
+}
+
 const LINK_BASE = 'relative flex items-center justify-center rounded-md outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/25'
 
 type ShellAction = PaletteCommand & { keys: string }
@@ -74,6 +81,12 @@ function ShellFrame({ pathname, children }: { pathname: string; children: ReactN
   const [helpOpen, setHelpOpen] = useState(false)
   const [inspectorState, setInspectorState] = useState<boolean | null>(null)
   const [editMode, setEditMode] = useState(false)
+  const [hintsCollapsed, setHintsCollapsedState] = useState(readHintsCollapsed)
+
+  const setHintsCollapsed = useCallback((collapsed: boolean) => {
+    setHintsCollapsedState(collapsed)
+    window.localStorage.setItem(HINTS_COLLAPSED_STORAGE_KEY, collapsed ? '1' : '0')
+  }, [])
 
   const inspectorOpen = inspectorState ?? (pos !== 'off' && wide)
   const column = !isOverview && wide && pos !== 'off' && inspectorOpen
@@ -131,6 +144,7 @@ function ShellFrame({ pathname, children }: { pathname: string; children: ReactN
     { id: 'inspector', label: 'Toggle inspector', group: 'View', icon: PanelRight, keys: 'i', run: toggleInspector },
     { id: 'customize', label: 'Customize page', group: 'View', icon: LayoutGrid, keys: 'l', run: toggleEditMode },
     { id: 'theme', label: 'Toggle theme', group: 'View', icon: Moon, keys: 't', run: toggleTheme },
+    { id: 'hints', label: 'Toggle shortcut hints', group: 'View', icon: Keyboard, keys: 'h', run: () => setHintsCollapsed(!hintsCollapsed) },
     { id: 'help', label: 'Keyboard shortcuts', group: 'Help', icon: Keyboard, keys: '?', run: () => setHelpOpen(true) },
   ]
 
@@ -160,7 +174,7 @@ function ShellFrame({ pathname, children }: { pathname: string; children: ReactN
               <main className="min-w-0 flex-1 overflow-auto max-[899px]:pb-16">{children}</main>
               {column && pos === 'right' && <InspectorColumn side="right" />}
               {drawer && <InspectorDrawer onClose={closeDrawer} />}
-              <HintBar items={HINT_ITEMS} hidden={paletteOpen || helpOpen} />
+              <HintBar items={HINT_ITEMS} hidden={paletteOpen || helpOpen} collapsed={hintsCollapsed} onCollapsedChange={setHintsCollapsed} />
             </div>
           </div>
           {compact && <BottomBar pathname={pathname} />}
