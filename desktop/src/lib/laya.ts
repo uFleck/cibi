@@ -6,6 +6,7 @@ import { appDataDir, join } from '@tauri-apps/api/path'
 import { getClassifier, rulesClassifier, setClassifier } from '@/domain/classifier'
 import { composeClassifiers } from '@/domain/classifier/compose'
 import { createLayaClassifier, type LayaAgent } from '@/domain/classifier/laya'
+import { LayaWorkerAgent } from './layaWorkerAgent'
 
 export type LayaStatus =
   | { state: 'rules' }
@@ -53,11 +54,7 @@ async function probe(fileUrl: string): Promise<'ok' | 'absent' | 'error'> {
   }
 }
 
-async function loadAgent(url: string): Promise<LayaAgent> {
-  const [{ Agent }, providers] = await Promise.all([
-    import('@/vendor/laya/agent'),
-    import('@/vendor/laya/providers'),
-  ])
-  providers.setOrtLoader('web', () => import('onnxruntime-web'))
-  return Agent.load(url)
+/** The model loads and runs in a worker, so classifying never blocks the UI thread. */
+function loadAgent(url: string): Promise<LayaAgent> {
+  return LayaWorkerAgent.load(url, () => new Worker(new URL('./laya.worker.ts', import.meta.url), { type: 'module' }))
 }

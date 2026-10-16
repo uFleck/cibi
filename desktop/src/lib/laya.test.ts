@@ -9,7 +9,6 @@ const tauri = vi.hoisted(() => ({
 const laya = vi.hoisted(() => ({
   load: vi.fn(),
   predict: vi.fn(),
-  setOrtLoader: vi.fn(),
 }))
 
 vi.mock('@tauri-apps/api/core', () => ({
@@ -22,8 +21,7 @@ vi.mock('@tauri-apps/api/path', () => ({
   join: async (...parts: string[]) => parts.join('\\').replace(/\\+/g, '\\'),
 }))
 
-vi.mock('@/vendor/laya/agent', () => ({ Agent: { load: laya.load } }))
-vi.mock('@/vendor/laya/providers', () => ({ setOrtLoader: laya.setOrtLoader }))
+vi.mock('./layaWorkerAgent', () => ({ LayaWorkerAgent: { load: laya.load } }))
 
 const MODEL_FOLDER = 'C:\\Users\\me\\AppData\\Roaming\\com.ufleck.cibi\\models\\laya'
 const MODEL_URL = `http://asset.localhost/${encodeURIComponent(MODEL_FOLDER)}`
@@ -34,7 +32,6 @@ beforeEach(() => {
   tauri.appDataDir.mockResolvedValue('C:\\Users\\me\\AppData\\Roaming\\com.ufleck.cibi\\')
   laya.load.mockReset()
   laya.predict.mockReset()
-  laya.setOrtLoader.mockReset()
   laya.load.mockResolvedValue({ predict: laya.predict })
   laya.predict.mockResolvedValue({
     answers: { category: { type: 'choice', choice: 'Outros', answer_confidence: 0.95 } },
@@ -137,8 +134,7 @@ describe('activateLaya', () => {
     await lib.activateLaya()
     const result = await classifier.getClassifier().classify('Pet shop', DEFAULT_CATEGORIES)
     expect(result).toEqual({ category: 'Outros', confidence: 0.95, minConfidence: 0.8 })
-    expect(laya.load).toHaveBeenCalledWith(MODEL_URL)
-    expect(laya.setOrtLoader).toHaveBeenCalledWith('web', expect.any(Function))
+    expect(laya.load).toHaveBeenCalledWith(MODEL_URL, expect.any(Function))
     expect(laya.predict).toHaveBeenCalledWith('Pagamento: Pet shop', expect.any(Object))
   })
 
@@ -165,7 +161,7 @@ describe('warmLaya', () => {
     vi.stubGlobal('fetch', serveModel())
     const { lib, classifier } = await freshModules()
     lib.warmLaya()
-    await vi.waitFor(() => expect(laya.load).toHaveBeenCalledWith(MODEL_URL))
+    await vi.waitFor(() => expect(laya.load).toHaveBeenCalledWith(MODEL_URL, expect.any(Function)))
     expect(await classifier.getClassifier().classify('Pet shop', DEFAULT_CATEGORIES, { onlyIfReady: true })).toEqual({
       category: 'Outros',
       confidence: 0.95,
