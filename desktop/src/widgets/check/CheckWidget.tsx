@@ -113,19 +113,12 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
   }
 
   return (
-    <Card className="border-border/60 py-0 shadow-sm" aria-label="Can I Buy It checker">
-      <CardContent className="px-5 py-5 flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            Can I Buy It?
-          </p>
-          <p className="text-sm font-semibold tracking-tight text-foreground">Latest purchase impact</p>
-        </div>
+    <div aria-label="Can I Buy It checker" className="flex flex-col gap-4">
 
         {state !== 'verdict' ? (
           <div className="flex flex-col gap-3" aria-label={state === 'loading' ? 'Checking purchase impact' : 'Check purchase impact'}>
             <Label htmlFor="check-amount">Purchase amount</Label>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+            <div className="flex flex-col gap-2 @md:flex-row @md:items-stretch">
               <div className="relative flex-1">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground select-none text-sm" aria-hidden="true">
                   $
@@ -149,7 +142,7 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
                     <Button
                       onClick={handleCheck}
                       disabled={state === 'loading'}
-                      className="h-11 w-full px-6 font-semibold tracking-wide cursor-pointer sm:w-auto"
+                      className="h-11 w-full px-6 font-semibold tracking-wide cursor-pointer @md:w-auto"
                       aria-label={state === 'loading' ? 'Checking purchase impact' : 'Check purchase impact'}
                     >
                       {state === 'loading' ? (
@@ -318,7 +311,6 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
             </Button>
           </div>
         ) : null}
-      </CardContent>
-    </Card>
+    </div>
   )
 }

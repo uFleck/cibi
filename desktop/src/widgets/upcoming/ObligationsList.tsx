@@ -34,15 +34,10 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday }: 
   const total = obligations.reduce((sum, t) => sum + Math.abs(t.amount), 0)
 
   return (
-    <div className="rounded-xl border border-border/60 bg-card flex flex-col">
-      <div className="px-5 pt-5 pb-3">
-        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Upcoming Obligations
-        </p>
-      </div>
+    <div className="flex flex-col">
 
       {obligations.length === 0 ? (
-        <p className="px-5 pb-5 text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           No upcoming obligations.
         </p>
       ) : (
@@ -50,7 +45,7 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday }: 
           {obligations.map(t => (
             <div
               key={t.id}
-              className="flex items-center px-5 py-2.5 gap-4 hover:bg-muted/30 transition-colors"
+              className="flex items-center py-2 gap-4 hover:bg-muted/30 transition-colors"
             >
               <span className="flex-1 text-sm">{t.description}</span>
               {t.is_installment && (
@@ -70,8 +65,8 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday }: 
               </span>
             </div>
           ))}
-          <div className="mx-5 border-t border-border/40 mt-1" />
-          <div className="flex items-center px-5 py-3 gap-4">
+          <div className="border-t border-line mt-1" />
+          <div className="flex items-center py-2 gap-4">
             <span className="flex-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
               Total reserved
             </span>

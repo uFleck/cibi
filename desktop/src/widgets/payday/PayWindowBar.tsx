@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { MoneyValue } from '@/components/ui/money-value'
 import { formatDate } from '@/lib/format'
 import { earliestPaydayAfter, nextPaydayAfter, parseDateOnlyUTC } from '@/lib/pay-schedule'
@@ -81,8 +80,7 @@ export function PayWindowBar({ nextPayday, paySchedules }: PayWindowBarProps) {
   const nextLabel = formatDate(nextPayday)
 
   return (
-    <Card className="border-border/60 py-0 shadow-sm">
-      <CardContent className="px-5 py-4 flex flex-col gap-3">
+    <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-col gap-1">
             <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
@@ -145,7 +143,6 @@ export function PayWindowBar({ nextPayday, paySchedules }: PayWindowBarProps) {
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+    </div>
   )
 }

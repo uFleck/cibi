@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useContext } from 'react'
 import { ChevronRight } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { MoneyValue } from '@/components/ui/money-value'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -28,9 +27,8 @@ export function FriendLedgerWidget() {
   const isLoading = summaryLoading || breakdownLoading
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-base">Friend Ledger</CardTitle>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-end">
         <Link to="/friends">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -43,8 +41,8 @@ export function FriendLedgerWidget() {
             </TooltipContent>
           </Tooltip>
         </Link>
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div>
         {isLoading ? (
           <div className="flex flex-col gap-2" role="status" aria-label="Loading friend summary">
             {[0, 1, 2].map(i => (
@@ -126,7 +124,7 @@ export function FriendLedgerWidget() {
             No outstanding balances
           </p>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

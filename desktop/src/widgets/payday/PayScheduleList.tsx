@@ -14,8 +14,8 @@ export function PayScheduleList({ schedules, currency = 'BRL' }: PayScheduleList
   const total = sorted.reduce((sum, ps) => sum + ps.amount, 0)
 
   return (
-    <div className="rounded-xl border border-border/60 bg-card flex flex-col">
-      <div className="px-5 pt-5 pb-3">
+    <div className="flex flex-col">
+      <div className="pb-2">
         <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
           Upcoming Paychecks
         </p>
@@ -25,7 +25,7 @@ export function PayScheduleList({ schedules, currency = 'BRL' }: PayScheduleList
         {sorted.map(ps => (
           <div
             key={ps.id}
-            className="flex items-center px-5 py-2.5 gap-4 hover:bg-muted/30 transition-colors"
+            className="flex items-center py-2 gap-4 hover:bg-muted/30 transition-colors"
           >
             <span className="flex-1 text-sm">{ps.label ?? ps.frequency}</span>
             <MoneyValue
@@ -40,8 +40,8 @@ export function PayScheduleList({ schedules, currency = 'BRL' }: PayScheduleList
             </span>
           </div>
         ))}
-        <div className="mx-5 border-t border-border/40 mt-1" />
-        <div className="flex items-center px-5 py-3 gap-4">
+        <div className="border-t border-line mt-1" />
+        <div className="flex items-center py-2 gap-4">
           <span className="flex-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
             Total incoming
           </span>

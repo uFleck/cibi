@@ -11,6 +11,7 @@ import { registerLedgerRoutes } from './handlers/ledger'
 import { registerPayScheduleRoutes } from './handlers/paySchedule'
 import { registerPeerDebtRoutes } from './handlers/peerDebt'
 import { registerProfileRoutes } from './handlers/profile'
+import { registerSettingsRoutes } from './handlers/settings'
 import { registerTransactionsRoutes } from './handlers/transactions'
 
 export function registerRoutes(app: App): void {
@@ -18,6 +19,7 @@ export function registerRoutes(app: App): void {
   registerLedgerRoutes(app)
   registerPayScheduleRoutes(app)
   registerProfileRoutes(app)
+  registerSettingsRoutes(app)
   registerTransactionsRoutes(app)
   registerFriendRoutes(app)
   registerPeerDebtRoutes(app)

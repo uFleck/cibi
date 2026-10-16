@@ -677,6 +677,19 @@ export function updateProfile(accountId: string, data: UpdateProfileRequest): Pr
   })
 }
 
+/** The JSON value stored under key, or null when the key was never set. */
+export function getSetting<T>(key: string): Promise<T | null> {
+  return apiFetch<T | null>(`/api/settings/${encodeURIComponent(key)}`)
+}
+
+export function putSetting(key: string, value: unknown): Promise<void> {
+  return apiFetch<void>(`/api/settings/${encodeURIComponent(key)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value),
+  })
+}
+
 export interface LedgerEntryResponse {
   id: string
   account_id: string

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { router } from './router'
 import { fetchAccounts } from '@/lib/api'
 import { AppShell } from '@/shell/AppShell'
+import { LayoutProvider } from '@/widgets/LayoutProvider'
 import { AccountContext, ThemeContext, type ThemeMode } from '@/shell/contexts'
 
 const queryClient = new QueryClient({
@@ -23,9 +24,11 @@ export type { ThemeMode }
 
 export function RootLayout() {
   return (
-    <AppShell>
-      <Outlet />
-    </AppShell>
+    <LayoutProvider>
+      <AppShell>
+        <Outlet />
+      </AppShell>
+    </LayoutProvider>
   )
 }
 

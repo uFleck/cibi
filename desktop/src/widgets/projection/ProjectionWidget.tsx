@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { MoneyValue } from '@/components/ui/money-value'
 import { formatDate, formatMoney } from '@/lib/format'
@@ -149,10 +148,11 @@ export function ProjectionWidget({
 
   return (
     <>
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base">Projection</CardTitle>
+    <div className="flex flex-col gap-3 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          {formatDate(displayStart.toISOString())} → {formatDate(displayEnd.toISOString())}
+        </p>
           <div className="flex rounded-md border border-border/60 text-xs overflow-hidden">
             <button
               type="button"
@@ -169,12 +169,8 @@ export function ProjectionWidget({
               Custom
             </button>
           </div>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {formatDate(displayStart.toISOString())} → {formatDate(displayEnd.toISOString())}
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
+      </div>
+      <div className="space-y-3">
         <ChartContainer config={chartConfig} className="h-36 w-full">
           <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -224,12 +220,12 @@ export function ProjectionWidget({
         </div>
         <div className="flex justify-between border-t border-border/40 pt-1.5 mt-1">
           <span className="font-semibold">Projected end balance</span>
-          <span className={`font-semibold tabular-nums ${displayEndBalance < 0 ? 'text-red-500' : 'text-green-600'}`}>
+          <span className={`font-semibold tabular-nums ${displayEndBalance < 0 ? 'text-neg' : 'text-pos'}`}>
             {formatMoney(displayEndBalance, account.currency)}
           </span>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
     <CustomProjectionSheet
       open={sheetOpen}
       paySchedules={paySchedules}

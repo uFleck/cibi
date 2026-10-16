@@ -97,12 +97,15 @@ const EXPECTED_ROUTES: string[] = [
   'PATCH /api/profile',
 ]
 
+// Desktop-only routes (no Go counterpart): app settings, added with migration 0002.
+const DESKTOP_ROUTES = ['GET /api/settings/:key', 'PUT /api/settings/:key']
+
 describe('route table', () => {
-  it('registers exactly the Go API routes (55), with no duplicates', () => {
+  it('registers exactly the Go API routes (55) plus the desktop settings routes, with no duplicates', () => {
     const registered = listRoutes().map((r) => `${r.method} ${r.pattern}`)
     expect(EXPECTED_ROUTES).toHaveLength(55)
     expect(new Set(registered).size).toBe(registered.length)
-    expect([...registered].sort()).toEqual([...EXPECTED_ROUTES].sort())
+    expect([...registered].sort()).toEqual([...EXPECTED_ROUTES, ...DESKTOP_ROUTES].sort())
   })
 
   it.each(['/public/friend/x', '/public/group/x', '/api/config', '/api/docs'])(

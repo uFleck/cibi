@@ -68,10 +68,10 @@ export function PaydayWidget({ account, paySchedules }: Props) {
   if (dueSchedules.length === 0) return null
 
   return (
-    <Card className="border-green-500/40 bg-green-500/5">
+    <Card className="border-pos/40 bg-pos/5">
       <CardContent className="py-3 flex flex-col gap-2">
         <div className="flex items-center gap-2">
-          <PartyPopper size={18} className="text-green-600 shrink-0" />
+          <PartyPopper size={18} className="text-pos shrink-0" />
           <p className="font-semibold text-sm">Payday</p>
         </div>
         {dueSchedules.map(schedule => (
@@ -83,7 +83,7 @@ export function PaydayWidget({ account, paySchedules }: Props) {
             <Button
               size="sm"
               variant="outline"
-              className="border-green-500/40 text-green-700 hover:bg-green-500/10 shrink-0"
+              className="border-pos/40 text-pos hover:bg-pos/10 shrink-0"
               onClick={() => markReceived(schedule)}
               disabled={pendingIds.has(schedule.id)}
             >

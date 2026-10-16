@@ -4,8 +4,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AccountContext } from '@/App'
-import { CheckWidget } from '@/components/CheckWidget'
-import { GoalsSnapshotWidget } from '@/components/GoalsSnapshotWidget'
+import { CheckWidget } from '@/widgets/check/CheckWidget'
+import { GoalsSnapshotWidget } from '@/widgets/goals/GoalsSnapshotWidget'
 import {
   fetchAccounts,
   fetchGoalsTracking,
@@ -262,9 +262,9 @@ describe('check-impact browser contract', () => {
     expect(input.className).toContain('focus-visible:ring-primary/50')
     expect(input.getAttribute('aria-invalid')).toBe('false')
     expect(inputRow?.className).toContain('flex-col')
-    expect(inputRow?.className).toContain('sm:flex-row')
+    expect(inputRow?.className).toContain('@md:flex-row')
     expect(checkButton.className).toContain('w-full')
-    expect(checkButton.className).toContain('sm:w-auto')
+    expect(checkButton.className).toContain('@md:w-auto')
 
     const user = userEvent.setup()
     await user.type(input, '50')

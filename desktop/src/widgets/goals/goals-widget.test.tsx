@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AccountContext } from '@/App'
-import { GoalsSnapshotWidget } from '@/components/GoalsSnapshotWidget'
+import { GoalsSnapshotWidget } from '@/widgets/goals/GoalsSnapshotWidget'
 import {
   fetchAccounts,
   fetchGoalsTracking,

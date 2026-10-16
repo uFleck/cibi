@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CheckWidget, LAST_CHECK_RESULT_KEY } from '@/components/CheckWidget'
+import { CheckWidget, LAST_CHECK_RESULT_KEY } from '@/widgets/check/CheckWidget'
 import { postCheck, type CheckResponse } from '@/lib/api'
 
 vi.mock('@/lib/api', async () => {

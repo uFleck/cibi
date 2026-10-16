@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { Db } from './db'
 import { migrate, splitStatements } from './migrate'
 import baselineSql from './migrations/0001_baseline.sql?raw'
+import appSettingSql from './migrations/0002_app_setting.sql?raw'
 import { createTestDb, wrapDatabaseSync } from './testing/testDb'
 
 interface SchemaRow {
@@ -63,19 +64,19 @@ describe('splitStatements', () => {
 })
 
 describe('migrate', () => {
-  it('fresh database: sets user_version 1 and creates the baseline schema', async () => {
+  it('fresh database: sets user_version 2 and creates the baseline schema and AppSetting', async () => {
     const db = await createTestDb({ migrate: false })
     await migrate(db)
-    expect(await userVersion(db)).toBe(1)
+    expect(await userVersion(db)).toBe(2)
 
     const tables = (
       await db.query<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
     ).map((r) => r.name)
-    for (const table of ['Account', 'Transaction', 'ledger', 'GoalLedgerEntry']) {
+    for (const table of ['Account', 'Transaction', 'ledger', 'GoalLedgerEntry', 'AppSetting']) {
       expect(tables).toContain(table)
     }
 
-    const statements = splitStatements(baselineSql)
+    const statements = [...splitStatements(baselineSql), ...splitStatements(appSettingSql)]
     const expected = {
       table: statements.filter((s) => /^CREATE TABLE/i.test(s)).length,
       view: statements.filter((s) => /^CREATE VIEW/i.test(s)).length,
@@ -99,18 +100,32 @@ describe('migrate', () => {
     const db = await createTestDb()
     const before = await schemaSnapshot(db)
     await migrate(db)
-    expect(await userVersion(db)).toBe(1)
+    expect(await userVersion(db)).toBe(2)
     expect(await schemaSnapshot(db)).toEqual(before)
     db.close()
   })
 
-  it('existing database path: user_version 0 with the schema present only sets 1', async () => {
+  it('existing database path: user_version 0 with the schema present sets 2 and adds AppSetting', async () => {
     const db = await createTestDb()
     await db.query('PRAGMA user_version = 0')
-    const before = await schemaSnapshot(db)
+    await db.query('DROP TABLE AppSetting')
     await migrate(db)
-    expect(await userVersion(db)).toBe(1)
-    expect(await schemaSnapshot(db)).toEqual(before)
+    expect(await userVersion(db)).toBe(2)
+    expect((await db.query("SELECT name FROM sqlite_master WHERE name = 'AppSetting'")).length).toBe(1)
+    db.close()
+  })
+
+  it('version 1 database gets AppSetting and keeps its rows', async () => {
+    const db = await createTestDb({ migrate: false })
+    await migrate(db)
+    await db.query("INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES ('a1', 'A', 0, 'BRL', 1)")
+    await db.query('DROP TABLE AppSetting')
+    await db.query('PRAGMA user_version = 1')
+    await migrate(db)
+    expect(await userVersion(db)).toBe(2)
+    expect(await db.query("SELECT id FROM Account")).toEqual([{ id: 'a1' }])
+    await db.query("INSERT INTO AppSetting (key, value) VALUES ('k', '1')")
+    expect(await db.query("SELECT value FROM AppSetting WHERE key = 'k'")).toEqual([{ value: '1' }])
     db.close()
   })
 
@@ -128,7 +143,7 @@ describe('migrate', () => {
     try {
       const before = await schemaSnapshot(db)
       await migrate(db)
-      expect(await userVersion(db)).toBe(1)
+      expect(await userVersion(db)).toBe(2)
       expect(await schemaSnapshot(db)).toEqual(before)
 
       const fresh = await createTestDb()

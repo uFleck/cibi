@@ -100,8 +100,7 @@ export function GoalsSnapshotWidget() {
   const emptyState = !trackingQuery.isLoading && !trackingQuery.isError && goals.length === 0
 
   return (
-    <Card className="border-border/60 shadow-sm" aria-label="Goals snapshot">
-      <CardContent className="py-4 flex flex-col gap-3">
+    <div aria-label="Goals snapshot" className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex flex-col gap-1">
             <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Goals Snapshot</p>
@@ -112,7 +111,7 @@ export function GoalsSnapshotWidget() {
 
         {trackingQuery.isError ? (
           <Card className="border-destructive/30 bg-destructive/5 py-0 shadow-none" role="alert" aria-label="Goals snapshot error">
-            <CardContent className="py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardContent className="py-3 flex flex-col gap-3 @md:flex-row @md:items-center @md:justify-between">
               <div className="min-w-0 flex flex-col gap-1">
                 <p className="text-sm font-medium text-destructive">Could not load goals.</p>
                 <p className="text-xs text-muted-foreground">Retry goals tracking without changing dashboard data.</p>
@@ -155,7 +154,6 @@ export function GoalsSnapshotWidget() {
           ) : null}
         </Skeleton>
 
-      </CardContent>
-    </Card>
+    </div>
   )
 }

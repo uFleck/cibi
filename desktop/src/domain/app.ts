@@ -27,6 +27,8 @@ import { SqliteFriendRepo, type FriendRepo } from './repo/friend'
 import { SqlitePeerDebtRepo, type PeerDebtRepo } from './repo/peerDebt'
 import { SqliteGroupEventRepo, type GroupEventRepo } from './repo/groupEvent'
 import { SqliteGoalsRepo, type GoalsRepo } from './repo/goals'
+import { AppSettingService } from './service/appSetting'
+import { SqliteAppSettingRepo, type AppSettingRepo } from './repo/appSetting'
 
 export interface App {
   db: Db
@@ -40,6 +42,7 @@ export interface App {
   groupEventRepo: GroupEventRepo
   profileRepo: ProfileRepo
   goalsRepo: GoalsRepo
+  appSettingRepo: AppSettingRepo
   ledgerSvc: LedgerService
   accountsSvc: AccountsService
   txnsSvc: TransactionsService
@@ -50,6 +53,7 @@ export interface App {
   profileSvc: ProfileService
   goalsSvc: GoalsService
   engineSvc: EngineService
+  settingSvc: AppSettingService
 }
 
 export function buildApp(db: Db, config: Partial<Config> = {}): App {
@@ -72,6 +76,8 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
   const groupEventSvc = new GroupEventService(groupEventRepo, friendRepo)
   const profileRepo = new SqliteProfileRepo(db)
   const profileSvc = new ProfileService(profileRepo)
+  const appSettingRepo = new SqliteAppSettingRepo(db)
+  const settingSvc = new AppSettingService(appSettingRepo)
   return {
     db,
     config: { ...DEFAULT_CONFIG, ...config },
@@ -84,6 +90,7 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
     groupEventRepo,
     profileRepo,
     goalsRepo,
+    appSettingRepo,
     ledgerSvc,
     accountsSvc,
     txnsSvc,
@@ -94,5 +101,6 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
     profileSvc,
     goalsSvc,
     engineSvc,
+    settingSvc,
   }
 }
