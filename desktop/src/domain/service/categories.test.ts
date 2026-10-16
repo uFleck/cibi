@@ -51,6 +51,41 @@ describe('CategoriesService.list', () => {
     expect(options.slice(0, DEFAULT_CATEGORIES.length)).toEqual([...DEFAULT_CATEGORIES])
     expect(options.slice(DEFAULT_CATEGORIES.length).map((o) => o.label)).toEqual(['Pet'])
   })
+
+  it('adds a budget limit category that has no transaction', async () => {
+    await db.query(`INSERT INTO Budget (category, monthly_limit, is_fixed) VALUES ('Viagem extra', 1, 0)`)
+    expect((await app.categoriesSvc.list()).map((o) => o.label)).toContain('Viagem extra')
+  })
+
+  it('treats case variants of one label as a single category', async () => {
+    await insertTxn('a', -1, 'Pet')
+    await insertTxn('b', -1, 'pet')
+    const options = await app.categoriesSvc.list()
+    expect(options.filter((o) => o.label.toLowerCase() === 'pet')).toHaveLength(1)
+  })
+})
+
+describe('CategoriesService write path', () => {
+  it('a rename moves every case variant of the label, and an edited description reaches Laya', async () => {
+    const a = await insertTxn('a', -1, 'Mercado')
+    const b = await insertTxn('b', -1, ' mercado ')
+    await app.categoriesSvc.update('mercado', { label: 'Feira', description: 'Hortifruti e feira livre' })
+    expect(await categoryOf(a)).toBe('Feira')
+    expect(await categoryOf(b)).toBe('Feira')
+    const feira = (await app.categoriesSvc.list()).find((o) => o.id === 'mercado')
+    expect(feira).toEqual({ id: 'mercado', label: 'Feira', description: 'Hortifruti e feira livre' })
+  })
+
+  it('a rename onto a label already on a transaction is rejected', async () => {
+    await insertTxn('Ração', -4000, 'Pet')
+    await expect(app.categoriesSvc.update('mercado', { label: 'pet', description: '' })).rejects.toThrow(/already exists/)
+  })
+
+  it('a failed rename changes nothing', async () => {
+    const id = await insertTxn('a', -1, 'Mercado')
+    await expect(app.categoriesSvc.update('mercado', { label: '  ', description: '' })).rejects.toThrow()
+    expect(await categoryOf(id)).toBe('Mercado')
+  })
 })
 
 describe('CategoriesService.suggest', () => {

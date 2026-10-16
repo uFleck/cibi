@@ -1,12 +1,13 @@
-// Transaction categories. A category is free text stored on the transaction; the default set below
-// is what the classifier and the form offer, and every other distinct stored value is a custom one.
-// The stored value is always the label. The id is a stable key for classifiers and their models.
+// Transaction categories. A category is free text stored on the transaction. The Category table holds
+// the set the classifier and the form offer; the default set below seeds it (migration 0007) and is
+// what a built-in category's description resets to. The stored value is always the label. The id is
+// a stable key for classifiers and their models.
 
 export interface CategoryOption {
   id: string
   /** The value stored on a transaction. */
   label: string
-  /** Short text that describes what goes in the category. Feeds the ML model later. */
+  /** Short text that describes what goes in the category. The Laya classifier reads it. */
   description: string
 }
 
@@ -31,23 +32,4 @@ export const DEFAULT_CATEGORIES: readonly CategoryOption[] = [
 export function normalizeCategory(value: string | null | undefined): string | null {
   const trimmed = value?.trim() ?? ''
   return trimmed === '' ? null : trimmed
-}
-
-/** Custom options for the distinct stored values that are not a default label. */
-export function customCategoryOptions(storedValues: readonly string[]): CategoryOption[] {
-  const defaults = new Set(DEFAULT_CATEGORIES.map((c) => c.label))
-  const seen = new Set<string>()
-  const out: CategoryOption[] = []
-  for (const raw of storedValues) {
-    const label = normalizeCategory(raw)
-    if (label === null || defaults.has(label) || seen.has(label)) continue
-    seen.add(label)
-    out.push({ id: `custom:${label}`, label, description: '' })
-  }
-  return out.sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
-}
-
-/** The defaults, then the custom values already in use. */
-export function categoryOptions(storedValues: readonly string[]): CategoryOption[] {
-  return [...DEFAULT_CATEGORIES, ...customCategoryOptions(storedValues)]
 }

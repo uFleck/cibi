@@ -4,6 +4,7 @@ import { TransactionsPage } from '@/pages/transactions'
 import { FriendsPage } from '@/pages/friends'
 import { SettingsPage } from '@/pages/settings'
 import { GoalsPage } from '@/pages/goals'
+import { CategoriesPage } from '@/pages/categories'
 import { OverviewPage } from '@/pages/overview'
 import { RootLayout } from '@/App'
 
@@ -45,6 +46,12 @@ const goalsRoute = createRoute({
   component: GoalsPage,
 })
 
+const categoriesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/categories',
+  component: CategoriesPage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   accountsRoute,
@@ -52,6 +59,7 @@ const routeTree = rootRoute.addChildren([
   friendsRoute,
   settingsRoute,
   goalsRoute,
+  categoriesRoute,
 ])
 
 export const router = createRouter({ routeTree })

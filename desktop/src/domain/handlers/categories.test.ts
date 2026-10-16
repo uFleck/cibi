@@ -51,7 +51,7 @@ describe('GET /api/categories', () => {
     expect(options.slice(0, DEFAULT_CATEGORIES.length).map((o) => o.label)).toEqual(
       DEFAULT_CATEGORIES.map((c) => c.label),
     )
-    expect(options.at(-1)).toEqual({ id: 'custom:Pet', label: 'Pet', description: '' })
+    expect(options.at(-1)).toMatchObject({ label: 'Pet', description: '' })
   })
 })
 
@@ -124,5 +124,95 @@ describe('transactions carry a category', () => {
     const res = await localFetch(`/api/transactions?account_id=${accountId}`)
     const rows = await json<{ category: string | null }[]>(res)
     expect(rows.map((r) => r.category)).toEqual(['Assinaturas'])
+  })
+})
+
+type Option = { id: string; label: string; description: string }
+type Details = Option & { usage: number }
+
+async function send(method: string, path: string, body?: unknown): Promise<Response> {
+  return localFetch(path, { method, body: body === undefined ? undefined : JSON.stringify(body) })
+}
+
+describe('category management', () => {
+  it('seeds the defaults, with the default text', async () => {
+    const options = await json<Option[]>(await localFetch('/api/categories'))
+    expect(options).toEqual([...DEFAULT_CATEGORIES])
+  })
+
+  it('adopts a label already on a transaction as a custom category', async () => {
+    await createTxn({ title: 'Ração', category: ' Pet ' })
+    const options = await json<Option[]>(await localFetch('/api/categories'))
+    const pet = options.find((o) => o.label === 'Pet')
+    expect(pet).toMatchObject({ description: '' })
+    expect(pet?.id.startsWith('custom-')).toBe(true)
+    expect(options.filter((o) => o.label === 'Pet')).toHaveLength(1)
+  })
+
+  it('POST adds a category and details count its transactions', async () => {
+    const res = await send('POST', '/api/categories', { label: ' Pet ', description: ' Ração e veterinário ' })
+    expect(res.status).toBe(201)
+    expect(await json<Option>(res)).toMatchObject({ label: 'Pet', description: 'Ração e veterinário' })
+    await createTxn({ title: 'Ração', category: 'pet' })
+    const details = await json<Details[]>(await localFetch('/api/categories/details'))
+    expect(details.find((d) => d.label === 'Pet')?.usage).toBe(1)
+    expect(details.find((d) => d.label === 'Mercado')?.usage).toBe(0)
+  })
+
+  it('POST rejects a blank name, a taken name (any case) and Uncategorized', async () => {
+    expect((await send('POST', '/api/categories', { label: '  ', description: '' })).status).toBe(400)
+    expect((await send('POST', '/api/categories', { label: 'mercado', description: '' })).status).toBe(409)
+    expect((await send('POST', '/api/categories', { label: 'uncategorized', description: '' })).status).toBe(409)
+    expect((await send('POST', '/api/categories', { label: 'x'.repeat(61), description: '' })).status).toBe(400)
+    expect((await send('POST', '/api/categories', { label: 'Ok', description: 'x'.repeat(501) })).status).toBe(400)
+  })
+
+  it('PUT edits the description and Laya reads it', async () => {
+    const res = await send('PUT', '/api/categories/mercado', { label: 'Mercado', description: 'Feira e açougue' })
+    expect(res.status).toBe(200)
+    const options = await json<Option[]>(await localFetch('/api/categories'))
+    expect(options.find((o) => o.id === 'mercado')?.description).toBe('Feira e açougue')
+  })
+
+  it('PUT renames the category on its transactions and budget limit, and keeps its keyword rules', async () => {
+    const txn = await createTxn({ title: 'Carrefour', category: 'Mercado' })
+    await db.query(`INSERT INTO Budget (category, monthly_limit, is_fixed) VALUES ('Mercado', 50000, 0)`)
+    const res = await send('PUT', '/api/categories/mercado', { label: 'Feira', description: 'Compras de casa' })
+    expect(res.status).toBe(200)
+    const rows = await db.query<{ category: string }>(`SELECT category FROM "Transaction" WHERE id = ?`, [txn.id])
+    expect(rows[0].category).toBe('Feira')
+    const limits = await db.query<{ category: string }>(`SELECT category FROM Budget`)
+    expect(limits.map((l) => l.category)).toEqual(['Feira'])
+    const suggestion = await json<{ category: string }>(await localFetch('/api/categories/suggest?title=Carrefour%20Hiper'))
+    expect(suggestion.category).toBe('Feira')
+  })
+
+  it('PUT rejects a name another category has, and an unknown id is 404', async () => {
+    expect((await send('PUT', '/api/categories/mercado', { label: 'saúde', description: '' })).status).toBe(409)
+    expect((await send('PUT', '/api/categories/nope', { label: 'X', description: '' })).status).toBe(404)
+  })
+
+  it('PUT may change only the case of a name', async () => {
+    expect((await send('PUT', '/api/categories/mercado', { label: 'MERCADO', description: 'x' })).status).toBe(200)
+  })
+
+  it('DELETE removes the category, uncategorizes its transactions and drops its budget limit', async () => {
+    const txn = await createTxn({ title: 'x', category: 'Lazer' })
+    await db.query(`INSERT INTO Budget (category, monthly_limit, is_fixed) VALUES ('Lazer', 100, 0)`)
+    const res = await send('DELETE', '/api/categories/lazer')
+    expect(res.status).toBe(204)
+    const options = await json<Option[]>(await localFetch('/api/categories'))
+    expect(options.some((o) => o.id === 'lazer')).toBe(false)
+    const rows = await db.query<{ category: string | null }>(`SELECT category FROM "Transaction" WHERE id = ?`, [txn.id])
+    expect(rows[0].category).toBeNull()
+    expect(await db.query(`SELECT * FROM Budget`)).toEqual([])
+    expect((await send('DELETE', '/api/categories/lazer')).status).toBe(404)
+  })
+
+  it('a deleted category is not suggested and does not come back', async () => {
+    await send('DELETE', '/api/categories/mercado')
+    expect(await json(await localFetch('/api/categories/suggest?title=Carrefour%20Hiper'))).toBeNull()
+    const options = await json<Option[]>(await localFetch('/api/categories'))
+    expect(options.some((o) => o.label === 'Mercado')).toBe(false)
   })
 })

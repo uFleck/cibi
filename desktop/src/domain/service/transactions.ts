@@ -11,7 +11,7 @@ import type { Db } from '../db'
 import { AppError, wrapping } from '../errors'
 import { addDays } from '../dates'
 import { addMonthClamped, FREQ_BI_WEEKLY, FREQ_MONTHLY, FREQ_WEEKLY, FREQ_YEARLY } from '../engine/engine'
-import { categoryOptions, normalizeCategory } from '../categories'
+import { normalizeCategory, type CategoryOption } from '../categories'
 import { classificationText, suggestCategory } from '../classifier'
 import type { AccountsRepo } from '../repo/accounts'
 import { VALID_FREQUENCIES, type Transaction, type TransactionsRepo, type UpdateTransaction } from '../repo/transactions'
@@ -34,12 +34,20 @@ export class TransactionsService {
   private readonly db: Db
   private readonly txnsRepo: TransactionsRepo
   private readonly ledgerSvc: LedgerService
+  private readonly listCategories: () => Promise<CategoryOption[]>
 
   // Go keeps accRepo in the struct, but no transactions method uses it, so the port does not store it.
-  constructor(db: Db, txnsRepo: TransactionsRepo, _accRepo: AccountsRepo, ledgerSvc: LedgerService) {
+  constructor(
+    db: Db,
+    txnsRepo: TransactionsRepo,
+    _accRepo: AccountsRepo,
+    ledgerSvc: LedgerService,
+    listCategories: () => Promise<CategoryOption[]> = async () => [],
+  ) {
     this.db = db
     this.txnsRepo = txnsRepo
     this.ledgerSvc = ledgerSvc
+    this.listCategories = listCategories
   }
 
   /**
@@ -117,7 +125,7 @@ export class TransactionsService {
    */
   private async autoCategory(title: string, description: string | null): Promise<string | null> {
     try {
-      const options = categoryOptions(await this.txnsRepo.distinctCategories())
+      const options = await this.listCategories()
       return (await suggestCategory(classificationText(title, description), options, { onlyIfReady: true }))?.category ?? null
     } catch {
       return null

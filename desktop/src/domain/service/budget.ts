@@ -7,7 +7,7 @@
 import type { Db } from '../db'
 import { AppError } from '../errors'
 import { DAY_MS, formatYmd } from '../dates'
-import { categoryOptions, normalizeCategory } from '../categories'
+import { normalizeCategory, type CategoryOption } from '../categories'
 import type { BudgetRepo } from '../repo/budget'
 import type { TransactionsRepo } from '../repo/transactions'
 import {
@@ -36,12 +36,19 @@ const WINDOW_PAD_MS = 2 * DAY_MS
 export class BudgetService {
   private readonly db: Db
   private readonly repo: BudgetRepo
-  private readonly txnsRepo: Pick<TransactionsRepo, 'distinctCategories' | 'getById'>
+  private readonly txnsRepo: Pick<TransactionsRepo, 'getById'>
+  private readonly listCategories: () => Promise<CategoryOption[]>
 
-  constructor(db: Db, repo: BudgetRepo, txnsRepo: Pick<TransactionsRepo, 'distinctCategories' | 'getById'>) {
+  constructor(
+    db: Db,
+    repo: BudgetRepo,
+    txnsRepo: Pick<TransactionsRepo, 'getById'>,
+    listCategories: () => Promise<CategoryOption[]>,
+  ) {
     this.db = db
     this.repo = repo
     this.txnsRepo = txnsRepo
+    this.listCategories = listCategories
   }
 
   async getBudget(month?: string, now: Date = new Date()): Promise<BudgetResponse> {
@@ -101,10 +108,7 @@ export class BudgetService {
       pace,
       rows,
       bills,
-      categories: categoryOptions([
-        ...(await this.txnsRepo.distinctCategories()),
-        ...limits.map((l) => l.category),
-      ]),
+      categories: await this.listCategories(),
     }
   }
 

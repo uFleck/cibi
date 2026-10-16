@@ -390,6 +390,38 @@ export function fetchCategories(): Promise<CategoryOption[]> {
   return apiFetch<CategoryOption[]>('/api/categories')
 }
 
+export interface CategoryDetails extends CategoryOption {
+  /** How many transactions use the category. */
+  usage: number
+}
+
+export interface CategoryInput {
+  label: string
+  description: string
+}
+
+export function fetchCategoryDetails(): Promise<CategoryDetails[]> {
+  return apiFetch<CategoryDetails[]>('/api/categories/details')
+}
+
+function categoryBody(input: CategoryInput): RequestInit {
+  return { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }
+}
+
+export function createCategory(input: CategoryInput): Promise<CategoryOption> {
+  return apiFetch<CategoryOption>('/api/categories', { method: 'POST', ...categoryBody(input) })
+}
+
+/** A new label moves the category's transactions and budget limit to it. */
+export function updateCategory(id: string, input: CategoryInput): Promise<CategoryOption> {
+  return apiFetch<CategoryOption>(`/api/categories/${id}`, { method: 'PUT', ...categoryBody(input) })
+}
+
+/** The category's transactions become uncategorized and its budget limit is removed. */
+export function deleteCategory(id: string): Promise<void> {
+  return apiFetch<void>(`/api/categories/${id}`, { method: 'DELETE' })
+}
+
 /** The classifier's confident suggestion for a title and optional description, or null. */
 export function suggestCategory(title: string, description = ''): Promise<Classification | null> {
   const query = `title=${encodeURIComponent(title)}&description=${encodeURIComponent(description)}`

@@ -59,9 +59,8 @@ function fakeRepo(store: Store): BudgetRepo {
   }
 }
 
-function fakeTxns(store: Store): Pick<TransactionsRepo, 'distinctCategories' | 'getById'> {
+function fakeTxns(store: Store): Pick<TransactionsRepo, 'getById'> {
   return {
-    distinctCategories: async () => [...store.categories],
     getById: async (id: string) => {
       if (!store.transactionIds.has(id)) throw wrap('transactions.GetByID', ErrNoRows)
       return { id } as Transaction
@@ -85,7 +84,9 @@ function fakeDb(): Db & { txCount: number } {
 function setup(seed: Partial<Store> = {}) {
   const store = makeStore(seed)
   const db = fakeDb()
-  const service = new BudgetService(db, fakeRepo(store), fakeTxns(store))
+  const service = new BudgetService(db, fakeRepo(store), fakeTxns(store), async () =>
+    store.categories.map((label) => ({ id: label, label, description: '' })),
+  )
   return { store, db, service }
 }
 
@@ -338,16 +339,10 @@ describe('totals and pace', () => {
 })
 
 describe('categories', () => {
-  it('includes the defaults and custom categories that are used or budgeted', async () => {
-    const { service } = setup({
-      categories: ['Pet shop', 'Mercado'],
-      limits: [{ category: 'Viagem extra', monthlyLimit: 1, isFixed: false }],
-    })
+  it('offers the categories the category list returns', async () => {
+    const { service } = setup({ categories: ['Mercado', 'Pet shop'] })
     const labels = (await service.getBudget('2026-10', OCT_16)).categories.map((c) => c.label)
-    expect(labels).toContain('Restaurantes e delivery')
-    expect(labels).toContain('Pet shop')
-    expect(labels).toContain('Viagem extra')
-    expect(labels.filter((l) => l === 'Mercado')).toHaveLength(1)
+    expect(labels).toEqual(['Mercado', 'Pet shop'])
   })
 })
 

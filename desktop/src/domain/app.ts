@@ -17,6 +17,7 @@ import { FriendService } from './service/friend'
 import { PeerDebtService } from './service/peerDebt'
 import { GroupEventService } from './service/groupEvent'
 import { GoalsService } from './service/goals'
+import { SqliteCategoriesRepo } from './repo/categories'
 import { CategoriesService } from './service/categories'
 import { BudgetService } from './service/budget'
 import { EngineService } from './service/engine'
@@ -72,7 +73,8 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
   const ledgerRepo = new SqliteLedgerRepo(db)
   const ledgerSvc = new LedgerService(db, ledgerRepo, accountsRepo)
   const accountsSvc = new AccountsService(accountsRepo, ledgerSvc)
-  const txnsSvc = new TransactionsService(db, txnsRepo, accountsRepo, ledgerSvc)
+  const categoriesSvc = new CategoriesService(db, new SqliteCategoriesRepo(db), txnsRepo)
+  const txnsSvc = new TransactionsService(db, txnsRepo, accountsRepo, ledgerSvc, () => categoriesSvc.list())
   const goalsRepo = new SqliteGoalsRepo(db)
   const goalsSvc = new GoalsService(db, goalsRepo, accountsRepo, ledgerSvc)
   const engineSvc = new EngineService(accountsRepo, txnsRepo, psRepo, peerDebtRepo, groupEventRepo, goalsRepo)
@@ -84,9 +86,8 @@ export function buildApp(db: Db, config: Partial<Config> = {}): App {
   const profileSvc = new ProfileService(profileRepo)
   const appSettingRepo = new SqliteAppSettingRepo(db)
   const settingSvc = new AppSettingService(appSettingRepo)
-  const categoriesSvc = new CategoriesService(db, txnsRepo)
   const budgetRepo = new SqliteBudgetRepo(db)
-  const budgetSvc = new BudgetService(db, budgetRepo, txnsRepo)
+  const budgetSvc = new BudgetService(db, budgetRepo, txnsRepo, () => categoriesSvc.list())
   return {
     db,
     config: { ...DEFAULT_CONFIG, ...config },

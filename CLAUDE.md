@@ -12,6 +12,9 @@ No project-local AM/Workflow Lite tools configured.
 3. **Hard block on coding before approval.**
    - After drafting the plan, stop and request explicit user confirmation.
    - Do not edit files, run implementation commands, or generate patches until the user approves the plan.
+   - Answered questions count as approval: if the plan raised clarifying questions and the user answered them, and no gray area remains after the answers, treat the plan as approved and start implementing without asking again.
+   - If the plan raised no questions, assume permission is still needed and wait for explicit confirmation.
+   - If an answer leaves a new gray area, ask about it instead of starting.
 4. **If user says “implement now” with ambiguity present.**
    - Refuse implementation politely, list blockers, and ask the minimum questions needed to unblock.
 5. **Delegated changes run in the main checkout, on disjoint files.**
