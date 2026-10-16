@@ -5,6 +5,7 @@ import { Plus, ArrowLeftRight, Check, Pencil, Trash2, X, Users, History } from '
 import { Skeleton } from 'boneyard-js/react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { PageHeader, pageShell } from '@/components/ui/page-header'
 import { Chip } from '@/components/ui/chip'
 import { DateInput } from '@/components/ui/date-input'
 import { denseCell, denseHead, denseNumCell, denseRow, denseTable } from '@/components/ui/dense'
@@ -723,7 +724,7 @@ export function TransactionsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
+    <div className={pageShell}>
       <ConfirmDialog
         open={!!confirmDelete}
         onConfirm={() => {
@@ -735,22 +736,19 @@ export function TransactionsPage() {
         description="This action cannot be undone."
       />
 
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-semibold">Transactions</h1>
-          {currentAccountId && (
-            <p className="text-xs text-muted-foreground">
-              Account: {accounts.find(a => a.id === currentAccountId)?.name}
-            </p>
-          )}
-        </div>
-        {activeTab === 'transactions' && (
-          <Button onClick={handleCreateClick} size="sm" className="hidden sm:inline-flex">
-            <Plus size={16} />
-            Add Transaction
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        eyebrow="Ledger"
+        title="Transactions"
+        description={`Record, schedule and review money in and out${currentAccount ? ` for ${currentAccount.name}` : ''}.`}
+        actions={
+          activeTab === 'transactions' ? (
+            <Button onClick={handleCreateClick} size="sm" className="hidden sm:inline-flex">
+              <Plus size={16} />
+              Add Transaction
+            </Button>
+          ) : null
+        }
+      />
 
       <div className="flex gap-1 border-b">
         <button

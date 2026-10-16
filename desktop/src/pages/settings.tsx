@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Save, User, HandCoins, Palette, Power, Tags, type LucideIcon } from 'lucide-react'
 import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { Button } from '@/components/ui/button'
+import { PageHeader, pageShell } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -146,11 +147,12 @@ export function SettingsPage() {
   })
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
-      <section className="flex flex-col gap-0.5">
-        <h1 className="text-lg font-semibold">Preferences</h1>
-        <p className="text-xs text-muted-foreground">Manage how your profile and payment details appear.</p>
-      </section>
+    <div className={pageShell}>
+      <PageHeader
+        eyebrow="Settings"
+        title="Preferences"
+        description="Manage how your profile and payment details appear."
+      />
 
       <SettingsPanel
         icon={Palette}

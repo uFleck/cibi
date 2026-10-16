@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Plus, Trash2, Save, Eye, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { PageHeader, pageShell } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { AppModal } from '@/components/AppModal'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -583,15 +584,19 @@ export function FriendsPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
+    <div className={pageShell}>
       <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold tracking-tight text-foreground">Friends</h1>
-          <Button size="sm" onClick={() => setShowCreateFriend(true)}>
-            <Plus size={16} />
-            Add Friend
-          </Button>
-        </div>
+        <PageHeader
+          eyebrow="Shared spending"
+          title="Friends"
+          description="Track who owes what, and settle up."
+          actions={
+            <Button size="sm" onClick={() => setShowCreateFriend(true)}>
+              <Plus size={16} />
+              Add Friend
+            </Button>
+          }
+        />
 
         {friendsLoading ? (
           <div className="flex flex-col gap-2">

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Pencil, Plus, RotateCcw, Save, Sparkles, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { PageHeader, pageShell } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -184,19 +185,18 @@ export function CategoriesPage() {
   })
 
   return (
-    <div className="flex flex-col gap-4">
-      <section className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="text-lg font-semibold">Categories</h1>
-          <p className="text-xs text-muted-foreground">
-            Rename categories and describe each one. The descriptions are what Laya reads to categorize a transaction.
-          </p>
-        </div>
-        <Button size="sm" onClick={() => setEditing({ kind: 'new' })}>
-          <Plus size={14} />
-          New category
-        </Button>
-      </section>
+    <div className={pageShell}>
+      <PageHeader
+        eyebrow="Classification"
+        title="Categories"
+        description="Rename categories and describe each one. The descriptions are what Laya reads to categorize a transaction."
+        actions={
+          <Button size="sm" onClick={() => setEditing({ kind: 'new' })}>
+            <Plus size={14} />
+            New category
+          </Button>
+        }
+      />
 
       <TryIt />
 

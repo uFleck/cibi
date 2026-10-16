@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Plus, Wallet, Edit2, Trash2, Check, Eye } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Button } from '@/components/ui/button'
+import { PageHeader, pageShell } from '@/components/ui/page-header'
 import { Badge } from '@/components/ui/badge'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { KvList } from '@/components/ui/kv-list'
@@ -363,7 +364,7 @@ export function AccountsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
+    <div className={pageShell}>
       <ConfirmDialog
         open={!!confirmDelete}
         onConfirm={() => {
@@ -376,13 +377,17 @@ export function AccountsPage() {
         confirmLabel="Delete account and all data"
       />
 
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Accounts</h1>
-        <Button onClick={handleCreateClick} size="sm" className="hidden sm:inline-flex">
-          <Plus size={16} />
-          New Account
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Accounts"
+        title="Accounts"
+        description="Manage your accounts, balances and pay schedules."
+        actions={
+          <Button onClick={handleCreateClick} size="sm" className="hidden sm:inline-flex">
+            <Plus size={16} />
+            New Account
+          </Button>
+        }
+      />
 
       {todaySchedules.length > 0 && (
         <div className="rounded-md border border-pos/30 bg-pos/10 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center gap-3">

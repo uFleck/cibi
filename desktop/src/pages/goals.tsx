@@ -14,6 +14,7 @@ import {
   type GoalsTrackingActivityResponse,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { PageHeader, pageEyebrow, pageShell } from '@/components/ui/page-header'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ValueInput } from '@/components/ui/value-input'
@@ -33,7 +34,7 @@ function parseCreateGoalTarget(raw: string): number | null {
   return parsed != null && parsed > 0 ? parsed : null
 }
 
-const eyebrow = 'font-mono text-[10.5px] uppercase tracking-[0.05em] text-faint'
+const eyebrow = pageEyebrow
 
 interface GoalSummaryCellProps {
   label: string
@@ -217,20 +218,18 @@ export function GoalsPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex min-w-0 flex-col gap-1">
-          <p className={eyebrow}>Savings goals</p>
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">Goals Tracking</h1>
-          <p className="text-[12px] text-muted-foreground">
-            Plan targets, monitor progress, and keep purchase impact visible{accountName ? ` for ${accountName}` : ''}.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {updatedCue ? <span className="whitespace-nowrap font-mono text-[11px] text-faint">{updatedCue}</span> : null}
-          <Button size="sm" onClick={() => setIsCreateModalOpen(true)} disabled={!accountId}>New Goal</Button>
-        </div>
-      </div>
+    <div className={pageShell}>
+      <PageHeader
+        eyebrow="Savings goals"
+        title="Goals Tracking"
+        description={`Plan targets, monitor progress, and keep purchase impact visible${accountName ? ` for ${accountName}` : ''}.`}
+        actions={
+          <>
+            {updatedCue ? <span className="whitespace-nowrap font-mono text-[11px] text-faint">{updatedCue}</span> : null}
+            <Button size="sm" onClick={() => setIsCreateModalOpen(true)} disabled={!accountId}>New Goal</Button>
+          </>
+        }
+      />
 
       {trackingQuery.isError ? (
         <div className="flex flex-col gap-3 rounded-md border border-neg/40 bg-neg/10 p-4" role="alert" aria-label="Goals tracking error">
