@@ -14,11 +14,23 @@ No project-local AM/Workflow Lite tools configured.
    - Do not edit files, run implementation commands, or generate patches until the user approves the plan.
 4. **If user says “implement now” with ambiguity present.**
    - Refuse implementation politely, list blockers, and ask the minimum questions needed to unblock.
-5. **Isolate delegated changes in git worktrees.**
-   - For delegated/parallel implementation runs, use isolated git worktrees (`worktree: true`).
-   - Prefer worktrees for risky multi-file changes to avoid cross-task interference.
+5. **Delegated changes run in the main checkout, on disjoint files.**
+   - Desktop work happens directly on `main` (see Workflow). Parallel subagents each get a disjoint set of files, so no worktree is needed.
+   - Use a worktree only for a risky change where subagents must touch the same files.
 
 Default behavior when uncertain: ask, do not implement.
+
+## Delegating to subagents
+
+The plan-and-approve policy above applies to the main (orchestrating) agent only.
+
+- The main agent plans, gets the user's approval, then delegates the approved work to subagents. Prefer cheap models (Haiku) for small, well-scoped edits; run independent tasks in parallel.
+- A subagent receives the distilled, already-approved task. It must **not** ask for plan approval, re-plan, or ask for confirmation. It implements exactly the task it was given, runs the requested checks, and reports the exact edits and results.
+- A subagent should only stop to ask when the task is genuinely impossible or contradicts the code it finds. State the blocker; do not ask for permission to proceed.
+- Every delegation brief must be self-contained: exact files and lines, the exact change, which files not to touch, what to verify, and "do not commit, push, or build".
+- Subagents never commit, push, or run `make upd`. The main agent does those after review.
+- The main agent reviews every subagent diff (`git diff` on the touched files), re-runs the typecheck and tests itself, and fixes problems by sending the issue back to the same subagent (or fixing it directly if trivial) before shipping.
+- Typecheck with `npx tsc -p tsconfig.app.json --noEmit` from `desktop/` (the root `tsconfig.json` has `"files": []`, so `tsc --noEmit` alone checks nothing). Tests: `npx vitest run`.
 
 ## Post-ship requirement
 
