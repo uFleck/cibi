@@ -49,6 +49,8 @@ function input(over: Partial<NewTransaction> = {}): NewTransaction {
     isInstallment: false,
     totalInstallments: null,
     paidInstallments: 0,
+    estimateSource: null,
+    estimateKey: null,
     ...over,
   }
 }

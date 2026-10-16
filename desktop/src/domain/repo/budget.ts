@@ -30,6 +30,9 @@ export interface RecurringRow {
   /** Cents, negative (an outflow). */
   amount: number
   nextOccurrence: Date
+  /** See Transaction.estimateSource; null for a fixed amount. */
+  estimateSource: string | null
+  estimateKey: string | null
 }
 
 export interface BudgetRepo {
@@ -116,7 +119,7 @@ export class SqliteBudgetRepo implements BudgetRepo {
     let rows: Row[]
     try {
       rows = await this.db.query(
-        `SELECT id, title, category, amount, next_occurrence FROM "Transaction"
+        `SELECT id, title, category, amount, next_occurrence, estimate_source, estimate_key FROM "Transaction"
 		 WHERE COALESCE(type, 'personal') = 'personal' AND is_recurring = 1 AND amount < 0
 		   AND next_occurrence >= ? AND next_occurrence < ?`,
         [formatDbTime(from), formatDbTime(to)],
@@ -131,6 +134,8 @@ export class SqliteBudgetRepo implements BudgetRepo {
         category: nullableTextCol(row, 'category'),
         amount: intCol(row, 'amount'),
         nextOccurrence: parseDbTime(textCol(row, 'next_occurrence')),
+        estimateSource: nullableTextCol(row, 'estimate_source'),
+        estimateKey: nullableTextCol(row, 'estimate_key'),
       }))
     } catch (err) {
       throw wrap('budget.ListRecurringBetween: scan', err)

@@ -23,6 +23,9 @@ export interface TransactionFormValues {
   requires_confirmation?: boolean
   is_installment?: boolean
   total_installments?: number
+  /** 'category' or 'keyword' to estimate the amount from past payments; empty for a fixed amount. */
+  estimate_source?: string
+  estimate_key?: string
 }
 
 export type TransactionFormErrors = Partial<Record<keyof TransactionFormValues, string>>
@@ -249,6 +252,67 @@ export function TransactionForm({
               onChange={anchor_date => onChange({ anchor_date })}
             />
           </div>
+          {formData.is_recurring && (
+            <div className="flex flex-col gap-2">
+              <Label className="text-xs">Amount</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { value: 'fixed', label: 'Always the same' },
+                  { value: 'estimated', label: 'Varies: estimate it' },
+                ] as const).map(({ value, label }) => {
+                  const estimated = !!formData.estimate_source
+                  const active = value === 'estimated' ? estimated : !estimated
+                  return (
+                    <button
+                      type="button"
+                      key={value}
+                      className={`rounded-md border px-3 py-2.5 text-xs text-left transition-colors ${active ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-muted-foreground hover:text-foreground'}`}
+                      onClick={() => onChange(value === 'estimated'
+                        ? { estimate_source: 'category', estimate_key: formData.estimate_key || formData.category || '' }
+                        : { estimate_source: '', estimate_key: '' })}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+              {formData.estimate_source && (
+                <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Select
+                      value={formData.estimate_source}
+                      onValueChange={v => onChange({ estimate_source: v })}
+                    >
+                      <SelectTrigger id="txn-estimate-source" size="sm" className="w-full" aria-label="Estimate from">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="category">Payments in the category</SelectItem>
+                        <SelectItem value="keyword">Payments containing the text</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      id="txn-estimate-key"
+                      value={formData.estimate_key ?? ''}
+                      onChange={e => {
+                        onChange({ estimate_key: e.target.value })
+                        if (formErrors.estimate_key) onClearError('estimate_key')
+                      }}
+                      placeholder={formData.estimate_source === 'category' ? 'Groceries' : 'market'}
+                      aria-label="Category or text to match"
+                      aria-invalid={!!formErrors.estimate_key || undefined}
+                    />
+                  </div>
+                  {formErrors.estimate_key && (
+                    <p className="text-xs text-destructive">{formErrors.estimate_key}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    The amount above is used until there are past payments. After that, it is the median of the last 6 matching payments.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
       <div className="sticky bottom-0 bg-popover/95 backdrop-blur-sm flex gap-2 pt-4 pb-1">

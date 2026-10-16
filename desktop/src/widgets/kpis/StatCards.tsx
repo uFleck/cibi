@@ -9,7 +9,7 @@ import { MoneyValue } from '@/components/ui/money-value'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { isInCurrentPayWindow } from '@/lib/financial-window'
 import { formatMoney } from '@/lib/format'
-import { updateAccount } from '@/lib/api'
+import { effectiveAmount, updateAccount } from '@/lib/api'
 import type {
   AccountResponse,
   TransactionResponse,
@@ -118,7 +118,7 @@ export function StatCards({
       t => t.is_recurring && t.next_occurrence !== null
         && isInCurrentPayWindow(t.next_occurrence, now, nextPayday),
     )
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+    .reduce((sum, t) => sum + Math.abs(effectiveAmount(t)), 0)
 
   const peerObligations = friendBreakdown.reduce((sum, debt) => {
     if (!debt.next_payment_date) return sum + debt.next_payment

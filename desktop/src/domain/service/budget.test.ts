@@ -95,7 +95,7 @@ function payment(amount: number, postedAt: Date, category: string | null, transa
 }
 
 function bill(id: string, amount: number, nextOccurrence: Date, category: string | null, title = id): RecurringRow {
-  return { transactionId: id, title, category, amount, nextOccurrence }
+  return { transactionId: id, title, category, amount, nextOccurrence, estimateSource: null, estimateKey: null }
 }
 
 function rowOf(res: BudgetResponse, category: string): BudgetRow {

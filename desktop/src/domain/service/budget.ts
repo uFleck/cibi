@@ -10,6 +10,7 @@ import { DAY_MS, formatYmd } from '../dates'
 import { normalizeCategory, type CategoryOption } from '../categories'
 import type { BudgetRepo } from '../repo/budget'
 import type { TransactionsRepo } from '../repo/transactions'
+import type { EstimateService } from './estimate'
 import {
   UNCATEGORIZED,
   isValidMonth,
@@ -38,17 +39,20 @@ export class BudgetService {
   private readonly repo: BudgetRepo
   private readonly txnsRepo: Pick<TransactionsRepo, 'getById'>
   private readonly listCategories: () => Promise<CategoryOption[]>
+  private readonly estimator: Pick<EstimateService, 'effectiveAmount'>
 
   constructor(
     db: Db,
     repo: BudgetRepo,
     txnsRepo: Pick<TransactionsRepo, 'getById'>,
     listCategories: () => Promise<CategoryOption[]>,
+    estimator: Pick<EstimateService, 'effectiveAmount'> = { effectiveAmount: async (t) => t.amount },
   ) {
     this.db = db
     this.repo = repo
     this.txnsRepo = txnsRepo
     this.listCategories = listCategories
+    this.estimator = estimator
   }
 
   async getBudget(month?: string, now: Date = new Date()): Promise<BudgetResponse> {
@@ -158,16 +162,17 @@ export class BudgetService {
       new Date(end + WINDOW_PAD_MS),
     )
     const excluded = new Set(await this.repo.listExclusionIds(month))
-    const bills: ScheduledBill[] = recurring
-      .filter((r) => utcMonth(r.nextOccurrence) === month)
-      .map((r) => ({
+    const bills: ScheduledBill[] = []
+    for (const r of recurring.filter((row) => utcMonth(row.nextOccurrence) === month)) {
+      bills.push({
         transactionId: r.transactionId,
         title: r.title,
         category: normalizeCategory(r.category),
-        amount: -r.amount,
+        amount: -(await this.estimator.effectiveAmount(r)),
         dueDate: formatYmd(r.nextOccurrence),
         excluded: excluded.has(r.transactionId),
-      }))
+      })
+    }
     bills.sort((a, b) => {
       if (a.dueDate !== b.dueDate) return a.dueDate < b.dueDate ? -1 : 1
       return a.title.localeCompare(b.title, 'pt-BR')

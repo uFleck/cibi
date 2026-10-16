@@ -10,6 +10,7 @@ import { CustomProjectionSheet } from '@/components/CustomProjectionSheet'
 import { NoPaySchedule } from '@/widgets/payday/PayWindowBar'
 import type { CustomProjectionConfig } from '@/components/CustomProjectionSheet'
 import type { CustomProjection } from '@/lib/monthly-projection'
+import { effectiveAmount } from '@/lib/api'
 import type { AccountResponse, FriendDebtBreakdownItem, PayScheduleResponse, TransactionResponse } from '@/lib/api'
 
 interface ProjectionWidgetProps {
@@ -55,7 +56,7 @@ export function ProjectionWidget({
       t => t.is_recurring && t.next_occurrence !== null
         && isInCurrentPayWindow(t.next_occurrence, now, nextPayday),
     )
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+    .reduce((sum, t) => sum + Math.abs(effectiveAmount(t)), 0)
 
   const currentInstallmentReserved = transactions
     .filter(
@@ -77,7 +78,7 @@ export function ProjectionWidget({
 
   const nextRecurringObligations = transactions
     .filter(t => t.is_recurring && t.next_occurrence !== null && isInWindow(t.next_occurrence, windowStart, windowEnd))
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+    .reduce((sum, t) => sum + Math.abs(effectiveAmount(t)), 0)
 
   const nextInstallmentObligations = transactions
     .filter(t => t.is_installment && t.next_occurrence !== null

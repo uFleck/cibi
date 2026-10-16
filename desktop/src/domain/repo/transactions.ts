@@ -63,6 +63,10 @@ export interface Transaction {
   isInstallment: boolean
   totalInstallments: number | null
   paidInstallments: number
+  /** 'category' or 'keyword' when the amount is estimated from history (see estimate.ts); null for a fixed amount. */
+  estimateSource: string | null
+  /** The category or keyword the estimate matches; null for a fixed amount. */
+  estimateKey: string | null
 }
 
 /** The fields Update can write. Go's nil pointer is `undefined` here (no change). */
@@ -83,6 +87,9 @@ export interface UpdateTransaction {
   isRecurring?: boolean
   frequency?: string
   anchorDate?: Date
+  /** Null makes the amount fixed again. */
+  estimateSource?: string | null
+  estimateKey?: string | null
 }
 
 export interface TransactionsRepo {
@@ -102,12 +109,14 @@ export interface TransactionsRepo {
   markConfirmed(id: string, confirmedAt: Date): Promise<void>
   /** Go's `after` is unused by the query and is accepted only to keep the Go signature. */
   sumUpcomingObligations(accountId: string, after: Date, onOrBefore: Date): Promise<number>
+  /** Recurring personal transactions with an estimated amount that are due before `onOrBefore`. */
+  listDueVariable(accountId: string, onOrBefore: Date): Promise<Transaction[]>
   incrementPaidInstallments(id: string): Promise<void>
 }
 
 const SELECT_TXN = `SELECT id, account_id, COALESCE(type, 'personal') AS type, friend_id, amount, title, description, category, timestamp,
 			is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at,
-			is_installment, total_installments, paid_installments`
+			is_installment, total_installments, paid_installments, estimate_source, estimate_key`
 
 /** Go parseFlexTime: RFC3339, then the calendar date. */
 function parseFlexTime(s: string): Date {
@@ -146,6 +155,8 @@ function scanTransaction(row: Row): Transaction {
     isInstallment: boolCol(row, 'is_installment'),
     totalInstallments: nullableIntCol(row, 'total_installments'),
     paidInstallments: intCol(row, 'paid_installments'),
+    estimateSource: nullableTextCol(row, 'estimate_source'),
+    estimateKey: nullableTextCol(row, 'estimate_key'),
   }
 }
 
@@ -186,12 +197,14 @@ export class SqliteTxnsRepo implements TransactionsRepo {
       bit(t.isInstallment),
       t.totalInstallments,
       t.paidInstallments,
+      blankToNull(t.estimateSource),
+      blankToNull(t.estimateKey),
     ]
     try {
       await this.db.query(
         `INSERT INTO "Transaction"
-			(id, account_id, type, amount, title, description, category, timestamp, is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at, is_installment, total_installments, paid_installments)
-			VALUES (?, ?, 'personal', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			(id, account_id, type, amount, title, description, category, timestamp, is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at, is_installment, total_installments, paid_installments, estimate_source, estimate_key)
+			VALUES (?, ?, 'personal', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args,
       )
       await this.writeLinks(t.id, t.links)
@@ -362,6 +375,15 @@ export class SqliteTxnsRepo implements TransactionsRepo {
         throw wrap('transactions.Update anchor_date', err)
       })
     }
+    if (upd.estimateSource !== undefined || upd.estimateKey !== undefined) {
+      await this.exec(`UPDATE "Transaction" SET estimate_source = ?, estimate_key = ? WHERE id = ?`, [
+        blankToNull(upd.estimateSource ?? null),
+        blankToNull(upd.estimateKey ?? null),
+        id,
+      ]).catch((err: unknown) => {
+        throw wrap('transactions.Update estimate', err)
+      })
+    }
   }
 
   async deleteById(id: string): Promise<void> {
@@ -406,7 +428,7 @@ export class SqliteTxnsRepo implements TransactionsRepo {
 		WHERE account_id = ?
 		AND COALESCE(type, 'personal') = 'personal'
 		AND (
-			(is_recurring = 1 AND next_occurrence < ?)
+			(is_recurring = 1 AND estimate_source IS NULL AND next_occurrence < ?)
 			OR (is_recurring = 0 AND requires_confirmation = 1 AND confirmed_at IS NULL AND COALESCE(anchor_date, timestamp) < ?)
 		)`,
         [accountId, onOrBeforeStr, onOrBeforeStr],
@@ -417,6 +439,26 @@ export class SqliteTxnsRepo implements TransactionsRepo {
     const row = rows[0]
     if (row === undefined) throw wrap('transactions.SumUpcomingObligations', ErrNoRows)
     return intCol(row, 'total')
+  }
+
+  async listDueVariable(accountId: string, onOrBefore: Date): Promise<Transaction[]> {
+    let rows: Row[]
+    try {
+      rows = await this.db.query(
+        `${SELECT_TXN}
+		FROM "Transaction"
+		WHERE account_id = ? AND COALESCE(type, 'personal') = 'personal'
+		AND is_recurring = 1 AND estimate_source IS NOT NULL AND next_occurrence < ?`,
+        [accountId, formatDbTime(onOrBefore)],
+      )
+    } catch (err) {
+      throw wrap('transactions.ListDueVariable', err)
+    }
+    try {
+      return rows.map(scanTransaction)
+    } catch (err) {
+      throw wrap('transactions.ListDueVariable: scan', err)
+    }
   }
 
   private async exec(sql: string, params: SqlParam[]): Promise<void> {

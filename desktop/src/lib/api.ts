@@ -36,6 +36,18 @@ export interface TransactionResponse {
   is_installment: boolean
   total_installments: number | null
   paid_installments: number
+  /** 'category' or 'keyword' when the amount is estimated from past payments; empty for a fixed amount. */
+  estimate_source?: string | null
+  estimate_key?: string | null
+  /** The current estimate of a variable amount, in the same sign as `amount`. */
+  estimated_amount?: number | null
+  /** How many past payments the estimate comes from; 0 means `amount` is used while there is no history. */
+  estimate_samples?: number | null
+}
+
+/** What to count for a transaction: its estimate when the amount is variable, else its amount. */
+export function effectiveAmount(t: Pick<TransactionResponse, 'amount' | 'estimated_amount'>): number {
+  return t.estimated_amount ?? t.amount
 }
 
 export interface GoalResponse {
@@ -339,6 +351,8 @@ export function createTransaction(data: {
   anchor_date?: string
   is_installment?: boolean
   total_installments?: number
+  estimate_source?: string
+  estimate_key?: string
 }): Promise<TransactionResponse> {
   return apiFetch<TransactionResponse>('/api/transactions', {
     method: 'POST',
@@ -361,6 +375,8 @@ export function updateTransaction(
     anchor_date: string
     is_installment: boolean
     total_installments: number | null
+    estimate_source: string
+    estimate_key: string
   }>
 ): Promise<TransactionResponse> {
   return apiFetch<TransactionResponse>(`/api/transactions/${id}`, {
@@ -464,9 +480,13 @@ export function deleteTransaction(id: string): Promise<void> {
   })
 }
 
-export function confirmTransaction(id: string): Promise<TransactionResponse> {
+/** `amount` is what a variable-amount transaction really cost (signed, like every amount); a fixed one ignores it. */
+export function confirmTransaction(id: string, amount?: number): Promise<TransactionResponse> {
   return apiFetch<TransactionResponse>(`/api/transactions/${id}/confirm`, {
     method: 'POST',
+    ...(amount === undefined
+      ? {}
+      : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount }) }),
   })
 }
 

@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { MoneyValue } from '@/components/ui/money-value'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { ConfirmAmountDialog } from '@/components/ConfirmAmountDialog'
 import { EditSheet } from '@/components/EditSheet'
 import { AccountSelector } from '@/components/AccountSelector'
 import { PaydayBanner } from '@/components/PaydayBanner'
@@ -32,6 +33,7 @@ import {
   updateTransaction,
   deleteTransaction,
   confirmTransaction,
+  effectiveAmount,
   confirmInstallmentTransaction,
   listFriends,
   confirmDebt,
@@ -96,6 +98,8 @@ interface FormData {
   requires_confirmation?: boolean
   is_installment?: boolean
   total_installments?: number
+  estimate_source?: string
+  estimate_key?: string
 }
 
 type FormErrors = Partial<Record<keyof FormData, string>>
@@ -113,6 +117,7 @@ export function TransactionsPage() {
   const [isCreatingSchedule, setIsCreatingSchedule] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [confirmAmountFor, setConfirmAmountFor] = useState<TransactionResponse | null>(null)
   const [peerDebtFilter, setPeerDebtFilter] = useState<{ friendId: string; direction: 'all' | 'i-owe' | 'they-owe'; status: 'all' | 'confirmed' | 'pending' }>({ friendId: 'all', direction: 'all', status: 'all' })
   const [isCreatingDebt, setIsCreatingDebt] = useState(false)
   const [debtForm, setDebtForm] = useState({
@@ -415,8 +420,8 @@ export function TransactionsPage() {
   })
 
   const confirmMutation = useMutation({
-    mutationFn: (id: string) => confirmTransaction(id),
-    onMutate: async (id) => {
+    mutationFn: ({ id, amount }: { id: string; amount?: number }) => confirmTransaction(id, amount),
+    onMutate: async ({ id }) => {
       await queryClient.cancelQueries({ queryKey: ['transactions', currentAccountId] })
       await queryClient.cancelQueries({ queryKey: ['accounts'] })
       await queryClient.cancelQueries({ queryKey: ['account', currentAccountId] })
@@ -480,8 +485,11 @@ export function TransactionsPage() {
     const txn = transactions.find((t: TransactionResponse) => t.id === id)
     if (txn?.is_installment) {
       confirmInstallmentMutation.mutate(id)
+    } else if (txn?.estimate_source) {
+      // A variable amount: ask what it really cost first.
+      setConfirmAmountFor(txn)
     } else {
-      confirmMutation.mutate(id)
+      confirmMutation.mutate({ id })
     }
   }
 
@@ -571,6 +579,8 @@ export function TransactionsPage() {
       requires_confirmation: txn.requires_confirmation,
       is_installment: txn.is_installment,
       total_installments: txn.total_installments ?? undefined,
+      estimate_source: txn.estimate_source ?? '',
+      estimate_key: txn.estimate_key ?? '',
     })
   }
 
@@ -578,6 +588,9 @@ export function TransactionsPage() {
     const errors: FormErrors = {}
     if (!formData.title.trim()) errors.title = 'Title is required'
     if (formData.amount === 0) errors.amount = 'Amount must be non-zero'
+    if (formData.is_recurring && formData.estimate_source && !formData.estimate_key?.trim()) {
+      errors.estimate_key = 'Say which category or text to estimate from'
+    }
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -586,7 +599,15 @@ export function TransactionsPage() {
     e.preventDefault()
     if (!validate()) return
     const anchorDate = fromDateInputValue(formData.anchor_date)
-    const payload = { ...formData, anchor_date: anchorDate, links: cleanLinks(formData.links) }
+    // Only a recurring expense can be estimated; an empty source and key make the amount fixed.
+    const estimated = !!formData.is_recurring && !!formData.estimate_source && !!formData.estimate_key?.trim()
+    const payload = {
+      ...formData,
+      anchor_date: anchorDate,
+      links: cleanLinks(formData.links),
+      estimate_source: estimated ? formData.estimate_source : '',
+      estimate_key: estimated ? formData.estimate_key?.trim() : '',
+    }
     if (editingId) {
       updateMutation.mutate({ id: editingId, updates: payload })
     } else {
@@ -683,6 +704,14 @@ export function TransactionsPage() {
       { label: txn.is_recurring ? 'Next' : 'Date', value: <span className="num">{dateValue ? formatDate(dateValue) : '-'}</span> },
     ]
     if (txn.is_recurring) rows.push({ label: 'Frequency', value: txn.frequency ?? '-' })
+    if (txn.estimate_source) {
+      rows.push({
+        label: 'Estimate',
+        value: `${txn.estimate_source === 'category' ? 'Category' : 'Text'} "${txn.estimate_key ?? ''}" · ${
+          txn.estimate_samples ? `median of ${txn.estimate_samples}` : 'no history yet, using the amount you set'
+        }`,
+      })
+    }
     if (txn.description) {
       rows.push({ label: 'Description', value: <span className="whitespace-pre-wrap break-words">{txn.description}</span> })
     }
@@ -701,7 +730,7 @@ export function TransactionsPage() {
       id: txn.id,
       title: txn.title,
       eyebrow: due ? `Due ${formatDate(txn.anchor_date || txn.timestamp)}` : formatDate(txn.timestamp),
-      amount: <MoneyValue amount={txn.amount} currency={currentAccountCurrency} showSign="always" tone="auto" />,
+      amount: <MoneyValue amount={effectiveAmount(txn)} currency={currentAccountCurrency} showSign="always" tone="auto" />,
       badge: txnStatusLabel(txn),
       rows,
       actions,
@@ -729,6 +758,18 @@ export function TransactionsPage() {
         onCancel={() => setConfirmDelete(null)}
         title={`Delete "${txnToDelete?.title}"?`}
         description="This action cannot be undone."
+      />
+
+      <ConfirmAmountDialog
+        open={confirmAmountFor !== null}
+        title={confirmAmountFor?.title ?? ''}
+        suggested={confirmAmountFor ? effectiveAmount(confirmAmountFor) : 0}
+        samples={confirmAmountFor?.estimate_samples ?? 0}
+        onConfirm={amount => {
+          if (confirmAmountFor) confirmMutation.mutate({ id: confirmAmountFor.id, amount })
+          setConfirmAmountFor(null)
+        }}
+        onCancel={() => setConfirmAmountFor(null)}
       />
 
       <PageHeader
@@ -890,7 +931,7 @@ export function TransactionsPage() {
                     : formatDate(txn.timestamp),
               amount: txn.is_installment
                 ? txn.amount * ((txn.total_installments ?? 0) - (txn.paid_installments ?? 0))
-                : txn.amount,
+                : effectiveAmount(txn),
               total: txn.is_installment
                 ? txn.amount * (txn.total_installments ?? 0)
                 : txn.amount,
@@ -900,7 +941,7 @@ export function TransactionsPage() {
                 label: txn.is_installment
                   ? `Installment ${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'}`
                   : txn.is_recurring
-                    ? 'Recurring'
+                    ? (txn.estimate_source ? 'Recurring · estimated' : 'Recurring')
                     : txn.requires_confirmation
                       ? (txn.confirmed_at ? 'Pending payment · confirmed' : 'Pending payment')
                       : 'One-time',

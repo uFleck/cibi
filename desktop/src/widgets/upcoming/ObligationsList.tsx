@@ -4,7 +4,7 @@ import { MoneyValue } from '@/components/ui/money-value'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/format'
 import { isInCurrentPayWindow } from '@/lib/financial-window'
-import type { TransactionResponse } from '@/lib/api'
+import { effectiveAmount, type TransactionResponse } from '@/lib/api'
 
 interface ObligationsListProps {
   transactions: TransactionResponse[]
@@ -36,7 +36,7 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
       new Date(a.next_occurrence!).getTime() - new Date(b.next_occurrence!).getTime()
     )
 
-  const total = obligations.reduce((sum, t) => sum + Math.abs(t.amount), 0)
+  const total = obligations.reduce((sum, t) => sum + Math.abs(effectiveAmount(t)), 0)
 
   return (
     <div className="flex flex-col">
@@ -66,7 +66,7 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
                 {t.is_installment ? `${t.paid_installments ?? 0}/${t.total_installments ?? '?'}` : null}
               </span>
               <MoneyValue
-                amount={t.amount}
+                amount={effectiveAmount(t)}
                 currency={currency}
                 tone="negative"
                 showSign="auto"

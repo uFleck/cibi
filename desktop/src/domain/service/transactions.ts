@@ -15,7 +15,9 @@ import { normalizeCategory, type CategoryOption } from '../categories'
 import { classificationText, suggestCategory } from '../classifier'
 import type { AccountsRepo } from '../repo/accounts'
 import { VALID_FREQUENCIES, type Transaction, type TransactionsRepo, type UpdateTransaction } from '../repo/transactions'
+import { isEstimateSource } from '../estimate'
 import type { LedgerService } from './ledger'
+import { isVariable, type EstimateService } from './estimate'
 
 /** deleteTransaction on a transaction that has a ledger row. The handler maps it to 409. */
 export const ErrTransactionHasLedger = new AppError('transaction has ledger entries and cannot be deleted')
@@ -35,6 +37,7 @@ export class TransactionsService {
   private readonly txnsRepo: TransactionsRepo
   private readonly ledgerSvc: LedgerService
   private readonly listCategories: () => Promise<CategoryOption[]>
+  private readonly estimator: Pick<EstimateService, 'effectiveAmount'>
 
   // Go keeps accRepo in the struct, but no transactions method uses it, so the port does not store it.
   constructor(
@@ -43,11 +46,13 @@ export class TransactionsService {
     _accRepo: AccountsRepo,
     ledgerSvc: LedgerService,
     listCategories: () => Promise<CategoryOption[]> = async () => [],
+    estimator: Pick<EstimateService, 'effectiveAmount'> = { effectiveAmount: async (t) => t.amount },
   ) {
     this.db = db
     this.txnsRepo = txnsRepo
     this.ledgerSvc = ledgerSvc
     this.listCategories = listCategories
+    this.estimator = estimator
   }
 
   /**
@@ -90,6 +95,10 @@ export class TransactionsService {
         throw new AppError('installment transaction requires frequency of monthly or weekly')
       }
     }
+
+    t.estimateSource = blank(t.estimateSource)
+    t.estimateKey = blank(t.estimateKey)
+    assertEstimate(t.estimateSource, t.estimateKey, t.isRecurring, t.amount)
 
     if (t.category === null && t.amount < 0) {
       t.category = await this.autoCategory(t.title, t.description)
@@ -147,6 +156,11 @@ export class TransactionsService {
    * balance is recalculated, but only when this transaction has already impacted it.
    */
   async updateTransaction(id: string, upd: UpdateTransaction): Promise<void> {
+    if (upd.estimateSource !== undefined || upd.estimateKey !== undefined) {
+      const old = await wrapping('service.UpdateTransaction: get old transaction', () => this.txnsRepo.getById(id))
+      upd = { ...upd, estimateSource: blank(upd.estimateSource ?? null), estimateKey: blank(upd.estimateKey ?? null) }
+      assertEstimate(upd.estimateSource ?? null, upd.estimateKey ?? null, upd.isRecurring ?? old.isRecurring, upd.amount ?? old.amount)
+    }
     const setInstallment = upd.isInstallment === true
     const setRecurring = upd.isRecurring === true
     if (setInstallment && setRecurring) {
@@ -279,8 +293,12 @@ export class TransactionsService {
    * balance. For recurring transactions, it also advances next_occurrence. Returns the new
    * next_occurrence, or null (Go's zero time) when there is none. D-03: the user must confirm
    * explicitly before anything is debited.
+   *
+   * A transaction with an estimated amount is debited what it really cost: `amount` (cents, same sign
+   * as the transaction) when given, else its current estimate. A fixed one is always debited its own
+   * amount, and `amount` is ignored.
    */
-  async confirmRecurring(transactionId: string): Promise<Date | null> {
+  async confirmRecurring(transactionId: string, amount?: number): Promise<Date | null> {
     const t = await wrapping('service.ConfirmRecurring: get transaction', () => this.txnsRepo.getById(transactionId))
 
     if (!t.isRecurring && t.confirmedAt !== null) {
@@ -293,6 +311,18 @@ export class TransactionsService {
       throw new AppError(`service.ConfirmRecurring: transaction ${transactionId} is not confirmable`)
     }
 
+    let debit = t.amount
+    if (isVariable(t)) {
+      if (amount !== undefined) {
+        if (amount === 0 || Math.sign(amount) !== Math.sign(t.amount)) {
+          throw new AppError('service.ConfirmRecurring: amount must be an expense')
+        }
+        debit = amount
+      } else {
+        debit = await this.estimator.effectiveAmount(t)
+      }
+    }
+
     return this.db.tx(async (): Promise<Date | null> => {
       const now = new Date()
       await wrapping('service.ConfirmRecurring: record ledger', () =>
@@ -302,7 +332,7 @@ export class TransactionsService {
             transactionId: t.id,
             payScheduleId: null,
             entryType: 'payment',
-            amount: t.amount,
+            amount: debit,
             description: t.title,
             postedAt: now,
           },
@@ -408,8 +438,22 @@ function hasAppliedToBalance(t: Transaction, now: Date): boolean {
   return true
 }
 
+function blank(value: string | null): string | null {
+  const trimmed = value?.trim() ?? ''
+  return trimmed === '' ? null : trimmed
+}
+
+/** An estimate needs a source and a key together, and only an expense that recurs can have one. */
+function assertEstimate(source: string | null, key: string | null, isRecurring: boolean, amount: number): void {
+  if (source === null && key === null) return
+  if (!isEstimateSource(source)) throw new AppError('estimate_source must be category or keyword')
+  if (key === null) throw new AppError('estimate_key is required with estimate_source')
+  if (!isRecurring) throw new AppError('only a recurring transaction can have an estimated amount')
+  if (amount >= 0) throw new AppError('only an expense can have an estimated amount')
+}
+
 /** The next occurrence after `current` for a frequency. Unknown frequencies are treated as monthly. */
-function advanceOccurrence(current: Date, frequency: string): Date {
+export function advanceOccurrence(current: Date, frequency: string): Date {
   switch (frequency) {
     case FREQ_WEEKLY:
       return addDays(current, 7)

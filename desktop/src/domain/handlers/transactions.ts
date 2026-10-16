@@ -19,6 +19,7 @@ import { ErrNoRows, isErr, messageOf } from '../errors'
 import { HttpError, route } from '../http'
 import { goRound } from '../num'
 import type { Transaction, TransactionLink, UpdateTransaction } from '../repo/transactions'
+import type { EstimateService } from '../service/estimate'
 import { ErrTransactionHasLedger, type TransactionsService } from '../service/transactions'
 import { parseUuid } from '../uuid'
 import { validateOrThrow, type FieldSpec } from '../validate'
@@ -58,7 +59,17 @@ export interface TransactionResponse {
   total_installments: number | null
   paid_installments: number
   category: string | null
+  /** 'category' or 'keyword' for an amount estimated from history; null for a fixed amount. */
+  estimate_source: string | null
+  estimate_key: string | null
+  /** Dollars. The current estimate of a variable transaction (its stored amount while there is no history); null when fixed. */
+  estimated_amount: number | null
+  /** How many past payments the estimate comes from; null when fixed. */
+  estimate_samples: number | null
 }
+
+/** The estimator the handlers use to fill in estimated_amount (so tests can inject a fake). */
+export type EstimatorIface = Pick<EstimateService, 'estimate'>
 
 const CREATE_SCHEMA = {
   account_id: 'string',
@@ -73,6 +84,8 @@ const CREATE_SCHEMA = {
   requires_confirmation: 'bool',
   is_installment: 'bool',
   total_installments: 'intPtr',
+  estimate_source: 'stringPtr',
+  estimate_key: 'stringPtr',
 } as const
 
 const CREATE_FIELDS: FieldSpec[] = [
@@ -93,6 +106,12 @@ const PATCH_SCHEMA = {
   is_recurring: 'boolPtr',
   frequency: 'stringPtr',
   anchor_date: 'stringPtr',
+  estimate_source: 'stringPtr',
+  estimate_key: 'stringPtr',
+} as const
+
+const CONFIRM_SCHEMA = {
+  amount: 'floatPtr',
 } as const
 
 /** Go txnToResponse. A new transaction's in-memory type is '' and is reported as 'personal'. */
@@ -116,6 +135,10 @@ export function toTransactionResponse(t: Transaction): TransactionResponse {
     is_installment: t.isInstallment,
     total_installments: t.totalInstallments,
     paid_installments: t.paidInstallments,
+    estimate_source: t.estimateSource,
+    estimate_key: t.estimateKey,
+    estimated_amount: null,
+    estimate_samples: null,
   }
   if (t.friendId !== null) {
     response.friend_id = t.friendId
@@ -127,6 +150,17 @@ export function toTransactionResponse(t: Transaction): TransactionResponse {
       response.next_occurrence = formatDbTime(nextInstallmentDue(t.anchorDate, t.paidInstallments, t.frequency))
     }
     // When paid == total, next_occurrence stays as stored (installment complete).
+  }
+  return response
+}
+
+/** The response for a transaction, with the current estimate filled in when its amount is variable. */
+async function withEstimate(t: Transaction, estimator: EstimatorIface): Promise<TransactionResponse> {
+  const response = toTransactionResponse(t)
+  const estimate = await estimator.estimate(t)
+  if (estimate !== null) {
+    response.estimated_amount = estimate.amount / 100
+    response.estimate_samples = estimate.samples
   }
   return response
 }
@@ -187,14 +221,18 @@ function parseDateOr400(raw: string, message: string): Date {
 
 const NOT_FOUND = 'transaction not found'
 
-export function registerTransactionsRoutes(app: App, svc: TransactionsServiceIface = app.txnsSvc): void {
+export function registerTransactionsRoutes(
+  app: App,
+  svc: TransactionsServiceIface = app.txnsSvc,
+  estimator: EstimatorIface = app.estimateSvc,
+): void {
   route('GET', '/api/transactions', async ({ query }) => {
     // A missing parameter is "" in Go (c.QueryParam), which is rejected as missing.
     const raw = query.get('account_id') ?? ''
     if (raw === '') throw new HttpError(400, 'account_id query parameter is required')
     const accountId = parseIdOr400(raw, 'invalid account_id')
     const txns = await svc.listTransactions(accountId).catch(rethrow500)
-    return { body: txns.map(toTransactionResponse) }
+    return { body: await Promise.all(txns.map((t) => withEstimate(t, estimator))).catch(rethrow500) }
   })
 
   route('POST', '/api/transactions', async ({ body }) => {
@@ -221,13 +259,15 @@ export function registerTransactionsRoutes(app: App, svc: TransactionsServiceIfa
       isInstallment: req.is_installment,
       totalInstallments: req.total_installments,
       paidInstallments: 0,
+      estimateSource: req.estimate_source,
+      estimateKey: req.estimate_key,
     }
     // An empty anchor_date is no anchor (Go: != "").
     if (req.anchor_date !== null && req.anchor_date !== '') {
       t.anchorDate = parseDateOr400(req.anchor_date, 'invalid anchor_date: must be RFC3339')
     }
     const created = await svc.createTransaction(t).catch(rethrow500)
-    return { status: 201, body: toTransactionResponse(created) }
+    return { status: 201, body: await withEstimate(created, estimator).catch(rethrow500) }
   })
 
   route('PATCH', '/api/transactions/:id', async ({ params, body }) => {
@@ -245,6 +285,11 @@ export function registerTransactionsRoutes(app: App, svc: TransactionsServiceIfa
       isRecurring: req.is_recurring ?? undefined,
       frequency: req.frequency ?? undefined,
     }
+    // An empty source and key make the amount fixed again.
+    if (req.estimate_source !== null || req.estimate_key !== null) {
+      upd.estimateSource = req.estimate_source ?? ''
+      upd.estimateKey = req.estimate_key ?? ''
+    }
     // Convert dollars to stored value if provided.
     if (req.amount !== null) {
       upd.amount = goRound(req.amount * 100)
@@ -260,7 +305,7 @@ export function registerTransactionsRoutes(app: App, svc: TransactionsServiceIfa
 
     // Return updated transaction.
     const txn = await svc.getTransaction(id).catch(notFoundOr500(NOT_FOUND))
-    return { body: toTransactionResponse(txn) }
+    return { body: await withEstimate(txn, estimator).catch(rethrow500) }
   })
 
   route('DELETE', '/api/transactions/:id', async ({ params }) => {
@@ -272,13 +317,16 @@ export function registerTransactionsRoutes(app: App, svc: TransactionsServiceIfa
     return { status: 204 }
   })
 
-  route('POST', '/api/transactions/:id/confirm', async ({ params }) => {
+  route('POST', '/api/transactions/:id/confirm', async ({ params, body }) => {
     const id = parseIdOr400(params.id, 'invalid transaction id')
-    await svc.confirmRecurring(id).catch(notFoundOr500(NOT_FOUND))
+    const req = bindBody(body, CONFIRM_SCHEMA)
+    // The amount is what a variable transaction really cost, in signed dollars like every amount.
+    const cents = req.amount === null ? undefined : goRound(req.amount * 100)
+    await svc.confirmRecurring(id, cents).catch(notFoundOr500(NOT_FOUND))
 
     // Return updated transaction with new next_occurrence.
     const txn = await svc.getTransaction(id).catch(rethrow500)
-    return { body: toTransactionResponse(txn) }
+    return { body: await withEstimate(txn, estimator).catch(rethrow500) }
   })
 
   route('POST', '/api/transactions/:id/confirm-installment', async ({ params }) => {

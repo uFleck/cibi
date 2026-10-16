@@ -52,6 +52,8 @@ function txn(over: Partial<Transaction> = {}): Transaction {
     isInstallment: false,
     totalInstallments: null,
     paidInstallments: 0,
+    estimateSource: null,
+    estimateKey: null,
     ...over,
   }
 }
@@ -75,6 +77,8 @@ function newTxn(over: Partial<NewTransaction> = {}): NewTransaction {
     isInstallment: false,
     totalInstallments: null,
     paidInstallments: 0,
+    estimateSource: null,
+    estimateKey: null,
     ...over,
   }
 }

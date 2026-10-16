@@ -20,6 +20,8 @@ import type { Goal, GoalsRepo } from '../repo/goals'
 import type { PayScheduleRepo, PaySchedule } from '../repo/paySchedule'
 import type { PeerDebtRepo } from '../repo/peerDebt'
 import type { TransactionsRepo } from '../repo/transactions'
+import type { EstimateService } from './estimate'
+import { advanceOccurrence } from './transactions'
 
 /** Go ErrPayScheduleRequired: the account has no pay schedule. The message is the code the UI reads. */
 export const ErrPayScheduleRequired = new AppError('PAY_SCHEDULE_REQUIRED')
@@ -150,6 +152,9 @@ export function buildGoalImpacts(
   return { impacts, covered }
 }
 
+/** A guard against a runaway loop when a daily-ish frequency meets a far payday. */
+const MAX_OCCURRENCES = 100
+
 export class EngineService {
   private readonly accRepo: AccountsRepo
   private readonly txnsRepo: TransactionsRepo
@@ -157,6 +162,7 @@ export class EngineService {
   private readonly peerDebtRepo: PeerDebtRepo
   private readonly groupEventRepo: GroupEventRepo
   private readonly goalsRepo: GoalsRepo
+  private readonly estimator: Pick<EstimateService, 'effectiveAmount'>
 
   constructor(
     accRepo: AccountsRepo,
@@ -165,6 +171,7 @@ export class EngineService {
     peerDebtRepo: PeerDebtRepo,
     groupEventRepo: GroupEventRepo,
     goalsRepo: GoalsRepo,
+    estimator: Pick<EstimateService, 'effectiveAmount'>,
   ) {
     this.accRepo = accRepo
     this.txnsRepo = txnsRepo
@@ -172,6 +179,27 @@ export class EngineService {
     this.peerDebtRepo = peerDebtRepo
     this.groupEventRepo = groupEventRepo
     this.goalsRepo = goalsRepo
+    this.estimator = estimator
+  }
+
+  /**
+   * The estimated recurring expenses due before the payday: each one's estimate, once for every
+   * occurrence that falls before it (a weekly market run counts twice in a bi-weekly window).
+   */
+  private async sumVariableObligations(accountId: string, payday: Date): Promise<number> {
+    const due = await this.txnsRepo.listDueVariable(accountId, payday)
+    let total = 0
+    for (const t of due) {
+      const amount = await this.estimator.effectiveAmount(t)
+      let count = 0
+      let next = t.nextOccurrence
+      while (next !== null && next.getTime() < payday.getTime() && count < MAX_OCCURRENCES) {
+        count++
+        next = t.frequency === null ? null : advanceOccurrence(next, t.frequency)
+      }
+      total += amount * count
+    }
+    return total
   }
 
   /**
@@ -208,9 +236,13 @@ export class EngineService {
       }
     }
 
-    const obligations = await wrapping('engine.CanIBuyIt: sum obligations', () =>
+    const fixedObligations = await wrapping('engine.CanIBuyIt: sum obligations', () =>
       this.txnsRepo.sumUpcomingObligations(accountId, now, earliestPayday),
     )
+    const variableObligations = await wrapping('engine.CanIBuyIt: sum variable obligations', () =>
+      this.sumVariableObligations(accountId, earliestPayday),
+    )
+    const obligations = fixedObligations + variableObligations
     const peerObligations = await wrapping('engine.CanIBuyIt: sum peer obligations', () =>
       this.peerDebtRepo.sumUpcomingPeerObligations(accountId, now, earliestPayday),
     )

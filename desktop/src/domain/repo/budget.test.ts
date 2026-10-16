@@ -210,6 +210,8 @@ describe('SqliteBudgetRepo', () => {
           category: 'Moradia',
           amount: -12000,
           nextOccurrence: utc(2026, 11, 15),
+          estimateSource: null,
+          estimateKey: null,
         },
         {
           transactionId: 'rec-seguro',
@@ -217,6 +219,8 @@ describe('SqliteBudgetRepo', () => {
           category: null,
           amount: -3000,
           nextOccurrence: utc(2026, 11, 1),
+          estimateSource: null,
+          estimateKey: null,
         },
       ])
     })
@@ -241,6 +245,8 @@ describe('SqliteBudgetRepo', () => {
           category: null,
           amount: -9900,
           nextOccurrence: utc(2026, 11, 1),
+          estimateSource: null,
+          estimateKey: null,
         },
       ])
     })
