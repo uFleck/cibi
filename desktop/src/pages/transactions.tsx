@@ -22,7 +22,6 @@ import {
   fetchAccounts,
   fetchTransactions,
   listPaySchedules,
-  fetchFriendBreakdown,
   createTransaction,
   updateTransaction,
   deleteTransaction,
@@ -41,14 +40,7 @@ import {
 } from '@/lib/api'
 import { formatDate, formatMoney } from '@/lib/format'
 import { fromDateInputValue, toDateInputValue } from '@/lib/locale'
-import {
-  buildImpactSummary,
-  computeProjectedBalanceAfterNextWindow,
-  getWindowBounds,
-  getWindowLabels,
-  isCurrentDue,
-  matchesPresetFilter,
-} from '@/lib/transactions-impact'
+import { getWindowLabels, matchesPresetFilter } from '@/lib/transactions-impact'
 import { AccountContext } from '@/App'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { focusWhenReady, useShellAction } from '@/shell/shellActions'
@@ -170,12 +162,6 @@ export function TransactionsPage() {
     enabled: !!currentAccountId,
   })
 
-  const { data: friendBreakdown = [] } = useQuery({
-    queryKey: ['friend-breakdown', currentAccountId],
-    queryFn: () => fetchFriendBreakdown(currentAccountId!),
-    enabled: !!currentAccountId,
-  })
-
   const { data: friends = [] } = useQuery({
     queryKey: ['friends'],
     queryFn: listFriends,
@@ -244,25 +230,6 @@ export function TransactionsPage() {
     
     return txns
   }, [transactions, preset, kindFilter, sortField, sortDir, nextPayday, paySchedules, searchQuery, amountMin, amountMax])
-
-  const unconfirmedImpact = useMemo(() => {
-    const currentBalance = accounts.find(a => a.id === currentAccountId)?.current_balance ?? 0
-    const projectedBalanceAfterNextWindow = computeProjectedBalanceAfterNextWindow({
-      currentBalance,
-      transactions,
-      paySchedules,
-      friendBreakdown,
-      nextPayday,
-    })
-
-    return buildImpactSummary({
-      transactions,
-      paySchedules,
-      nextPayday,
-      currentBalance,
-      projectedBalanceAfterNextWindow,
-    })
-  }, [accounts, currentAccountId, friendBreakdown, nextPayday, paySchedules, transactions])
 
   const hasActiveFilters = preset !== null || kindFilter !== 'all' || !!searchQuery.trim() || !!(amountMin || amountMax)
 
@@ -547,17 +514,6 @@ export function TransactionsPage() {
     onError: () => toast.error('Failed to create debt'),
   })
 
-  const handleBatchConfirmDueNow = () => {
-    const { nextPaydayDay } = getWindowBounds(paySchedules, nextPayday)
-    const now = new Date()
-    const dueNowIds = transactions
-      .filter(t => !t.is_recurring && t.requires_confirmation && !t.confirmed_at &&
-        isCurrentDue(t, now, nextPayday, nextPaydayDay))
-      .map(t => t.id)
-    dueNowIds.forEach(id => confirmMutation.mutate(id))
-    toast.success(`Confirmed ${dueNowIds.length} payment${dueNowIds.length !== 1 ? 's' : ''}`)
-  }
-
   const handleCreateClick = () => {
     setIsCreating(true)
     setEditingId(null)
@@ -797,25 +753,7 @@ export function TransactionsPage() {
         </button>
       </div>
 
-      {activeTab === 'transactions' && <><Card>
-        <CardContent className="py-3 space-y-2">
-          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Unconfirmed payment impact</p>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-            <p>Current: <MoneyValue amount={unconfirmedImpact.currentAmount} currency={currentAccountCurrency} tone="negative" showSign="never" /> <span className="text-xs text-muted-foreground">({unconfirmedImpact.currentCount})</span></p>
-            <p>Next: <MoneyValue amount={unconfirmedImpact.nextAmount} currency={currentAccountCurrency} tone="negative" showSign="never" /> <span className="text-xs text-muted-foreground">({unconfirmedImpact.nextCount})</span></p>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Balance if paid: <MoneyValue amount={unconfirmedImpact.currentProjectedBalance} currency={currentAccountCurrency} tone="auto" showSign="always" /> now · <MoneyValue amount={unconfirmedImpact.nextProjectedBalance} currency={currentAccountCurrency} tone="auto" showSign="always" /> after next.
-          </p>
-
-          {unconfirmedImpact.currentCount > 0 && (
-            <Button size="sm" variant="outline" onClick={handleBatchConfirmDueNow}>
-              Confirm all {unconfirmedImpact.currentCount}
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-
+      {activeTab === 'transactions' && <>
       <div className="flex flex-wrap items-center gap-2">
         {KIND_CHIPS.map(chip => (
           <Chip key={chip.value} active={kindFilter === chip.value} shortcut={chip.shortcut} onClick={() => setKindFilter(chip.value)}>
