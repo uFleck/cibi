@@ -121,7 +121,7 @@ function decodeParam(raw: string): string {
 /**
  * Echo lets a route's last segment, when it is a param, take the rest of the path, slashes included
  * (/api/friends/:id matches /api/friends/a/b with id "a/b", and Go answers 400 for it). That holds only
- * when no other route continues below that param: /api/accounts/:id, which has /api/accounts/:id/set-default
+ * when no other route continues below that param: /api/accounts/:id, which has /api/accounts/:id/archive
  * below it, does not match /api/accounts/a/b.
  */
 function takesRestOfPath(r: Route): boolean {

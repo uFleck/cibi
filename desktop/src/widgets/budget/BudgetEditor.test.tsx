@@ -9,7 +9,7 @@ import { BudgetEditor } from './BudgetEditor'
 
 vi.mock('@/lib/api', () => ({
   fetchAccounts: vi.fn(async () => [
-    { id: 'a1', name: 'Main', current_balance: 0, currency: 'BRL', is_default: true, safety_buffer: 0 },
+    { id: 'a1', name: 'Main', current_balance: 0, currency: 'BRL', safety_buffer: 0 },
   ]),
   fetchBudget: vi.fn(),
   saveBudgetLimits: vi.fn(),

@@ -15,7 +15,7 @@ let db: TestDb
 
 beforeEach(async () => {
   db = await createTestDb()
-  await db.query(`INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES (?, 'x', 0, 'BRL', 1)`, [
+  await db.query(`INSERT INTO Account (id, name, current_balance, currency) VALUES (?, 'x', 0, 'BRL')`, [
     ACCOUNT_ID,
   ])
   await db.query(`INSERT INTO Friend (id, name, public_token) VALUES (?, 'Ana', 'token-ana')`, [FRIEND_ID])

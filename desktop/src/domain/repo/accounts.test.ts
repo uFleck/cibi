@@ -59,7 +59,7 @@ async function seedAccount(accountId: string): Promise<void> {
   const reversalId = crypto.randomUUID()
   const eventId = crypto.randomUUID()
 
-  await db.query(`INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES (?, 'x', 0, 'BRL', 0)`, [
+  await db.query(`INSERT INTO Account (id, name, current_balance, currency) VALUES (?, 'x', 0, 'BRL')`, [
     accountId,
   ])
   await db.query(`INSERT INTO Friend (id, name, public_token) VALUES (?, 'friend', ?)`, [friendId, `tok-${friendId}`])

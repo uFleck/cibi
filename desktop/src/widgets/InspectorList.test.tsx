@@ -36,7 +36,6 @@ const account: AccountResponse = {
   name: 'Main',
   current_balance: 100,
   currency: 'BRL',
-  is_default: true,
   safety_buffer: 0,
 }
 

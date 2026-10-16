@@ -145,7 +145,7 @@ describe('goals handlers beyond the Go tests (real service on the test DB)', () 
   it('create, list, patch, add a deposit and a withdrawal, reverse, and the tracking response', async () => {
     const app = buildApp(db)
     registerGoalsRoutes(app)
-    await db.query(`INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES (?, 'x', 100000, 'BRL', 1)`, [ACC_ID])
+    await db.query(`INSERT INTO Account (id, name, current_balance, currency) VALUES (?, 'x', 100000, 'BRL')`, [ACC_ID])
     await db.query(`INSERT INTO ledger (id, account_id, entry_type, amount, description, posted_at) VALUES (?, ?, 'opening_balance', 100000, '', '2026-01-01T00:00:00Z')`, [crypto.randomUUID(), ACC_ID])
 
     const created = await localFetch('/api/goals', {
@@ -213,7 +213,7 @@ describe('goals handlers beyond the Go tests (real service on the test DB)', () 
 
   it('reversing a withdrawal moves the money back out of the account', async () => {
     registerGoalsRoutes(buildApp(db))
-    await db.query(`INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES (?, 'x', 100000, 'BRL', 1)`, [ACC_ID])
+    await db.query(`INSERT INTO Account (id, name, current_balance, currency) VALUES (?, 'x', 100000, 'BRL')`, [ACC_ID])
     await db.query(`INSERT INTO ledger (id, account_id, entry_type, amount, description, posted_at) VALUES (?, ?, 'opening_balance', 100000, '', '2026-01-01T00:00:00Z')`, [crypto.randomUUID(), ACC_ID])
     const created = await localFetch('/api/goals', {
       method: 'POST',
@@ -232,7 +232,7 @@ describe('goals handlers beyond the Go tests (real service on the test DB)', () 
 
   it('reversing the same entry twice is a 409 and the account is refunded only once', async () => {
     registerGoalsRoutes(buildApp(db))
-    await db.query(`INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES (?, 'x', 100000, 'BRL', 1)`, [ACC_ID])
+    await db.query(`INSERT INTO Account (id, name, current_balance, currency) VALUES (?, 'x', 100000, 'BRL')`, [ACC_ID])
     await db.query(`INSERT INTO ledger (id, account_id, entry_type, amount, description, posted_at) VALUES (?, ?, 'opening_balance', 100000, '', '2026-01-01T00:00:00Z')`, [crypto.randomUUID(), ACC_ID])
     const created = await localFetch('/api/goals', {
       method: 'POST',
@@ -258,7 +258,7 @@ describe('goals handlers beyond the Go tests (real service on the test DB)', () 
 
   it('unknown ids are 404 on update and reverse, and a malformed id stays 400', async () => {
     registerGoalsRoutes(buildApp(db))
-    await db.query(`INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES (?, 'x', 100000, 'BRL', 1)`, [ACC_ID])
+    await db.query(`INSERT INTO Account (id, name, current_balance, currency) VALUES (?, 'x', 100000, 'BRL')`, [ACC_ID])
     const created = await localFetch('/api/goals', {
       method: 'POST',
       body: JSON.stringify({ account_id: ACC_ID, name: 'Car', target_amount: 5000, start_date_utc: '2026-01-01T00:00:00Z' }),

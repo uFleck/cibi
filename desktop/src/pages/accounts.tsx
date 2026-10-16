@@ -1,35 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useSearch } from '@tanstack/react-router'
 import { toast } from 'sonner'
-import { Plus, Wallet, Edit2, Trash2, Check, Eye } from 'lucide-react'
+import { Plus, Wallet, Edit2, Trash2 } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Button } from '@/components/ui/button'
 import { PageHeader, pageShell } from '@/components/ui/page-header'
-import { Badge } from '@/components/ui/badge'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { KvList } from '@/components/ui/kv-list'
 import { DataList } from '@/components/ui/data-list'
 import { ROW_KEYS } from '@/lib/row-actions'
 import { AppModal } from '@/components/AppModal'
-import { EditSheet } from '@/components/EditSheet'
-import { MobileActionButton } from '@/components/MobileActionButton'
 import { AccountForm } from '@/components/AccountForm'
-import { AccountScheduleForm, type AccountScheduleFrequency } from '@/components/AccountScheduleForm'
 import {
   fetchAccounts,
   createAccount,
   updateAccount,
   deleteAccount,
-  setDefaultAccount,
-  listPaySchedules,
-  createPaySchedule,
-  updatePaySchedule,
-  deletePaySchedule,
-  confirmPaySchedule,
   type AccountResponse,
-  type PayScheduleResponse,
-  type CreatePayScheduleRequest,
 } from '@/lib/api'
 import { MoneyValue } from '@/components/ui/money-value'
 
@@ -45,31 +31,16 @@ interface FormData {
 
 type FormErrors = Partial<Record<keyof FormData, string>>
 
+const EMPTY_FORM: FormData = { name: '', current_balance: 0, currency: 'BRL' }
+
 export function AccountsPage() {
   const queryClient = useQueryClient()
-  const navigate = useNavigate()
-  const { schedules: schedulesParam } = useSearch({ from: '/accounts' })
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  const [formData, setFormData] = useState<FormData>({
-    name: '',
-    current_balance: 0,
-    currency: 'BRL',
-  })
+  const [formData, setFormData] = useState<FormData>(EMPTY_FORM)
   const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [balanceText, setBalanceText] = useState('0')
-  const [scheduleModalAccountId, setScheduleModalAccountId] = useState<string | null>(null)
-  const [scheduleForm, setScheduleForm] = useState({
-    label: '',
-    frequency: 'monthly' as AccountScheduleFrequency,
-    anchor_date: '',
-    amount: '',
-    day_of_month_2: '',
-  })
-  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null)
-  const [addingSchedule, setAddingSchedule] = useState(false)
-  const [scheduleFormErrors, setScheduleFormErrors] = useState<Partial<Record<string, string>>>({})
 
   const {
     data: accounts = [],
@@ -80,34 +51,11 @@ export function AccountsPage() {
     queryFn: fetchAccounts,
   })
 
-  const schedulesParamAccountId = !isLoading && schedulesParam && accounts.some(a => a.id === schedulesParam)
-    ? schedulesParam
-    : null
-  if (schedulesParamAccountId && schedulesParamAccountId !== scheduleModalAccountId) {
-    setScheduleModalAccountId(schedulesParamAccountId)
+  const resetForm = () => {
+    setFormData(EMPTY_FORM)
+    setBalanceText('0')
+    setFormErrors({})
   }
-
-  useEffect(() => {
-    if (schedulesParam && !isLoading) navigate({ to: '/accounts', search: {}, replace: true })
-  }, [schedulesParam, isLoading, navigate])
-
-  const {
-    data: schedules = [],
-    isLoading: schedulesLoading,
-  } = useQuery({
-    queryKey: ['pay-schedules', scheduleModalAccountId],
-    queryFn: () => listPaySchedules(scheduleModalAccountId!),
-    enabled: !!scheduleModalAccountId,
-  })
-
-  const today = new Date().toISOString().slice(0, 10)
-  const defaultAccount = accounts.find(a => a.is_default) ?? accounts[0] ?? null
-  const { data: allSchedules = [] } = useQuery({
-    queryKey: ['pay-schedules', defaultAccount?.id],
-    queryFn: () => listPaySchedules(defaultAccount!.id),
-    enabled: !!defaultAccount && !scheduleModalAccountId,
-  })
-  const todaySchedules = allSchedules.filter(ps => ps.next_payday === today)
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => createAccount(data),
@@ -115,9 +63,7 @@ export function AccountsPage() {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       toast.success('Account created')
       setIsCreating(false)
-      setFormData({ name: '', current_balance: 0, currency: 'USD' })
-      setBalanceText('0')
-      setFormErrors({})
+      resetForm()
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to create account')
@@ -131,9 +77,7 @@ export function AccountsPage() {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       toast.success('Account updated')
       setEditingId(null)
-      setFormData({ name: '', current_balance: 0, currency: 'USD' })
-      setBalanceText('0')
-      setFormErrors({})
+      resetForm()
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to update account')
@@ -151,81 +95,6 @@ export function AccountsPage() {
     },
   })
 
-  const defaultMutation = useMutation({
-    mutationFn: setDefaultAccount,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['accounts'] })
-      toast.success('Default account updated')
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to set default account')
-    },
-  })
-
-  const createScheduleMutation = useMutation({
-    mutationFn: createPaySchedule,
-    onSuccess: () => {
-      toast.success('Schedule added')
-      queryClient.invalidateQueries({ queryKey: ['pay-schedules', scheduleModalAccountId] })
-      setAddingSchedule(false)
-      setScheduleForm({
-        label: '',
-        frequency: 'monthly',
-        anchor_date: '',
-        amount: '',
-        day_of_month_2: '',
-      })
-      setScheduleFormErrors({})
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to add schedule')
-    },
-  })
-
-  const updateScheduleMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<CreatePayScheduleRequest> }) =>
-      updatePaySchedule(id, data),
-    onSuccess: () => {
-      toast.success('Schedule updated')
-      queryClient.invalidateQueries({ queryKey: ['pay-schedules', scheduleModalAccountId] })
-      setEditingScheduleId(null)
-      setScheduleForm({
-        label: '',
-        frequency: 'monthly',
-        anchor_date: '',
-        amount: '',
-        day_of_month_2: '',
-      })
-      setScheduleFormErrors({})
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update schedule')
-    },
-  })
-
-  const deleteScheduleMutation = useMutation({
-    mutationFn: deletePaySchedule,
-    onSuccess: () => {
-      toast.success('Schedule deleted')
-      queryClient.invalidateQueries({ queryKey: ['pay-schedules', scheduleModalAccountId] })
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete schedule')
-    },
-  })
-
-  const confirmScheduleMutation = useMutation({
-    mutationFn: confirmPaySchedule,
-    onSuccess: () => {
-      toast.success('Payday confirmed')
-      queryClient.invalidateQueries({ queryKey: ['pay-schedules'] })
-      queryClient.invalidateQueries({ queryKey: ['accounts'] })
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to confirm schedule')
-    },
-  })
-
   const handleCreateClick = () => {
     setIsCreating(true)
     setEditingId(null)
@@ -240,7 +109,6 @@ export function AccountsPage() {
       current_balance: account.current_balance,
       currency: account.currency,
     })
-    setBalanceText(account.current_balance.toString())
   }
 
   const validate = (): boolean => {
@@ -254,7 +122,8 @@ export function AccountsPage() {
     e.preventDefault()
     if (!validate()) return
     if (editingId) {
-      updateMutation.mutate({ id: editingId, updates: formData })
+      // The balance is adjusted from the Balance card, never from here.
+      updateMutation.mutate({ id: editingId, updates: { name: formData.name, currency: formData.currency } })
     } else {
       createMutation.mutate(formData)
     }
@@ -263,82 +132,11 @@ export function AccountsPage() {
   const handleCancel = () => {
     setIsCreating(false)
     setEditingId(null)
-    setFormErrors({})
-    setFormData({ name: '', current_balance: 0, currency: 'USD' })
-    setBalanceText('0')
-  }
-
-  const closeScheduleModal = () => {
-    setScheduleModalAccountId(null)
-    setEditingScheduleId(null)
-    setAddingSchedule(false)
-  }
-
-  const startEditSchedule = (ps: PayScheduleResponse) => {
-    setEditingScheduleId(ps.id)
-    setScheduleForm({
-      label: ps.label ?? '',
-      frequency: ps.frequency,
-      anchor_date: ps.anchor_date,
-      amount: ps.amount.toFixed(2),
-      day_of_month_2: ps.day_of_month_2 != null ? String(ps.day_of_month_2) : '',
-    })
-    setScheduleFormErrors({})
-  }
-
-  const handleScheduleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!scheduleModalAccountId) return
-
-    const errors: Record<string, string> = {}
-    if (!scheduleForm.anchor_date) errors.anchor_date = 'Anchor date is required'
-    if (!scheduleForm.amount) errors.amount = 'Amount is required'
-    if (Object.keys(errors).length > 0) {
-      setScheduleFormErrors(errors)
-      return
-    }
-
-    const payload: CreatePayScheduleRequest = {
-      account_id: scheduleModalAccountId,
-      frequency: scheduleForm.frequency,
-      anchor_date: scheduleForm.anchor_date,
-      amount: parseFloat(scheduleForm.amount.replace(',', '.')),
-      ...(scheduleForm.label ? { label: scheduleForm.label } : {}),
-      ...(scheduleForm.day_of_month_2 ? { day_of_month_2: parseInt(scheduleForm.day_of_month_2, 10) } : {}),
-    }
-
-    if (editingScheduleId) {
-      updateScheduleMutation.mutate({ id: editingScheduleId, data: payload })
-    } else {
-      createScheduleMutation.mutate(payload)
-    }
-  }
-
-  const handleDeleteSchedule = (id: string) => {
-    deleteScheduleMutation.mutate(id)
-  }
-
-  const handleConfirmSchedule = (id: string) => {
-    confirmScheduleMutation.mutate(id)
-  }
-
-  const discardScheduleForm = () => {
-    setEditingScheduleId(null)
-    setAddingSchedule(false)
-    setScheduleForm({
-      label: '',
-      frequency: 'monthly',
-      anchor_date: '',
-      amount: '',
-      day_of_month_2: '',
-    })
-    setScheduleFormErrors({})
+    resetForm()
   }
 
   const isPending = createMutation.isPending || updateMutation.isPending
   const accountToDelete = accounts.find(a => a.id === confirmDelete)
-  const scheduleAccount = accounts.find(a => a.id === scheduleModalAccountId) ?? null
-  const scheduleCurrency = scheduleAccount?.currency ?? 'BRL'
 
   const handleAccountNameChange = (value: string) => {
     setFormData({ ...formData, name: value })
@@ -379,7 +177,7 @@ export function AccountsPage() {
       <PageHeader
         eyebrow="Accounts"
         title="Accounts"
-        description="Manage your accounts, balances and pay schedules."
+        description="Manage your accounts. Adjust a balance from the Balance card on the overview; pay schedules live in Transactions."
         actions={
           <Button onClick={handleCreateClick} size="sm" className="hidden sm:inline-flex">
             <Plus size={16} />
@@ -387,32 +185,6 @@ export function AccountsPage() {
           </Button>
         }
       />
-
-      {todaySchedules.length > 0 && (
-        <div className="rounded-md border border-pos/30 bg-pos/10 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex-1">
-            <p className="font-medium text-sm">Payday today</p>
-            <p className="text-xs text-muted-foreground">
-              {todaySchedules.map(ps => ps.label ?? ps.frequency).join(', ')}
-            </p>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {todaySchedules.map(ps => (
-              <Button
-                key={ps.id}
-                size="sm"
-                variant="outline"
-                className="border-pos/40 hover:bg-pos/20"
-                onClick={() => handleConfirmSchedule(ps.id)}
-                disabled={confirmScheduleMutation.isPending}
-              >
-                <Check size={14} />
-                Mark received{todaySchedules.length > 1 ? ` (${ps.label ?? ps.frequency})` : ''}
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
 
       <Skeleton
         name="account-list"
@@ -459,34 +231,8 @@ export function AccountsPage() {
                     <MoneyValue amount={account.current_balance} currency={account.currency} showSign="auto" tone="auto" />
                   ),
                 },
-                {
-                  id: 'status',
-                  header: 'Status',
-                  className: 'hidden w-[14%] sm:table-cell',
-                  cell: account => (
-                    <Badge variant={account.is_default ? 'default' : 'secondary'}>
-                      {account.is_default ? 'Default' : 'Active'}
-                    </Badge>
-                  ),
-                },
               ]}
               actions={account => [
-                ...(account.is_default
-                  ? []
-                  : [{
-                      id: 'default',
-                      label: 'Set as default',
-                      icon: Check,
-                      keys: ROW_KEYS.setDefault,
-                      run: () => defaultMutation.mutate(account.id),
-                    }]),
-                {
-                  id: 'schedules',
-                  label: 'Pay schedules',
-                  icon: Eye,
-                  keys: ROW_KEYS.open,
-                  run: () => setScheduleModalAccountId(account.id),
-                },
                 {
                   id: 'edit',
                   label: 'Edit',
@@ -539,174 +285,6 @@ export function AccountsPage() {
           New Account
         </Button>
       </div>
-
-      <AppModal
-        open={!!scheduleModalAccountId}
-        onOpenChange={(open) => !open && closeScheduleModal()}
-        title="Pay Schedules"
-        description={scheduleModalAccountId ? accounts.find(a => a.id === scheduleModalAccountId)?.name : ''}
-        contentClassName="md:w-[640px] md:max-w-[640px]"
-      >
-          {scheduleAccount && (
-            <KvList
-              className="mb-3"
-              rows={[
-                {
-                  label: 'Balance',
-                  value: (
-                    <MoneyValue
-                      amount={scheduleAccount.current_balance}
-                      currency={scheduleAccount.currency}
-                      showSign="never"
-                      tone="neutral"
-                    />
-                  ),
-                },
-                { label: 'Currency', value: <span className="font-mono">{scheduleAccount.currency}</span> },
-                { label: 'Safety buffer', value: <span className="num">{scheduleAccount.safety_buffer.toFixed(2)}</span> },
-                { label: 'Default', value: scheduleAccount.is_default ? 'Yes' : 'No' },
-              ]}
-            />
-          )}
-
-          {schedulesLoading ? (
-            <div className="flex flex-col gap-1.5">
-              {[0, 1, 2].map(i => (
-                <div key={i} className="h-8 rounded-md bg-surface-2 animate-pulse" />
-              ))}
-            </div>
-          ) : schedules.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground mb-4">No pay schedules yet</p>
-              <Button size="sm" onClick={() => setAddingSchedule(true)}>
-                <Plus size={14} />
-                Add Schedule
-              </Button>
-            </div>
-          ) : (
-            <>
-              <div className="sm:hidden flex flex-col gap-2">
-                {schedules.map((ps: PayScheduleResponse) => (
-                  <div key={ps.id} className="rounded-md border border-line bg-surface p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <div className="font-medium">{ps.label ?? ps.frequency}</div>
-                        <div className="text-xs text-faint">
-                          {ps.frequency} · {ps.anchor_date}
-                          {ps.day_of_month_2 ? `/${ps.day_of_month_2}` : ''}
-                        </div>
-                      </div>
-                      <MoneyValue
-                        amount={ps.amount}
-                        currency={scheduleCurrency}
-                        showSign="always"
-                        tone="positive"
-                        className="font-semibold"
-                      />
-                    </div>
-                    <div className="flex justify-end gap-2 mt-2">
-                      <MobileActionButton onClick={() => handleConfirmSchedule(ps.id)} icon={Check} label="Confirm" disabled={confirmScheduleMutation.isPending} />
-                      <MobileActionButton onClick={() => startEditSchedule(ps)} icon={Edit2} label="Edit" variant="outline" />
-                      <MobileActionButton onClick={() => handleDeleteSchedule(ps.id)} icon={Trash2} label="Delete" variant="outline" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="hidden sm:block">
-                <DataList
-                  aria-label="Pay schedules"
-                  rows={schedules}
-                  rowId={(ps: PayScheduleResponse) => ps.id}
-                  columns={[
-                    {
-                      id: 'schedule',
-                      header: 'Schedule',
-                      title: (ps: PayScheduleResponse) => ps.label ?? ps.frequency,
-                      cell: (ps: PayScheduleResponse) => (
-                        <>
-                          <div className="truncate font-medium">{ps.label ?? ps.frequency}</div>
-                          <div className="truncate text-[11px] text-faint">
-                            {ps.frequency} · <span className="font-mono">{ps.anchor_date}</span>
-                            {ps.day_of_month_2 ? `/${ps.day_of_month_2}` : ''}
-                          </div>
-                        </>
-                      ),
-                    },
-                    {
-                      id: 'amount',
-                      header: 'Amount',
-                      align: 'right',
-                      numeric: true,
-                      className: 'w-[30%]',
-                      cell: (ps: PayScheduleResponse) => (
-                        <MoneyValue amount={ps.amount} currency={scheduleCurrency} showSign="always" tone="positive" />
-                      ),
-                    },
-                  ]}
-                  actions={(ps: PayScheduleResponse) => [
-                    {
-                      id: 'confirm',
-                      label: 'Confirm schedule',
-                      icon: Check,
-                      disabled: confirmScheduleMutation.isPending,
-                      run: () => handleConfirmSchedule(ps.id),
-                    },
-                    { id: 'edit', label: 'Edit schedule', icon: Edit2, run: () => startEditSchedule(ps) },
-                    {
-                      id: 'delete',
-                      label: 'Delete schedule',
-                      icon: Trash2,
-                      variant: 'destructive',
-                      run: () => handleDeleteSchedule(ps.id),
-                    },
-                  ]}
-                />
-              </div>
-
-              <div className="flex justify-end mt-3">
-                <Button size="sm" variant="outline" onClick={() => setAddingSchedule(true)}>
-                  <Plus size={14} />
-                  Add Schedule
-                </Button>
-              </div>
-            </>
-          )}
-
-          <EditSheet
-            open={addingSchedule}
-            onOpenChange={(open) => { if (!open) discardScheduleForm() }}
-            title="Add Schedule"
-          >
-            <AccountScheduleForm
-              editingScheduleId={null}
-              scheduleForm={scheduleForm}
-              scheduleFormErrors={scheduleFormErrors}
-              isPending={createScheduleMutation.isPending}
-              onSubmit={handleScheduleSubmit}
-              onChange={changes => setScheduleForm({ ...scheduleForm, ...changes })}
-              onClearError={field => setScheduleFormErrors({ ...scheduleFormErrors, [field]: undefined })}
-              onCancelEdit={discardScheduleForm}
-            />
-          </EditSheet>
-
-          <EditSheet
-            open={!!editingScheduleId}
-            onOpenChange={(open) => { if (!open) discardScheduleForm() }}
-            title="Edit Schedule"
-          >
-            <AccountScheduleForm
-              editingScheduleId={editingScheduleId}
-              scheduleForm={scheduleForm}
-              scheduleFormErrors={scheduleFormErrors}
-              isPending={updateScheduleMutation.isPending}
-              onSubmit={handleScheduleSubmit}
-              onChange={changes => setScheduleForm({ ...scheduleForm, ...changes })}
-              onClearError={field => setScheduleFormErrors({ ...scheduleFormErrors, [field]: undefined })}
-              onCancelEdit={discardScheduleForm}
-            />
-          </EditSheet>
-      </AppModal>
     </div>
   )
 }

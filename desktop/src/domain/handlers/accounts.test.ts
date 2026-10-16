@@ -34,9 +34,7 @@ function fakeAccountsService(overrides: Partial<AccountsServiceIface>): Accounts
   return {
     listAccounts: unset,
     createAccount: unset,
-    getDefault: unset,
     getById: unset,
-    setDefault: unset,
     updateAccount: unset,
     deleteAccount: unset,
     ...overrides,
@@ -49,7 +47,6 @@ function account(overrides: Partial<Account>): Account {
     name: '',
     currentBalance: 0,
     currency: 'USD',
-    isDefault: false,
     safetyBuffer: 0,
     version: 1,
     ...overrides,
@@ -64,7 +61,7 @@ describe('TestListAccounts', () => {
     registerAccountsRoutes(
       app,
       fakeAccountsService({
-        listAccounts: async () => [account({ id: id1, name: 'Checking', currentBalance: 10000, currency: 'USD', isDefault: true })],
+        listAccounts: async () => [account({ id: id1, name: 'Checking', currentBalance: 10000, currency: 'USD' })],
       }),
     )
     const res = await localFetch('/api/accounts')
@@ -81,7 +78,7 @@ describe('TestCreateAccount', () => {
   it('POST /api/accounts with a valid body returns 201', async () => {
     const app = buildApp(db)
     registerAccountsRoutes(app, fakeAccountsService({ createAccount: async () => undefined }))
-    const body = `{"name":"Savings","current_balance":500.00,"currency":"USD","is_default":false}`
+    const body = `{"name":"Savings","current_balance":500.00,"currency":"USD"}`
     const res = await localFetch('/api/accounts', { method: 'POST', body })
     expect(res.status).toBe(201)
     const resp = (await res.json()) as AccountResponse
@@ -100,7 +97,7 @@ describe('TestGetAccountByID', () => {
       fakeAccountsService({
         getById: async (reqId: string) => {
           if (reqId !== id) throw new Error('unexpected id')
-          return account({ id, name: 'Main', currentBalance: 20000, currency: 'USD', isDefault: true })
+          return account({ id, name: 'Main', currentBalance: 20000, currency: 'USD' })
         },
       }),
     )
@@ -140,7 +137,7 @@ describe('TestUpdateAccount', () => {
       app,
       fakeAccountsService({
         updateAccount: async () => undefined,
-        getById: async () => account({ id, name: newName, currentBalance: 5000, currency: 'USD', isDefault: false }),
+        getById: async () => account({ id, name: newName, currentBalance: 5000, currency: 'USD' }),
       }),
     )
     const res = await localFetch(`/api/accounts/${id}`, { method: 'PATCH', body: `{"name":"Updated"}` })
@@ -178,7 +175,7 @@ async function postAccount(body: unknown): Promise<Response> {
 describe('accounts on the real service', () => {
   it('create stores the safety buffer default but responds with the request value (Go quirk)', async () => {
     const app = realApp()
-    const res = await postAccount({ name: 'Conta', current_balance: 12.5, currency: 'BRL', is_default: true })
+    const res = await postAccount({ name: 'Conta', current_balance: 12.5, currency: 'BRL' })
     expect(res.status).toBe(201)
     const created = (await res.json()) as AccountResponse
     expect(created.current_balance).toBe(12.5)
@@ -194,23 +191,6 @@ describe('accounts on the real service', () => {
     const created = (await res.json()) as AccountResponse
     expect(created.safety_buffer).toBe(250.5)
     expect((await app.accountsRepo.getById(created.id)).safetyBuffer).toBe(25050)
-  })
-
-  it('a new default account clears the previous default', async () => {
-    realApp()
-    await postAccount({ name: 'A', current_balance: 0, currency: 'BRL', is_default: true })
-    await postAccount({ name: 'B', current_balance: 0, currency: 'BRL', is_default: true })
-    const res = await localFetch('/api/accounts/default')
-    expect(((await res.json()) as AccountResponse).name).toBe('B')
-    const list = (await (await localFetch('/api/accounts')).json()) as AccountResponse[]
-    expect(list.filter((a) => a.is_default).map((a) => a.name)).toEqual(['B'])
-  })
-
-  it('GET /api/accounts/default with no default account is 404 "not found"', async () => {
-    realApp()
-    const res = await localFetch('/api/accounts/default')
-    expect(res.status).toBe(404)
-    expect(await res.json()).toEqual({ error: 'not found' })
   })
 
   it('an empty account list is [] (Go makes a non-nil slice)', async () => {
@@ -254,19 +234,6 @@ describe('accounts on the real service', () => {
     })
     expect(res.status).toBe(404)
     expect(await res.json()).toEqual({ error: 'account not found' })
-  })
-
-  it('set-default on an unknown id is 404 "account not found" and keeps the current default', async () => {
-    realApp()
-    const created = (await (
-      await postAccount({ name: 'A', current_balance: 0, currency: 'BRL', is_default: true })
-    ).json()) as AccountResponse
-    const res = await localFetch('/api/accounts/77777777-7777-4777-8777-777777777777/set-default', { method: 'POST' })
-    expect(res.status).toBe(404)
-    expect(await res.json()).toEqual({ error: 'account not found' })
-    const def = await localFetch('/api/accounts/default')
-    expect(def.status).toBe(200)
-    expect(((await def.json()) as AccountResponse).id).toBe(created.id)
   })
 
   it('delete of an unknown id is 404 "account not found"', async () => {

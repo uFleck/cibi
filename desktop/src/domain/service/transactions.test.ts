@@ -85,7 +85,6 @@ function account(id: string, balance: number): Account {
     name: '',
     currentBalance: balance,
     currency: 'BRL',
-    isDefault: false,
     safetyBuffer: 0,
     version: 1,
   }

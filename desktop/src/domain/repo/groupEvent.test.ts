@@ -20,7 +20,7 @@ afterEach(() => {
 })
 
 async function insertAccount(id: string): Promise<void> {
-  await db.query(`INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES (?, 'x', 0, 'BRL', 0)`, [
+  await db.query(`INSERT INTO Account (id, name, current_balance, currency) VALUES (?, 'x', 0, 'BRL')`, [
     id,
   ])
 }

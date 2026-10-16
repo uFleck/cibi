@@ -68,7 +68,7 @@ function GoalImpactCard({ impact }: GoalImpactCardProps) {
 }
 
 type CheckWidgetProps = {
-  accountId?: string
+  accountId: string
 }
 
 export function CheckWidget({ accountId }: CheckWidgetProps) {

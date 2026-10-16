@@ -55,14 +55,11 @@ function fakeAccountsRepo(overrides: Partial<AccountsRepo>): AccountsRepo {
   return {
     insert: unset,
     getAll: unset,
-    getDefault: unset,
     getById: unset,
     updateBalance: unset,
     updateName: unset,
     updateSafetyBuffer: unset,
-    updateIsDefault: unset,
     deleteById: unset,
-    unsetDefaults: unset,
     incrementVersion: unset,
     ...overrides,
   }
@@ -149,7 +146,6 @@ it('TestPayScheduleService_ConfirmPayday_UpdatesBalanceAndAnchor', async () => {
         name: '',
         currentBalance: 100000,
         currency: 'BRL',
-        isDefault: false,
         safetyBuffer: 0,
         version: 1,
       }

@@ -2,7 +2,7 @@
 // Port of internal/handler/routes_test.go (TestRoutesRegistersAPIEndpointsWithInjectedServices), made
 // exact: the test asserts the COMPLETE route table of the desktop app, not a sample of it.
 //
-// The Go table (internal/handler/routes.go) has 55 API routes (the Go test's sample checks only some).
+// The Go table (internal/handler/routes.go) had 55 API routes (two account routes, default and set-default, are gone, so 53 remain) (the Go test's sample checks only some).
 // Not in the desktop table, on purpose: GET /api/docs (served the Go OpenAPI yaml, not ported),
 // GET /api/config and the /public/* routes (retired). They must answer 404.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -33,9 +33,7 @@ const EXPECTED_ROUTES: string[] = [
   // accounts
   'GET /api/accounts',
   'POST /api/accounts',
-  'GET /api/accounts/default',
   'GET /api/accounts/:id',
-  'POST /api/accounts/:id/set-default',
   'PATCH /api/accounts/:id',
   'DELETE /api/accounts/:id',
   // transactions
@@ -115,9 +113,9 @@ const DESKTOP_ROUTES = [
 ]
 
 describe('route table', () => {
-  it('registers exactly the Go API routes (55) plus the desktop-only routes, with no duplicates', () => {
+  it('registers exactly the Go API routes (53) plus the desktop-only routes, with no duplicates', () => {
     const registered = listRoutes().map((r) => `${r.method} ${r.pattern}`)
-    expect(EXPECTED_ROUTES).toHaveLength(55)
+    expect(EXPECTED_ROUTES).toHaveLength(53)
     expect(new Set(registered).size).toBe(registered.length)
     expect([...registered].sort()).toEqual([...EXPECTED_ROUTES, ...DESKTOP_ROUTES].sort())
   })

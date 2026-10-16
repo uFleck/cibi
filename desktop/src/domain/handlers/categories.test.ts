@@ -19,7 +19,7 @@ beforeEach(async () => {
   setDb(db)
   registerRoutes(buildApp(db))
   accountId = crypto.randomUUID()
-  await db.query(`INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES (?, 'x', 0, 'BRL', 1)`, [
+  await db.query(`INSERT INTO Account (id, name, current_balance, currency) VALUES (?, 'x', 0, 'BRL')`, [
     accountId,
   ])
 })

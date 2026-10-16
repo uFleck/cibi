@@ -94,7 +94,7 @@ describe('TestProfilePatchThemeInvalid', () => {
 describe('profile on the real repo', () => {
   async function seedAccount(id: string): Promise<void> {
     await db.query(
-      `INSERT INTO Account (id, name, current_balance, currency, is_default, safety_buffer, version) VALUES (?, 'A', 0, 'BRL', 0, 1000, 1)`,
+      `INSERT INTO Account (id, name, current_balance, currency, safety_buffer, version) VALUES (?, 'A', 0, 'BRL', 1000, 1)`,
       [id],
     )
   }

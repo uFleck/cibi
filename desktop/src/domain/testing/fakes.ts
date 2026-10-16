@@ -37,18 +37,13 @@ export function fakeAccountsRepo(overrides: Partial<AccountsRepo> = {}): Account
   return {
     insert: async () => undefined,
     getAll: async () => [],
-    getDefault: async (): Promise<Account> => {
-      throw ErrNoRows
-    },
     getById: async (): Promise<Account> => {
       throw ErrNoRows
     },
     updateBalance: async () => undefined,
     updateName: async () => undefined,
     updateSafetyBuffer: async () => undefined,
-    updateIsDefault: async () => undefined,
     deleteById: async () => undefined,
-    unsetDefaults: async () => undefined,
     incrementVersion: async () => undefined,
     ...overrides,
   }

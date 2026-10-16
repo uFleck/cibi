@@ -7,12 +7,12 @@
 // - a bind error (invalid request body) and a validation error: 400 with the text;
 // - an account_id that is set but is not a UUID: 400 "invalid account_id";
 // - a service error: 500 with the error text (so PAY_SCHEDULE_REQUIRED reaches the error handler with its code).
-// - an empty or missing account_id checks the default account.
+// - an empty or missing account_id: 400 "account_id is required".
 // Dates: wait_until is the YYYY-MM-DD of the payday (UTC), or null.
 
 import type { App } from '../app'
 import { formatYmd } from '../dates'
-import { route } from '../http'
+import { HttpError, route } from '../http'
 import { goRound } from '../num'
 import type { EngineResult, EngineService, GoalImpact, GoalWindowCoverage } from '../service/engine'
 import { validateOrThrow, type FieldSpec } from '../validate'
@@ -20,7 +20,7 @@ import { bindBody } from './bind'
 import { parseIdOr400, rethrow500 } from './common'
 
 /** The service methods the handler uses (Go: EngineServiceIface, so tests can inject fakes). */
-export type CheckServiceIface = Pick<EngineService, 'canIBuyIt' | 'canIBuyItDefault'>
+export type CheckServiceIface = Pick<EngineService, 'canIBuyIt'>
 
 /** JSON shape of a goal impact (Go CheckGoalImpact). Money is dollars. */
 export interface CheckGoalImpactResponse {
@@ -111,13 +111,9 @@ export function registerCheckRoutes(app: App, svc: CheckServiceIface = app.engin
     validateOrThrow('CheckRequest', req, CHECK_FIELDS)
     const cents = goInt64(goRound(req.amount * 100))
 
-    let result: EngineResult
-    if (req.account_id !== null && req.account_id !== '') {
-      const accountId = parseIdOr400(req.account_id, 'invalid account_id')
-      result = await svc.canIBuyIt(accountId, cents).catch(rethrow500)
-    } else {
-      result = await svc.canIBuyItDefault(cents).catch(rethrow500)
-    }
+    if (req.account_id === null || req.account_id === '') throw new HttpError(400, 'account_id is required')
+    const accountId = parseIdOr400(req.account_id, 'invalid account_id')
+    const result: EngineResult = await svc.canIBuyIt(accountId, cents).catch(rethrow500)
     return { body: checkResponse(result) }
   })
 }

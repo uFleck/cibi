@@ -195,7 +195,7 @@ it('TestDeleteTransaction', async () => {
 it('DELETE of a transaction with a ledger row is 409 and deletes nothing', async () => {
   const accountId = crypto.randomUUID()
   await db.query(
-    `INSERT INTO Account (id, name, current_balance, currency, is_default, safety_buffer, version) VALUES (?, 'Main', 10000, 'BRL', 1, 0, 1)`,
+    `INSERT INTO Account (id, name, current_balance, currency, safety_buffer, version) VALUES (?, 'Main', 10000, 'BRL', 0, 1)`,
     [accountId],
   )
   registerTransactionsRoutes(buildApp(db))

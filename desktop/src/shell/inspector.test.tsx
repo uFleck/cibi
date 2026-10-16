@@ -11,7 +11,7 @@ const store = vi.hoisted(() => ({ settings: {} as Record<string, unknown> }))
 
 vi.mock('@/lib/api', () => ({
   fetchAccounts: vi.fn(async () => [
-    { id: 'acct-1', name: 'Main', current_balance: 1000, currency: 'BRL', is_default: true, safety_buffer: 0 },
+    { id: 'acct-1', name: 'Main', current_balance: 1000, currency: 'BRL', safety_buffer: 0 },
   ]),
   fetchTransactions: vi.fn(async () => []),
   listPaySchedules: vi.fn(async () => []),

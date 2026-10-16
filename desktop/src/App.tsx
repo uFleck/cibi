@@ -95,7 +95,7 @@ function AppProviders() {
     const selectedAccountStillExists = !!selectedAccountId && accounts.some(account => account.id === selectedAccountId)
     if (selectedAccountStillExists) return
 
-    const fallbackAccountId = accounts.find(account => account.is_default)?.id ?? accounts[0]?.id ?? null
+    const fallbackAccountId = accounts[0]?.id ?? null
     if (fallbackAccountId && fallbackAccountId !== selectedAccountId) {
       setSelectedAccountId(fallbackAccountId)
     }

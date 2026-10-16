@@ -61,16 +61,18 @@ export function AccountForm({
         )}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="account-balance" className="text-xs">Current Balance</Label>
-          <ValueInput
-            id="account-balance"
-            value={balanceText}
-            onValueChange={onBalanceTextChange}
-            onParsedValueChange={onBalanceParsedChange}
-            placeholder="0.00"
-          />
-        </div>
+        {!editingId && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="account-balance" className="text-xs">Opening Balance</Label>
+            <ValueInput
+              id="account-balance"
+              value={balanceText}
+              onValueChange={onBalanceTextChange}
+              onParsedValueChange={onBalanceParsedChange}
+              placeholder="0.00"
+            />
+          </div>
+        )}
         <div className="flex flex-col gap-2">
           <Label htmlFor="account-currency" className="text-xs">Currency *</Label>
           <Select

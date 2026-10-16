@@ -59,12 +59,12 @@ describe('CheckWidget WAIT verdict', () => {
     const user = userEvent.setup()
     mockPostCheck.mockResolvedValue(waitVerdictResult)
 
-    render(<CheckWidget />)
+    render(<CheckWidget accountId="acct-1" />)
 
     await user.type(screen.getByPlaceholderText('0.00'), '75')
     await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
 
-    await waitFor(() => expect(mockPostCheck).toHaveBeenCalledWith(75, undefined))
+    await waitFor(() => expect(mockPostCheck).toHaveBeenCalledWith(75, 'acct-1'))
     expect(await screen.findByText('WAIT')).toBeTruthy()
     expect(screen.getByText("Not yet — you'll have enough after", { exact: false })).toBeTruthy()
     expect(screen.getByLabelText('Goal impact preview')).toBeTruthy()

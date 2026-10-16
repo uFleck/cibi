@@ -3,7 +3,7 @@ import { computeMonthlyProjection } from '@/lib/monthly-projection'
 import type { AccountResponse, TransactionResponse, PayScheduleResponse, FriendDebtBreakdownItem } from '@/lib/api'
 
 function makeAccount(balance: number): AccountResponse {
-  return { id: 'a1', name: 'Test', current_balance: balance, currency: 'BRL', is_default: true, safety_buffer: 0 }
+  return { id: 'a1', name: 'Test', current_balance: balance, currency: 'BRL', safety_buffer: 0 }
 }
 
 function makeSchedule(anchorDate: string, amount: number, frequency: PayScheduleResponse['frequency'] = 'monthly'): PayScheduleResponse {

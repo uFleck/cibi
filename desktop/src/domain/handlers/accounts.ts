@@ -5,13 +5,12 @@
 // - a service error that is sql.ErrNoRows -> 404 with the route's not-found text;
 // - any other service error -> 500 whose message is the error text itself (not the generic
 //   "internal server error": these handlers send err.Error()).
-// - GET /api/accounts/default has its own 404 text "not found".
 
 import type { App } from '../app'
 import { ErrNoRows, isErr, messageOf } from '../errors'
 import { HttpError, route } from '../http'
 import { goRound } from '../num'
-import type { Account, NewAccount } from '../repo/accounts'
+import type { NewAccount } from '../repo/accounts'
 import type { AccountsService } from '../service/accounts'
 import { parseUuid } from '../uuid'
 import { validateOrThrow, type FieldSpec } from '../validate'
@@ -22,9 +21,7 @@ export type AccountsServiceIface = Pick<
   AccountsService,
   | 'listAccounts'
   | 'createAccount'
-  | 'getDefault'
   | 'getById'
-  | 'setDefault'
   | 'updateAccount'
   | 'deleteAccount'
 >
@@ -35,7 +32,6 @@ export interface AccountResponse {
   name: string
   current_balance: number
   currency: string
-  is_default: boolean
   safety_buffer: number
 }
 
@@ -43,7 +39,6 @@ const CREATE_SCHEMA = {
   name: 'string',
   current_balance: 'float',
   currency: 'string',
-  is_default: 'bool',
   safety_buffer: 'float',
 } as const
 
@@ -64,7 +59,6 @@ export function toAccountResponse(a: NewAccount): AccountResponse {
     name: a.name,
     current_balance: a.currentBalance / 100,
     currency: a.currency,
-    is_default: a.isDefault,
     safety_buffer: a.safetyBuffer / 100,
   }
 }
@@ -111,28 +105,16 @@ export function registerAccountsRoutes(app: App, svc: AccountsServiceIface = app
       name: req.name,
       currentBalance: goRound(req.current_balance * 100),
       currency: req.currency,
-      isDefault: req.is_default,
       safetyBuffer: goRound(req.safety_buffer * 100),
     }
     await svc.createAccount(acc).catch(rethrow500)
     return { status: 201, body: toAccountResponse(acc) }
   })
 
-  route('GET', '/api/accounts/default', async () => {
-    const acc: Account = await svc.getDefault().catch(notFoundOr500('not found'))
-    return { body: toAccountResponse(acc) }
-  })
-
   route('GET', '/api/accounts/:id', async ({ params }) => {
     const id = parseIdOr400(params.id, 'invalid account id')
     const acc = await svc.getById(id).catch(notFoundOr500('account not found'))
     return { body: toAccountResponse(acc) }
-  })
-
-  route('POST', '/api/accounts/:id/set-default', async ({ params }) => {
-    const id = parseIdOr400(params.id, 'invalid account id')
-    await svc.setDefault(id).catch(notFoundOr500('account not found'))
-    return { status: 204 }
   })
 
   route('PATCH', '/api/accounts/:id', async ({ params, body }) => {

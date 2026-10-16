@@ -1,8 +1,15 @@
+import { useState, type FormEvent } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Wallet, ShieldCheck, Zap } from 'lucide-react'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { ValueInput } from '@/components/ui/value-input'
 import { MoneyValue } from '@/components/ui/money-value'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { isInCurrentPayWindow } from '@/lib/financial-window'
 import { formatMoney } from '@/lib/format'
+import { updateAccount } from '@/lib/api'
 import type {
   AccountResponse,
   TransactionResponse,
@@ -22,6 +29,49 @@ interface StatCardProps {
   value: React.ReactNode
   icon: React.ReactNode
   children?: React.ReactNode
+}
+
+function AdjustBalanceForm({ account }: { account: AccountResponse }) {
+  const queryClient = useQueryClient()
+  const [text, setText] = useState(String(account.current_balance))
+  const [parsed, setParsed] = useState<number | null>(account.current_balance)
+
+  const adjust = useMutation({
+    mutationFn: (balance: number) => updateAccount(account.id, { current_balance: balance }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['ledger'] })
+      toast.success('Balance adjusted')
+    },
+    onError: (error: Error) => toast.error(error.message || 'Failed to adjust balance'),
+  })
+
+  const unchanged = parsed === null || parsed === account.current_balance
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    if (parsed !== null && !unchanged) adjust.mutate(parsed)
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-2 text-sm" noValidate>
+      <Label htmlFor="adjust-balance" className="text-xs text-muted-foreground">
+        Set the balance to match your bank. The difference is recorded as a manual adjustment.
+      </Label>
+      <div className="flex items-start gap-2">
+        <ValueInput
+          id="adjust-balance"
+          value={text}
+          onValueChange={setText}
+          onParsedValueChange={setParsed}
+          placeholder="0.00"
+          wrapperClassName="flex-1"
+        />
+        <Button type="submit" size="sm" disabled={unchanged || adjust.isPending}>
+          {adjust.isPending ? 'Saving...' : 'Adjust'}
+        </Button>
+      </div>
+    </form>
+  )
 }
 
 function StatCard({ label, value, icon, children }: StatCardProps) {
@@ -103,7 +153,11 @@ export function StatCards({
           />
         )}
         icon={<Wallet size={14} />}
-      />
+      >
+        <PopoverContent className="w-72 p-4">
+          <AdjustBalanceForm key={account.current_balance} account={account} />
+        </PopoverContent>
+      </StatCard>
       <StatCard
         label="Reserved"
         value={(

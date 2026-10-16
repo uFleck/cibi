@@ -15,18 +15,16 @@ vi.mock('@tanstack/react-router', async () => {
 afterEach(cleanup)
 
 const accounts: AccountResponse[] = [
-  { id: 'a1', name: 'Checking', current_balance: 1200, currency: 'BRL', is_default: true, safety_buffer: 0 },
-  { id: 'a2', name: 'Savings', current_balance: -50, currency: 'BRL', is_default: false, safety_buffer: 0 },
+  { id: 'a1', name: 'Checking', current_balance: 1200, currency: 'BRL', safety_buffer: 0 },
+  { id: 'a2', name: 'Savings', current_balance: -50, currency: 'BRL', safety_buffer: 0 },
 ]
 
 describe('AccountsWidget', () => {
-  it('lists every account with its balance and marks the default', () => {
+  it('lists every account with its balance', () => {
     render(<AccountsWidget accounts={accounts} />)
     const rows = screen.getAllByRole('listitem')
     expect(rows).toHaveLength(2)
     expect(within(rows[0]).getByText('Checking')).toBeTruthy()
-    expect(within(rows[0]).getByText('default')).toBeTruthy()
-    expect(within(rows[1]).queryByText('default')).toBeNull()
     expect(within(rows[1]).getByText('Savings')).toBeTruthy()
   })
 

@@ -77,7 +77,7 @@ describe('CheckWidget impact wiring', () => {
     const user = userEvent.setup()
     mockPostCheck.mockResolvedValue(baseResult)
 
-    render(<CheckWidget />)
+    render(<CheckWidget accountId="acct-1" />)
 
     await user.type(screen.getByLabelText('Purchase amount'), '50')
     await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
@@ -96,7 +96,7 @@ describe('CheckWidget impact wiring', () => {
     const user = userEvent.setup()
     mockPostCheck.mockResolvedValue({ ...baseResult, goal_impacts: [] })
 
-    render(<CheckWidget />)
+    render(<CheckWidget accountId="acct-1" />)
 
     await user.type(screen.getByLabelText('Purchase amount'), '15')
     await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
@@ -121,7 +121,7 @@ describe('CheckWidget impact wiring', () => {
       ],
     })
 
-    render(<CheckWidget />)
+    render(<CheckWidget accountId="acct-1" />)
 
     await user.type(screen.getByLabelText('Purchase amount'), '12')
     await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
@@ -136,7 +136,7 @@ describe('CheckWidget impact wiring', () => {
     let resolveCheck!: (value: CheckResponse) => void
     mockPostCheck.mockReturnValue(new Promise<CheckResponse>(resolve => { resolveCheck = resolve }))
 
-    render(<CheckWidget />)
+    render(<CheckWidget accountId="acct-1" />)
 
     expect(screen.getByLabelText('Purchase amount')).toBeTruthy()
     await user.type(screen.getByLabelText('Purchase amount'), '25')
@@ -157,7 +157,7 @@ describe('CheckWidget impact wiring', () => {
     const user = userEvent.setup()
     mockPostCheck.mockRejectedValueOnce(new Error('network down')).mockResolvedValueOnce(baseResult)
 
-    render(<CheckWidget />)
+    render(<CheckWidget accountId="acct-1" />)
 
     await user.type(screen.getByLabelText('Purchase amount'), '25')
     await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
@@ -179,7 +179,7 @@ describe('CheckWidget impact wiring', () => {
     const user = userEvent.setup()
     mockPostCheck.mockResolvedValue(baseResult)
 
-    render(<CheckWidget />)
+    render(<CheckWidget accountId="acct-1" />)
 
     await user.type(screen.getByLabelText('Purchase amount'), '25')
     await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
@@ -193,11 +193,11 @@ describe('CheckWidget impact wiring', () => {
   it('supports Enter key submission without changing check-flow semantics', async () => {
     mockPostCheck.mockResolvedValue(baseResult)
 
-    render(<CheckWidget />)
+    render(<CheckWidget accountId="acct-1" />)
 
     fireEvent.change(screen.getByLabelText('Purchase amount'), { target: { value: '33' } })
     fireEvent.keyDown(screen.getByLabelText('Purchase amount'), { key: 'Enter' })
 
-    await waitFor(() => expect(mockPostCheck).toHaveBeenCalledWith(33, undefined))
+    await waitFor(() => expect(mockPostCheck).toHaveBeenCalledWith(33, 'acct-1'))
   })
 })

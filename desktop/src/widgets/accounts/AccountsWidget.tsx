@@ -25,7 +25,6 @@ export function AccountsWidget({ accounts }: AccountsWidgetProps) {
         <li key={account.id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
           <span className="flex min-w-0 items-center gap-2">
             <span className="truncate text-sm">{account.name}</span>
-            {account.is_default && <span className="shrink-0 font-mono text-[10px] uppercase text-muted-foreground">default</span>}
           </span>
           <MoneyValue amount={account.current_balance} currency={account.currency} tone="neutral" className="shrink-0 font-mono" />
         </li>

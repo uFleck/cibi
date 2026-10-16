@@ -71,7 +71,7 @@ it('deleteById of a friend with a peer debt rejects with ErrFriendInUse (the for
   const a = friend()
   const accountId = crypto.randomUUID()
   await repo.insert(a)
-  await db.query(`INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES (?, 'x', 0, 'BRL', 0)`, [
+  await db.query(`INSERT INTO Account (id, name, current_balance, currency) VALUES (?, 'x', 0, 'BRL')`, [
     accountId,
   ])
   await db.query(

@@ -48,7 +48,6 @@ const accountFixture: AccountResponse = {
   name: 'Primary',
   current_balance: 1_000,
   currency: 'BRL',
-  is_default: true,
   safety_buffer: 100,
 }
 

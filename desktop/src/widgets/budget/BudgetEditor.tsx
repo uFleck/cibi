@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useContext, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { fetchAccounts, fetchBudget, saveBudgetLimits, type BudgetLimit, type BudgetResponse } from '@/lib/api'
 import { formatMoney } from '@/lib/format'
+import { AccountContext } from '@/shell/contexts'
 import { useShellAction } from '@/shell/shellActions'
 import { useBudgetMonth } from './useBudgetMonth'
 
@@ -215,7 +216,9 @@ export function BudgetEditor() {
     enabled: open,
   })
   const accounts = useQuery({ queryKey: ['accounts'], queryFn: fetchAccounts })
-  const currency = accounts.data?.find(account => account.is_default)?.currency ?? DEFAULT_CURRENCY
+  const { selectedAccountId } = useContext(AccountContext)
+  const currentAccount = accounts.data?.find(account => account.id === selectedAccountId) ?? accounts.data?.[0]
+  const currency = currentAccount?.currency ?? DEFAULT_CURRENCY
 
   // Only a response fetched since this open seeds the form, so a stale cached copy never does.
   const fresh = budget.data !== undefined && budget.dataUpdatedAt >= openedAt

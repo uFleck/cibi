@@ -31,7 +31,7 @@ function fakeEngineService(overrides: Partial<CheckServiceIface>): CheckServiceI
   const unset = async (): Promise<never> => {
     throw new Error('not implemented')
   }
-  return { canIBuyIt: unset, canIBuyItDefault: unset, ...overrides }
+  return { canIBuyIt: unset, ...overrides }
 }
 
 function post(path: string, body: string) {
@@ -45,7 +45,7 @@ it('TestCheck', async () => {
   registerCheckRoutes(
     app,
     fakeEngineService({
-      canIBuyItDefault: async (itemPrice: number): Promise<EngineResult> => {
+      canIBuyIt: async (_accountId: string, itemPrice: number): Promise<EngineResult> => {
         gotItemPrice = itemPrice
         return {
           canBuy: true,
@@ -61,7 +61,7 @@ it('TestCheck', async () => {
     }),
   )
 
-  const res = await post('/api/check', '{"amount":75.00}')
+  const res = await post('/api/check', '{"amount":75.00,"account_id":"33333333-3333-4333-8333-333333333333"}')
   expect(res.status).toBe(200)
   const resp = (await res.json()) as Record<string, unknown>
   expect(gotItemPrice).toBe(7500)
@@ -77,7 +77,7 @@ it('TestCheck_WAITWithGoalImpacts', async () => {
   registerCheckRoutes(
     app,
     fakeEngineService({
-      canIBuyItDefault: async (itemPrice: number): Promise<EngineResult> => {
+      canIBuyIt: async (_accountId: string, itemPrice: number): Promise<EngineResult> => {
         expect(itemPrice).toBe(5000)
         return {
           canBuy: false,
@@ -104,7 +104,7 @@ it('TestCheck_WAITWithGoalImpacts', async () => {
     }),
   )
 
-  const res = await post('/api/check', '{"amount":50.00}')
+  const res = await post('/api/check', '{"amount":50.00,"account_id":"33333333-3333-4333-8333-333333333333"}')
   expect(res.status).toBe(200)
   const resp = (await res.json()) as {
     risk_level: string
@@ -128,6 +128,14 @@ it('TestCheck_NegativeAmount', async () => {
   expect(res.status).toBe(400)
   const resp = (await res.json()) as Record<string, unknown>
   expect(resp).toHaveProperty('error')
+})
+
+it('TestCheck_MissingAccount: a check without account_id is 400 "account_id is required"', async () => {
+  registerCheckRoutes(app, fakeEngineService({}))
+
+  const res = await post('/api/check', '{"amount":10}')
+  expect(res.status).toBe(400)
+  expect(await res.json()).toEqual({ error: 'account_id is required' })
 })
 
 // TestCheck_MalformedBody verifies POST /api/check with malformed JSON returns 400 with {"error":"..."}.
@@ -176,7 +184,7 @@ describe('check handler conversions', () => {
     registerCheckRoutes(
       app,
       fakeEngineService({
-        canIBuyItDefault: async (itemPrice: number): Promise<EngineResult> => {
+        canIBuyIt: async (_accountId: string, itemPrice: number): Promise<EngineResult> => {
           gotItemPrice = itemPrice
           return {
             canBuy: true,
@@ -192,7 +200,7 @@ describe('check handler conversions', () => {
       }),
     )
 
-    const res = await post('/api/check', '{"amount":1e20}')
+    const res = await post('/api/check', '{"amount":1e20,"account_id":"33333333-3333-4333-8333-333333333333"}')
     expect(res.status).toBe(200)
     expect(gotItemPrice).toBe(-(2 ** 63))
   })

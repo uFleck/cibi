@@ -38,7 +38,7 @@ describe('app wiring', () => {
 
     const created = await localFetch('/api/accounts', {
       method: 'POST',
-      body: JSON.stringify({ name: 'Checking', current_balance: 123.45, currency: 'USD', is_default: true }),
+      body: JSON.stringify({ name: 'Checking', current_balance: 123.45, currency: 'USD' }),
     })
     expect(created.status).toBe(201)
 
@@ -48,7 +48,6 @@ describe('app wiring', () => {
       name: string
       current_balance: number
       currency: string
-      is_default: boolean
     }[]
     expect(accounts).toHaveLength(1)
     expect(accounts[0]).toEqual({
@@ -56,7 +55,6 @@ describe('app wiring', () => {
       name: 'Checking',
       current_balance: 123.45,
       currency: 'USD',
-      is_default: true,
       // The default buffer when none is given (Go service: 1000 cents).
       safety_buffer: 10,
     })

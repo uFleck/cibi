@@ -155,7 +155,6 @@ export function scopedAccountRepo(
     name: '',
     currentBalance: startingBalance,
     currency: 'BRL',
-    isDefault: false,
     safetyBuffer: 0,
     version: 1,
   }
@@ -165,7 +164,6 @@ export function scopedAccountRepo(
   return {
     insert: unset,
     getAll: unset,
-    getDefault: unset,
     getById: async (id: string) => {
       if (id !== expectedId) throw new Error(`unexpected account id: ${id}`)
       return { ...account }
@@ -177,9 +175,7 @@ export function scopedAccountRepo(
     },
     updateName: unset,
     updateSafetyBuffer: unset,
-    updateIsDefault: unset,
     deleteById: unset,
-    unsetDefaults: unset,
     incrementVersion: unset,
   }
 }

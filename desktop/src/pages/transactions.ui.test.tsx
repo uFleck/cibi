@@ -64,7 +64,7 @@ function routeRequests() {
     }
     if (path.startsWith('/api/accounts')) {
       return json([
-        { id: 'acct-1', name: 'Main', current_balance: 1000, currency: 'BRL', is_default: true, safety_buffer: 0 },
+        { id: 'acct-1', name: 'Main', current_balance: 1000, currency: 'BRL', safety_buffer: 0 },
       ])
     }
     return json([])
@@ -211,7 +211,7 @@ describe('TransactionsPage selection and filters', () => {
       }
       if (path.startsWith('/api/transactions?')) return json([categorized])
       if (path.startsWith('/api/accounts')) {
-        return json([{ id: 'acct-1', name: 'Main', current_balance: 1000, currency: 'BRL', is_default: true, safety_buffer: 0 }])
+        return json([{ id: 'acct-1', name: 'Main', current_balance: 1000, currency: 'BRL', safety_buffer: 0 }])
       }
       return json([])
     })
@@ -246,7 +246,7 @@ describe('TransactionsPage selection and filters', () => {
         return new Promise<Response>(resolve => { gate.release = resolve })
       }
       if (path.startsWith('/api/accounts')) {
-        return json([{ id: 'acct-1', name: 'Main', current_balance: 1000, currency: 'BRL', is_default: true, safety_buffer: 0 }])
+        return json([{ id: 'acct-1', name: 'Main', current_balance: 1000, currency: 'BRL', safety_buffer: 0 }])
       }
       return json([])
     })

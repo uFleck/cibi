@@ -34,9 +34,7 @@ export function useWorkspace(): Workspace {
 
   const accounts = useQuery({ queryKey: ['accounts'], queryFn: fetchAccounts })
   const allAccounts = accounts.data ?? []
-  const defaultAccount = allAccounts.find(a => a.is_default)
-  const currentAccountId = selectedAccountId || defaultAccount?.id
-  const account = allAccounts.find(a => a.id === currentAccountId) ?? defaultAccount ?? allAccounts[0]
+  const account = allAccounts.find(a => a.id === selectedAccountId) ?? allAccounts[0]
 
   const transactions = useQuery({
     queryKey: ['transactions', account?.id],

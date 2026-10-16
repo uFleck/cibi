@@ -78,7 +78,6 @@ describe('SettingsPage', () => {
         name: 'Main',
         current_balance: 500,
         currency: 'USD',
-        is_default: true,
         safety_buffer: 120,
       },
     ])
@@ -88,7 +87,6 @@ describe('SettingsPage', () => {
       name: 'Main',
       current_balance: 500,
       currency: 'USD',
-      is_default: true,
       safety_buffer: 120,
     })
   })

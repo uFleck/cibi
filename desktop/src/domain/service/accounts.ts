@@ -30,14 +30,6 @@ export class AccountsService {
     await wrapping('service.CreateAccount', () => this.accRepo.insert(row))
   }
 
-  getDefault(): Promise<Account> {
-    return wrapping('service.GetDefault', () => this.accRepo.getDefault())
-  }
-
-  setDefault(id: string): Promise<void> {
-    return wrapping('service.SetDefault', () => this.accRepo.updateIsDefault(id, true))
-  }
-
   deleteAccount(id: string): Promise<void> {
     return wrapping('service.DeleteAccount', () => this.accRepo.deleteById(id))
   }

@@ -8,7 +8,6 @@ export const ROW_KEYS = {
   open: 'o',
   add: 'a',
   remove: 'r',
-  setDefault: 's',
   copy: 'y',
 } as const
 

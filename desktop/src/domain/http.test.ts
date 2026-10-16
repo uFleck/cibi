@@ -95,8 +95,8 @@ describe('params, query and body', () => {
 describe('matching', () => {
   it('a static segment beats a param, whatever the registration order', async () => {
     route('GET', '/api/accounts/:id', async (ctx) => ({ body: { via: 'param', id: ctx.params.id } }))
-    route('GET', '/api/accounts/default', async () => ({ body: { via: 'static' } }))
-    expect(await (await localFetch('/api/accounts/default')).json()).toEqual({ via: 'static' })
+    route('GET', '/api/accounts/special', async () => ({ body: { via: 'static' } }))
+    expect(await (await localFetch('/api/accounts/special')).json()).toEqual({ via: 'static' })
     expect(await (await localFetch('/api/accounts/xyz')).json()).toEqual({ via: 'param', id: 'xyz' })
   })
 
@@ -117,7 +117,7 @@ describe('matching', () => {
 
   it('does not match a longer or shorter path, or an empty param (Echo: /api/accounts/ is 404)', async () => {
     route('GET', '/api/accounts/:id', async () => ({ body: 'x' }))
-    route('POST', '/api/accounts/:id/set-default', async () => ({ body: 'x' }))
+    route('POST', '/api/accounts/:id/archive', async () => ({ body: 'x' }))
     // /api/accounts/:id has a route below it, so a longer path does not reach it (Echo).
     expect((await localFetch('/api/accounts/a/b')).status).toBe(404)
     expect((await localFetch('/api/accounts')).status).toBe(404)

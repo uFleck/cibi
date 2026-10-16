@@ -8,7 +8,6 @@ export interface AccountResponse {
   name: string
   current_balance: number
   currency: string
-  is_default: boolean
   safety_buffer: number
 }
 
@@ -180,10 +179,6 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
-export function fetchDefaultAccount(): Promise<AccountResponse> {
-  return apiFetch<AccountResponse>('/api/accounts/default')
-}
-
 export function fetchTransactions(accountId: string): Promise<TransactionResponse[]> {
   return apiFetch<TransactionResponse[]>(`/api/transactions?account_id=${accountId}`)
 }
@@ -255,11 +250,11 @@ export function confirmGoalRecurring(id: string): Promise<void> {
   })
 }
 
-export function postCheck(amount: number, accountId?: string): Promise<CheckResponse> {
+export function postCheck(amount: number, accountId: string): Promise<CheckResponse> {
   return apiFetch<CheckResponse>('/api/check', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount, ...(accountId ? { account_id: accountId } : {}) }),
+    body: JSON.stringify({ amount, account_id: accountId }),
   })
 }
 
@@ -327,14 +322,6 @@ export function updateAccount(
 export function deleteAccount(id: string): Promise<void> {
   return apiFetch<void>(`/api/accounts/${id}`, {
     method: 'DELETE',
-  })
-}
-
-export function setDefaultAccount(id: string): Promise<void> {
-  return apiFetch<void>(`/api/accounts/${id}/set-default`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
   })
 }
 

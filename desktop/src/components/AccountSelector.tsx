@@ -35,8 +35,7 @@ export function AccountSelector({ selectedAccountId, onSelectAccount, fullWidth,
     )
   }
 
-  const defaultAccount = accounts.find(a => a.is_default)
-  const displayId = selectedAccountId || defaultAccount?.id
+  const displayId = selectedAccountId || accounts[0]?.id
 
   return (
     <Select value={displayId || ''} onValueChange={onSelectAccount}>
@@ -51,7 +50,6 @@ export function AccountSelector({ selectedAccountId, onSelectAccount, fullWidth,
         {accounts.map(account => (
           <SelectItem key={account.id} value={account.id}>
             {account.name}
-            {account.is_default ? ' (Default)' : ''}
           </SelectItem>
         ))}
       </SelectContent>

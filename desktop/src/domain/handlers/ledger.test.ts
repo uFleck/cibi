@@ -30,7 +30,7 @@ const PAY_SCHEDULE = '0d0c6a52-2b1e-4c3a-9f7e-3a1b2c3d4e5f'
 
 async function seedAccount(): Promise<void> {
   await db.query(
-    `INSERT INTO Account (id, name, current_balance, currency, is_default, safety_buffer, version) VALUES (?, 'Umbler', 0, 'BRL', 1, 0, 1)`,
+    `INSERT INTO Account (id, name, current_balance, currency, safety_buffer, version) VALUES (?, 'Umbler', 0, 'BRL', 0, 1)`,
     [ACCOUNT],
   )
 }

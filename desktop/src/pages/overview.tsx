@@ -70,7 +70,7 @@ export function OverviewPage() {
           <CardContent className="py-6 text-center">
             <p className="mb-2 font-semibold">Set up your finances</p>
             <div className="mx-auto max-w-xs space-y-1 text-left text-sm text-muted-foreground">
-              <p>&#9312; <Link to="/accounts" search={{ schedules: data.account.id }} className="underline">Add a pay schedule</Link> — tell us when you get paid</p>
+              <p>&#9312; <Link to="/transactions" search={{ tab: 'pay-schedules' }} className="underline">Add a pay schedule</Link> — tell us when you get paid</p>
               <p>&#9313; <Link to="/transactions" className="underline">Create recurring bills</Link> — subscriptions, rent, etc.</p>
               <p>&#9314; <span>Check what you can afford</span> — use the Can I buy it? widget</p>
             </div>

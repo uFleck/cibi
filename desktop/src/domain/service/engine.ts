@@ -265,12 +265,6 @@ export class EngineService {
     }
   }
 
-  /** Go CanIBuyItDefault: CanIBuyIt for the account marked is_default. */
-  async canIBuyItDefault(itemPrice: number, now: Date = new Date()): Promise<EngineResult> {
-    const acc = await wrapping('engine.CanIBuyItDefault: get default account', () => this.accRepo.getDefault())
-    return this.canIBuyIt(acc.id, itemPrice, now)
-  }
-
   /**
    * Go goalContributionsInWindow: per goal, the net contributions (contribution and adjustment add,
    * withdrawal subtracts) with a timestamp in [windowStart, windowEnd). Only positive sums are kept.

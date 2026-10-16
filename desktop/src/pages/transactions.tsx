@@ -1,7 +1,7 @@
 import { useState, useContext, useMemo, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, ArrowLeftRight, Check, Pencil, Trash2, X, Users, History } from 'lucide-react'
+import { Plus, ArrowLeftRight, Banknote, Check, Pencil, Trash2, X, Users, History } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,8 @@ import { MoneyValue } from '@/components/ui/money-value'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EditSheet } from '@/components/EditSheet'
 import { AccountSelector } from '@/components/AccountSelector'
+import { PaydayBanner } from '@/components/PaydayBanner'
+import { PaySchedulesPanel } from '@/components/PaySchedulesPanel'
 import { SharedDebtList } from '@/components/debt/shared-debt-list'
 import { TransactionForm } from '@/components/TransactionForm'
 import { TransactionLinks } from '@/components/TransactionLinks'
@@ -101,12 +103,13 @@ export function TransactionsPage() {
   const queryClient = useQueryClient()
   const { selectedAccountId, setSelectedAccountId } = useContext(AccountContext)
   const [kindFilter, setKindFilter] = useState<KindFilter>('all')
-  const [activeTab, setActiveTab] = useState<'transactions' | 'friend-debts' | 'ledger'>(() => {
+  const [activeTab, setActiveTab] = useState<'transactions' | 'friend-debts' | 'pay-schedules' | 'ledger'>(() => {
     const tab = new URLSearchParams(window.location.search).get('tab')
-    if (tab === 'ledger' || tab === 'friend-debts') return tab
+    if (tab === 'ledger' || tab === 'friend-debts' || tab === 'pay-schedules') return tab
     return 'transactions'
   })
   const [isCreating, setIsCreating] = useState(false)
+  const [isCreatingSchedule, setIsCreatingSchedule] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [peerDebtFilter, setPeerDebtFilter] = useState<{ friendId: string; direction: 'all' | 'i-owe' | 'they-owe'; status: 'all' | 'confirmed' | 'pending' }>({ friendId: 'all', direction: 'all', status: 'all' })
@@ -646,7 +649,7 @@ export function TransactionsPage() {
   }
 
   const focusSearch = () => focusWhenReady('[data-filter-search]')
-  useShellAction('new-transaction', handleCreateClick)
+  useShellAction('new-transaction', activeTab === 'pay-schedules' ? () => setIsCreatingSchedule(true) : handleCreateClick)
   useShellAction('focus-search', focusSearch)
 
   const { selectedId, select } = useSelection()
@@ -741,6 +744,8 @@ export function TransactionsPage() {
         }
       />
 
+      <PaydayBanner schedules={paySchedules} />
+
       <div className="flex gap-1 border-b">
         <button
           onClick={() => { setActiveTab('transactions'); select(null) }}
@@ -755,6 +760,13 @@ export function TransactionsPage() {
         >
           <Users size={14} className="inline mr-1.5 -mt-0.5" />
           Friend Debts
+        </button>
+        <button
+          onClick={() => { setActiveTab('pay-schedules'); select(null) }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'pay-schedules' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        >
+          <Banknote size={14} className="inline mr-1.5 -mt-0.5" />
+          Pay schedules
         </button>
         <button
           onClick={() => { setActiveTab('ledger'); select(null) }}
@@ -1001,6 +1013,16 @@ export function TransactionsPage() {
             />
           </Skeleton>
         </div>
+      )}
+
+      {activeTab === 'pay-schedules' && currentAccountId && (
+        <PaySchedulesPanel
+          accountId={currentAccountId}
+          currency={currentAccountCurrency}
+          schedules={paySchedules}
+          creating={isCreatingSchedule}
+          onCreatingChange={setIsCreatingSchedule}
+        />
       )}
 
       {activeTab === 'ledger' && (

@@ -18,16 +18,14 @@ const accountsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/accounts',
   component: AccountsPage,
-  validateSearch: (search: Record<string, unknown>): { schedules?: string } => ({
-    schedules: typeof search.schedules === 'string' ? search.schedules : undefined,
-  }),
 })
 const transactionsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/transactions',
   component: TransactionsPage,
-  validateSearch: (search: Record<string, unknown>): { select?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { select?: string; tab?: string } => ({
     select: typeof search.select === 'string' ? search.select : undefined,
+    tab: typeof search.tab === 'string' ? search.tab : undefined,
   }),
 })
 const friendsRoute = createRoute({
