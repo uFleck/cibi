@@ -35,8 +35,8 @@ function InspectorDetail({ detail, onBack }: { detail: SelectionDetail; onBack: 
 
       <div className="flex flex-col gap-1">
         <span className="font-mono text-[10.5px] tracking-[0.05em] text-faint uppercase">{detail.eyebrow}</span>
-        <div className="num text-[22px] font-medium tracking-[-0.04em]">{detail.amount}</div>
-        <h2 className="text-sm leading-snug font-semibold break-words">{detail.title}</h2>
+        <div className="num text-[18px] font-medium tracking-[-0.04em]">{detail.amount}</div>
+        <h2 className="text-[13px] leading-snug font-semibold break-words">{detail.title}</h2>
       </div>
 
       <KvList rows={detail.rows} />

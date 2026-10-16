@@ -56,13 +56,13 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
               data-row={t.id}
               onClick={onSelect ? () => onSelect(t.id) : undefined}
               className={cn(
-                'flex items-center py-2 gap-4 hover:bg-muted/30 transition-colors',
+                'flex items-center py-1.5 gap-3 hover:bg-muted/30 transition-colors',
                 onSelect && 'cursor-pointer',
                 t.id === selectedId && 'bg-hl/10 shadow-[inset_2px_0_0_var(--color-hl)]',
               )}
             >
-              <span className="min-w-0 flex-1 truncate text-sm" title={t.title}>{t.title}</span>
-              <span className="w-8 shrink-0 text-right text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+              <span className="min-w-0 flex-1 truncate text-[13px]" title={t.title}>{t.title}</span>
+              <span className="w-8 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
                 {t.is_installment ? `${t.paid_installments ?? 0}/${t.total_installments ?? '?'}` : null}
               </span>
               <MoneyValue
@@ -70,16 +70,16 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
                 currency={currency}
                 tone="negative"
                 showSign="auto"
-                className="min-w-[6.5rem] shrink-0 text-right text-sm font-medium whitespace-nowrap"
+                className="min-w-[5.5rem] shrink-0 text-right text-[13px] font-medium whitespace-nowrap"
               />
-              <span className="w-[5.5rem] shrink-0 text-right text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+              <span className="w-[4.5rem] shrink-0 text-right text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
                 {formatDate(t.next_occurrence!)}
               </span>
             </div>
           ))}
           <div className="border-t border-line mt-1" />
-          <div className="flex items-center py-2 gap-4">
-            <span className="flex-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          <div className="flex items-center py-1.5 gap-3">
+            <span className="flex-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
               Total reserved
             </span>
             <span aria-hidden className="w-8 shrink-0" />
@@ -88,9 +88,9 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
               currency={currency}
               tone="negative"
               showSign="never"
-              className="min-w-[6.5rem] shrink-0 text-right text-sm font-semibold whitespace-nowrap"
+              className="min-w-[5.5rem] shrink-0 text-right text-[13px] font-semibold whitespace-nowrap"
             />
-            <span aria-hidden className="w-[5.5rem] shrink-0" />
+            <span aria-hidden className="w-[4.5rem] shrink-0" />
           </div>
         </div>
       )}
