@@ -198,6 +198,29 @@
   html {
     @apply font-sans;
   }
+
+  /* Barely-there scrollbar: a hairline thumb that firms up on hover */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--line);
+    background-clip: padding-box;
+    border: 3px solid transparent;
+    border-radius: 999px;
+    transition: background-color 0.2s;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--line-strong);
+  }
+  ::-webkit-scrollbar-thumb:active {
+    background-color: var(--text-3);
+  }
 }
 
 @layer utilities {
