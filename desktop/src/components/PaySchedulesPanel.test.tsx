@@ -87,12 +87,6 @@ describe('PaySchedulesPanel', () => {
     await waitFor(() => expect(vi.mocked(deletePaySchedule).mock.calls[0]?.[0]).toBe('s1'))
   })
 
-  it('opens the new schedule sheet from the button', () => {
-    const { onCreatingChange } = renderPanel()
-    fireEvent.click(screen.getByRole('button', { name: /new schedule/i }))
-    expect(onCreatingChange).toHaveBeenCalledWith(true)
-  })
-
   it('shows an empty hint with no schedules', () => {
     renderPanel({ schedules: [] })
     expect(screen.getByText(/No pay schedules yet/)).toBeTruthy()

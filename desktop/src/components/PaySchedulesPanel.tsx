@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { Check, Edit2, Plus, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Check, Edit2, Trash2 } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { DataList } from '@/components/ui/data-list'
 import { MoneyValue } from '@/components/ui/money-value'
@@ -42,12 +41,6 @@ export function PaySchedulesPanel({ accountId, currency, schedules, creating, on
     setErrors({})
   }
   const { create, update, remove, confirm } = usePayScheduleMutations(closeSheet)
-
-  const startCreate = () => {
-    setForm(EMPTY_FORM)
-    setErrors({})
-    onCreatingChange(true)
-  }
 
   const startEdit = (ps: PayScheduleResponse) => {
     setEditingId(ps.id)
@@ -97,13 +90,6 @@ export function PaySchedulesPanel({ accountId, currency, schedules, creating, on
         title={`Delete "${scheduleToDelete?.label ?? scheduleToDelete?.frequency}"?`}
         description="Future paydays from this schedule are no longer expected. Income already received stays in the ledger."
       />
-
-      <div className="flex justify-end">
-        <Button size="sm" onClick={startCreate}>
-          <Plus size={16} />
-          New Schedule
-        </Button>
-      </div>
 
       <DataList
         aria-label="Pay schedules"

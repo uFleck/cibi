@@ -740,6 +740,16 @@ export function TransactionsPage() {
               <Plus size={16} />
               Add Transaction
             </Button>
+          ) : activeTab === 'friend-debts' ? (
+            <Button onClick={() => setIsCreatingDebt(true)} size="sm">
+              <Plus size={16} />
+              New Debt
+            </Button>
+          ) : activeTab === 'pay-schedules' ? (
+            <Button onClick={() => setIsCreatingSchedule(true)} size="sm">
+              <Plus size={16} />
+              New Schedule
+            </Button>
           ) : null
         }
       />
@@ -958,10 +968,6 @@ export function TransactionsPage() {
                 <option value="confirmed">Confirmed</option>
               </select>
             </div>
-            <Button size="sm" onClick={() => setIsCreatingDebt(true)} className="ml-auto">
-              <Plus size={16} />
-              New Debt
-            </Button>
           </div>
           <Skeleton
             name="peer-debt-list"
