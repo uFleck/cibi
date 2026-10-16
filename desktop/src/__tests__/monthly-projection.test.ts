@@ -12,7 +12,7 @@ function makeSchedule(anchorDate: string, amount: number, frequency: PaySchedule
 
 function makeTxn(amount: number, next_occurrence: string | null, is_recurring = true, is_installment = false): TransactionResponse {
   return {
-    id: 't1', account_id: 'a1', type: 'personal', description: 'Test', amount, category: '',
+    id: 't1', account_id: 'a1', type: 'personal', title: 'Test', description: null, links: [], amount, category: '',
     timestamp: '', is_recurring, is_installment, next_occurrence,
     requires_confirmation: false, confirmed_at: null, frequency: null, anchor_date: null,
     total_installments: null, paid_installments: 0,

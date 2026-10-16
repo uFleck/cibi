@@ -12,13 +12,20 @@ export interface AccountResponse {
   safety_buffer: number
 }
 
+export interface TransactionLink {
+  url: string
+  label: string | null
+}
+
 export interface TransactionResponse {
   id: string
   account_id: string
   type: 'personal' | 'peer'
   friend_id?: string | null
   amount: number
-  description: string
+  title: string
+  description: string | null
+  links: TransactionLink[]
   category: string | null
   timestamp: string
   is_recurring: boolean
@@ -335,7 +342,9 @@ export function setDefaultAccount(id: string): Promise<void> {
 export function createTransaction(data: {
   account_id: string
   amount: number
-  description: string
+  title: string
+  description?: string
+  links?: TransactionLink[]
   category?: string
   is_recurring?: boolean
   requires_confirmation?: boolean
@@ -355,7 +364,9 @@ export function updateTransaction(
   id: string,
   data: Partial<{
     amount: number
+    title: string
     description: string
+    links: TransactionLink[]
     category: string
     is_recurring: boolean
     requires_confirmation: boolean
@@ -379,9 +390,10 @@ export function fetchCategories(): Promise<CategoryOption[]> {
   return apiFetch<CategoryOption[]>('/api/categories')
 }
 
-/** The classifier's confident suggestion for a description, or null. */
-export function suggestCategory(description: string): Promise<Classification | null> {
-  return apiFetch<Classification | null>(`/api/categories/suggest?description=${encodeURIComponent(description)}`)
+/** The classifier's confident suggestion for a title and optional description, or null. */
+export function suggestCategory(title: string, description = ''): Promise<Classification | null> {
+  const query = `title=${encodeURIComponent(title)}&description=${encodeURIComponent(description)}`
+  return apiFetch<Classification | null>(`/api/categories/suggest?${query}`)
 }
 
 export interface CategoryBackfillResponse {

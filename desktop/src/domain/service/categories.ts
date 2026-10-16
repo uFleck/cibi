@@ -3,7 +3,7 @@
 import type { Db } from '../db'
 import { wrapping } from '../errors'
 import { categoryOptions, type CategoryOption } from '../categories'
-import { getClassifier, suggestCategory, type Classification } from '../classifier'
+import { classificationText, getClassifier, suggestCategory, type Classification } from '../classifier'
 import type { TransactionsRepo } from '../repo/transactions'
 
 const WRITE_BATCH = 50
@@ -36,9 +36,9 @@ export class CategoriesService {
     )
   }
 
-  suggest(description: string): Promise<Classification | null> {
+  suggest(title: string, description?: string | null): Promise<Classification | null> {
     return wrapping('service.SuggestCategory', async () =>
-      suggestCategory(description, await this.list()),
+      suggestCategory(classificationText(title, description), await this.list()),
     )
   }
 
@@ -55,7 +55,7 @@ export class CategoriesService {
       const rows = await this.txnsRepo.listUncategorized()
       const hits: { id: string; category: string }[] = []
       for (const row of rows) {
-        const hit = await suggestCategory(row.description, options)
+        const hit = await suggestCategory(classificationText(row.title, row.description), options)
         if (hit !== null) hits.push({ id: row.id, category: hit.category })
         await yieldToEventLoop()
       }

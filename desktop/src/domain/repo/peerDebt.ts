@@ -102,7 +102,7 @@ function bit(v: boolean): number {
 }
 
 /** Column list of every peer debt query; the last column is the confirmed flag. */
-const PEER_SELECT = `SELECT id, account_id, friend_id, amount, description, timestamp, is_installment,
+const PEER_SELECT = `SELECT id, account_id, friend_id, amount, title AS description, timestamp, is_installment,
 	 total_installments, paid_installments, frequency, anchor_date,
 	 CASE WHEN confirmed_at IS NOT NULL THEN 1 ELSE 0 END AS is_confirmed`
 
@@ -165,7 +165,7 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
     ]
     try {
       await this.db.query(
-        `INSERT INTO "Transaction" (id, account_id, type, friend_id, amount, description, timestamp,
+        `INSERT INTO "Transaction" (id, account_id, type, friend_id, amount, title, timestamp,
 		 is_recurring, frequency, anchor_date, is_installment,
 		 total_installments, paid_installments, requires_confirmation, confirmed_at)
 		 VALUES (?, ?, 'peer', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
@@ -252,7 +252,7 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
       args.push(amount)
     }
     if (description !== undefined) {
-      setClauses.push('description = ?')
+      setClauses.push('title = ?')
       args.push(description)
     }
     if (paidInstallments !== undefined) {

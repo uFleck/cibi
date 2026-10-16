@@ -12,7 +12,7 @@ import { AppError, wrapping } from '../errors'
 import { addDays } from '../dates'
 import { addMonthClamped, FREQ_BI_WEEKLY, FREQ_MONTHLY, FREQ_WEEKLY, FREQ_YEARLY } from '../engine/engine'
 import { categoryOptions, normalizeCategory } from '../categories'
-import { suggestCategory } from '../classifier'
+import { classificationText, suggestCategory } from '../classifier'
 import type { AccountsRepo } from '../repo/accounts'
 import { VALID_FREQUENCIES, type Transaction, type TransactionsRepo, type UpdateTransaction } from '../repo/transactions'
 import type { LedgerService } from './ledger'
@@ -84,7 +84,7 @@ export class TransactionsService {
     }
 
     if (t.category === null && t.amount < 0) {
-      t.category = await this.autoCategory(t.description)
+      t.category = await this.autoCategory(t.title, t.description)
     }
 
     const applyToBalance = shouldApplyBalanceOnCreate(t, new Date())
@@ -100,7 +100,7 @@ export class TransactionsService {
               payScheduleId: null,
               entryType: 'payment',
               amount: t.amount,
-              description: t.description,
+              description: t.title,
               postedAt: t.timestamp,
             },
             true,
@@ -112,13 +112,13 @@ export class TransactionsService {
   }
 
   /**
-   * The classifier's category for a description. Only a model that is already loaded is asked, so a
-   * save never waits for it. A failure is no category: it never fails the save.
+   * The classifier's category for a title and description. Only a model that is already loaded is
+   * asked, so a save never waits for it. A failure is no category: it never fails the save.
    */
-  private async autoCategory(description: string): Promise<string | null> {
+  private async autoCategory(title: string, description: string | null): Promise<string | null> {
     try {
       const options = categoryOptions(await this.txnsRepo.distinctCategories())
-      return (await suggestCategory(description, options, { onlyIfReady: true }))?.category ?? null
+      return (await suggestCategory(classificationText(title, description), options, { onlyIfReady: true }))?.category ?? null
     } catch {
       return null
     }
@@ -211,7 +211,7 @@ export class TransactionsService {
             payScheduleId: null,
             entryType: 'manual_adjustment',
             amount: delta,
-            description: oldTxn.description,
+            description: oldTxn.title,
             postedAt: new Date(),
           }),
         )
@@ -257,7 +257,7 @@ export class TransactionsService {
             payScheduleId: null,
             entryType: 'manual_adjustment',
             amount: reversalAmount,
-            description: t.description,
+            description: t.title,
             postedAt: new Date(),
           },
           true,
@@ -295,7 +295,7 @@ export class TransactionsService {
             payScheduleId: null,
             entryType: 'payment',
             amount: t.amount,
-            description: t.description,
+            description: t.title,
             postedAt: now,
           },
           true,
@@ -341,7 +341,7 @@ export class TransactionsService {
             payScheduleId: null,
             entryType: 'payment',
             amount: t.amount,
-            description: t.description,
+            description: t.title,
             postedAt: new Date(),
           },
           true,

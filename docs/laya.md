@@ -29,7 +29,7 @@ Without the folder it shows "Laya model not found in ...".
 1. `rulesClassifier` (src/domain/classifier/rules.ts). When it answers, that answer is used.
 2. Otherwise `createLayaClassifier` (src/domain/classifier/laya.ts) asks one `choice` question:
    the instruction is "Which spending category fits this payment?", the state is
-   `Pagamento: <description>`, and the criteria map each category label to its description (the label itself when it has none).
+   `Pagamento: <title>` or, when the transaction has a description, `Pagamento: <title>. <description>`, and the criteria map each category label to its description (the label itself when it has none).
    The answer is the top probability. It is offered only at or above `LAYA_MIN_CONFIDENCE`
    (0.8), which the answer carries as its own `minConfidence`, so it does not use the rules
    threshold `MIN_CONFIDENCE`.

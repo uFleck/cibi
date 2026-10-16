@@ -47,7 +47,7 @@ async function insertPeer(over: {
   const id = crypto.randomUUID()
   await db.query(
     `INSERT INTO "Transaction"
-		(id, account_id, type, friend_id, amount, description, timestamp, is_recurring, is_installment, total_installments, paid_installments, frequency, anchor_date, requires_confirmation, confirmed_at)
+		(id, account_id, type, friend_id, amount, title, timestamp, is_recurring, is_installment, total_installments, paid_installments, frequency, anchor_date, requires_confirmation, confirmed_at)
 		VALUES (?, ?, 'peer', ?, ?, 'row', ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
     [
       id,
@@ -76,7 +76,7 @@ async function seedPeerDebtRows(accountA: string, accountB: string, friendA: str
   ]) {
     await db.query(
       `INSERT INTO "Transaction" (
-				id, account_id, type, friend_id, amount, description, timestamp,
+				id, account_id, type, friend_id, amount, title, timestamp,
 				is_recurring, frequency, anchor_date, is_installment,
 				total_installments, paid_installments, requires_confirmation, confirmed_at
 			) VALUES (?, ?, 'peer', ?, -1000, 'seed', '2026-01-01T00:00:00Z', 0, NULL, NULL, 0, NULL, 0, 1, NULL)`,

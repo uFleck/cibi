@@ -33,12 +33,12 @@ async function json<T>(res: Response): Promise<T> {
   return (await res.json()) as T
 }
 
-async function insertRecurring(description: string, amount: number, nextOccurrence: string): Promise<string> {
+async function insertRecurring(title: string, amount: number, nextOccurrence: string): Promise<string> {
   const id = crypto.randomUUID()
   await db.query(
-    `INSERT INTO "Transaction" (id, account_id, amount, description, timestamp, is_recurring, next_occurrence, requires_confirmation, confirmed_at, category)
+    `INSERT INTO "Transaction" (id, account_id, amount, title, timestamp, is_recurring, next_occurrence, requires_confirmation, confirmed_at, category)
      VALUES (?, ?, ?, ?, '2026-09-01T00:00:00Z', 1, ?, 0, NULL, 'Assinaturas')`,
-    [id, accountId, amount, description, nextOccurrence],
+    [id, accountId, amount, title, nextOccurrence],
   )
   return id
 }

@@ -25,7 +25,9 @@ const confirmedTxn: TransactionResponse = {
   account_id: 'acct-1',
   type: 'personal',
   amount: -120,
-  description: 'Internet bill',
+  title: 'Internet bill',
+  description: null,
+  links: [],
   category: null,
   timestamp: '2026-10-01T00:00:00Z',
   is_recurring: true,
@@ -199,13 +201,13 @@ describe('TransactionsPage selection and filters', () => {
     expect(await screen.findByRole('dialog', { name: 'Edit Transaction' })).toBeTruthy()
   })
 
-  it('sends the current category when an edit only changes the description', async () => {
+  it('sends the current category when an edit only changes the title', async () => {
     const categorized: TransactionResponse = { ...confirmedTxn, category: 'Contas e serviços' }
     const patchBodies: Record<string, unknown>[] = []
     mockLocalFetch.mockImplementation(async (path: string, options?: RequestInit) => {
       if (options?.method === 'PATCH' && path === `/api/transactions/${confirmedTxn.id}`) {
         patchBodies.push(JSON.parse(String(options.body)))
-        return json({ ...categorized, description: 'Internet fiber' })
+        return json({ ...categorized, title: 'Internet fiber' })
       }
       if (path.startsWith('/api/transactions?')) return json([categorized])
       if (path.startsWith('/api/accounts')) {
@@ -220,12 +222,12 @@ describe('TransactionsPage selection and filters', () => {
     const inspector = screen.getByRole('complementary', { name: 'Inspector' })
     expect(await within(inspector).findByText('Contas e serviços')).toBeTruthy()
     fireEvent.click(await within(inspector).findByRole('button', { name: /edit/i }))
-    fireEvent.change(await screen.findByLabelText('Description *'), { target: { value: 'Internet fiber' } })
+    fireEvent.change(await screen.findByLabelText('Title *'), { target: { value: 'Internet fiber' } })
     fireEvent.click(screen.getByRole('button', { name: 'Update' }))
 
     await waitFor(() => expect(patchBodies).toHaveLength(1))
     expect(patchBodies[0].category).toBe('Contas e serviços')
-    expect(patchBodies[0].description).toBe('Internet fiber')
+    expect(patchBodies[0].title).toBe('Internet fiber')
   })
 
   it('selects the transaction named in the select search param', async () => {

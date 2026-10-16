@@ -24,7 +24,14 @@ export const VALID_FREQUENCIES: ReadonlySet<string> = new Set([
   'yearly',
 ])
 
-/** Mirrors the Transaction schema row. */
+/** A reference stored with a transaction, such as the page where a tax is paid. */
+export interface TransactionLink {
+  url: string
+  /** Short text to show instead of the url; null when there is none. */
+  label: string | null
+}
+
+/** Mirrors the Transaction schema row, plus its links. */
 export interface Transaction {
   id: string
   accountId: string
@@ -34,7 +41,12 @@ export interface Transaction {
   friendId: string | null
   /** Cents; negative = debit, positive = credit. */
   amount: number
-  description: string
+  /** The short name shown in lists. */
+  title: string
+  /** Optional free text with more detail about the transaction; null when there is none. */
+  description: string | null
+  /** In the order they were saved. A row read by listUncategorized has none loaded. */
+  links: TransactionLink[]
   /** Free text; null when uncategorized. */
   category: string | null
   /** UTC. */
@@ -55,7 +67,11 @@ export interface Transaction {
 
 /** The fields Update can write. Go's nil pointer is `undefined` here (no change). */
 export interface UpdateTransaction {
-  description?: string
+  title?: string
+  /** Null clears the description. */
+  description?: string | null
+  /** Replaces every link. */
+  links?: TransactionLink[]
   /** Null clears the category. */
   category?: string | null
   /** Cents. */
@@ -89,7 +105,7 @@ export interface TransactionsRepo {
   incrementPaidInstallments(id: string): Promise<void>
 }
 
-const SELECT_TXN = `SELECT id, account_id, COALESCE(type, 'personal') AS type, friend_id, amount, description, category, timestamp,
+const SELECT_TXN = `SELECT id, account_id, COALESCE(type, 'personal') AS type, friend_id, amount, title, description, category, timestamp,
 			is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at,
 			is_installment, total_installments, paid_installments`
 
@@ -116,7 +132,9 @@ function scanTransaction(row: Row): Transaction {
     // An empty friend_id is no friend (Go: Valid && String != "").
     friendId: friendId === null || friendId === '' ? null : parseUuid(friendId),
     amount: intCol(row, 'amount'),
-    description: textCol(row, 'description'),
+    title: textCol(row, 'title'),
+    description: nullableTextCol(row, 'description'),
+    links: [],
     category: nullableTextCol(row, 'category'),
     timestamp: parseFlexTime(textCol(row, 'timestamp')),
     isRecurring: boolCol(row, 'is_recurring'),
@@ -129,6 +147,14 @@ function scanTransaction(row: Row): Transaction {
     totalInstallments: nullableIntCol(row, 'total_installments'),
     paidInstallments: intCol(row, 'paid_installments'),
   }
+}
+
+const LINK_CHUNK = 500
+
+/** A blank or whitespace-only value is no value. */
+function blankToNull(value: string | null): string | null {
+  const trimmed = value?.trim() ?? ''
+  return trimmed === '' ? null : trimmed
 }
 
 function bit(v: boolean): number {
@@ -147,7 +173,8 @@ export class SqliteTxnsRepo implements TransactionsRepo {
       t.id,
       t.accountId,
       t.amount,
-      t.description,
+      t.title,
+      blankToNull(t.description),
       t.category,
       formatDbTime(t.timestamp),
       bit(t.isRecurring),
@@ -163,10 +190,11 @@ export class SqliteTxnsRepo implements TransactionsRepo {
     try {
       await this.db.query(
         `INSERT INTO "Transaction"
-			(id, account_id, type, amount, description, category, timestamp, is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at, is_installment, total_installments, paid_installments)
-			VALUES (?, ?, 'personal', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			(id, account_id, type, amount, title, description, category, timestamp, is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at, is_installment, total_installments, paid_installments)
+			VALUES (?, ?, 'personal', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args,
       )
+      await this.writeLinks(t.id, t.links)
     } catch (err) {
       throw wrap('transactions.Insert', err)
     }
@@ -181,7 +209,9 @@ export class SqliteTxnsRepo implements TransactionsRepo {
       throw wrap('transactions.GetByAccount', err)
     }
     try {
-      return rows.map(scanTransaction)
+      const txns = rows.map(scanTransaction)
+      await this.loadLinks(txns)
+      return txns
     } catch (err) {
       throw wrap('transactions.GetByAccount: scan', err)
     }
@@ -243,7 +273,9 @@ export class SqliteTxnsRepo implements TransactionsRepo {
     // QueryRow semantics: no row is sql.ErrNoRows.
     if (row === undefined) throw wrap('transactions.GetByID', ErrNoRows)
     try {
-      return scanTransaction(row)
+      const txn = scanTransaction(row)
+      await this.loadLinks([txn])
+      return txn
     } catch (err) {
       throw wrap('transactions.GetByID', err)
     }
@@ -251,12 +283,22 @@ export class SqliteTxnsRepo implements TransactionsRepo {
 
   /** Writes each set field with its own statement, in Go's order. Run it inside db.tx() when Go used a tx. */
   async update(id: string, upd: UpdateTransaction): Promise<void> {
+    if (upd.title !== undefined) {
+      await this.exec(`UPDATE "Transaction" SET title = ? WHERE id = ?`, [upd.title, id]).catch((err: unknown) => {
+        throw wrap('transactions.Update title', err)
+      })
+    }
     if (upd.description !== undefined) {
-      await this.exec(`UPDATE "Transaction" SET description = ? WHERE id = ?`, [upd.description, id]).catch(
+      await this.exec(`UPDATE "Transaction" SET description = ? WHERE id = ?`, [blankToNull(upd.description), id]).catch(
         (err: unknown) => {
           throw wrap('transactions.Update description', err)
         },
       )
+    }
+    if (upd.links !== undefined) {
+      await this.writeLinks(id, upd.links).catch((err: unknown) => {
+        throw wrap('transactions.Update links', err)
+      })
     }
     if (upd.category !== undefined) {
       await this.exec(`UPDATE "Transaction" SET category = ? WHERE id = ?`, [normalizeCategory(upd.category), id]).catch((err: unknown) => {
@@ -323,7 +365,8 @@ export class SqliteTxnsRepo implements TransactionsRepo {
   }
 
   async deleteById(id: string): Promise<void> {
-    await this.exec(`DELETE FROM "Transaction" WHERE id = ?`, [id]).catch((err: unknown) => {
+    await this.exec(`DELETE FROM TransactionLink WHERE transaction_id = ?`, [id])
+      .then(() => this.exec(`DELETE FROM "Transaction" WHERE id = ?`, [id])).catch((err: unknown) => {
       throw wrap('transactions.DeleteByID', err)
     })
   }
@@ -378,5 +421,36 @@ export class SqliteTxnsRepo implements TransactionsRepo {
 
   private async exec(sql: string, params: SqlParam[]): Promise<void> {
     await this.db.query(sql, params)
+  }
+
+  /** Replaces the links of one transaction, keeping the given order. */
+  private async writeLinks(transactionId: string, links: TransactionLink[]): Promise<void> {
+    await this.exec(`DELETE FROM TransactionLink WHERE transaction_id = ?`, [transactionId])
+    for (const [position, link] of links.entries()) {
+      await this.exec(`INSERT INTO TransactionLink (id, transaction_id, url, label, position) VALUES (?, ?, ?, ?, ?)`, [
+        crypto.randomUUID(),
+        transactionId,
+        link.url,
+        blankToNull(link.label),
+        position,
+      ])
+    }
+  }
+
+  /** Fills in `links` for the given transactions, in chunks to stay under SQLite's variable limit. */
+  private async loadLinks(txns: Transaction[]): Promise<void> {
+    const byId = new Map(txns.map((t) => [t.id, t]))
+    const ids = [...byId.keys()]
+    for (let start = 0; start < ids.length; start += LINK_CHUNK) {
+      const chunk = ids.slice(start, start + LINK_CHUNK)
+      const rows = await this.db.query(
+        `SELECT transaction_id, url, label FROM TransactionLink
+		WHERE transaction_id IN (${chunk.map(() => '?').join(', ')}) ORDER BY transaction_id, position`,
+        chunk,
+      )
+      for (const row of rows) {
+        byId.get(textCol(row, 'transaction_id'))?.links.push({ url: textCol(row, 'url'), label: nullableTextCol(row, 'label') })
+      }
+    }
   }
 }

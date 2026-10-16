@@ -38,7 +38,9 @@ function txn(over: Partial<Transaction> = {}): Transaction {
     type: '',
     friendId: null,
     amount: 0,
-    description: '',
+    title: '',
+    description: null,
+    links: [],
     category: null,
     timestamp: new Date(0),
     isRecurring: false,
@@ -61,7 +63,9 @@ function newTxn(over: Partial<NewTransaction> = {}): NewTransaction {
     type: '',
     friendId: null,
     amount: 0,
-    description: '',
+    title: '',
+    description: null,
+    links: [],
     isRecurring: false,
     frequency: null,
     anchorDate: null,
@@ -739,7 +743,7 @@ it('TestUpdateTransaction_ExistingInstallment_SkipsRequiredFieldValidation', asy
   const svc = new TransactionsService(db, txnsRepo, accRepo, ledgerSvc)
   await svc.updateTransaction(txnId, {
     isInstallment,
-    description: newDesc,
+    title: newDesc,
   })
 })
 

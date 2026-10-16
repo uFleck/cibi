@@ -4,7 +4,7 @@ import type { FriendDebtBreakdownItem, PayScheduleResponse, TransactionResponse 
 
 function makeTxn(over: Partial<TransactionResponse>): TransactionResponse {
   return {
-    id: 't1', account_id: 'a1', type: 'personal', description: 'Test', amount: -10, category: '',
+    id: 't1', account_id: 'a1', type: 'personal', title: 'Test', description: null, links: [], amount: -10, category: '',
     timestamp: '', is_recurring: false, is_installment: false, next_occurrence: null,
     requires_confirmation: false, confirmed_at: null, frequency: null, anchor_date: null,
     total_installments: null, paid_installments: 0, ...over,

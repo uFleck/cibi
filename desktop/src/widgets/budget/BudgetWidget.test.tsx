@@ -45,8 +45,8 @@ function budgetFixture(overrides: Partial<BudgetResponse> = {}, excluded = false
       { category: 'Shopping', limit: null, isFixed: false, spent: 12000, scheduled: 0, status: null },
     ],
     bills: [
-      { transactionId: 'tx-1', description: 'Internet', category: 'Transport', amount: 5000, dueDate: '2026-10-12', excluded },
-      { transactionId: 'tx-2', description: 'Rent', category: 'Housing', amount: 90000, dueDate: '2026-10-05', excluded: false },
+      { transactionId: 'tx-1', title: 'Internet', category: 'Transport', amount: 5000, dueDate: '2026-10-12', excluded },
+      { transactionId: 'tx-2', title: 'Rent', category: 'Housing', amount: 90000, dueDate: '2026-10-05', excluded: false },
     ],
     categories: [],
     ...overrides,

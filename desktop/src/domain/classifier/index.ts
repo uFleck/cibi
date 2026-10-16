@@ -21,6 +21,12 @@ export function getClassifier(): Classifier {
   return active
 }
 
+/** The text the classifier reads for a transaction: its title, then its description when it has one. */
+export function classificationText(title: string, description: string | null | undefined): string {
+  const detail = description?.trim() ?? ''
+  return detail === '' ? title : `${title}. ${detail}`
+}
+
 /**
  * The classifier's answer when it is confident and names one of the given options. Never throws:
  * a failing classifier means no suggestion.

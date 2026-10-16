@@ -65,7 +65,9 @@ function storedTxn(over: Partial<Transaction>): Transaction {
     type: '',
     friendId: null,
     amount: 0,
-    description: '',
+    title: '',
+    description: null,
+    links: [],
     category: null,
     timestamp: new Date(0),
     isRecurring: false,
@@ -96,7 +98,7 @@ it('TestListTransactions', async () => {
             id: txnId,
             accountId,
             amount: -2500,
-            description: 'Coffee',
+            title: 'Coffee',
             timestamp: now,
             isRecurring: false,
           }),
@@ -135,11 +137,11 @@ it('TestCreateTransaction', async () => {
     }),
   )
 
-  const body = `{"account_id":"${accountId}","amount":-15.50,"description":"Lunch","category":"Food"}`
+  const body = `{"account_id":"${accountId}","amount":-15.50,"title":"Lunch","category":"Food"}`
   const res = await localFetch('/api/transactions', { method: 'POST', body })
   expect(res.status).toBe(201)
   const resp = await json<TransactionResponse>(res)
-  expect(resp.description).toBe('Lunch')
+  expect(resp.title).toBe('Lunch')
   expect(resp.amount).toBe(-15.5)
 })
 
@@ -158,7 +160,7 @@ it('TestUpdateTransaction', async () => {
           id,
           accountId,
           amount: -1550,
-          description: newDesc,
+          title: newDesc,
           timestamp: now,
           isRecurring: false,
         }),
@@ -167,11 +169,11 @@ it('TestUpdateTransaction', async () => {
 
   const res = await localFetch(`/api/transactions/${id}`, {
     method: 'PATCH',
-    body: '{"description":"Updated Lunch"}',
+    body: '{"title":"Updated Lunch"}',
   })
   expect(res.status).toBe(200)
   const resp = await json<TransactionResponse>(res)
-  expect(resp.description).toBe(newDesc)
+  expect(resp.title).toBe(newDesc)
 })
 
 // TestDeleteTransaction: DELETE /api/transactions/:id returns 204.
@@ -201,7 +203,7 @@ it('DELETE of a transaction with a ledger row is 409 and deletes nothing', async
   // A one-time payment with no confirmation needed is applied on create: it gets a ledger row.
   const created = await localFetch('/api/transactions', {
     method: 'POST',
-    body: JSON.stringify({ account_id: accountId, amount: -25, description: 'Lunch' }),
+    body: JSON.stringify({ account_id: accountId, amount: -25, title: 'Lunch' }),
   })
   expect(created.status).toBe(201)
   const { id } = await json<TransactionResponse>(created)
@@ -292,4 +294,56 @@ it('TestConfirmInstallment_ServiceError_Returns400', async () => {
 
   const res = await localFetch(`/api/transactions/${id}/confirm-installment`, { method: 'POST' })
   expect(res.status).toBe(400)
+})
+
+it('creates a transaction with a description and links, and PATCH replaces them', async () => {
+  const accountId = crypto.randomUUID()
+  let stored: Transaction | undefined
+  withService(
+    fakeTransactionsService({
+      createTransaction: async (t) => {
+        stored = storedTxn({ ...t, id: crypto.randomUUID() })
+        return stored
+      },
+      updateTransaction: async (_id, upd) => {
+        stored = storedTxn({ ...stored, ...(upd.links ? { links: upd.links } : {}) })
+      },
+      getTransaction: async () => stored as Transaction,
+    }),
+  )
+  const created = await localFetch('/api/transactions', {
+    method: 'POST',
+    body: JSON.stringify({
+      account_id: accountId,
+      amount: -50,
+      title: 'DAS',
+      description: 'Simples Nacional',
+      links: [{ url: ' https://example.com/pay ', label: 'Pay' }, { url: 'https://example.com/b' }],
+    }),
+  })
+  expect(created.status).toBe(201)
+  const body = await json<{ title: string; description: string; links: { url: string; label: string | null }[] }>(created)
+  expect(body.title).toBe('DAS')
+  expect(body.description).toBe('Simples Nacional')
+  expect(body.links).toEqual([
+    { url: 'https://example.com/pay', label: 'Pay' },
+    { url: 'https://example.com/b', label: null },
+  ])
+
+  const patched = await localFetch(`/api/transactions/${stored?.id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ links: [{ url: 'https://example.com/c', label: 'C' }] }),
+  })
+  expect((await json<{ links: unknown[] }>(patched)).links).toEqual([{ url: 'https://example.com/c', label: 'C' }])
+})
+
+it('rejects a link that is not an http or https url', async () => {
+  withService(fakeTransactionsService({ createTransaction: async (t) => storedTxn({ ...t }) }))
+  for (const url of ['javascript:alert(1)', 'file:///c:/secret', 'not a url', '']) {
+    const res = await localFetch('/api/transactions', {
+      method: 'POST',
+      body: JSON.stringify({ account_id: crypto.randomUUID(), amount: -5, title: 'x', links: [{ url }] }),
+    })
+    expect(res.status).toBe(400)
+  }
 })

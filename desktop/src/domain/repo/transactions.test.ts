@@ -4,7 +4,7 @@
 // key from Transaction.account_id to Account, so the accounts the Go tests used are inserted first.
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { createTestDb } from '../testing/testDb'
-import { SqliteTxnsRepo } from './transactions'
+import { SqliteTxnsRepo, type Transaction } from './transactions'
 
 type TestDb = Awaited<ReturnType<typeof createTestDb>>
 
@@ -38,7 +38,7 @@ it('TestSumUpcomingObligations_IncludesOverdueUntilConfirmed', async () => {
 
   const insertRecurring = (accountId: string, amount: number, nextOccurrence: string): Promise<unknown> =>
     db.query(
-      `INSERT INTO "Transaction" (id, account_id, amount, description, timestamp, is_recurring, next_occurrence, requires_confirmation, confirmed_at)
+      `INSERT INTO "Transaction" (id, account_id, amount, title, timestamp, is_recurring, next_occurrence, requires_confirmation, confirmed_at)
 			 VALUES (?, ?, ?, 'x', '2026-04-01T00:00:00Z', 1, ?, 0, NULL)`,
       [crypto.randomUUID(), accountId, amount, nextOccurrence],
     )
@@ -49,7 +49,7 @@ it('TestSumUpcomingObligations_IncludesOverdueUntilConfirmed', async () => {
     anchorDate: string | null,
   ): Promise<unknown> =>
     db.query(
-      `INSERT INTO "Transaction" (id, account_id, amount, description, timestamp, is_recurring, anchor_date, requires_confirmation, confirmed_at)
+      `INSERT INTO "Transaction" (id, account_id, amount, title, timestamp, is_recurring, anchor_date, requires_confirmation, confirmed_at)
 			 VALUES (?, ?, ?, 'x', ?, 0, ?, 1, NULL)`,
       [crypto.randomUUID(), accountId, amount, timestamp, anchorDate],
     )
@@ -82,7 +82,7 @@ it('TestIncrementPaidInstallments', async () => {
   const id = crypto.randomUUID()
   const total = 6
   await db.query(
-    `INSERT INTO "Transaction" (id, account_id, amount, description, timestamp, is_recurring, requires_confirmation, is_installment, total_installments, paid_installments)
+    `INSERT INTO "Transaction" (id, account_id, amount, title, timestamp, is_recurring, requires_confirmation, is_installment, total_installments, paid_installments)
 		 VALUES (?, ?, -5000, 'Phone', '2026-07-10T00:00:00Z', 0, 0, 1, ?, 0)`,
     [id, accountId, total],
   )
@@ -107,7 +107,7 @@ it('reads the date-only time forms, and the friend of a peer row', async () => {
   await db.query(`INSERT INTO Friend (id, name, public_token) VALUES (?, 'Ana', ?)`, [friendId, crypto.randomUUID()])
   const id = crypto.randomUUID()
   await db.query(
-    `INSERT INTO "Transaction" (id, account_id, amount, description, timestamp, is_recurring, anchor_date, requires_confirmation, confirmed_at, type, friend_id)
+    `INSERT INTO "Transaction" (id, account_id, amount, title, timestamp, is_recurring, anchor_date, requires_confirmation, confirmed_at, type, friend_id)
 		 VALUES (?, ?, 2000, 'PAYMENT', '2026-06-10', 0, NULL, 1, '2026-06-10', 'peer', ?)`,
     [id, accountId, friendId],
   )
@@ -117,4 +117,80 @@ it('reads the date-only time forms, and the friend of a peer row', async () => {
   expect(t.confirmedAt).toEqual(new Date('2026-06-10T00:00:00Z'))
   expect(t.friendId).toBe(friendId)
   expect(t.type).toBe('peer')
+})
+
+function sample(accountId: string, over: Partial<Transaction> = {}): Transaction {
+  return {
+    id: crypto.randomUUID(),
+    accountId,
+    type: '',
+    friendId: null,
+    amount: -5000,
+    title: 'DAS',
+    description: null,
+    links: [],
+    category: null,
+    timestamp: new Date('2026-10-01T00:00:00Z'),
+    isRecurring: false,
+    frequency: null,
+    anchorDate: null,
+    nextOccurrence: null,
+    requiresConfirmation: false,
+    confirmedAt: null,
+    isInstallment: false,
+    totalInstallments: null,
+    paidInstallments: 0,
+    ...over,
+  }
+}
+
+it('stores the description and the links in order, and reads them back by id and by account', async () => {
+  const repo = new SqliteTxnsRepo(db)
+  const accountId = crypto.randomUUID()
+  await insertAccount(accountId)
+  const links = [
+    { url: 'https://receita.example/pgdas', label: 'Pay here' },
+    { url: 'https://example.com/boleto', label: null },
+  ]
+  const t = sample(accountId, { description: 'Simples Nacional, due on the 20th', links })
+  await repo.insert(t)
+  await repo.insert(sample(accountId, { title: 'No extras' }))
+
+  const byId = await repo.getById(t.id)
+  expect(byId.title).toBe('DAS')
+  expect(byId.description).toBe('Simples Nacional, due on the 20th')
+  expect(byId.links).toEqual(links)
+
+  const all = await repo.getByAccount(accountId)
+  expect(all.find((x) => x.id === t.id)?.links).toEqual(links)
+  expect(all.find((x) => x.title === 'No extras')).toMatchObject({ description: null, links: [] })
+})
+
+it('treats a blank description as none and replaces or clears links on update', async () => {
+  const repo = new SqliteTxnsRepo(db)
+  const accountId = crypto.randomUUID()
+  await insertAccount(accountId)
+  const t = sample(accountId, { description: '   ', links: [{ url: 'https://a.example', label: '  ' }] })
+  await repo.insert(t)
+  expect(await repo.getById(t.id)).toMatchObject({ description: null, links: [{ url: 'https://a.example', label: null }] })
+
+  await repo.update(t.id, { title: 'Renamed', description: 'More detail', links: [{ url: 'https://b.example', label: 'B' }] })
+  expect(await repo.getById(t.id)).toMatchObject({
+    title: 'Renamed',
+    description: 'More detail',
+    links: [{ url: 'https://b.example', label: 'B' }],
+  })
+
+  await repo.update(t.id, { description: '', links: [] })
+  expect(await repo.getById(t.id)).toMatchObject({ title: 'Renamed', description: null, links: [] })
+})
+
+it('deletes the links with the transaction', async () => {
+  const repo = new SqliteTxnsRepo(db)
+  const accountId = crypto.randomUUID()
+  await insertAccount(accountId)
+  const t = sample(accountId, { links: [{ url: 'https://a.example', label: null }] })
+  await repo.insert(t)
+  await repo.deleteById(t.id)
+  expect(await db.query('SELECT id FROM TransactionLink')).toEqual([])
 })

@@ -145,7 +145,7 @@ export class BudgetService {
     return spent
   }
 
-  /** The recurring bills due in the month (UTC day), sorted by due date then description. */
+  /** The recurring bills due in the month (UTC day), sorted by due date then title. */
   private async scheduledBills(month: string, year: number, month1: number): Promise<ScheduledBill[]> {
     const start = Date.UTC(year, month1 - 1, 1)
     const end = Date.UTC(year, month1, 1)
@@ -158,7 +158,7 @@ export class BudgetService {
       .filter((r) => utcMonth(r.nextOccurrence) === month)
       .map((r) => ({
         transactionId: r.transactionId,
-        description: r.description,
+        title: r.title,
         category: normalizeCategory(r.category),
         amount: -r.amount,
         dueDate: formatYmd(r.nextOccurrence),
@@ -166,7 +166,7 @@ export class BudgetService {
       }))
     bills.sort((a, b) => {
       if (a.dueDate !== b.dueDate) return a.dueDate < b.dueDate ? -1 : 1
-      return a.description.localeCompare(b.description, 'pt-BR')
+      return a.title.localeCompare(b.title, 'pt-BR')
     })
     return bills
   }

@@ -33,7 +33,7 @@ function utc(year: number, month: number, day: number, hour = 0, minute = 0): Da
 interface TxnFixture {
   id: string
   amount?: number
-  description?: string
+  title?: string
   category?: string | null
   isRecurring?: boolean
   /** Stored text: RFC3339 or date-only. */
@@ -44,13 +44,13 @@ interface TxnFixture {
 
 async function insertTxn(f: TxnFixture): Promise<void> {
   await db.query(
-    `INSERT INTO "Transaction" (id, account_id, amount, description, category, timestamp, is_recurring, next_occurrence, requires_confirmation, type, friend_id)
+    `INSERT INTO "Transaction" (id, account_id, amount, title, category, timestamp, is_recurring, next_occurrence, requires_confirmation, type, friend_id)
      VALUES (?, ?, ?, ?, ?, '2026-10-01T00:00:00Z', ?, ?, 0, ?, ?)`,
     [
       f.id,
       ACCOUNT_ID,
       f.amount ?? -1000,
-      f.description ?? 'x',
+      f.title ?? 'x',
       f.category ?? null,
       f.isRecurring ? 1 : 0,
       f.nextOccurrence ?? null,
@@ -172,7 +172,7 @@ describe('SqliteBudgetRepo', () => {
       const repo = new SqliteBudgetRepo(db)
       await insertTxn({
         id: 'rec-internet',
-        description: 'Internet',
+        title: 'Internet',
         category: 'Moradia',
         amount: -12000,
         isRecurring: true,
@@ -180,7 +180,7 @@ describe('SqliteBudgetRepo', () => {
       })
       await insertTxn({
         id: 'rec-seguro',
-        description: 'Seguro',
+        title: 'Seguro',
         amount: -3000,
         isRecurring: true,
         nextOccurrence: formatDbTime(utc(2026, 11, 1)),
@@ -206,14 +206,14 @@ describe('SqliteBudgetRepo', () => {
       expect(rows.sort((a, b) => a.amount - b.amount)).toEqual([
         {
           transactionId: 'rec-internet',
-          description: 'Internet',
+          title: 'Internet',
           category: 'Moradia',
           amount: -12000,
           nextOccurrence: utc(2026, 11, 15),
         },
         {
           transactionId: 'rec-seguro',
-          description: 'Seguro',
+          title: 'Seguro',
           category: null,
           amount: -3000,
           nextOccurrence: utc(2026, 11, 1),
@@ -225,7 +225,7 @@ describe('SqliteBudgetRepo', () => {
       const repo = new SqliteBudgetRepo(db)
       await insertTxn({
         id: 'rec-academia',
-        description: 'Academia',
+        title: 'Academia',
         amount: -9900,
         isRecurring: true,
         nextOccurrence: '2026-11-01',
@@ -237,7 +237,7 @@ describe('SqliteBudgetRepo', () => {
       expect(rows).toEqual([
         {
           transactionId: 'rec-academia',
-          description: 'Academia',
+          title: 'Academia',
           category: null,
           amount: -9900,
           nextOccurrence: utc(2026, 11, 1),

@@ -40,7 +40,7 @@ export interface BudgetRow {
 
 export interface ScheduledBill {
   transactionId: string
-  description: string
+  title: string
   /** The normalized category, or null when none. */
   category: string | null
   /** Cents, positive. */

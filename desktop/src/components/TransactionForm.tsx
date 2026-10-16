@@ -2,15 +2,20 @@ import type { FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { DateInput } from '@/components/ui/date-input'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { ValueInput } from '@/components/ui/value-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CategoryField } from '@/components/CategoryField'
+import { LinksField } from '@/components/LinksField'
+import type { TransactionLink } from '@/lib/api'
 
 export interface TransactionFormValues {
   account_id: string
   amount: number
-  description: string
+  title: string
+  description?: string
+  links?: TransactionLink[]
   category?: string
   is_recurring?: boolean
   frequency?: string
@@ -101,31 +106,46 @@ export function TransactionForm({
           )}
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="txn-description" className="text-xs">Description *</Label>
+          <Label htmlFor="txn-title" className="text-xs">Title *</Label>
           <Input
-            id="txn-description"
-            value={formData.description}
+            id="txn-title"
+            value={formData.title}
             onChange={e => {
-              onChange({ description: e.target.value })
-              if (formErrors.description) onClearError('description')
+              onChange({ title: e.target.value })
+              if (formErrors.title) onClearError('title')
             }}
-            placeholder="Transaction description"
-            aria-invalid={!!formErrors.description || undefined}
-            aria-describedby={formErrors.description ? 'txn-description-error' : undefined}
+            placeholder="Transaction title"
+            aria-invalid={!!formErrors.title || undefined}
+            aria-describedby={formErrors.title ? 'txn-title-error' : undefined}
           />
-          {formErrors.description && (
-            <p id="txn-description-error" className="text-xs text-destructive">
-              {formErrors.description}
+          {formErrors.title && (
+            <p id="txn-title-error" className="text-xs text-destructive">
+              {formErrors.title}
             </p>
           )}
         </div>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="txn-description" className="text-xs">Description</Label>
+        <Textarea
+          id="txn-description"
+          rows={3}
+          value={formData.description ?? ''}
+          onChange={e => onChange({ description: e.target.value })}
+          placeholder="Details that help you, and help suggest a category (optional)"
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="txn-links" className="text-xs">Links</Label>
+        <LinksField id="txn-links" value={formData.links ?? []} onChange={links => onChange({ links })} />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="txn-category" className="text-xs">Category</Label>
         <CategoryField
           id="txn-category"
           value={formData.category ?? ''}
-          description={formData.description}
+          title={formData.title}
+          description={formData.description ?? ''}
           onChange={category => onChange({ category })}
         />
       </div>

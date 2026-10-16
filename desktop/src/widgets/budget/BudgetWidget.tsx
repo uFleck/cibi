@@ -256,13 +256,13 @@ function BillsDisclosure({ bills, scheduledTotal, money, open, onToggle, panelId
             <label key={bill.transactionId} className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 text-sm">
               <input
                 type="checkbox"
-                aria-label={`Count ${bill.description}`}
+                aria-label={`Count ${bill.title}`}
                 checked={!bill.excluded}
                 disabled={pending}
                 onChange={event => onToggleBill(bill, !event.target.checked)}
                 className="size-3.5 accent-hl"
               />
-              <span className={cn('truncate', bill.excluded && 'text-muted-foreground line-through')}>{bill.description}</span>
+              <span className={cn('truncate', bill.excluded && 'text-muted-foreground line-through')}>{bill.title}</span>
               <span className="font-mono text-xs text-muted-foreground">{dueDay(bill.dueDate)}</span>
               <span className={cn('font-mono text-xs', bill.excluded && 'text-muted-foreground line-through')}>{money(bill.amount)}</span>
             </label>

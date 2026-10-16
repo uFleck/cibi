@@ -18,7 +18,7 @@ import { nextInstallmentDue } from '../engine/installment'
 import { ErrNoRows, isErr, messageOf } from '../errors'
 import { HttpError, route } from '../http'
 import { goRound } from '../num'
-import type { Transaction, UpdateTransaction } from '../repo/transactions'
+import type { Transaction, TransactionLink, UpdateTransaction } from '../repo/transactions'
 import { ErrTransactionHasLedger, type TransactionsService } from '../service/transactions'
 import { parseUuid } from '../uuid'
 import { validateOrThrow, type FieldSpec } from '../validate'
@@ -44,7 +44,9 @@ export interface TransactionResponse {
   /** Present only for a transaction with a friend (Go omitempty). */
   friend_id?: string
   amount: number
-  description: string
+  title: string
+  description: string | null
+  links: TransactionLink[]
   timestamp: string
   is_recurring: boolean
   frequency: string | null
@@ -61,7 +63,9 @@ export interface TransactionResponse {
 const CREATE_SCHEMA = {
   account_id: 'string',
   amount: 'float',
-  description: 'string',
+  title: 'string',
+  description: 'stringPtr',
+  links: 'array',
   category: 'stringPtr',
   is_recurring: 'bool',
   frequency: 'stringPtr',
@@ -74,11 +78,13 @@ const CREATE_SCHEMA = {
 const CREATE_FIELDS: FieldSpec[] = [
   { goName: 'AccountID', jsonName: 'account_id', rules: 'required' },
   { goName: 'Amount', jsonName: 'amount', rules: 'required' },
-  { goName: 'Description', jsonName: 'description', rules: 'required' },
+  { goName: 'Title', jsonName: 'title', rules: 'required' },
 ]
 
 const PATCH_SCHEMA = {
+  title: 'stringPtr',
   description: 'stringPtr',
+  links: 'array',
   category: 'stringPtr',
   amount: 'floatPtr',
   next_occurrence: 'stringPtr',
@@ -96,7 +102,9 @@ export function toTransactionResponse(t: Transaction): TransactionResponse {
     account_id: t.accountId,
     type: t.type === '' ? 'personal' : t.type,
     amount: t.amount / 100,
+    title: t.title,
     description: t.description,
+    links: t.links.map((link) => ({ url: link.url, label: link.label })),
     category: t.category,
     timestamp: formatDbTime(t.timestamp),
     is_recurring: t.isRecurring,
@@ -121,6 +129,25 @@ export function toTransactionResponse(t: Transaction): TransactionResponse {
     // When paid == total, next_occurrence stays as stored (installment complete).
   }
   return response
+}
+
+/** The links of a request body. Each needs an http or https url; a label is optional. Null when the key is absent. */
+function parseLinks(raw: unknown[] | null): TransactionLink[] | null {
+  if (raw === null) return null
+  return raw.map((item) => {
+    const entry = typeof item === 'object' && item !== null ? (item as Record<string, unknown>) : {}
+    const url = typeof entry.url === 'string' ? entry.url.trim() : ''
+    const label = typeof entry.label === 'string' ? entry.label.trim() : ''
+    let valid = false
+    try {
+      const protocol = new URL(url).protocol
+      valid = protocol === 'http:' || protocol === 'https:'
+    } catch {
+      valid = false
+    }
+    if (!valid) throw new HttpError(400, 'invalid link: url must start with http:// or https://')
+    return { url, label: label === '' ? null : label }
+  })
 }
 
 /** Go: echo.NewHTTPError(500, err.Error()). */
@@ -180,7 +207,9 @@ export function registerTransactionsRoutes(app: App, svc: TransactionsServiceIfa
       type: '',
       friendId: null,
       amount: goRound(req.amount * 100),
+      title: req.title,
       description: req.description,
+      links: parseLinks(req.links) ?? [],
       category: req.category,
       timestamp: new Date(),
       isRecurring: req.is_recurring,
@@ -207,7 +236,9 @@ export function registerTransactionsRoutes(app: App, svc: TransactionsServiceIfa
 
     // A null pointer field is nil in Go: no change.
     const upd: UpdateTransaction = {
+      title: req.title ?? undefined,
       description: req.description ?? undefined,
+      links: parseLinks(req.links) ?? undefined,
       category: req.category ?? undefined,
       totalInstallments: req.total_installments ?? undefined,
       isInstallment: req.is_installment ?? undefined,

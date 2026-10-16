@@ -37,7 +37,9 @@ function input(over: Partial<NewTransaction> = {}): NewTransaction {
     type: '',
     friendId: null,
     amount: -1500,
-    description: 'Mercado Livre',
+    title: 'Mercado Livre',
+    description: null,
+    links: [],
     isRecurring: false,
     frequency: null,
     anchorDate: null,
@@ -82,14 +84,20 @@ describe('create: category auto-fill', () => {
   })
 
   it('does not classify income', async () => {
-    const created = await app.txnsSvc.createTransaction(input({ amount: 1500, description: 'Mercado Livre estorno' }))
+    const created = await app.txnsSvc.createTransaction(input({ amount: 1500, title: 'Mercado Livre estorno' }))
     expect(await storedCategory(created.id)).toBeNull()
   })
 
   it('leaves an expense with no confident match uncategorized, and saves it', async () => {
-    const created = await app.txnsSvc.createTransaction(input({ description: 'Pix para Maria' }))
+    const created = await app.txnsSvc.createTransaction(input({ title: 'Pix para Maria' }))
     expect(await storedCategory(created.id)).toBeNull()
-    expect((await app.txnsRepo.getById(created.id)).description).toBe('Pix para Maria')
+    expect((await app.txnsRepo.getById(created.id)).title).toBe('Pix para Maria')
+  })
+
+  it('reads the description too: a title with no match is categorized from the detail', async () => {
+    const created = await app.txnsSvc.createTransaction(input({ title: 'Pix para Maria', description: 'Netflix da familia' }))
+    expect(await storedCategory(created.id)).toBe('Assinaturas')
+    expect((await app.txnsRepo.getById(created.id)).description).toBe('Netflix da familia')
   })
 
   it('a failing classifier never fails the save', async () => {
@@ -111,13 +119,13 @@ describe('create: category auto-fill', () => {
 
   it('classifies a recurring template too', async () => {
     const created = await app.txnsSvc.createTransaction(
-      input({ description: 'Netflix', isRecurring: true, frequency: FREQ_MONTHLY, anchorDate: new Date() }),
+      input({ title: 'Netflix', isRecurring: true, frequency: FREQ_MONTHLY, anchorDate: new Date() }),
     )
     expect(await storedCategory(created.id)).toBe('Assinaturas')
   })
 
   it('offers the classifier the custom values already in use', async () => {
-    await app.txnsSvc.createTransaction(input({ category: 'Pet', description: 'Ração' }))
+    await app.txnsSvc.createTransaction(input({ category: 'Pet', title: 'Ração' }))
     let offered: string[] = []
     setClassifier({
       classify: async (_d, options) => {
@@ -125,7 +133,7 @@ describe('create: category auto-fill', () => {
         return null
       },
     })
-    await app.txnsSvc.createTransaction(input({ description: 'Pet shop' }))
+    await app.txnsSvc.createTransaction(input({ title: 'Pet shop' }))
     expect(offered).toContain('Pet')
     expect(offered).toContain('Mercado')
   })
@@ -136,7 +144,7 @@ describe('create: never waits for the model', () => {
     const load = vi.fn(() => new Promise<LayaAgent>(() => {}))
     setClassifier(composeClassifiers(rulesClassifier, createLayaClassifier(load, { loadTimeoutMs: 60_000 })))
     const started = Date.now()
-    const created = await app.txnsSvc.createTransaction(input({ description: 'Pet shop' }))
+    const created = await app.txnsSvc.createTransaction(input({ title: 'Pet shop' }))
     expect(Date.now() - started).toBeLessThan(2000)
     expect(await storedCategory(created.id)).toBeNull()
     expect(load).not.toHaveBeenCalled()
@@ -152,7 +160,7 @@ describe('create: never waits for the model', () => {
     await vi.waitFor(async () => {
       expect(await laya.classify('Pet shop', DEFAULT_CATEGORIES, { onlyIfReady: true })).not.toBeNull()
     })
-    const created = await app.txnsSvc.createTransaction(input({ description: 'Pet shop' }))
+    const created = await app.txnsSvc.createTransaction(input({ title: 'Pet shop' }))
     expect(await storedCategory(created.id)).toBe('Outros')
   })
 })

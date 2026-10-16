@@ -22,6 +22,7 @@
     "@tanstack/react-router": "^1.168.18",
     "@tauri-apps/api": "^2.12.3",
     "@tauri-apps/plugin-autostart": "^2.7.0",
+    "@tauri-apps/plugin-opener": "^2.7.2",
     "boneyard-js": "^1.7.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

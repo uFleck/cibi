@@ -25,7 +25,7 @@ export interface PaymentRow {
 /** A recurring personal expense with its next occurrence. */
 export interface RecurringRow {
   transactionId: string
-  description: string
+  title: string
   category: string | null
   /** Cents, negative (an outflow). */
   amount: number
@@ -116,7 +116,7 @@ export class SqliteBudgetRepo implements BudgetRepo {
     let rows: Row[]
     try {
       rows = await this.db.query(
-        `SELECT id, description, category, amount, next_occurrence FROM "Transaction"
+        `SELECT id, title, category, amount, next_occurrence FROM "Transaction"
 		 WHERE COALESCE(type, 'personal') = 'personal' AND is_recurring = 1 AND amount < 0
 		   AND next_occurrence >= ? AND next_occurrence < ?`,
         [formatDbTime(from), formatDbTime(to)],
@@ -127,7 +127,7 @@ export class SqliteBudgetRepo implements BudgetRepo {
     try {
       return rows.map((row) => ({
         transactionId: textCol(row, 'id'),
-        description: textCol(row, 'description'),
+        title: textCol(row, 'title'),
         category: nullableTextCol(row, 'category'),
         amount: intCol(row, 'amount'),
         nextOccurrence: parseDbTime(textCol(row, 'next_occurrence')),

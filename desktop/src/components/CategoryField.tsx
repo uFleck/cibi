@@ -11,15 +11,16 @@ const SUGGEST_DELAY_MS = 400
 export interface CategoryFieldProps {
   id: string
   value: string
+  title: string
   description: string
   onChange: (category: string) => void
 }
 
 /**
  * Free-text category, offering the known categories. While it is blank, a suggestion from the
- * description (debounced) can be accepted with a click.
+ * title and description (debounced) can be accepted with a click.
  */
-export function CategoryField({ id, value, description, onChange }: CategoryFieldProps) {
+export function CategoryField({ id, value, title, description, onChange }: CategoryFieldProps) {
   const listId = `${id}-options`
   useEffect(() => {
     warmLaya()
@@ -27,11 +28,12 @@ export function CategoryField({ id, value, description, onChange }: CategoryFiel
   const { data: options = [] } = useQuery({ queryKey: ['categories'], queryFn: fetchCategories })
 
   const blank = value.trim() === ''
-  const debounced = useDebouncedValue(description.trim(), SUGGEST_DELAY_MS)
+  const debouncedTitle = useDebouncedValue(title.trim(), SUGGEST_DELAY_MS)
+  const debouncedDescription = useDebouncedValue(description.trim(), SUGGEST_DELAY_MS)
   const { data: suggestion } = useQuery({
-    queryKey: ['category-suggest', debounced],
-    queryFn: () => suggestCategory(debounced),
-    enabled: blank && debounced !== '',
+    queryKey: ['category-suggest', debouncedTitle, debouncedDescription],
+    queryFn: () => suggestCategory(debouncedTitle, debouncedDescription),
+    enabled: blank && debouncedTitle !== '',
   })
 
   return (
@@ -42,7 +44,7 @@ export function CategoryField({ id, value, description, onChange }: CategoryFiel
         autoComplete="off"
         value={value}
         onChange={e => onChange(e.target.value)}
-        placeholder="Set from the description"
+        placeholder="Set from the title"
       />
       <datalist id={listId}>
         {options.map(option => (

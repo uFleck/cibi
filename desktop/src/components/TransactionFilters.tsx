@@ -18,7 +18,7 @@ export interface TransactionFiltersProps {
   showFilters: boolean
   hasActiveFilters: boolean
   preset: TransactionPreset | null
-  sortField: 'description' | 'date' | 'amount'
+  sortField: 'title' | 'date' | 'amount'
   sortDir: 'asc' | 'desc'
   searchQuery: string
   amountMin: string
@@ -26,7 +26,7 @@ export interface TransactionFiltersProps {
   windowLabels: WindowLabels | null
   onToggleFilters: () => void
   onPresetChange: (value: TransactionPreset | null) => void
-  onSortFieldChange: (value: 'description' | 'date' | 'amount') => void
+  onSortFieldChange: (value: 'title' | 'date' | 'amount') => void
   onSortDirChange: (value: 'asc' | 'desc') => void
   onSearchQueryChange: (value: string) => void
   onAmountMinChange: (value: string) => void
@@ -115,7 +115,7 @@ export function TransactionFilters({
           <div className="flex flex-col gap-1">
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">Search</Label>
             <Input
-              placeholder="Search descriptions..."
+              placeholder="Search titles and descriptions..."
               value={searchQuery}
               onChange={e => onSearchQueryChange(e.target.value)}
               className="h-9"
@@ -137,13 +137,13 @@ export function TransactionFilters({
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">Sort by</Label>
               <Select
                 value={sortField}
-                onValueChange={v => onSortFieldChange(v as 'description' | 'date' | 'amount')}
+                onValueChange={v => onSortFieldChange(v as 'title' | 'date' | 'amount')}
               >
                 <SelectTrigger className="w-full h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="description">Description</SelectItem>
+                  <SelectItem value="title">Title</SelectItem>
                   <SelectItem value="date">When</SelectItem>
                   <SelectItem value="amount">Amount</SelectItem>
                 </SelectContent>

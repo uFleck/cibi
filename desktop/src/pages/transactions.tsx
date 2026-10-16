@@ -17,6 +17,7 @@ import { EditSheet } from '@/components/EditSheet'
 import { AccountSelector } from '@/components/AccountSelector'
 import { SharedDebtList } from '@/components/debt/shared-debt-list'
 import { TransactionForm } from '@/components/TransactionForm'
+import { TransactionLinks } from '@/components/TransactionLinks'
 import { TransactionFilters, type TransactionPreset } from '@/components/TransactionFilters'
 import {
   fetchAccounts,
@@ -33,12 +34,14 @@ import {
   createPeerDebt,
   updatePeerDebt,
   fetchLedger,
+  type TransactionLink,
   type TransactionResponse,
   type FriendResponse,
   type CreatePeerDebtRequest,
   type LedgerEntryResponse,
 } from '@/lib/api'
 import { formatDate, formatMoney } from '@/lib/format'
+import { cleanLinks } from '@/lib/links'
 import { fromDateInputValue, toDateInputValue } from '@/lib/locale'
 import { getWindowLabels, matchesPresetFilter } from '@/lib/transactions-impact'
 import { AccountContext } from '@/App'
@@ -78,7 +81,9 @@ function txnStatusLabel(txn: TransactionResponse) {
 interface FormData {
   account_id: string
   amount: number
+  title: string
   description: string
+  links: TransactionLink[]
   category?: string
   is_recurring?: boolean
   frequency?: string
@@ -115,7 +120,9 @@ export function TransactionsPage() {
   const [formData, setFormData] = useState<FormData>({
     account_id: '',
     amount: 0,
+    title: '',
     description: '',
+    links: [],
     is_recurring: false,
     frequency: 'monthly',
     anchor_date: '',
@@ -126,7 +133,7 @@ export function TransactionsPage() {
   })
   const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [amountText, setAmountText] = useState('')
-  const [sortField, setSortField] = useState<'description' | 'date' | 'amount'>('date')
+  const [sortField, setSortField] = useState<'title' | 'date' | 'amount'>('date')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [preset, setPreset] = useState<TransactionPreset | null>(null)
   const [showFilters, setShowFilters] = useState(false)
@@ -198,7 +205,7 @@ export function TransactionsPage() {
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
-      txns = txns.filter(t => t.description.toLowerCase().includes(q))
+      txns = txns.filter(t => t.title.toLowerCase().includes(q) || (t.description ?? '').toLowerCase().includes(q))
     }
 
     const minVal = parseFloat(amountMin)
@@ -212,8 +219,8 @@ export function TransactionsPage() {
 
     txns.sort((a: TransactionResponse, b: TransactionResponse) => {
       let cmp = 0
-      if (sortField === 'description') {
-        cmp = a.description.localeCompare(b.description)
+      if (sortField === 'title') {
+        cmp = a.title.localeCompare(b.title)
       } else if (sortField === 'date') {
         const dateA = a.is_recurring
           ? (a.next_occurrence || a.anchor_date || a.timestamp || '')
@@ -268,7 +275,9 @@ export function TransactionsPage() {
       setFormData({
         account_id: currentAccountId,
         amount: 0,
+        title: '',
         description: '',
+        links: [],
         is_recurring: false,
         frequency: 'monthly',
         anchor_date: '',
@@ -315,7 +324,9 @@ export function TransactionsPage() {
       setFormData({
         account_id: currentAccountId,
         amount: 0,
+        title: '',
         description: '',
+        links: [],
         is_recurring: false,
         frequency: 'monthly',
         anchor_date: '',
@@ -358,7 +369,7 @@ export function TransactionsPage() {
     },
     onSuccess: (_, _id, ctx) => {
       const deletedTxn = ctx?.deletedTxn
-      const deletedName = deletedTxn?.description ?? 'Transaction'
+      const deletedName = deletedTxn?.title ?? 'Transaction'
       toast(`${deletedName} deleted`, {
         action: {
           label: 'Undo',
@@ -367,7 +378,9 @@ export function TransactionsPage() {
               createMutation.mutate({
                 account_id: deletedTxn.account_id,
                 amount: deletedTxn.amount,
-                description: deletedTxn.description,
+                title: deletedTxn.title,
+                description: deletedTxn.description ?? '',
+                links: deletedTxn.links,
                 is_recurring: deletedTxn.is_recurring,
                 frequency: deletedTxn.frequency ?? undefined,
                 anchor_date: deletedTxn.anchor_date ?? undefined,
@@ -522,7 +535,9 @@ export function TransactionsPage() {
     setFormData({
       account_id: currentAccountId,
       amount: 0,
+      title: '',
       description: '',
+      links: [],
       is_recurring: false,
       frequency: 'monthly',
       anchor_date: '',
@@ -540,7 +555,9 @@ export function TransactionsPage() {
     setFormData({
       account_id: txn.account_id,
       amount: txn.amount,
-      description: txn.description,
+      title: txn.title,
+      description: txn.description ?? '',
+      links: txn.links,
       is_recurring: txn.is_recurring,
       frequency: txn.frequency || 'monthly',
       anchor_date: toDateInputValue(txn.anchor_date),
@@ -553,7 +570,7 @@ export function TransactionsPage() {
 
   const validate = (): boolean => {
     const errors: FormErrors = {}
-    if (!formData.description.trim()) errors.description = 'Description is required'
+    if (!formData.title.trim()) errors.title = 'Title is required'
     if (formData.amount === 0) errors.amount = 'Amount must be non-zero'
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -563,7 +580,7 @@ export function TransactionsPage() {
     e.preventDefault()
     if (!validate()) return
     const anchorDate = fromDateInputValue(formData.anchor_date)
-    const payload = { ...formData, anchor_date: anchorDate }
+    const payload = { ...formData, anchor_date: anchorDate, links: cleanLinks(formData.links) }
     if (editingId) {
       updateMutation.mutate({ id: editingId, updates: payload })
     } else {
@@ -579,7 +596,9 @@ export function TransactionsPage() {
     setFormData({
       account_id: currentAccountId,
       amount: 0,
+      title: '',
       description: '',
+      links: [],
       is_recurring: false,
       frequency: 'monthly',
       anchor_date: '',
@@ -668,6 +687,10 @@ export function TransactionsPage() {
       { label: txn.is_recurring ? 'Next' : 'Date', value: <span className="num">{dateValue ? formatDate(dateValue) : '-'}</span> },
     ]
     if (txn.is_recurring) rows.push({ label: 'Frequency', value: txn.frequency ?? '-' })
+    if (txn.description) {
+      rows.push({ label: 'Description', value: <span className="whitespace-pre-wrap break-words">{txn.description}</span> })
+    }
+    if (txn.links.length > 0) rows.push({ label: 'Links', value: <TransactionLinks links={txn.links} /> })
     if (txn.requires_confirmation) {
       rows.push({ label: 'Confirmed', value: <span className="num">{txn.confirmed_at ? formatDate(txn.confirmed_at) : 'Not yet'}</span> })
     }
@@ -680,7 +703,7 @@ export function TransactionsPage() {
     }
     return {
       id: txn.id,
-      title: txn.description,
+      title: txn.title,
       eyebrow: due ? `Due ${formatDate(txn.anchor_date || txn.timestamp)}` : formatDate(txn.timestamp),
       amount: <MoneyValue amount={txn.amount} currency={currentAccountCurrency} showSign="always" tone="auto" />,
       badge: txnStatusLabel(txn),
@@ -708,7 +731,7 @@ export function TransactionsPage() {
           setConfirmDelete(null)
         }}
         onCancel={() => setConfirmDelete(null)}
-        title={`Delete "${txnToDelete?.description}"?`}
+        title={`Delete "${txnToDelete?.title}"?`}
         description="This action cannot be undone."
       />
 
@@ -844,7 +867,7 @@ export function TransactionsPage() {
             view="owner"
             items={filteredAndSortedTxns.map((txn: TransactionResponse) => ({
               id: txn.id,
-              title: txn.description,
+              title: txn.title,
               category: txn.category,
               subtitle: txn.is_installment
                 ? `Installment · ${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'} paid · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : '-'}`
@@ -958,7 +981,7 @@ export function TransactionsPage() {
                 const direction = txn.amount < 0 ? 'I owe' : 'They owe'
                 return {
                   id: txn.id,
-                  title: txn.description,
+                  title: txn.title,
                   subtitle: `${friendName} · ${direction} · ${isConfirmed ? `confirmed ${formatDate(txn.confirmed_at!)}` : `pending ${formatDate(txn.anchor_date || txn.timestamp)}`}`,
                   amount: txn.is_installment && txn.total_installments
                     ? (txn.amount / txn.total_installments) * (txn.total_installments - (txn.paid_installments ?? 0))
@@ -981,7 +1004,7 @@ export function TransactionsPage() {
                 if (!txn) return
                 setEditDebtDraft({
                   amount: String(Math.abs(txn.amount)),
-                  description: txn.description,
+                  description: txn.title,
                 })
                 setEditingDebtId(id)
               }}

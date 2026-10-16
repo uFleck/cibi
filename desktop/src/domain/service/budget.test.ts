@@ -93,8 +93,8 @@ function payment(amount: number, postedAt: Date, category: string | null, transa
   return { amount, postedAt, category, transactionType }
 }
 
-function bill(id: string, amount: number, nextOccurrence: Date, category: string | null, description = id): RecurringRow {
-  return { transactionId: id, description, category, amount, nextOccurrence }
+function bill(id: string, amount: number, nextOccurrence: Date, category: string | null, title = id): RecurringRow {
+  return { transactionId: id, title, category, amount, nextOccurrence }
 }
 
 function rowOf(res: BudgetResponse, category: string): BudgetRow {
@@ -157,7 +157,7 @@ describe('scheduled bills', () => {
     expect(nov.bills).toHaveLength(1)
     expect(nov.bills[0]).toEqual({
       transactionId: 'rent',
-      description: 'Aluguel',
+      title: 'Aluguel',
       category: 'Moradia',
       amount: 150000,
       dueDate: '2026-11-01',
@@ -219,7 +219,7 @@ describe('scheduled bills', () => {
     expect((await service.getBudget('2026-10', OCT_16)).totals.scheduled).toBe(90000)
   })
 
-  it('sorts bills by due date, then description', async () => {
+  it('sorts bills by due date, then title', async () => {
     const { service } = setup({
       recurring: [
         bill('b', -100, new Date(Date.UTC(2026, 9, 20)), null, 'Zeta'),

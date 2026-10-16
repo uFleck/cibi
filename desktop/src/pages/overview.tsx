@@ -23,7 +23,7 @@ export function OverviewPage() {
   const selectedTxn = data?.transactions.find(t => t.id === selectedId)
   usePublishSelection(data && selectedTxn ? {
     id: selectedTxn.id,
-    title: selectedTxn.description,
+    title: selectedTxn.title,
     eyebrow: selectedTxn.next_occurrence ? `Due ${formatDate(selectedTxn.next_occurrence)}` : 'Scheduled',
     amount: <MoneyValue amount={selectedTxn.amount} currency={data.account.currency} showSign="auto" tone="negative" />,
     badge: selectedTxn.is_recurring ? 'Recurring' : undefined,

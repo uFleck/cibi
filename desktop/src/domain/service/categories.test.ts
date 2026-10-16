@@ -28,9 +28,9 @@ afterEach(() => {
   db.close()
 })
 
-async function insertTxn(description: string, amount: number, category: string | null, extra: Record<string, unknown> = {}): Promise<string> {
+async function insertTxn(title: string, amount: number, category: string | null, extra: Record<string, unknown> = {}): Promise<string> {
   const id = crypto.randomUUID()
-  const row = { id, account_id: accountId, amount, description, timestamp: '2026-10-01T00:00:00Z', is_recurring: 0, category, ...extra }
+  const row = { id, account_id: accountId, amount, title, timestamp: '2026-10-01T00:00:00Z', is_recurring: 0, category, ...extra }
   const columns = Object.keys(row)
   await db.query(
     `INSERT INTO "Transaction" (${columns.map((c) => `"${c}"`).join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`,

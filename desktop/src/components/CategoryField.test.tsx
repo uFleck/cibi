@@ -15,12 +15,12 @@ vi.mock('@/lib/api', () => ({
 const mockFetchCategories = vi.mocked(fetchCategories)
 const mockSuggestCategory = vi.mocked(suggestCategory)
 
-function Harness({ initial = '', description }: { initial?: string; description: string }) {
+function Harness({ initial = '', title, description = '' }: { initial?: string; title: string; description?: string }) {
   const [value, setValue] = useState(initial)
-  return <CategoryField id="cat" value={value} description={description} onChange={setValue} />
+  return <CategoryField id="cat" value={value} title={title} description={description} onChange={setValue} />
 }
 
-function renderField(props: { initial?: string; description: string }) {
+function renderField(props: { initial?: string; title: string; description?: string }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
@@ -36,14 +36,14 @@ function input(container: HTMLElement): HTMLInputElement {
 beforeEach(() => {
   mockFetchCategories.mockResolvedValue([...DEFAULT_CATEGORIES])
   mockSuggestCategory.mockReset()
-  mockSuggestCategory.mockImplementation(async (description) =>
-    description === 'Carrefour Hiper' ? { category: 'Mercado', confidence: 0.9 } : null,
+  mockSuggestCategory.mockImplementation(async (title) =>
+    title === 'Carrefour Hiper' ? { category: 'Mercado', confidence: 0.9 } : null,
   )
 })
 
 describe('CategoryField', () => {
   it('offers the known categories as options', async () => {
-    const { container } = renderField({ description: '' })
+    const { container } = renderField({ title: '' })
 
     expect(input(container).getAttribute('list')).toBe('cat-options')
     await waitFor(() => {
@@ -53,27 +53,27 @@ describe('CategoryField', () => {
     expect(container.querySelector('datalist#cat-options option[value="Contas e serviços"]')).not.toBeNull()
   })
 
-  it('suggests a category for the description and sets it on click', async () => {
+  it('suggests a category for the title and description and sets it on click', async () => {
     const user = userEvent.setup()
-    const { container } = renderField({ description: 'Carrefour Hiper' })
+    const { container } = renderField({ title: 'Carrefour Hiper', description: 'compra do mes' })
 
     await user.click(await screen.findByRole('button', { name: 'Mercado' }))
 
     expect(input(container).value).toBe('Mercado')
     expect(screen.queryByRole('button', { name: 'Mercado' })).toBeNull()
-    expect(mockSuggestCategory).toHaveBeenCalledWith('Carrefour Hiper')
+    expect(mockSuggestCategory).toHaveBeenCalledWith('Carrefour Hiper', 'compra do mes')
   })
 
   it('does not suggest once a category is set', async () => {
-    renderField({ initial: 'Lazer', description: 'Carrefour Hiper' })
+    renderField({ initial: 'Lazer', title: 'Carrefour Hiper' })
 
     await waitFor(() => expect(mockFetchCategories).toHaveBeenCalled())
     expect(mockSuggestCategory).not.toHaveBeenCalled()
     expect(screen.queryByRole('button', { name: 'Mercado' })).toBeNull()
   })
 
-  it('does not suggest for an empty description', async () => {
-    renderField({ description: '   ' })
+  it('does not suggest for an empty title', async () => {
+    renderField({ title: '   ', description: 'something' })
 
     await waitFor(() => expect(mockFetchCategories).toHaveBeenCalled())
     expect(mockSuggestCategory).not.toHaveBeenCalled()

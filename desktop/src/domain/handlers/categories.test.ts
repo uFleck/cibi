@@ -36,7 +36,7 @@ async function json<T>(res: Response): Promise<T> {
 async function createTxn(body: Record<string, unknown>): Promise<{ id: string; category: string | null }> {
   const res = await localFetch('/api/transactions', {
     method: 'POST',
-    body: JSON.stringify({ account_id: accountId, amount: -10, description: 'x', ...body }),
+    body: JSON.stringify({ account_id: accountId, amount: -10, title: 'x', ...body }),
   })
   expect(res.status).toBe(201)
   return json(res)
@@ -44,7 +44,7 @@ async function createTxn(body: Record<string, unknown>): Promise<{ id: string; c
 
 describe('GET /api/categories', () => {
   it('returns the defaults and the custom values in use', async () => {
-    await createTxn({ amount: -4000, description: 'Ração', category: ' Pet ' })
+    await createTxn({ amount: -4000, title: 'Ração', category: ' Pet ' })
     const res = await localFetch('/api/categories')
     expect(res.status).toBe(200)
     const options = await json<{ id: string; label: string; description: string }[]>(res)
@@ -71,7 +71,7 @@ describe('GET /api/categories/suggest', () => {
 describe('POST /api/categories/backfill', () => {
   it('categorizes the uncategorized expenses and reports the counts', async () => {
     await db.query(
-      `INSERT INTO "Transaction" (id, account_id, amount, description, timestamp, is_recurring) VALUES (?, ?, -1500, 'Mercado Livre', '2026-10-01T00:00:00Z', 0)`,
+      `INSERT INTO "Transaction" (id, account_id, amount, title, timestamp, is_recurring) VALUES (?, ?, -1500, 'Mercado Livre', '2026-10-01T00:00:00Z', 0)`,
       [crypto.randomUUID(), accountId],
     )
     const res = await localFetch('/api/categories/backfill', { method: 'POST' })
@@ -82,22 +82,22 @@ describe('POST /api/categories/backfill', () => {
 
 describe('transactions carry a category', () => {
   it('auto-fills the category of a new expense in the response', async () => {
-    const created = await createTxn({ description: 'iFood pedido' })
+    const created = await createTxn({ title: 'iFood pedido' })
     expect(created.category).toBe('Restaurantes e delivery')
   })
 
   it('keeps a category the user typed', async () => {
-    const created = await createTxn({ description: 'iFood pedido', category: 'Lazer' })
+    const created = await createTxn({ title: 'iFood pedido', category: 'Lazer' })
     expect(created.category).toBe('Lazer')
   })
 
   it('leaves income uncategorized', async () => {
-    const created = await createTxn({ amount: 100, description: 'Mercado Livre venda' })
+    const created = await createTxn({ amount: 100, title: 'Mercado Livre venda' })
     expect(created.category).toBeNull()
   })
 
   it('PATCH sets, keeps when absent, and clears on an empty string', async () => {
-    const created = await createTxn({ description: 'Academia Smart Fit' })
+    const created = await createTxn({ title: 'Academia Smart Fit' })
     expect(created.category).toBe('Saúde')
 
     const set = await localFetch(`/api/transactions/${created.id}`, {
@@ -108,7 +108,7 @@ describe('transactions carry a category', () => {
 
     const kept = await localFetch(`/api/transactions/${created.id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ description: 'Academia' }),
+      body: JSON.stringify({ title: 'Academia' }),
     })
     expect((await json<{ category: string | null }>(kept)).category).toBe('Lazer')
 
@@ -120,7 +120,7 @@ describe('transactions carry a category', () => {
   })
 
   it('GET /api/transactions includes the category field', async () => {
-    await createTxn({ description: 'Netflix', category: 'Assinaturas' })
+    await createTxn({ title: 'Netflix', category: 'Assinaturas' })
     const res = await localFetch(`/api/transactions?account_id=${accountId}`)
     const rows = await json<{ category: string | null }[]>(res)
     expect(rows.map((r) => r.category)).toEqual(['Assinaturas'])
