@@ -1,9 +1,12 @@
 import { useEffect, type ReactNode } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { MoneyValue } from '@/components/ui/money-value'
+import { formatDate } from '@/lib/format'
+import { useSelection, usePublishSelection } from '@/shell/selection'
 import { useLayout } from '@/widgets/layoutContext'
 import { WallGrid } from '@/widgets/WallGrid'
 import { useWorkspace } from '@/widgets/useWorkspace'
@@ -13,7 +16,29 @@ const SKELETON_SPANS = [12, 8, 4, 6, 6]
 export function OverviewPage() {
   const workspace = useWorkspace()
   const layout = useLayout()
+  const navigate = useNavigate()
+  const { selectedId } = useSelection()
   const { data, isLoading, isError } = workspace
+
+  const selectedTxn = data?.transactions.find(t => t.id === selectedId)
+  usePublishSelection(data && selectedTxn ? {
+    id: selectedTxn.id,
+    title: selectedTxn.description,
+    eyebrow: selectedTxn.next_occurrence ? `Due ${formatDate(selectedTxn.next_occurrence)}` : 'Scheduled',
+    amount: <MoneyValue amount={selectedTxn.amount} currency={data.account.currency} showSign="auto" tone="negative" />,
+    badge: selectedTxn.is_recurring ? 'Recurring' : undefined,
+    rows: [
+      { label: 'Account', value: data.account.name },
+      { label: 'Next', value: <span className="num">{selectedTxn.next_occurrence ? formatDate(selectedTxn.next_occurrence) : '-'}</span> },
+      { label: 'Frequency', value: selectedTxn.frequency ?? '-' },
+    ],
+    actions: [{
+      id: 'open',
+      label: 'Open in Transactions',
+      variant: 'outline',
+      run: () => void navigate({ to: '/transactions', search: { select: selectedTxn.id } }),
+    }],
+  } : null)
 
   useEffect(() => {
     if (isError) toast.error('Could not load financial data. Retrying in 30 seconds.')

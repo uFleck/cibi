@@ -9,6 +9,8 @@ export interface ShortcutBinding {
   label?: string
   group?: string
   allowInInput?: boolean
+  /** Skip when focus is on a button, link or other control, so its native activation still works. */
+  skipInteractive?: boolean
 }
 
 export interface ChordOption {
@@ -83,6 +85,10 @@ function isOverlayOpen() {
   return document.querySelector(OVERLAY_SELECTOR) !== null
 }
 
+function isInteractiveTarget(target: EventTarget | null) {
+  return target instanceof HTMLElement && target.closest('button, a[href], [role="button"], [role="option"], [role="switch"], [role="checkbox"]') !== null
+}
+
 function best(list: Entry[]) {
   return list.reduce((top, entry) => {
     const rank = SCOPE_RANK[entry.scope] - SCOPE_RANK[top.scope]
@@ -139,7 +145,8 @@ export function createShortcutRegistry(chordTimeoutMs = 1500): ShortcutRegistry 
     if (!step) return
 
     const blocked = isTypingTarget(event.target) || isOverlayOpen()
-    const eligible = entries.filter(entry => !blocked || entry.allowInInput)
+    const interactive = isInteractiveTarget(event.target)
+    const eligible = entries.filter(entry => (!blocked || entry.allowInInput) && !(entry.skipInteractive && interactive))
     const prior = pending
     cancelChord()
 
@@ -199,7 +206,7 @@ export function useKeyboardShortcuts(bindings: ShortcutBinding[]) {
   })
 
   const signature = bindings
-    .map(binding => [binding.scope ?? 'global', binding.keys, binding.label ?? '', binding.group ?? '', binding.allowInInput ? 1 : 0].join('|'))
+    .map(binding => [binding.scope ?? 'global', binding.keys, binding.label ?? '', binding.group ?? '', binding.allowInInput ? 1 : 0, binding.skipInteractive ? 1 : 0].join('|'))
     .join('\n')
 
   useEffect(() => {

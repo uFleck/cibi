@@ -234,13 +234,13 @@ describe('GoalsPage browser contract', () => {
     renderGoalsPageWithClient()
 
     const page = await screen.findByRole('heading', { name: 'Goals Tracking' })
-    const pageShell = page.closest('.max-w-2xl')
+    const pageShell = page.closest('.max-w-3xl')
     expect(pageShell?.className).toContain('px-4')
     expect(pageShell?.className).toContain('sm:px-6')
 
-    // CompactEntityTable renders a mobile list (sm:hidden) and a desktop table; the first Add money button is the mobile one.
+    // The dense goals table keeps one layout and scrolls horizontally on narrow viewports.
     const addMoney = (await screen.findAllByRole('button', { name: 'Add money' }))[0]
-    expect(addMoney.closest('[class~="sm:hidden"]')).toBeTruthy()
+    expect(addMoney.closest('.overflow-x-auto')).toBeTruthy()
 
     const user = userEvent.setup()
     await user.click(addMoney)

@@ -2,13 +2,15 @@
 import { useContext, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Trash2, Save } from 'lucide-react'
+import { Plus, Trash2, Save, Eye, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { AppModal } from '@/components/AppModal'
-import { CompactEntityTable } from '@/components/CompactEntityTable'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { MoneyValue } from '@/components/ui/money-value'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { denseCell, denseHead, denseNumCell, denseRow, denseTable } from '@/components/ui/dense'
+import { cn } from '@/lib/utils'
 import { FriendForm } from '@/components/FriendForm'
 import { GroupEventForm, type GroupEventFormState } from '@/components/GroupEventForm'
 import { ParticipantEditor } from '@/components/ParticipantEditor'
@@ -38,6 +40,33 @@ interface CreateFriendFormState {
 
 const EMPTY_FRIEND_FORM: CreateFriendFormState = { name: '', notes: '', pix_key: '' }
 const EMPTY_EVENT_FORM: GroupEventFormState = { title: '', date: '', total_amount: '', notes: '' }
+
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  return parts.slice(0, 2).map(part => part[0]).join('').toUpperCase() || '?'
+}
+
+interface RowActionProps {
+  label: string
+  tooltip: string
+  icon: LucideIcon
+  onClick: () => void
+}
+
+function RowAction({ label, tooltip, icon: Icon, onClick }: RowActionProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="ghost" size="icon" onClick={onClick} aria-label={label}>
+          <Icon size={14} />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>{tooltip}</p>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
 
 function FriendDetailsModal({
   friend,
@@ -114,7 +143,7 @@ function FriendDetailsModal({
             <Button
               size="icon"
               variant="ghost"
-              className="h-10 w-10"
+              className="size-8"
               onClick={() => {
                 if (!nameDraft.trim()) {
                   toast.error('Name required')
@@ -130,7 +159,7 @@ function FriendDetailsModal({
             <Button
               size="icon"
               variant="ghost"
-              className="h-10 w-10"
+              className="size-8"
               onClick={() => setConfirmDeleteFriendOpen(true)}
               disabled={deleteFriendMutation.isPending}
               aria-label="Delete friend"
@@ -406,7 +435,7 @@ function GroupEventDetailsModal({
           <Button
             size="icon"
             variant="ghost"
-            className="h-10 w-10"
+            className="size-8"
             onClick={() => {
               if (!titleDraft.trim()) {
                 toast.error('Title required')
@@ -422,7 +451,7 @@ function GroupEventDetailsModal({
           <Button
             size="icon"
             variant="ghost"
-            className="h-10 w-10"
+            className="size-8"
             onClick={() => setConfirmDeleteEventOpen(true)}
             disabled={deleteEventMutation.isPending}
             aria-label="Delete event"
@@ -431,8 +460,8 @@ function GroupEventDetailsModal({
           </Button>
         </div>
 
-        <div className="text-sm text-muted-foreground">
-          {formatDate(event.date)} · <MoneyValue amount={event.total_amount} currency="BRL" showSign="auto" tone="auto" />
+        <div className="font-mono text-[12px] text-muted-foreground">
+          {formatDate(event.date)} · <MoneyValue amount={event.total_amount} currency="BRL" showSign="never" tone="neutral" />
         </div>
 
         <ParticipantEditor
@@ -554,10 +583,10 @@ export function FriendsPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
-      <section className="flex flex-col gap-4">
+    <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
+      <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Friends</h1>
+          <h1 className="text-lg font-semibold tracking-tight text-foreground">Friends</h1>
           <Button size="sm" onClick={() => setShowCreateFriend(true)}>
             <Plus size={16} />
             Add Friend
@@ -567,32 +596,61 @@ export function FriendsPage() {
         {friendsLoading ? (
           <div className="flex flex-col gap-2">
             {[0, 1, 2].map(i => (
-              <div key={i} className="h-10 rounded-lg bg-card/60 animate-pulse border border-border/40" />
+              <div key={i} className="h-[29px] rounded-md border border-line bg-surface-2 animate-pulse" />
             ))}
           </div>
         ) : friends.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="font-semibold">No friends yet</p>
-            <p className="text-xs text-muted-foreground mt-1">Add friend to track debts.</p>
+          <div className="flex flex-col items-center gap-1 rounded-md border border-line bg-surface py-8 text-center">
+            <p className="text-[13px] font-semibold text-foreground">No friends yet</p>
+            <p className="text-[12px] text-faint">Add friend to track debts.</p>
           </div>
         ) : (
-          <CompactEntityTable
-            entityLabel="Friend"
-            items={friends.map(friend => ({
-                id: friend.id,
-                primary: friend.name,
-                secondary: friend.pix_key ? `PIX: ${friend.pix_key}` : undefined,
-                onOpen: () => setActiveFriendId(friend.id),
-                openAriaLabel: 'Access friend details',
-              }))}
-
-          />
+          <div className="overflow-x-auto rounded-md border border-line bg-surface">
+            <table className={denseTable}>
+              <thead>
+                <tr>
+                  <th className={denseHead}>Friend</th>
+                  <th className={denseHead}>PIX key</th>
+                  <th className={denseHead}>Notes</th>
+                  <th className={cn(denseHead, 'text-right')}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {friends.map(friend => (
+                  <tr key={friend.id} className={denseRow}>
+                    <td className={denseCell}>
+                      <div className="flex items-center gap-2">
+                        <span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-surface-3 font-mono text-[10px] font-medium text-muted-foreground">
+                          {initialsOf(friend.name)}
+                        </span>
+                        <span className="truncate font-medium text-foreground">{friend.name}</span>
+                      </div>
+                    </td>
+                    <td className={cn(denseCell, 'font-mono text-muted-foreground')}>{friend.pix_key || '—'}</td>
+                    <td className={cn(denseCell, 'max-w-[200px] text-muted-foreground')}>
+                      <span className="block truncate">{friend.notes || '—'}</span>
+                    </td>
+                    <td className={cn(denseCell, 'text-right')}>
+                      <div className="flex justify-end">
+                        <RowAction
+                          label="Access friend details"
+                          tooltip="Access"
+                          icon={Eye}
+                          onClick={() => setActiveFriendId(friend.id)}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
-      <section className="flex flex-col gap-4">
+      <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Group Events</h2>
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">Group Events</h2>
           <Button size="sm" onClick={() => setShowCreateEvent(true)}>
             <Plus size={16} />
             New Event
@@ -603,29 +661,50 @@ export function FriendsPage() {
         {eventsLoading ? (
           <div className="flex flex-col gap-2">
             {[0, 1, 2].map(i => (
-              <div key={i} className="h-10 rounded-lg bg-card/60 animate-pulse border border-border/40" />
+              <div key={i} className="h-[29px] rounded-md border border-line bg-surface-2 animate-pulse" />
             ))}
           </div>
         ) : groupEvents.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="font-semibold">No group events yet</p>
-            <p className="text-xs text-muted-foreground mt-1">Create event to split costs.</p>
+          <div className="flex flex-col items-center gap-1 rounded-md border border-line bg-surface py-8 text-center">
+            <p className="text-[13px] font-semibold text-foreground">No group events yet</p>
+            <p className="text-[12px] text-faint">Create event to split costs.</p>
           </div>
         ) : (
-          <CompactEntityTable
-            entityLabel="Event"
-            items={groupEvents.map(event => ({
-              id: event.id,
-              primary: event.title,
-              secondary: (
-                <>
-                  {formatDate(event.date)} · <MoneyValue amount={event.total_amount} currency="BRL" showSign="auto" tone="auto" />
-                </>
-              ),
-              onOpen: () => setActiveEventId(event.id),
-              openAriaLabel: 'Access group event details',
-            }))}
-          />
+          <div className="overflow-x-auto rounded-md border border-line bg-surface">
+            <table className={denseTable}>
+              <thead>
+                <tr>
+                  <th className={denseHead}>Event</th>
+                  <th className={denseHead}>Date</th>
+                  <th className={cn(denseHead, 'text-right')}>Total</th>
+                  <th className={cn(denseHead, 'text-right')}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groupEvents.map(event => (
+                  <tr key={event.id} className={denseRow}>
+                    <td className={cn(denseCell, 'max-w-[240px]')}>
+                      <span className="block truncate font-medium text-foreground">{event.title}</span>
+                    </td>
+                    <td className={cn(denseCell, 'font-mono text-muted-foreground')}>{formatDate(event.date)}</td>
+                    <td className={denseNumCell}>
+                      <MoneyValue amount={event.total_amount} currency="BRL" showSign="never" tone="neutral" />
+                    </td>
+                    <td className={cn(denseCell, 'text-right')}>
+                      <div className="flex justify-end">
+                        <RowAction
+                          label="Access group event details"
+                          tooltip="Access"
+                          icon={Eye}
+                          onClick={() => setActiveEventId(event.id)}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 

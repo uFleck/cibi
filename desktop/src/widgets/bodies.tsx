@@ -7,6 +7,7 @@ import { PayWindowBar } from './payday/PayWindowBar'
 import { AccountsWidget } from './accounts/AccountsWidget'
 import { CategoriesWidget } from './categories/CategoriesWidget'
 import { CheckWidget } from './check/CheckWidget'
+import { useSelection } from '@/shell/selection'
 import type { WidgetData } from './useWorkspace'
 
 export interface WidgetBodyProps {
@@ -42,7 +43,16 @@ export function BudgetBody() {
 }
 
 export function UpcomingBody({ data }: WidgetBodyProps) {
-  return <ObligationsList transactions={data.transactions} currency={data.account.currency} nextPayday={data.nextPayday} />
+  const { selectedId, select } = useSelection()
+  return (
+    <ObligationsList
+      transactions={data.transactions}
+      currency={data.account.currency}
+      nextPayday={data.nextPayday}
+      selectedId={selectedId}
+      onSelect={select}
+    />
+  )
 }
 
 export function RecentBody({ data }: WidgetBodyProps) {

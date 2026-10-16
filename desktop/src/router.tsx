@@ -25,6 +25,9 @@ const transactionsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/transactions',
   component: TransactionsPage,
+  validateSearch: (search: Record<string, unknown>): { select?: string } => ({
+    select: typeof search.select === 'string' ? search.select : undefined,
+  }),
 })
 const friendsRoute = createRoute({
   getParentRoute: () => rootRoute,

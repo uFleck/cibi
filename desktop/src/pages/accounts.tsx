@@ -2,16 +2,17 @@ import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { toast } from 'sonner'
-import { Plus, Wallet, Edit2, Trash2, Check } from 'lucide-react'
+import { Plus, Wallet, Edit2, Trash2, Check, Eye } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { KvList } from '@/components/ui/kv-list'
+import { denseActiveRow, denseCell, denseHead, denseNumCell, denseRow, denseTable } from '@/components/ui/dense'
 import { AppModal } from '@/components/AppModal'
 import { EditSheet } from '@/components/EditSheet'
 import { MobileActionButton } from '@/components/MobileActionButton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { SharedDebtList } from '@/components/debt/shared-debt-list'
 import { AccountForm } from '@/components/AccountForm'
 import { AccountScheduleForm, type AccountScheduleFrequency } from '@/components/AccountScheduleForm'
 import {
@@ -30,6 +31,7 @@ import {
   type CreatePayScheduleRequest,
 } from '@/lib/api'
 import { MoneyValue } from '@/components/ui/money-value'
+import { cn } from '@/lib/utils'
 
 const CURRENCIES = [
   'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'MXN', 'BRL', 'INR', 'SGD', 'HKD',
@@ -335,7 +337,8 @@ export function AccountsPage() {
 
   const isPending = createMutation.isPending || updateMutation.isPending
   const accountToDelete = accounts.find(a => a.id === confirmDelete)
-  const scheduleCurrency = accounts.find(a => a.id === scheduleModalAccountId)?.currency ?? 'BRL'
+  const scheduleAccount = accounts.find(a => a.id === scheduleModalAccountId) ?? null
+  const scheduleCurrency = scheduleAccount?.currency ?? 'BRL'
 
   const handleAccountNameChange = (value: string) => {
     setFormData({ ...formData, name: value })
@@ -352,7 +355,7 @@ export function AccountsPage() {
   if (isError) {
     return (
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-        <div className="text-center text-destructive">
+        <div className="text-center text-neg">
           Failed to load accounts. Please try again.
         </div>
       </div>
@@ -360,7 +363,7 @@ export function AccountsPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
       <ConfirmDialog
         open={!!confirmDelete}
         onConfirm={() => {
@@ -374,7 +377,7 @@ export function AccountsPage() {
       />
 
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Accounts</h1>
+        <h1 className="text-lg font-semibold">Accounts</h1>
         <Button onClick={handleCreateClick} size="sm" className="hidden sm:inline-flex">
           <Plus size={16} />
           New Account
@@ -382,7 +385,7 @@ export function AccountsPage() {
       </div>
 
       {todaySchedules.length > 0 && (
-        <div className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="rounded-md border border-pos/30 bg-pos/10 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1">
             <p className="font-medium text-sm">Payday today</p>
             <p className="text-xs text-muted-foreground">
@@ -395,7 +398,7 @@ export function AccountsPage() {
                 key={ps.id}
                 size="sm"
                 variant="outline"
-                className="border-green-500/40 hover:bg-green-500/20"
+                className="border-pos/40 hover:bg-pos/20"
                 onClick={() => handleConfirmSchedule(ps.id)}
                 disabled={confirmScheduleMutation.isPending}
               >
@@ -411,9 +414,9 @@ export function AccountsPage() {
         name="account-list"
         loading={isLoading}
         fallback={
-          <div className="space-y-3" role="status" aria-label="Loading accounts">
+          <div className="flex flex-col gap-1.5" role="status" aria-label="Loading accounts">
             {[0, 1, 2].map(i => (
-              <div key={i} className="h-16 rounded-xl bg-card/60 animate-pulse border border-border/40" />
+              <div key={i} className="h-8 rounded-md bg-surface-2 animate-pulse" />
             ))}
             <span className="sr-only">Loading...</span>
           </div>
@@ -421,45 +424,91 @@ export function AccountsPage() {
       >
         <div className="space-y-3">
           {accounts.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-12">
-                <Wallet className="mx-auto mb-4 text-muted-foreground/40" size={40} />
-                <p className="text-muted-foreground mb-4">No accounts yet</p>
-                <Button onClick={handleCreateClick} size="sm">
-                  <Plus size={16} />
-                  Create First Account
-                </Button>
-              </CardContent>
-            </Card>
+            <div className="rounded-md border border-line bg-surface text-center py-12">
+              <Wallet className="mx-auto mb-4 text-faint" size={40} />
+              <p className="text-muted-foreground mb-4">No accounts yet</p>
+              <Button onClick={handleCreateClick} size="sm">
+                <Plus size={16} />
+                Create First Account
+              </Button>
+            </div>
           ) : (
-            <SharedDebtList
-              mode="auto"
-              view="owner"
-              items={accounts.map(account => ({
-                id: account.id,
-                title: account.name,
-                subtitle: `${account.currency}${account.is_default ? ' · Default' : ''}`,
-                amount: account.current_balance,
-                currency: account.currency,
-                status: {
-                  label: account.is_default ? 'Default' : 'Active',
-                  tone: account.is_default ? 'default' : 'secondary',
-                },
-                canConfirm: !account.is_default,
-                canDelete: true,
-                canOpen: true,
-                canEdit: true,
-              }))}
-              emptyTitle="No accounts yet"
-              emptyHint="Create an account to get started"
-              onConfirm={(id) => defaultMutation.mutate(id)}
-              onDelete={(id) => setConfirmDelete(id)}
-              onOpen={(id) => setScheduleModalAccountId(id)}
-              onEdit={(id) => {
-                const account = accounts.find(a => a.id === id)
-                if (account) handleEditClick(account)
-              }}
-            />
+            <div className="rounded-md border border-line bg-surface overflow-x-auto">
+              <table className={denseTable}>
+                <thead>
+                  <tr>
+                    <th className={cn(denseHead, 'pl-2.5')}>Name</th>
+                    <th className={denseHead}>Currency</th>
+                    <th className={cn(denseHead, 'text-right')}>Balance</th>
+                    <th className={denseHead}>Status</th>
+                    <th className={cn(denseHead, 'text-right')}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {accounts.map(account => (
+                    <tr key={account.id} className={cn(denseRow, editingId === account.id && denseActiveRow)}>
+                      <td className={cn(denseCell, 'pl-2.5 font-medium')}>{account.name}</td>
+                      <td className={cn(denseCell, 'font-mono text-faint')}>{account.currency}</td>
+                      <td className={denseNumCell}>
+                        <MoneyValue
+                          amount={account.current_balance}
+                          currency={account.currency}
+                          showSign="auto"
+                          tone="auto"
+                        />
+                      </td>
+                      <td className={denseCell}>
+                        <Badge variant={account.is_default ? 'default' : 'secondary'}>
+                          {account.is_default ? 'Default' : 'Active'}
+                        </Badge>
+                      </td>
+                      <td className={denseCell}>
+                        <div className="flex justify-end gap-0.5">
+                          {!account.is_default && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => defaultMutation.mutate(account.id)}
+                              aria-label="Confirm"
+                            >
+                              <Check size={13} />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => setScheduleModalAccountId(account.id)}
+                            aria-label="Open"
+                          >
+                            <Eye size={13} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => handleEditClick(account)}
+                            aria-label="Edit"
+                          >
+                            <Edit2 size={13} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-neg/70 hover:text-neg"
+                            onClick={() => setConfirmDelete(account.id)}
+                            aria-label="Delete"
+                          >
+                            <Trash2 size={13} />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </Skeleton>
@@ -502,11 +551,32 @@ export function AccountsPage() {
         description={scheduleModalAccountId ? accounts.find(a => a.id === scheduleModalAccountId)?.name : ''}
         contentClassName="md:w-[640px] md:max-w-[640px]"
       >
+          {scheduleAccount && (
+            <KvList
+              className="mb-3"
+              rows={[
+                {
+                  label: 'Balance',
+                  value: (
+                    <MoneyValue
+                      amount={scheduleAccount.current_balance}
+                      currency={scheduleAccount.currency}
+                      showSign="never"
+                      tone="neutral"
+                    />
+                  ),
+                },
+                { label: 'Currency', value: <span className="font-mono">{scheduleAccount.currency}</span> },
+                { label: 'Safety buffer', value: <span className="num">{scheduleAccount.safety_buffer.toFixed(2)}</span> },
+                { label: 'Default', value: scheduleAccount.is_default ? 'Yes' : 'No' },
+              ]}
+            />
+          )}
 
           {schedulesLoading ? (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               {[0, 1, 2].map(i => (
-                <div key={i} className="h-10 rounded-lg bg-card/60 animate-pulse border border-border/40" />
+                <div key={i} className="h-8 rounded-md bg-surface-2 animate-pulse" />
               ))}
             </div>
           ) : schedules.length === 0 ? (
@@ -521,11 +591,11 @@ export function AccountsPage() {
             <>
               <div className="sm:hidden flex flex-col gap-2">
                 {schedules.map((ps: PayScheduleResponse) => (
-                  <div key={ps.id} className="border rounded-md p-3">
+                  <div key={ps.id} className="rounded-md border border-line bg-surface p-3">
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <div className="font-medium">{ps.label ?? ps.frequency}</div>
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-xs text-faint">
                           {ps.frequency} · {ps.anchor_date}
                           {ps.day_of_month_2 ? `/${ps.day_of_month_2}` : ''}
                         </div>
@@ -547,43 +617,42 @@ export function AccountsPage() {
                 ))}
               </div>
 
-              <div className="hidden sm:block border rounded-md overflow-x-auto">
-                <table className="min-w-full w-max text-sm">
-                  <thead className="bg-muted/50 text-muted-foreground">
+              <div className="hidden sm:block rounded-md border border-line bg-surface overflow-x-auto">
+                <table className={denseTable}>
+                  <thead>
                     <tr>
-                      <th className="text-left px-3 py-2 font-medium">Schedule</th>
-                      <th className="text-right px-3 py-2 font-medium">Amount</th>
-                      <th className="text-right px-3 py-2 font-medium w-32">Actions</th>
+                      <th className={cn(denseHead, 'pl-2.5')}>Schedule</th>
+                      <th className={cn(denseHead, 'text-right')}>Amount</th>
+                      <th className={cn(denseHead, 'text-right w-28')}>Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y">
+                  <tbody>
                     {schedules.map((ps: PayScheduleResponse) => (
-                      <tr key={ps.id} className="hover:bg-muted/30">
-                        <td className="px-3 py-2">
+                      <tr key={ps.id} className={denseRow}>
+                        <td className={cn(denseCell, 'pl-2.5')}>
                           <div className="font-medium">{ps.label ?? ps.frequency}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {ps.frequency} · {ps.anchor_date}
+                          <div className="text-[11px] text-faint">
+                            {ps.frequency} · <span className="font-mono">{ps.anchor_date}</span>
                             {ps.day_of_month_2 ? `/${ps.day_of_month_2}` : ''}
                           </div>
                         </td>
-                        <td className="px-3 py-2 text-right">
+                        <td className={denseNumCell}>
                           <MoneyValue
                             amount={ps.amount}
                             currency={scheduleCurrency}
                             showSign="always"
                             tone="positive"
-                            className="font-medium"
                           />
                         </td>
-                        <td className="px-3 py-2">
-                          <div className="flex gap-1 justify-end">
+                        <td className={denseCell}>
+                          <div className="flex gap-0.5 justify-end">
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
                                   onClick={() => handleConfirmSchedule(ps.id)}
                                   variant="ghost"
                                   size="icon"
-                                  className="h-9 w-9"
+                                  className="h-6 w-6"
                                   aria-label="Confirm schedule"
                                   disabled={confirmScheduleMutation.isPending}
                                 >
@@ -600,7 +669,7 @@ export function AccountsPage() {
                                   onClick={() => startEditSchedule(ps)}
                                   variant="ghost"
                                   size="icon"
-                                  className="h-9 w-9"
+                                  className="h-6 w-6"
                                   aria-label="Edit schedule"
                                 >
                                   <Edit2 size={14} />
@@ -616,7 +685,7 @@ export function AccountsPage() {
                                   onClick={() => handleDeleteSchedule(ps.id)}
                                   variant="ghost"
                                   size="icon"
-                                  className="h-9 w-9"
+                                  className="h-6 w-6"
                                   aria-label="Delete schedule"
                                 >
                                   <Trash2 size={14} />

@@ -29,7 +29,8 @@ export interface WidgetFrameProps {
   attributes?: DraggableAttributes
   listeners?: DraggableSyntheticListeners
   onKeyDown?: KeyboardEventHandler<HTMLElement>
-  onResize: (span: WallSpan) => void
+  /** Omit for a frame that is not resizable (the inspector). */
+  onResize?: (span: WallSpan) => void
   onRemove: () => void
   children: ReactNode
 }
@@ -99,23 +100,25 @@ export function WidgetFrame({
         <span className="flex-1" />
         {editing && (
           <div className="flex items-center gap-1.5">
-            <div role="group" aria-label={`${title} width`} className="flex overflow-hidden rounded-sm border border-line-strong">
-              {SIZE_OPTIONS.map(([n, label]) => (
-                <button
-                  key={n}
-                  type="button"
-                  aria-pressed={span === n}
-                  title={`${n} of 12 columns`}
-                  onClick={() => onResize(n)}
-                  className={cn(
-                    'h-5 cursor-pointer px-1.5 font-mono text-[10.5px] text-faint transition-colors hover:bg-surface-3 hover:text-foreground',
-                    span === n && 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground',
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            {onResize && (
+              <div role="group" aria-label={`${title} width`} className="flex overflow-hidden rounded-sm border border-line-strong">
+                {SIZE_OPTIONS.map(([n, label]) => (
+                  <button
+                    key={n}
+                    type="button"
+                    aria-pressed={span === n}
+                    title={`${n} of 12 columns`}
+                    onClick={() => onResize(n)}
+                    className={cn(
+                      'h-5 cursor-pointer px-1.5 font-mono text-[10.5px] text-faint transition-colors hover:bg-surface-3 hover:text-foreground',
+                      span === n && 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground',
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
             <button
               type="button"
               aria-label={`Remove ${title}`}

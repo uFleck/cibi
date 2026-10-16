@@ -1,4 +1,5 @@
 import { MoneyValue } from '@/components/ui/money-value'
+import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/format'
 import { isInCurrentPayWindow } from '@/lib/financial-window'
 import type { TransactionResponse } from '@/lib/api'
@@ -7,9 +8,11 @@ interface ObligationsListProps {
   transactions: TransactionResponse[]
   currency?: string
   nextPayday: string | null
+  selectedId?: string | null
+  onSelect?: (id: string) => void
 }
 
-export function ObligationsList({ transactions, currency = 'BRL', nextPayday }: ObligationsListProps) {
+export function ObligationsList({ transactions, currency = 'BRL', nextPayday, selectedId = null, onSelect }: ObligationsListProps) {
   const now = new Date()
 
   const obligations = transactions
@@ -45,7 +48,13 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday }: 
           {obligations.map(t => (
             <div
               key={t.id}
-              className="flex items-center py-2 gap-4 hover:bg-muted/30 transition-colors"
+              data-row={t.id}
+              onClick={onSelect ? () => onSelect(t.id) : undefined}
+              className={cn(
+                'flex items-center py-2 gap-4 hover:bg-muted/30 transition-colors',
+                onSelect && 'cursor-pointer',
+                t.id === selectedId && 'bg-hl/10 shadow-[inset_2px_0_0_var(--color-hl)]',
+              )}
             >
               <span className="flex-1 text-sm">{t.description}</span>
               {t.is_installment && (

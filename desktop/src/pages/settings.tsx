@@ -1,15 +1,34 @@
-import { useContext, useEffect, useState } from 'react'
+import { useContext, useEffect, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Save, User, HandCoins, Palette, Power } from 'lucide-react'
+import { Save, User, HandCoins, Palette, Power, type LucideIcon } from 'lucide-react'
 import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { fetchAccounts, fetchProfile, updateAccount, updateProfile } from '@/lib/api'
 import { AccountContext, ThemeContext } from '@/App'
+
+function SettingsPanel({ icon: Icon, title, description, children }: {
+  icon?: LucideIcon
+  title: string
+  description: string
+  children: ReactNode
+}) {
+  return (
+    <section className="rounded-md border border-line bg-surface">
+      <header className="flex flex-col gap-0.5 border-b border-line px-3 py-2">
+        <h2 className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.05em] text-faint">
+          {Icon && <Icon size={12} />}
+          {title}
+        </h2>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </header>
+      <div className="flex flex-col gap-3 p-3">{children}</div>
+    </section>
+  )
+}
 
 export function SettingsPage() {
   const queryClient = useQueryClient()
@@ -111,28 +130,25 @@ export function SettingsPage() {
   })
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
-      <section className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold">Preferences</h1>
-        <p className="text-sm text-muted-foreground">Manage how your profile and payment details appear.</p>
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-4">
+      <section className="flex flex-col gap-0.5">
+        <h1 className="text-lg font-semibold">Preferences</h1>
+        <p className="text-xs text-muted-foreground">Manage how your profile and payment details appear.</p>
       </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Palette size={16} />
-            Appearance
-          </CardTitle>
-          <CardDescription>
-            Light or dark. Applied immediately on this device.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
+      <SettingsPanel
+        icon={Palette}
+        title="Appearance"
+        description="Light or dark. Applied immediately on this device."
+      >
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-muted-foreground">Theme</span>
+          <div className="flex gap-1.5">
             {(['dark', 'light'] as const).map(mode => (
               <Button
                 key={mode}
                 type="button"
+                size="sm"
                 variant={theme === mode ? 'default' : 'outline'}
                 aria-pressed={theme === mode}
                 onClick={() => setTheme(mode)}
@@ -142,117 +158,99 @@ export function SettingsPage() {
               </Button>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </SettingsPanel>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <User size={16} />
-            Profile preferences
-          </CardTitle>
-          <CardDescription>
-            This name is shown in shared views.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="display-name">Display name *</Label>
-            <Input
-              id="display-name"
-              value={displayNameDraft}
-              onChange={e => setDisplayNameDraft(e.target.value)}
-              placeholder="How should people see your name?"
-            />
-          </div>
+      <SettingsPanel
+        icon={User}
+        title="Profile preferences"
+        description="This name is shown in shared views."
+      >
+        <div className="grid grid-cols-[120px_1fr] items-center gap-x-4 gap-y-3">
+          <Label htmlFor="display-name" className="text-muted-foreground">Display name *</Label>
+          <Input
+            id="display-name"
+            value={displayNameDraft}
+            onChange={e => setDisplayNameDraft(e.target.value)}
+            placeholder="How should people see your name?"
+          />
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="pix-key" className="flex items-center gap-2">
-              <HandCoins size={14} />
-              PIX key (optional)
-            </Label>
+          <Label htmlFor="pix-key" className="flex items-center gap-2 text-muted-foreground">
+            <HandCoins size={14} />
+            PIX key (optional)
+          </Label>
+          <div className="flex flex-col gap-1">
             <Input
               id="pix-key"
               value={pixKeyDraft}
               onChange={e => setPixKeyDraft(e.target.value)}
               placeholder="CPF, email, phone, or random key"
             />
-            <p className="text-xs text-muted-foreground">Used when friends need your payment key.</p>
+            <p className="text-xs text-faint">Used when friends need your payment key.</p>
           </div>
+        </div>
 
-          <div>
-            <Button
-              size="sm"
-              onClick={() => updateProfileMutation.mutate({})}
-              disabled={updateProfileMutation.isPending || !displayNameDraft.trim() || !selectedAccountId}
-            >
-              <Save size={14} />
-              {updateProfileMutation.isPending ? 'Saving...' : 'Save preferences'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        <div>
+          <Button
+            size="sm"
+            onClick={() => updateProfileMutation.mutate({})}
+            disabled={updateProfileMutation.isPending || !displayNameDraft.trim() || !selectedAccountId}
+          >
+            <Save size={14} />
+            {updateProfileMutation.isPending ? 'Saving...' : 'Save preferences'}
+          </Button>
+        </div>
+      </SettingsPanel>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Account safety buffer</CardTitle>
-          <CardDescription>
-            Reserve this amount in dollars in the selected account before approving purchases.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="safety-buffer">Safety buffer ($)</Label>
-            <Input
-              id="safety-buffer"
-              inputMode="decimal"
-              value={safetyBufferDraft}
-              onChange={e => setSafetyBufferDraft(e.target.value)}
-              placeholder="0.00"
-            />
-          </div>
+      <SettingsPanel
+        title="Account safety buffer"
+        description="Reserve this amount in dollars in the selected account before approving purchases."
+      >
+        <div className="grid grid-cols-[120px_1fr] items-center gap-x-4">
+          <Label htmlFor="safety-buffer" className="text-muted-foreground">Safety buffer ($)</Label>
+          <Input
+            id="safety-buffer"
+            className="num"
+            inputMode="decimal"
+            value={safetyBufferDraft}
+            onChange={e => setSafetyBufferDraft(e.target.value)}
+            placeholder="0.00"
+          />
+        </div>
 
-          <div>
-            <Button
-              size="sm"
-              onClick={() => updateSafetyBufferMutation.mutate()}
-              disabled={updateSafetyBufferMutation.isPending || !selectedAccount}
-            >
-              <Save size={14} />
-              {updateSafetyBufferMutation.isPending ? 'Saving...' : 'Save safety buffer'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        <div>
+          <Button
+            size="sm"
+            onClick={() => updateSafetyBufferMutation.mutate()}
+            disabled={updateSafetyBufferMutation.isPending || !selectedAccount}
+          >
+            <Save size={14} />
+            {updateSafetyBufferMutation.isPending ? 'Saving...' : 'Save safety buffer'}
+          </Button>
+        </div>
+      </SettingsPanel>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Power size={16} />
-            Startup
-          </CardTitle>
-          <CardDescription>
-            Open cibi when you sign in to Windows. It starts hidden in the tray.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-4">
-            <Label htmlFor="start-at-login">Start at login</Label>
-            <Switch
-              id="start-at-login"
-              checked={autostartEnabled}
-              disabled={autostartAvailable !== true || autostartPending}
-              onCheckedChange={(next) => void handleAutostartChange(next)}
-            />
-          </div>
-          {autostartAvailable === false && (
-            <p className="text-xs text-muted-foreground">Start at login is not available here.</p>
-          )}
-          {autostartError && (
-            <p role="alert" className="text-xs text-destructive">{autostartError}</p>
-          )}
-        </CardContent>
-      </Card>
+      <SettingsPanel
+        icon={Power}
+        title="Startup"
+        description="Open cibi when you sign in to Windows. It starts hidden in the tray."
+      >
+        <div className="flex items-center justify-between gap-4">
+          <Label htmlFor="start-at-login" className="text-muted-foreground">Start at login</Label>
+          <Switch
+            id="start-at-login"
+            checked={autostartEnabled}
+            disabled={autostartAvailable !== true || autostartPending}
+            onCheckedChange={(next) => void handleAutostartChange(next)}
+          />
+        </div>
+        {autostartAvailable === false && (
+          <p className="text-xs text-faint">Start at login is not available here.</p>
+        )}
+        {autostartError && (
+          <p role="alert" className="text-xs text-neg">{autostartError}</p>
+        )}
+      </SettingsPanel>
     </div>
   )
 }

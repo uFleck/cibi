@@ -25,7 +25,7 @@ export function EditBar({ layout }: EditBarProps) {
       <span className="text-sm font-medium">Customize overview</span>
       <span className="hidden text-xs text-muted-foreground xl:inline">Drag by the grip, or use Alt+Arrow and Alt+Shift+Arrow on a focused widget</span>
 
-      <Tray available={available} layout={layout} />
+      <Tray available={available} onAdd={id => layout.dispatch({ type: 'add', zone: 'wall', id })} />
 
       <div role="group" aria-label="Preset" className="flex overflow-hidden rounded-sm border border-line-strong">
         {PRESET_IDS.map(id => (
@@ -54,7 +54,13 @@ export function EditBar({ layout }: EditBarProps) {
   )
 }
 
-function Tray({ available, layout }: { available: WidgetId[]; layout: LayoutApi }) {
+interface TrayProps {
+  available: WidgetId[]
+  onAdd: (id: WidgetId) => void
+}
+
+/** Widgets not in the current zone. Drop a chip on the page to add it, or click it. */
+export function Tray({ available, onAdd }: TrayProps) {
   const { setNodeRef, isOver } = useDroppable({ id: TRAY_ZONE_ID })
   return (
     <div
@@ -68,7 +74,7 @@ function Tray({ available, layout }: { available: WidgetId[]; layout: LayoutApi 
       {available.length === 0 ? (
         <span className="text-xs text-muted-foreground">Every widget is on the page</span>
       ) : (
-        available.map(id => <TrayChip key={id} id={id} onAdd={() => layout.dispatch({ type: 'add', zone: 'wall', id })} />)
+        available.map(id => <TrayChip key={id} id={id} onAdd={() => onAdd(id)} />)
       )}
     </div>
   )

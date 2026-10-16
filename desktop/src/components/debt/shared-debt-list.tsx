@@ -16,6 +16,8 @@ export function SharedDebtList({
   onCopy,
   onOpen,
   onEdit,
+  selectedId = null,
+  onSelect,
 }: SharedDebtListProps) {
   if (loading) {
     return (
@@ -48,19 +50,29 @@ export function SharedDebtList({
   }
 
   return (
-    <div className="flex flex-col rounded-xl border border-border/60 bg-card overflow-hidden divide-y divide-border/40">
+    <div className="flex flex-col overflow-hidden rounded-md border border-line bg-surface divide-y divide-line">
       {items.map(item => (
-        <div key={item.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/40 transition-colors group">
+        <div
+          key={item.id}
+          data-row={item.id}
+          data-selected={item.id === selectedId}
+          onClick={onSelect ? () => onSelect(item.id) : undefined}
+          className={cn(
+            'group flex items-center gap-3 px-3 py-1.5 transition-colors hover:bg-surface-2',
+            onSelect && 'cursor-pointer',
+            item.id === selectedId && 'bg-hl/10 shadow-[inset_2px_0_0_var(--color-hl)]',
+          )}
+        >
           <div className={cn(
             'w-1 self-stretch rounded-full shrink-0',
-            item.status.tone === 'outline' ? 'bg-amber-400/60' :
-            item.status.tone === 'secondary' ? 'bg-blue-400/60' :
-            'bg-border/40'
+            item.status.tone === 'outline' ? 'bg-warn/60' :
+            item.status.tone === 'secondary' ? 'bg-hl/60' :
+            'bg-line'
           )} />
 
           <div className="flex-1 min-w-0">
-            <div className="font-medium text-sm truncate">{item.title}</div>
-            <div className="text-xs text-muted-foreground truncate">{item.subtitle}</div>
+            <div className="truncate text-[12px] font-medium">{item.title}</div>
+            <div className="truncate text-[11px] text-muted-foreground">{item.subtitle}</div>
           </div>
 
           <MoneyValue
@@ -68,10 +80,13 @@ export function SharedDebtList({
             currency={item.currency}
             showSign="auto"
             tone="auto"
-            className="text-sm font-semibold tabular-nums shrink-0"
+            className="shrink-0 text-[12px] font-medium"
           />
 
-          <div className="flex gap-0.5 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
+          <div
+            className="flex gap-0.5 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity"
+            onClick={event => event.stopPropagation()}
+          >
             {onConfirm && item.canConfirm ? (
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onConfirm(item.id)} aria-label="Confirm">
                 <Check size={13} />
@@ -88,7 +103,7 @@ export function SharedDebtList({
               </Button>
             ) : null}
             {onDelete && item.canDelete ? (
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={() => onDelete(item.id)} aria-label="Delete">
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-neg/70 hover:text-neg" onClick={() => onDelete(item.id)} aria-label="Delete">
                 <Trash2 size={13} />
               </Button>
             ) : null}

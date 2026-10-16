@@ -1,17 +1,20 @@
 import { useState, useContext, useMemo, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, ArrowLeftRight, X, Users, History } from 'lucide-react'
+import { Plus, ArrowLeftRight, Check, Pencil, Trash2, X, Users, History } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Chip } from '@/components/ui/chip'
 import { DateInput } from '@/components/ui/date-input'
+import { denseCell, denseHead, denseNumCell, denseRow, denseTable } from '@/components/ui/dense'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { MoneyValue } from '@/components/ui/money-value'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EditSheet } from '@/components/EditSheet'
+import { AccountSelector } from '@/components/AccountSelector'
 import { SharedDebtList } from '@/components/debt/shared-debt-list'
 import { TransactionForm } from '@/components/TransactionForm'
 import { TransactionFilters, type TransactionPreset } from '@/components/TransactionFilters'
@@ -49,6 +52,36 @@ import {
 import { AccountContext } from '@/App'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { focusWhenReady, useShellAction } from '@/shell/shellActions'
+import { usePublishSelection, useListSelection, type SelectionDetail } from '@/shell/selection'
+
+type KindFilter = 'all' | 'income' | 'expense' | 'recurring'
+
+const KIND_CHIPS: { value: KindFilter; label: string; shortcut: string }[] = [
+  { value: 'all', label: 'All', shortcut: '1' },
+  { value: 'income', label: 'Income', shortcut: '2' },
+  { value: 'expense', label: 'Expenses', shortcut: '3' },
+  { value: 'recurring', label: 'Recurring', shortcut: '4' },
+]
+
+function matchesKind(txn: TransactionResponse, kind: KindFilter) {
+  if (kind === 'income') return txn.amount > 0
+  if (kind === 'expense') return txn.amount < 0
+  if (kind === 'recurring') return txn.is_recurring
+  return true
+}
+
+function canConfirmTxn(txn: TransactionResponse) {
+  return txn.is_installment
+    ? (txn.paid_installments ?? 0) < (txn.total_installments ?? 0)
+    : txn.is_recurring || (txn.requires_confirmation && !txn.confirmed_at)
+}
+
+function txnStatusLabel(txn: TransactionResponse) {
+  if (txn.is_installment) return `Installment ${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'}`
+  if (txn.is_recurring) return 'Recurring'
+  if (txn.requires_confirmation) return txn.confirmed_at ? 'Pending payment · confirmed' : 'Pending payment'
+  return 'One-time'
+}
 
 interface FormData {
   account_id: string
@@ -66,7 +99,8 @@ type FormErrors = Partial<Record<keyof FormData, string>>
 
 export function TransactionsPage() {
   const queryClient = useQueryClient()
-  const { selectedAccountId } = useContext(AccountContext)
+  const { selectedAccountId, setSelectedAccountId } = useContext(AccountContext)
+  const [kindFilter, setKindFilter] = useState<KindFilter>('all')
   const [activeTab, setActiveTab] = useState<'transactions' | 'friend-debts' | 'ledger'>(() => {
     const tab = new URLSearchParams(window.location.search).get('tab')
     if (tab === 'ledger' || tab === 'friend-debts') return tab
@@ -172,6 +206,8 @@ export function TransactionsPage() {
       paySchedules,
     }))
 
+    txns = txns.filter(t => matchesKind(t, kindFilter))
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       txns = txns.filter(t => t.description.toLowerCase().includes(q))
@@ -205,7 +241,7 @@ export function TransactionsPage() {
     })
     
     return txns
-  }, [transactions, preset, sortField, sortDir, nextPayday, paySchedules, searchQuery, amountMin, amountMax])
+  }, [transactions, preset, kindFilter, sortField, sortDir, nextPayday, paySchedules, searchQuery, amountMin, amountMax])
 
   const unconfirmedImpact = useMemo(() => {
     const currentBalance = accounts.find(a => a.id === currentAccountId)?.current_balance ?? 0
@@ -226,7 +262,7 @@ export function TransactionsPage() {
     })
   }, [accounts, currentAccountId, friendBreakdown, nextPayday, paySchedules, transactions])
 
-  const hasActiveFilters = preset !== null || !!searchQuery.trim() || !!(amountMin || amountMax)
+  const hasActiveFilters = preset !== null || kindFilter !== 'all' || !!searchQuery.trim() || !!(amountMin || amountMax)
 
   const filteredPeerDebts = useMemo(() => {
     let debts = transactions.filter((t: TransactionResponse) => t.type === 'peer')
@@ -456,6 +492,7 @@ export function TransactionsPage() {
 
   const handleClearFilters = useCallback(() => {
     setPreset(null)
+    setKindFilter('all')
     setSearchQuery('')
     setAmountMin('')
     setAmountMax('')
@@ -622,9 +659,66 @@ export function TransactionsPage() {
   const focusSearch = () => focusWhenReady('[data-filter-search]')
   useShellAction('new-transaction', handleCreateClick)
   useShellAction('focus-search', focusSearch)
+
+  const { selectedId, select } = useListSelection({
+    ids: activeTab === 'transactions' ? filteredAndSortedTxns.map(t => t.id) : [],
+    onEdit: id => {
+      const txn = transactions.find((t: TransactionResponse) => t.id === id)
+      if (txn) handleEditClick(txn)
+    },
+    onMarkPaid: id => {
+      const txn = transactions.find((t: TransactionResponse) => t.id === id)
+      if (txn && canConfirmTxn(txn)) handleConfirmClick(id)
+    },
+  })
+
+  const [initialSelect] = useState(() => new URLSearchParams(window.location.search).get('select'))
+  useEffect(() => {
+    if (initialSelect) select(initialSelect)
+  }, [initialSelect, select])
+
+  const selectedTxn = selectedId ? filteredAndSortedTxns.find(t => t.id === selectedId) : undefined
+  usePublishSelection(selectedTxn ? transactionDetail(selectedTxn) : null)
+
   useKeyboardShortcuts([
     { keys: 'f', label: 'Search', group: 'Transactions', scope: 'list', run: focusSearch },
+    ...KIND_CHIPS.map(chip => ({
+      keys: chip.shortcut,
+      label: chip.label,
+      group: 'Transactions',
+      scope: 'list' as const,
+      run: () => setKindFilter(chip.value),
+    })),
   ])
+
+  function transactionDetail(txn: TransactionResponse): SelectionDetail {
+    const due = txn.requires_confirmation && !txn.confirmed_at
+    const dateValue = txn.is_recurring ? txn.next_occurrence || txn.anchor_date : txn.anchor_date || txn.timestamp
+    const rows: SelectionDetail['rows'] = [
+      { label: 'Account', value: accounts.find(a => a.id === txn.account_id)?.name ?? '-' },
+      { label: txn.is_recurring ? 'Next' : 'Date', value: <span className="num">{dateValue ? formatDate(dateValue) : '-'}</span> },
+    ]
+    if (txn.is_recurring) rows.push({ label: 'Frequency', value: txn.frequency ?? '-' })
+    if (txn.requires_confirmation) {
+      rows.push({ label: 'Confirmed', value: <span className="num">{txn.confirmed_at ? formatDate(txn.confirmed_at) : 'Not yet'}</span> })
+    }
+    const actions: SelectionDetail['actions'] = [
+      { id: 'edit', label: 'Edit', icon: Pencil, keys: 'e', variant: 'default', run: () => handleEditClick(txn) },
+      { id: 'delete', label: 'Delete', icon: Trash2, variant: 'destructive', run: () => setConfirmDelete(txn.id) },
+    ]
+    if (canConfirmTxn(txn)) {
+      actions.unshift({ id: 'paid', label: 'Mark paid', icon: Check, keys: 'm', variant: 'outline', run: () => handleConfirmClick(txn.id) })
+    }
+    return {
+      id: txn.id,
+      title: txn.description,
+      eyebrow: due ? `Due ${formatDate(txn.anchor_date || txn.timestamp)}` : formatDate(txn.timestamp),
+      amount: <MoneyValue amount={txn.amount} currency={currentAccountCurrency} showSign="always" tone="auto" />,
+      badge: txnStatusLabel(txn),
+      rows,
+      actions,
+    }
+  }
 
   if (isError || accountsLoading) {
     return (
@@ -668,21 +762,21 @@ export function TransactionsPage() {
 
       <div className="flex gap-1 border-b">
         <button
-          onClick={() => setActiveTab('transactions')}
+          onClick={() => { setActiveTab('transactions'); select(null) }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'transactions' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
         >
           <ArrowLeftRight size={14} className="inline mr-1.5 -mt-0.5" />
           Transactions
         </button>
         <button
-          onClick={() => setActiveTab('friend-debts')}
+          onClick={() => { setActiveTab('friend-debts'); select(null) }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'friend-debts' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
         >
           <Users size={14} className="inline mr-1.5 -mt-0.5" />
           Friend Debts
         </button>
         <button
-          onClick={() => setActiveTab('ledger')}
+          onClick={() => { setActiveTab('ledger'); select(null) }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'ledger' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
         >
           <History size={14} className="inline mr-1.5 -mt-0.5" />
@@ -708,6 +802,16 @@ export function TransactionsPage() {
           )}
         </CardContent>
       </Card>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {KIND_CHIPS.map(chip => (
+          <Chip key={chip.value} active={kindFilter === chip.value} shortcut={chip.shortcut} onClick={() => setKindFilter(chip.value)}>
+            {chip.label}
+          </Chip>
+        ))}
+        <span className="flex-1" />
+        <AccountSelector selectedAccountId={selectedAccountId} onSelectAccount={setSelectedAccountId} compact />
+      </div>
 
       <TransactionFilters
         showFilters={showFilters}
@@ -828,6 +932,8 @@ export function TransactionsPage() {
             emptyHint="Adjust filters and try again"
             onConfirm={handleConfirmClick}
             onDelete={setConfirmDelete}
+            selectedId={selectedId}
+            onSelect={select}
             onOpen={(id) => {
               const txn = transactions.find((t: TransactionResponse) => t.id === id)
               if (txn) handleEditClick(txn)
@@ -943,27 +1049,28 @@ export function TransactionsPage() {
               </CardContent>
             </Card>
           ) : (
-            <Card>
-              <CardContent className="flex flex-col divide-y divide-border/50 pt-2 pb-0">
-                {ledgerEntries.map((entry: LedgerEntryResponse) => (
-                  <div key={entry.id} className="flex items-center justify-between gap-3 py-2.5">
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-xs text-muted-foreground">{formatDate(entry.posted_at)}</span>
-                      <span className="text-sm truncate">{entry.description}</span>
-                    </div>
-                    <span
-                      className={
-                        entry.amount >= 0
-                          ? 'text-sm font-medium text-green-600 shrink-0'
-                          : 'text-sm font-medium text-red-500 shrink-0'
-                      }
-                    >
-                      {entry.amount >= 0 ? '+' : ''}{formatMoney(entry.amount, currentAccountCurrency)}
-                    </span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+            <div className="overflow-hidden rounded-md border border-line bg-surface">
+              <table className={denseTable}>
+                <thead>
+                  <tr className={denseHead}>
+                    <th className="px-2.5 text-left font-medium">Date</th>
+                    <th className="px-2.5 text-left font-medium">Description</th>
+                    <th className="px-2.5 text-right font-medium">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ledgerEntries.map((entry: LedgerEntryResponse) => (
+                    <tr key={entry.id} className={denseRow}>
+                      <td className={`${denseCell} num text-muted-foreground`}>{formatDate(entry.posted_at)}</td>
+                      <td className={`${denseCell} max-w-0 truncate`}>{entry.description}</td>
+                      <td className={`${denseNumCell} ${entry.amount >= 0 ? 'text-pos' : 'text-neg'}`}>
+                        {entry.amount >= 0 ? '+' : ''}{formatMoney(entry.amount, currentAccountCurrency)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}

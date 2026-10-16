@@ -8,9 +8,9 @@ vi.mock('@/lib/api', () => ({ fetchAccounts: vi.fn(async () => []) }))
 
 const PATHS = ['/', '/transactions', '/goals', '/friends', '/accounts', '/settings'] as const
 
-function mockViewport(compact: boolean) {
+function mockViewport(compact: boolean, wide = false) {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-    matches: compact && query === '(max-width: 899px)',
+    matches: (compact && query === '(max-width: 899px)') || (wide && query === '(min-width: 1100px)'),
     media: query,
     onchange: null,
     addListener: vi.fn(),
@@ -21,8 +21,8 @@ function mockViewport(compact: boolean) {
   }))
 }
 
-function renderShell(path: string = '/', compact = false) {
-  mockViewport(compact)
+function renderShell(path: string = '/', compact = false, wide = false) {
+  mockViewport(compact, wide)
   const rootRoute = createRootRoute({
     component: () => (
       <AppShell>
@@ -112,13 +112,21 @@ describe('AppShell', () => {
     expect(await screen.findByRole('dialog', { name: 'Keyboard shortcuts' })).toBeTruthy()
   })
 
-  it('toggles the inspector slot with I', async () => {
-    renderShell('/')
-    await screen.findByRole('link', { name: 'Overview' })
+  it('toggles the inspector column with I on a non-overview page', async () => {
+    renderShell('/transactions', false, true)
+    await screen.findByRole('link', { name: 'Transactions' })
+    expect(await screen.findByRole('complementary', { name: 'Inspector' })).toBeTruthy()
+
+    press('i')
     expect(screen.queryByRole('complementary', { name: 'Inspector' })).toBeNull()
 
     press('i')
     expect(await screen.findByRole('complementary', { name: 'Inspector' })).toBeTruthy()
+  })
+
+  it('never shows the inspector column on Overview', async () => {
+    renderShell('/', false, true)
+    await screen.findByRole('link', { name: 'Overview' })
 
     press('i')
     expect(screen.queryByRole('complementary', { name: 'Inspector' })).toBeNull()

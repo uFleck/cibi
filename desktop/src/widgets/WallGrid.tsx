@@ -48,7 +48,7 @@ const collision: CollisionDetection = args => {
 
 interface DragState {
   id: WidgetId
-  from: 'wall' | 'tray'
+  from: DragData['from']
   over: string | null
 }
 

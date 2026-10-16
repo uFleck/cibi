@@ -2,17 +2,22 @@ import { useCallback, useContext, useEffect, useMemo, useState, type ReactNode }
 import { Link, useLocation, useNavigate } from '@tanstack/react-router'
 import { motion } from 'motion/react'
 import { toast } from 'sonner'
-import { Calculator, ChevronRight, Keyboard, LayoutGrid, Moon, PanelRight, PieChart, Plus, Search, Sun, Wallet } from 'lucide-react'
+import { Calculator, ChevronRight, Keyboard, LayoutGrid, Moon, PanelRight, PieChart, Plus, Search, Sun, Wallet, X } from 'lucide-react'
 import { AccountSelector } from '@/components/AccountSelector'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { shortcutRegistry, useKeyboardShortcuts, type ShortcutBinding } from '@/hooks/useKeyboardShortcuts'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useReducedMotion } from '@/hooks/useReducedMotion'
+import { useLayout } from '@/widgets/layoutContext'
+import { DEFAULT_POS, type InspectorPos } from '@/widgets/layoutStore'
 import { cn } from '@/lib/utils'
 import { AccountContext, ShellContext, ThemeContext, useShell, type ShellState } from './contexts'
+import { Inspector } from './Inspector'
 import { NAV_ITEMS, navItemFor, type NavTo } from './nav'
 import { requestShellAction, type ShellActionName } from './shellActions'
+import { SelectionProvider } from './SelectionProvider'
+import { SelectionDetailContext, useSelection } from './selection'
 import { ChordPopover } from './ChordPopover'
 import { CommandPalette, type PaletteCommand } from './CommandPalette'
 import { HintBar, type HintItem } from './HintBar'
@@ -20,6 +25,7 @@ import { KeyChips } from './KeyChips'
 import { ShortcutsSheet } from './ShortcutsSheet'
 
 const COMPACT_QUERY = '(max-width: 899px)'
+const WIDE_QUERY = '(min-width: 1100px)'
 
 const HINT_ITEMS: HintItem[] = [
   { keys: 'Mod+k', label: 'Commands' },
@@ -37,32 +43,72 @@ type ShellAction = PaletteCommand & { keys: string }
 
 interface AppShellProps {
   children: ReactNode
-  inspector?: ReactNode
 }
 
-export function AppShell({ children, inspector }: AppShellProps) {
-  const location = useLocation()
+/**
+ * Shell frame for every page. The inspector is a column on non-Overview pages when the window is at
+ * least 1100px wide and the position is left or right; it is open by default there. Otherwise it is a
+ * drawer that starts closed. A selected row's detail always shows, in the drawer if no column is visible.
+ * Overview never shows the column.
+ */
+export function AppShell({ children }: AppShellProps) {
+  const pathname = useLocation().pathname
+  return (
+    <SelectionProvider resetKey={pathname}>
+      <ShellFrame pathname={pathname}>{children}</ShellFrame>
+    </SelectionProvider>
+  )
+}
+
+function ShellFrame({ pathname, children }: { pathname: string; children: ReactNode }) {
   const navigate = useNavigate()
   const { toggleTheme } = useContext(ThemeContext)
   const compact = useMediaQuery(COMPACT_QUERY)
+  const wide = useMediaQuery(WIDE_QUERY)
+  const layout = useLayout()
+  const pos: InspectorPos = layout?.state.layout.pos ?? DEFAULT_POS
+  const isOverview = pathname === '/'
+  const { selectedId, select } = useSelection()
+  const detail = useContext(SelectionDetailContext)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
-  const [inspectorOpen, setInspectorOpen] = useState(false)
+  const [inspectorState, setInspectorState] = useState<boolean | null>(null)
   const [editMode, setEditMode] = useState(false)
-  const pathname = location.pathname
 
-  const toggleInspector = useCallback(() => setInspectorOpen(open => !open), [])
-  const toggleEditMode = useCallback(() => setEditMode(on => !on), [])
+  const inspectorOpen = inspectorState ?? (pos !== 'off' && wide)
+  const column = !isOverview && wide && pos !== 'off' && inspectorOpen
+  const detailShown = selectedId !== null && detail !== null
+  const drawer = !column && (detailShown || (!isOverview && inspectorOpen))
+
+  const setInspectorOpen = useCallback((open: boolean) => setInspectorState(open), [])
+  const toggleInspector = useCallback(() => setInspectorState(!inspectorOpen), [inspectorOpen])
+
+  const setEdit = useCallback((on: boolean) => {
+    setEditMode(on)
+    if (on) {
+      select(null)
+      if (!isOverview) setInspectorState(true)
+    } else if (!isOverview && pos === 'off') {
+      setInspectorState(false)
+    }
+  }, [isOverview, pos, select])
+  const toggleEditMode = useCallback(() => setEdit(!editMode), [editMode, setEdit])
+
   const shell = useMemo<ShellState>(() => ({
     inspectorOpen,
     setInspectorOpen,
     toggleInspector,
     editMode,
-    setEditMode,
+    setEditMode: setEdit,
     toggleEditMode,
-  }), [inspectorOpen, editMode, toggleInspector, toggleEditMode])
+  }), [inspectorOpen, editMode, setInspectorOpen, toggleInspector, setEdit, toggleEditMode])
 
   useEffect(() => shortcutRegistry.attach(document), [])
+
+  function closeDrawer() {
+    select(null)
+    setInspectorOpen(false)
+  }
 
   function openPage(to: NavTo, action: ShellActionName) {
     if (pathname !== to) void navigate({ to })
@@ -90,6 +136,10 @@ export function AppShell({ children, inspector }: AppShellProps) {
 
   const bindings: ShortcutBinding[] = [
     { keys: 'Mod+k', label: 'Command palette', group: 'Global', allowInInput: true, run: () => setPaletteOpen(open => !open) },
+    { keys: 'Escape', label: 'Clear selection or close inspector', group: 'Global', run: () => {
+      if (selectedId !== null) select(null)
+      else if (drawer && !isOverview) setInspectorOpen(false)
+    } },
     ...actions.map(action => ({ keys: action.keys, label: action.label, group: action.group, run: action.run })),
   ]
   useKeyboardShortcuts(bindings)
@@ -106,12 +156,10 @@ export function AppShell({ children, inspector }: AppShellProps) {
               onNewTransaction={() => openPage('/transactions', 'new-transaction')}
             />
             <div className="relative flex min-h-0 flex-1">
+              {column && pos === 'left' && <InspectorColumn side="left" />}
               <main className="min-w-0 flex-1 overflow-auto max-[899px]:pb-16">{children}</main>
-              {inspectorOpen && (
-                <aside aria-label="Inspector" className="w-[292px] shrink-0 overflow-auto border-l border-line bg-surface">
-                  {inspector}
-                </aside>
-              )}
+              {column && pos === 'right' && <InspectorColumn side="right" />}
+              {drawer && <InspectorDrawer onClose={closeDrawer} />}
               <HintBar items={HINT_ITEMS} hidden={paletteOpen || helpOpen} />
             </div>
           </div>
@@ -122,6 +170,33 @@ export function AppShell({ children, inspector }: AppShellProps) {
         <ShortcutsSheet open={helpOpen} onOpenChange={setHelpOpen} />
       </TooltipProvider>
     </ShellContext.Provider>
+  )
+}
+
+function InspectorColumn({ side }: { side: 'left' | 'right' }) {
+  return (
+    <aside
+      aria-label="Inspector"
+      className={cn('w-[292px] shrink-0 overflow-auto bg-surface p-3', side === 'left' ? 'border-r border-line' : 'border-l border-line')}
+    >
+      <Inspector />
+    </aside>
+  )
+}
+
+function InspectorDrawer({ onClose }: { onClose: () => void }) {
+  return (
+    <aside
+      aria-label="Inspector"
+      className="fixed top-11 right-0 bottom-0 z-30 w-[360px] max-w-full overflow-auto border-l border-line bg-surface p-3 shadow-pop animate-in duration-300 slide-in-from-right"
+    >
+      <div className="mb-2 flex justify-end">
+        <Button variant="ghost" size="icon-sm" aria-label="Close inspector" onClick={onClose}>
+          <X />
+        </Button>
+      </div>
+      <Inspector />
+    </aside>
   )
 }
 

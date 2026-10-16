@@ -38,4 +38,7 @@ export interface SharedDebtListProps {
   onCopy?: (id: string) => void
   onOpen?: (id: string) => void
   onEdit?: (id: string) => void
+  /** The row to highlight. Rows are selectable only when onSelect is given. */
+  selectedId?: string | null
+  onSelect?: (id: string) => void
 }
