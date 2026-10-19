@@ -23,6 +23,7 @@ import { CommandPalette, type PaletteCommand } from './CommandPalette'
 import { HintBar, type HintItem } from './HintBar'
 import { KeyChips } from '@/components/ui/key-chips'
 import { ShortcutsSheet } from './ShortcutsSheet'
+import { WindowControls, inTauri } from '@/components/WindowControls'
 
 const COMPACT_QUERY = '(max-width: 899px)'
 const WIDE_QUERY = '(min-width: 1100px)'
@@ -179,6 +180,7 @@ function ShellFrame({ pathname, children }: { pathname: string; children: ReactN
           </div>
           {compact && <BottomBar pathname={pathname} />}
         </div>
+        <WindowControls />
         <ChordPopover />
         <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} commands={actions} />
         <BudgetEditor />
@@ -229,8 +231,8 @@ function NavIndicator() {
 function Rail({ pathname }: { pathname: string }) {
   const activeTo = navItemFor(pathname)?.to
   return (
-    <aside className="flex w-[52px] shrink-0 flex-col items-center gap-3.5 border-r border-line bg-background py-3">
-      <div aria-hidden="true" className="grid size-[34px] place-items-center rounded-md bg-primary text-primary-foreground">
+    <aside data-tauri-drag-region className="flex w-[52px] shrink-0 flex-col items-center gap-3.5 border-r border-line bg-background py-3">
+      <div aria-hidden="true" data-tauri-drag-region className="grid size-[34px] place-items-center rounded-md bg-primary text-primary-foreground">
         <Wallet size={17} />
       </div>
       <nav aria-label="Main" className="flex flex-col items-center gap-1">
@@ -310,14 +312,20 @@ function TopBar({ pathname, onOpenPalette, onNewTransaction }: TopBarProps) {
   const current = navItemFor(pathname)
 
   return (
-    <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line bg-background/90 px-3 backdrop-blur-sm sm:px-4">
-      <nav aria-label="Breadcrumb" className="hidden min-w-0 items-center gap-1.5 text-[13px] text-faint sm:flex">
-        <span>cibi</span>
-        <ChevronRight size={12} />
-        <span className="truncate font-medium text-foreground">{current?.label}</span>
+    <header
+      data-tauri-drag-region
+      className={cn(
+        'flex h-11 shrink-0 items-center gap-2 border-b border-line bg-background/90 px-3 backdrop-blur-sm sm:px-4',
+        inTauri && 'pr-[150px] sm:pr-[154px]',
+      )}
+    >
+      <nav aria-label="Breadcrumb" data-tauri-drag-region className="hidden min-w-0 items-center gap-1.5 text-[13px] text-faint sm:flex">
+        <span data-tauri-drag-region>cibi</span>
+        <ChevronRight size={12} className="pointer-events-none" />
+        <span data-tauri-drag-region className="truncate font-medium text-foreground">{current?.label}</span>
       </nav>
       <AccountSelector selectedAccountId={selectedAccountId} onSelectAccount={setSelectedAccountId} compact />
-      <div className="flex-1" />
+      <div data-tauri-drag-region className="flex-1" />
       <Button
         variant="outline"
         size="sm"
