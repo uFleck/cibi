@@ -4,7 +4,7 @@
 // Go "used tx" checks become checks that the update ran inside db.tx().
 // The Go stubs TestCanIBuyIt_Stub and TestWaitVerdict_Stub belong to the engine slice; they are
 // t.Skip stubs and are not ported here.
-import { afterEach, beforeEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { Db } from '../db'
 import { ErrNoRows, isErr } from '../errors'
 import type { Account, AccountsRepo } from '../repo/accounts'
@@ -166,6 +166,50 @@ it('TestPayScheduleService_ConfirmPayday_UpdatesBalanceAndAnchor', async () => {
   expect(gotBalance).toBe(400000)
   expect(gotAnchor.getTime()).toBeGreaterThan(anchor.getTime())
   expect(updated.anchorDate).toEqual(gotAnchor)
+})
+
+// Confirming a payday dated today credits that payday and moves the anchor one period, not two.
+it('TestPayScheduleService_ConfirmPayday_PaydayDatedToday', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-03-10T15:00:00Z'))
+  try {
+    const scheduleId = crypto.randomUUID()
+    const accountId = crypto.randomUUID()
+    let gotAnchor = new Date(0)
+
+    const psRepo = fakePayScheduleRepo({
+      getById: async (): Promise<PaySchedule> => ({
+        id: scheduleId,
+        accountId,
+        frequency: 'monthly',
+        anchorDate: new Date('2026-03-10T00:00:00Z'),
+        dayOfMonth2: null,
+        label: null,
+        amount: 300000,
+      }),
+      updateAnchorDate: async (_id: string, nextAnchor: Date) => {
+        gotAnchor = nextAnchor
+      },
+    })
+    const accRepo = fakeAccountsRepo({
+      getById: async (): Promise<Account> => ({
+        id: accountId,
+        name: '',
+        currentBalance: 100000,
+        currency: 'BRL',
+        safetyBuffer: 0,
+        version: 1,
+      }),
+      updateBalance: async () => {},
+    })
+    const ledgerSvc = new LedgerService(db, fakeLedgerRepo(accountId, 100000), accRepo)
+    const svc = new PayScheduleService(db, psRepo, accRepo, ledgerSvc)
+    await svc.confirmPayday(scheduleId)
+
+    expect(gotAnchor.toISOString()).toBe('2026-04-10T00:00:00.000Z')
+  } finally {
+    vi.useRealTimers()
+  }
 })
 
 // TestPayScheduleService_ConfirmPayday_GetScheduleError: a missing schedule is an error.

@@ -5,7 +5,7 @@
 
 import type { Db } from '../db'
 import { wrap, wrapping } from '../errors'
-import { nextPayday } from '../engine/engine'
+import { nextPayday, upcomingPaydayFrom } from '../engine/engine'
 import type { AccountsRepo } from '../repo/accounts'
 import type { PaySchedule, PayScheduleRepo } from '../repo/paySchedule'
 import type { LedgerService } from './ledger'
@@ -93,7 +93,7 @@ export class PayScheduleService {
     const acc = await wrapping('service.ConfirmPayday: get account', () => this.accRepo.getById(ps.accountId))
 
     const schedule = { frequency: ps.frequency, anchorDate: ps.anchorDate, dayOfMonth2: ps.dayOfMonth2 }
-    const upcoming = nextPayday(schedule, new Date())
+    const upcoming = nextPayday(schedule, upcomingPaydayFrom(new Date()))
     const nextAfterUpcoming = nextPayday(schedule, upcoming)
 
     await this.db.tx(async () => {

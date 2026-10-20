@@ -2,7 +2,7 @@
 // Ports of internal/handler/pay_schedule_test.go. The Go mockPayScheduleService is a fake here,
 // injected through registerPayScheduleRoutes(app, fake). The last block runs the real service
 // and repos on createTestDb() for the Go quirks (unknown account, unknown schedule).
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildApp, type App } from '../app'
 import { ErrNoRows } from '../errors'
 import { setDb } from '../db'
@@ -50,6 +50,36 @@ function withService(fake: PayScheduleServiceIface): App {
 async function json<T>(res: Response): Promise<T> {
   return (await res.json()) as T
 }
+
+// A schedule whose anchor is today reports today as its next payday, not the following one.
+it('TestPayScheduleHandler_List_PaydayDatedToday', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-03-10T15:00:00Z'))
+  try {
+    const accountId = crypto.randomUUID()
+    withService(
+      fakePayScheduleService({
+        listPaySchedules: async (): Promise<PaySchedule[]> => [
+          {
+            id: crypto.randomUUID(),
+            accountId,
+            frequency: 'monthly',
+            anchorDate: new Date('2026-03-10T00:00:00Z'),
+            dayOfMonth2: null,
+            label: null,
+            amount: 250000,
+          },
+        ],
+      }),
+    )
+    const res = await localFetch(`/api/pay-schedule?account_id=${accountId}`)
+    expect(res.status).toBe(200)
+    const list = await json<PayScheduleResponse[]>(res)
+    expect(list[0].next_payday).toBe('2026-03-10')
+  } finally {
+    vi.useRealTimers()
+  }
+})
 
 // TestPayScheduleHandler_Confirm_Success: 200 and the schedule in the body.
 it('TestPayScheduleHandler_Confirm_Success', async () => {

@@ -1,4 +1,4 @@
-import { addDays, addMonths, DAY_MS, date, daysInMonth } from '../dates'
+import { addDays, addMonths, DAY_MS, date, daysInMonth, startOfDay } from '../dates'
 import { adjustToBusinessDay } from '../holidays/brazil'
 
 // Frequency values match the TEXT enum values in the schema.
@@ -45,6 +45,14 @@ export function addMonthClamped(t: Date, n: number): Date {
     result = addDays(result, -result.getUTCDate())
   }
   return result
+}
+
+/**
+ * The `from` to pass to nextPayday so a payday dated today still counts as upcoming: the
+ * last millisecond before the UTC day containing `now` begins.
+ */
+export function upcomingPaydayFrom(now: Date): Date {
+  return new Date(startOfDay(now).getTime() - 1)
 }
 
 /**

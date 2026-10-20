@@ -13,7 +13,7 @@
 
 import type { App } from '../app'
 import { formatYmd, parseYmd } from '../dates'
-import { nextPayday } from '../engine/engine'
+import { nextPayday, upcomingPaydayFrom } from '../engine/engine'
 import { ErrNoRows, isErr, messageOf } from '../errors'
 import { HttpError, route } from '../http'
 import { goRound } from '../num'
@@ -73,11 +73,11 @@ const PATCH_FIELDS: FieldSpec[] = [
 
 const INVALID_ANCHOR = 'invalid anchor_date format, use YYYY-MM-DD'
 
-/** Go payScheduleToResponse: next_payday is the next occurrence after now. */
+/** Go payScheduleToResponse: next_payday is the next occurrence from the start of today, so a payday dated today shows until it is confirmed. */
 export function toPayScheduleResponse(ps: PaySchedule): PayScheduleResponse {
   const next = nextPayday(
     { frequency: ps.frequency, anchorDate: ps.anchorDate, dayOfMonth2: ps.dayOfMonth2 },
-    new Date(),
+    upcomingPaydayFrom(new Date()),
   )
   return {
     id: ps.id,
