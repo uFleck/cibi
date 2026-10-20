@@ -703,6 +703,12 @@ export function TransactionsPage() {
       { label: 'Category', value: txn.category ?? '-' },
       { label: txn.is_recurring ? 'Next' : 'Date', value: <span className="num">{dateValue ? formatDate(dateValue) : '-'}</span> },
     ]
+    if (txn.is_installment) {
+      const totalInstallments = txn.total_installments ?? 0
+      const remaining = totalInstallments - (txn.paid_installments ?? 0)
+      rows.push({ label: 'Per installment', value: <span className="num">{formatMoney(txn.amount, currentAccountCurrency)}</span> })
+      rows.push({ label: 'Remaining', value: <span className="num">{formatMoney(txn.amount * remaining, currentAccountCurrency)}</span> })
+    }
     if (txn.is_recurring) rows.push({ label: 'Frequency', value: txn.frequency ?? '-' })
     if (txn.estimate_source) {
       rows.push({
@@ -730,7 +736,7 @@ export function TransactionsPage() {
       id: txn.id,
       title: txn.title,
       eyebrow: due ? `Due ${formatDate(txn.anchor_date || txn.timestamp)}` : formatDate(txn.timestamp),
-      amount: <MoneyValue amount={effectiveAmount(txn)} currency={currentAccountCurrency} showSign="always" tone="auto" />,
+      amount: <MoneyValue amount={txn.is_installment ? txn.amount * (txn.total_installments ?? 0) : effectiveAmount(txn)} currency={currentAccountCurrency} showSign="always" tone="auto" />,
       badge: txnStatusLabel(txn),
       rows,
       actions,
@@ -929,13 +935,7 @@ export function TransactionsPage() {
                   : txn.requires_confirmation
                     ? (txn.confirmed_at ? `confirmed ${formatDate(txn.confirmed_at)}` : `pending ${formatDate(txn.anchor_date || txn.timestamp)}`)
                     : formatDate(txn.timestamp),
-              amount: txn.is_installment
-                ? txn.amount * ((txn.total_installments ?? 0) - (txn.paid_installments ?? 0))
-                : effectiveAmount(txn),
-              total: txn.is_installment
-                ? txn.amount * (txn.total_installments ?? 0)
-                : txn.amount,
-              perInstallment: txn.is_installment ? txn.amount : null,
+              amount: txn.is_installment ? txn.amount : effectiveAmount(txn),
               currency: currentAccountCurrency,
               status: {
                 label: txn.is_installment
@@ -1036,7 +1036,7 @@ export function TransactionsPage() {
                   title: txn.title,
                   subtitle: `${friendName} · ${direction} · ${isConfirmed ? `confirmed ${formatDate(txn.confirmed_at!)}` : `pending ${formatDate(txn.anchor_date || txn.timestamp)}`}`,
                   amount: txn.is_installment && txn.total_installments
-                    ? (txn.amount / txn.total_installments) * (txn.total_installments - (txn.paid_installments ?? 0))
+                    ? txn.amount / txn.total_installments
                     : txn.amount,
                   currency: currentAccountCurrency,
                   status: {
