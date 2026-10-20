@@ -25,7 +25,7 @@ export function WindowControls() {
   const win = getCurrentWindow()
 
   return (
-    <div className="fixed top-0 right-0 z-[60] flex h-[43px]">
+    <div className="pointer-events-auto fixed top-0 right-0 z-[60] flex h-[43px]">
       <button type="button" aria-label="Minimize" className={BUTTON} onClick={() => void win.minimize()}>
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1" className="pointer-events-none">
           <path d="M0 5.5h10" />
