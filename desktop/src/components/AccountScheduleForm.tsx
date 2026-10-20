@@ -70,7 +70,7 @@ export function AccountScheduleForm({
           </Select>
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="schedule-anchor" className="text-xs">Anchor Date *</Label>
+          <Label htmlFor="schedule-anchor" className="text-xs">Next payday *</Label>
           <DateInput
             id="schedule-anchor"
             value={scheduleForm.anchor_date}
@@ -79,8 +79,10 @@ export function AccountScheduleForm({
               if (scheduleFormErrors.anchor_date) onClearError('anchor_date')
             }}
           />
-          {scheduleFormErrors.anchor_date && (
+          {scheduleFormErrors.anchor_date ? (
             <p className="text-xs text-destructive">{scheduleFormErrors.anchor_date}</p>
+          ) : (
+            <p className="text-xs text-faint">Later paydays follow from this date.</p>
           )}
         </div>
         <div className="flex flex-col gap-2">

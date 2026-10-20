@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { shortcutRegistry } from '@/hooks/useKeyboardShortcuts'
-import { confirmPaySchedule, deletePaySchedule, type PayScheduleResponse } from '@/lib/api'
+import { confirmPaySchedule, deletePaySchedule, updatePaySchedule, type PayScheduleResponse } from '@/lib/api'
 import { PaydayBanner } from './PaydayBanner'
 import { PaySchedulesPanel } from './PaySchedulesPanel'
 
@@ -85,6 +85,17 @@ describe('PaySchedulesPanel', () => {
     const dialog = await screen.findByRole('alertdialog')
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
     await waitFor(() => expect(vi.mocked(deletePaySchedule).mock.calls[0]?.[0]).toBe('s1'))
+  })
+
+  it('edits the next payday and saves it as the anchor', async () => {
+    renderPanel()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[1])
+    const field = await screen.findByLabelText('Next payday *')
+    expect((field as HTMLInputElement).value).toBe('30/12/2026')
+    fireEvent.change(field, { target: { value: '15/12/2026' } })
+    fireEvent.blur(field)
+    fireEvent.click(screen.getByRole('button', { name: 'Update Schedule' }))
+    await waitFor(() => expect(vi.mocked(updatePaySchedule).mock.calls[0]?.[1]).toMatchObject({ anchor_date: '2026-12-15' }))
   })
 
   it('shows an empty hint with no schedules', () => {

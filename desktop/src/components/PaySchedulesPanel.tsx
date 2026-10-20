@@ -48,7 +48,7 @@ export function PaySchedulesPanel({ accountId, currency, schedules, creating, on
     setForm({
       label: ps.label ?? '',
       frequency: ps.frequency,
-      anchor_date: ps.anchor_date,
+      anchor_date: ps.next_payday,
       amount: ps.amount.toFixed(2),
       day_of_month_2: ps.day_of_month_2 != null ? String(ps.day_of_month_2) : '',
     })
@@ -57,7 +57,7 @@ export function PaySchedulesPanel({ accountId, currency, schedules, creating, on
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     const found: Record<string, string> = {}
-    if (!form.anchor_date) found.anchor_date = 'Anchor date is required'
+    if (!form.anchor_date) found.anchor_date = 'Next payday is required'
     if (!form.amount) found.amount = 'Amount is required'
     if (Object.keys(found).length > 0) {
       setErrors(found)
