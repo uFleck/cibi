@@ -36,6 +36,7 @@ export type TransactionsServiceIface = Pick<
   | 'confirmRecurring'
   | 'confirmInstallment'
   | 'postponeRecurring'
+  | 'skipInstallment'
 >
 
 /** JSON shape of a transaction (Go: TransactionResponse). Amount is dollars. */
@@ -164,7 +165,7 @@ export function toTransactionResponse(t: Transaction): TransactionResponse {
   // Overrides stored next_occurrence (which is null for installments).
   if (t.isInstallment && t.anchorDate !== null && t.frequency !== null) {
     if (t.totalInstallments === null || t.paidInstallments < t.totalInstallments) {
-      response.next_occurrence = formatDbTime(nextInstallmentDue(t.anchorDate, t.paidInstallments, t.frequency))
+      response.next_occurrence = formatDbTime(nextInstallmentDue(t.anchorDate, t.paidInstallments + t.skippedInstallments, t.frequency))
     }
     // When paid == total, next_occurrence stays as stored (installment complete).
   }
@@ -282,6 +283,7 @@ export function registerTransactionsRoutes(
       isInstallment: req.is_installment,
       totalInstallments: req.total_installments,
       paidInstallments: 0,
+      skippedInstallments: 0,
       estimateSource: req.estimate_source,
       estimateKey: req.estimate_key,
       isUncertain: req.is_uncertain,
@@ -356,7 +358,8 @@ export function registerTransactionsRoutes(
   // Skips one occurrence of a recurring bill: next_occurrence moves on, the balance stays.
   route('POST', '/api/transactions/:id/skip', async ({ params }) => {
     const id = parseIdOr400(params.id, 'invalid transaction id')
-    await svc.postponeRecurring(id).catch((err: unknown) => {
+    const current = await svc.getTransaction(id).catch(notFoundOr500(NOT_FOUND))
+    await (current.isInstallment ? svc.skipInstallment(id) : svc.postponeRecurring(id)).catch((err: unknown) => {
       if (isErr(err, ErrNoRows)) throw new HttpError(404, NOT_FOUND)
       throw new HttpError(400, messageOf(err))
     })

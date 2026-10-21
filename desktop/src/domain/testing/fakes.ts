@@ -30,6 +30,7 @@ export function fakeTransactionsRepo(overrides: Partial<TransactionsRepo> = {}):
     listDueRecurring: async () => [],
     listAsNeeded: async () => [],
     incrementPaidInstallments: async () => undefined,
+    incrementSkippedInstallments: async () => undefined,
     ...overrides,
   }
 }

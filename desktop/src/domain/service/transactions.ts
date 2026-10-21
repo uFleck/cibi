@@ -23,7 +23,7 @@ import { isVariable, type EstimateService } from './estimate'
  * A transaction to create: id and timestamp are filled in when they are undefined (Go: uuid.Nil, zero time).
  * A blank category is filled in by the classifier when the transaction is an expense.
  */
-export type NewTransaction = Omit<Transaction, 'id' | 'timestamp' | 'category'> & {
+export type NewTransaction = Omit<Transaction, 'id' | 'timestamp' | 'category' | 'skippedInstallments'> & {
   id?: string
   timestamp?: Date
   category?: string | null
@@ -60,6 +60,7 @@ export class TransactionsService {
   async createTransaction(input: NewTransaction): Promise<Transaction> {
     const t: Transaction = {
       ...input,
+      skippedInstallments: 0,
       id: input.id || crypto.randomUUID(),
       timestamp: input.timestamp ?? new Date(),
       category: normalizeCategory(input.category),
@@ -414,6 +415,22 @@ export class TransactionsService {
         this.txnsRepo.incrementPaidInstallments(transactionId),
       )
     })
+  }
+
+  /** Postpones the unpaid installment by one period: no ledger entry, no balance change, the parcel count stays. */
+  async skipInstallment(transactionId: string): Promise<void> {
+    const t = await wrapping('service.SkipInstallment: get transaction', () =>
+      this.txnsRepo.getById(transactionId),
+    )
+    if (!t.isInstallment) {
+      throw new AppError(`service.SkipInstallment: transaction ${transactionId} is not an installment`)
+    }
+    if (t.totalInstallments === null || t.paidInstallments >= t.totalInstallments) {
+      throw new AppError(`service.SkipInstallment: no installment left to postpone for transaction ${transactionId}`)
+    }
+    await wrapping('service.SkipInstallment: increment skipped', () =>
+      this.txnsRepo.incrementSkippedInstallments(transactionId),
+    )
   }
 
   /** Advances next_occurrence by one interval without touching the balance (a skipped cycle). */

@@ -96,6 +96,27 @@ it('TestIncrementPaidInstallments', async () => {
   expect(rows[0]?.paid_installments).toBe(1)
 })
 
+// Not a Go test: the skip count goes from 0 to 1 without touching the paid count, and the mapper returns it.
+it('incrementSkippedInstallments increments only the skip count', async () => {
+  const repo = new SqliteTxnsRepo(db)
+  const accountId = crypto.randomUUID()
+  await insertAccount(accountId)
+  const id = crypto.randomUUID()
+  await db.query(
+    `INSERT INTO "Transaction" (id, account_id, amount, title, timestamp, is_recurring, requires_confirmation, is_installment, total_installments, paid_installments)
+		 VALUES (?, ?, -5000, 'Phone', '2026-07-10T00:00:00Z', 0, 0, 1, 6, 0)`,
+    [id, accountId],
+  )
+  expect((await repo.getById(id)).skippedInstallments).toBe(0)
+
+  await repo.incrementSkippedInstallments(id)
+  await repo.incrementSkippedInstallments(id)
+
+  const t = await repo.getById(id)
+  expect(t.skippedInstallments).toBe(2)
+  expect(t.paidInstallments).toBe(0)
+})
+
 // Not a Go test: the reads accept the date-only form the real rows hold for timestamp and
 // confirmed_at, and a peer row keeps its friend_id.
 it('reads the date-only time forms, and the friend of a peer row', async () => {
@@ -140,6 +161,7 @@ function sample(accountId: string, over: Partial<Transaction> = {}): Transaction
     isInstallment: false,
     totalInstallments: null,
     paidInstallments: 0,
+    skippedInstallments: 0,
     estimateSource: null,
     estimateKey: null,
     isUncertain: false,

@@ -107,6 +107,30 @@ describe('ToPayPage', () => {
     await waitFor(() => expect(called('/api/transactions/txn-internet/skip')).toBeTruthy())
   })
 
+  it('skips an installment without paying it', async () => {
+    const installment: TransactionResponse = {
+      ...bill,
+      id: 'txn-parcela',
+      title: 'Geladeira',
+      amount: -200,
+      is_recurring: false,
+      is_installment: true,
+      total_installments: 3,
+      paid_installments: 1,
+    }
+    mockLocalFetch.mockImplementation(async (path: string) => {
+      if (path.startsWith('/api/transactions?')) return json([installment])
+      if (path.startsWith('/api/accounts')) {
+        return json([{ id: 'acct-1', name: 'Main', current_balance: 1000, currency: 'BRL', safety_buffer: 0 }])
+      }
+      if (path.includes('/skip')) return json(installment)
+      return json([])
+    })
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: /pular/i }))
+    await waitFor(() => expect(called('/api/transactions/txn-parcela/skip')).toBeTruthy())
+  })
+
   it('records an as-needed purchase with the amount typed', async () => {
     renderPage()
     fireEvent.click(await screen.findByRole('button', { name: /comprei/i }))

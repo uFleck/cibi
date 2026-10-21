@@ -8,7 +8,7 @@ import { ErrNoRows } from '../errors'
 import { localFetch, resetRoutesForTests } from '../http'
 import type { Transaction } from '../repo/transactions'
 import { createTestDb } from '../testing/testDb'
-import { addMonths } from '../dates'
+import { addMonths, formatDbTime } from '../dates'
 import {
   registerTransactionsRoutes,
   type TransactionResponse,
@@ -46,6 +46,7 @@ function fakeTransactionsService(overrides: Partial<TransactionsServiceIface>): 
     confirmRecurring: unset,
     confirmInstallment: unset,
     postponeRecurring: unset,
+    skipInstallment: unset,
     ...overrides,
   }
 }
@@ -80,6 +81,7 @@ function storedTxn(over: Partial<Transaction>): Transaction {
     isInstallment: false,
     totalInstallments: null,
     paidInstallments: 0,
+    skippedInstallments: 0,
     estimateSource: null,
     estimateKey: null,
     isUncertain: false,
@@ -272,6 +274,48 @@ it('TestConfirmInstallment_HappyPath', async () => {
   expect(resp.paid_installments).toBe(1)
   // next_occurrence should be computed (anchor + 1 month for paid=1)
   expect(resp.next_occurrence).not.toBeNull()
+})
+
+// Skipping an installment postpones it: 200, and the derived next_occurrence moves one period later.
+it('POST skip on an installment returns 200 and moves next_occurrence one period', async () => {
+  const id = crypto.randomUUID()
+  const anchor = new Date('2026-08-10T00:00:00Z')
+  let skipped = 0
+  let postponed = false
+
+  withService(
+    fakeTransactionsService({
+      skipInstallment: async (txnId: string) => {
+        expect(txnId).toBe(id)
+        skipped += 1
+      },
+      postponeRecurring: async () => {
+        postponed = true
+        return new Date()
+      },
+      getTransaction: async (): Promise<Transaction> =>
+        storedTxn({
+          id,
+          amount: -5000,
+          timestamp: anchor,
+          isInstallment: true,
+          totalInstallments: 6,
+          paidInstallments: 1,
+          skippedInstallments: skipped,
+          frequency: FREQ_MONTHLY,
+          anchorDate: anchor,
+        }),
+    }),
+  )
+
+  const res = await localFetch(`/api/transactions/${id}/skip`, { method: 'POST' })
+  expect(res.status).toBe(200)
+  const resp = await json<TransactionResponse>(res)
+  expect(skipped).toBe(1)
+  expect(postponed).toBe(false)
+  expect(resp.paid_installments).toBe(1)
+  // paid 1 + skipped 1 = two periods after the anchor.
+  expect(resp.next_occurrence).toBe(formatDbTime(addMonths(anchor, 2)))
 })
 
 // TestConfirmInstallment_InvalidID_Returns400: a malformed id is a 400.

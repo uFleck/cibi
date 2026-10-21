@@ -63,6 +63,8 @@ export interface Transaction {
   isInstallment: boolean
   totalInstallments: number | null
   paidInstallments: number
+  /** Periods the unpaid parcel was postponed: the next due date is derived from paid + skipped. */
+  skippedInstallments: number
   /** 'category' or 'keyword' when the amount is estimated from history (see estimate.ts); null for a fixed amount. */
   estimateSource: string | null
   /** The category or keyword the estimate matches; null for a fixed amount. */
@@ -120,11 +122,13 @@ export interface TransactionsRepo {
   /** The personal as-needed bills of an account. */
   listAsNeeded(accountId: string): Promise<Transaction[]>
   incrementPaidInstallments(id: string): Promise<void>
+  /** Postpones the unpaid parcel by one period (no payment). */
+  incrementSkippedInstallments(id: string): Promise<void>
 }
 
 const SELECT_TXN = `SELECT id, account_id, COALESCE(type, 'personal') AS type, friend_id, amount, title, description, category, timestamp,
 			is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at,
-			is_installment, total_installments, paid_installments, estimate_source, estimate_key, is_uncertain, is_as_needed`
+			is_installment, total_installments, paid_installments, skipped_installments, estimate_source, estimate_key, is_uncertain, is_as_needed`
 
 /** Go parseFlexTime: RFC3339, then the calendar date. */
 function parseFlexTime(s: string): Date {
@@ -163,6 +167,7 @@ function scanTransaction(row: Row): Transaction {
     isInstallment: boolCol(row, 'is_installment'),
     totalInstallments: nullableIntCol(row, 'total_installments'),
     paidInstallments: intCol(row, 'paid_installments'),
+    skippedInstallments: intCol(row, 'skipped_installments'),
     estimateSource: nullableTextCol(row, 'estimate_source'),
     estimateKey: nullableTextCol(row, 'estimate_key'),
     isUncertain: boolCol(row, 'is_uncertain'),
@@ -442,6 +447,15 @@ export class SqliteTxnsRepo implements TransactionsRepo {
         throw wrap('transactions.IncrementPaidInstallments', err)
       },
     )
+  }
+
+  async incrementSkippedInstallments(id: string): Promise<void> {
+    await this.exec(
+      `UPDATE "Transaction" SET skipped_installments = skipped_installments + 1 WHERE id = ?`,
+      [id],
+    ).catch((err: unknown) => {
+      throw wrap('transactions.IncrementSkippedInstallments', err)
+    })
   }
 
   async sumUpcomingObligations(accountId: string, _after: Date, onOrBefore: Date): Promise<number> {

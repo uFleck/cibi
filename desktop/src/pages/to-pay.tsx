@@ -155,15 +155,20 @@ export function ToPayPage() {
                 currency={currency}
               >
                 <PayButton t={t} actions={actions} />
+                {(t.is_recurring || t.is_installment) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => actions.skip(t)}
+                    title={t.is_recurring ? 'Não paga este mês: vai para a próxima data' : 'Não paga esta parcela agora: vai para a próxima data'}
+                  >
+                    <SkipForward size={14} />Pular
+                  </Button>
+                )}
                 {t.is_recurring && (
-                  <>
-                    <Button size="sm" variant="outline" onClick={() => actions.skip(t)} title="Não paga este mês: vai para a próxima data">
-                      <SkipForward size={14} />Pular
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => actions.toggleUncertain(t)} title="Tira da conta até vocês decidirem">
-                      <CircleHelp size={14} />Não sei
-                    </Button>
-                  </>
+                  <Button size="sm" variant="ghost" onClick={() => actions.toggleUncertain(t)} title="Tira da conta até vocês decidirem">
+                    <CircleHelp size={14} />Não sei
+                  </Button>
                 )}
               </BillRow>
             )

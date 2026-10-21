@@ -52,6 +52,7 @@ function txn(over: Partial<Transaction> = {}): Transaction {
     isInstallment: false,
     totalInstallments: null,
     paidInstallments: 0,
+    skippedInstallments: 0,
     estimateSource: null,
     estimateKey: null,
     isUncertain: false,
@@ -623,6 +624,69 @@ it('TestConfirmInstallment_NonInstallment_ReturnsError', async () => {
   const ledgerSvc = newTestLedgerSvc(db, accRepo, null, 0)
   const svc = new TransactionsService(db, txnsRepo, accRepo, ledgerSvc)
   await expect(svc.confirmInstallment(txnId)).rejects.toThrow() // expected error for non-installment txn
+})
+
+// skipInstallment postpones the parcel: the skip count goes up inside no ledger entry and no balance change.
+it('skipInstallment increments the skip count, with no ledger entry and no balance change', async () => {
+  const txnId = crypto.randomUUID()
+  const accountId = crypto.randomUUID()
+  let skippedCalls = 0
+  let paidCalls = 0
+  const txnsRepo = fakeTransactionsRepo({
+    getById: async (): Promise<Transaction> =>
+      txn({ id: txnId, accountId, amount: -5000, isInstallment: true, totalInstallments: 6, paidInstallments: 2, frequency: FREQ_MONTHLY }),
+    incrementSkippedInstallments: async (id: string) => {
+      expect(id).toBe(txnId)
+      skippedCalls++
+    },
+    incrementPaidInstallments: async () => {
+      paidCalls++
+    },
+  })
+  const rec = freshRecorded()
+  const state: TxState = { inTx: false }
+  const accRepo = scopedAccountRepo(state, accountId, 100000, rec)
+  const tracked = trackingDb(db, state)
+  const ledgerSvc = newTestLedgerSvc(tracked, accRepo, accountId, 100000)
+  const svc = new TransactionsService(tracked, txnsRepo, accRepo, ledgerSvc)
+
+  await svc.skipInstallment(txnId)
+
+  expect(skippedCalls).toBe(1)
+  expect(paidCalls).toBe(0)
+  expect(rec.updated).toBe(false)
+})
+
+it('skipInstallment rejects a non-installment and a fully paid installment', async () => {
+  const txnId = crypto.randomUUID()
+  const accRepo = fakeAccountsRepo({})
+  const ledgerSvc = newTestLedgerSvc(db, accRepo, null, 0)
+  const never = async () => {
+    throw new Error('must not increment')
+  }
+
+  const plain = new TransactionsService(
+    db,
+    fakeTransactionsRepo({
+      getById: async (): Promise<Transaction> => txn({ id: txnId, isInstallment: false }),
+      incrementSkippedInstallments: never,
+    }),
+    accRepo,
+    ledgerSvc,
+  )
+  await expect(plain.skipInstallment(txnId)).rejects.toThrow('not an installment')
+
+  const done = new TransactionsService(
+    db,
+    fakeTransactionsRepo({
+      getById: async (): Promise<Transaction> =>
+        txn({ id: txnId, isInstallment: true, totalInstallments: 3, paidInstallments: 3 }),
+      incrementSkippedInstallments: never,
+    }),
+    accRepo,
+    ledgerSvc,
+  )
+  await expect(done.skipInstallment(txnId)).rejects.toThrow('no installment left')
 })
 
 // TestUpdateTransaction_TotalInstallments_CanIncrease: total_installments 12 -> 15 with 3 paid succeeds.
