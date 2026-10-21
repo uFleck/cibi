@@ -18,6 +18,7 @@ export function SharedDebtList({
   onConfirm,
   onDelete,
   onEdit,
+  extraActionsFor,
   confirmLabel = 'Mark paid',
   selectedId = null,
   onSelect,
@@ -29,6 +30,7 @@ export function SharedDebtList({
     ...(onConfirm && item.canConfirm
       ? [{ id: 'confirm', label: confirmLabel, icon: Check, keys: ROW_KEYS.confirm, run: () => onConfirm(item.id) }]
       : []),
+    ...(extraActionsFor?.(item.id) ?? []),
     ...(onEdit && item.canEdit
       ? [{ id: 'edit', label: 'Edit', icon: Pencil, keys: ROW_KEYS.edit, primary: true, run: () => onEdit(item.id) }]
       : []),

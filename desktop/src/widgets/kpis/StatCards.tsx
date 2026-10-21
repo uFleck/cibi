@@ -11,6 +11,7 @@ import { isInCurrentPayWindow } from '@/lib/financial-window'
 import { formatMoney } from '@/lib/format'
 import { effectiveAmount, updateAccount } from '@/lib/api'
 import { countInCurrentPayWindow } from '@/lib/occurrences'
+import { asNeededReserved, isScheduledBill } from '@/lib/bills'
 import type {
   AccountResponse,
   TransactionResponse,
@@ -115,8 +116,9 @@ export function StatCards({
   const now = new Date()
 
   const recurringReserved = recurringTxns
-    .filter(t => t.is_recurring)
+    .filter(isScheduledBill)
     .reduce((sum, t) => sum + Math.abs(effectiveAmount(t)) * countInCurrentPayWindow(t, nextPayday), 0)
+    + asNeededReserved(recurringTxns)
 
   const peerObligations = friendBreakdown.reduce((sum, debt) => {
     if (!debt.next_payment_date) return sum + debt.next_payment

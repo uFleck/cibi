@@ -43,6 +43,14 @@ export interface TransactionResponse {
   estimated_amount?: number | null
   /** How many past payments the estimate comes from; 0 means `amount` is used while there is no history. */
   estimate_samples?: number | null
+  /** Not sure it will be paid: left out of every forecast until paid or cleared. */
+  is_uncertain?: boolean
+  /** Bought as needed, with a budget per calendar month instead of a due date. */
+  is_as_needed?: boolean
+  /** An as-needed bill's budget for this month, negative; null for other bills. */
+  month_budget?: number | null
+  /** What an as-needed bill was paid this month, negative or 0; null for other bills. */
+  month_spent?: number | null
 }
 
 /** What to count for a transaction: its estimate when the amount is variable, else its amount. */
@@ -353,6 +361,8 @@ export function createTransaction(data: {
   total_installments?: number
   estimate_source?: string
   estimate_key?: string
+  is_uncertain?: boolean
+  is_as_needed?: boolean
 }): Promise<TransactionResponse> {
   return apiFetch<TransactionResponse>('/api/transactions', {
     method: 'POST',
@@ -377,6 +387,8 @@ export function updateTransaction(
     total_installments: number | null
     estimate_source: string
     estimate_key: string
+    is_uncertain: boolean
+    is_as_needed: boolean
   }>
 ): Promise<TransactionResponse> {
   return apiFetch<TransactionResponse>(`/api/transactions/${id}`, {
@@ -480,7 +492,7 @@ export function deleteTransaction(id: string): Promise<void> {
   })
 }
 
-/** `amount` is what a variable-amount transaction really cost (signed, like every amount); a fixed one ignores it. */
+/** `amount` is what the bill really cost (signed, like every amount); without it the expected amount is debited. An as-needed bill needs it. */
 export function confirmTransaction(id: string, amount?: number): Promise<TransactionResponse> {
   return apiFetch<TransactionResponse>(`/api/transactions/${id}/confirm`, {
     method: 'POST',
@@ -488,6 +500,11 @@ export function confirmTransaction(id: string, amount?: number): Promise<Transac
       ? {}
       : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount }) }),
   })
+}
+
+/** Skips one occurrence of a recurring bill: it moves to its next date and the balance stays. */
+export function skipTransaction(id: string): Promise<TransactionResponse> {
+  return apiFetch<TransactionResponse>(`/api/transactions/${id}/skip`, { method: 'POST' })
 }
 
 export function confirmInstallmentTransaction(id: string): Promise<TransactionResponse> {

@@ -185,6 +185,9 @@ describe('TransactionsPage selection and filters', () => {
     expect(await within(inspector).findByRole('heading', { name: 'Internet bill' })).toBeTruthy()
 
     fireEvent.click(within(inspector).getByRole('button', { name: /mark paid/i }))
+    // A recurring bill asks what it really cost, starting from its amount.
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: /mark paid/i }))
 
     await waitFor(() =>
       expect(mockLocalFetch.mock.calls.some(([path, init]) => path === '/api/transactions/txn-1/confirm' && init?.method === 'POST')).toBe(true),

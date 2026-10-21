@@ -121,6 +121,8 @@ describe('reserve service', () => {
       paidInstallments: 0,
       estimateSource: null,
       estimateKey: null,
+      isUncertain: false,
+      isAsNeeded: false,
     })
   })
 

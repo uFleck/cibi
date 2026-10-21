@@ -6,6 +6,7 @@ import { formatDate } from '@/lib/format'
 import { isInCurrentPayWindow } from '@/lib/financial-window'
 import { countInCurrentPayWindow } from '@/lib/occurrences'
 import { effectiveAmount, type TransactionResponse } from '@/lib/api'
+import { asNeededLeft, asNeededReserved, isScheduledBill } from '@/lib/bills'
 
 interface ObligationsListProps {
   transactions: TransactionResponse[]
@@ -28,7 +29,7 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
         )
       }
       return (
-        t.is_recurring &&
+        isScheduledBill(t) &&
         t.next_occurrence !== null &&
         isInCurrentPayWindow(t.next_occurrence, now, nextPayday)
       )
@@ -39,12 +40,14 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
 
   // A bill due several times before the payday (a weekly one) is reserved once for each.
   const timesDue = (t: TransactionResponse) => (t.is_recurring ? countInCurrentPayWindow(t, nextPayday) : 1)
+  const asNeeded = transactions.filter(t => t.is_as_needed && !t.is_uncertain)
   const total = obligations.reduce((sum, t) => sum + Math.abs(effectiveAmount(t)) * timesDue(t), 0)
+    + asNeededReserved(asNeeded)
 
   return (
     <div className="flex flex-col">
 
-      {obligations.length === 0 ? (
+      {obligations.length === 0 && asNeeded.length === 0 ? (
         <div className="flex flex-col items-start gap-3">
           <p className="text-sm text-muted-foreground">No upcoming obligations.</p>
           <Button size="sm" variant="outline" asChild>
@@ -79,6 +82,31 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
               />
               <span className="w-[4.5rem] shrink-0 text-right text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
                 {formatDate(t.next_occurrence!)}
+              </span>
+            </div>
+          ))}
+          {asNeeded.map(t => (
+            <div
+              key={t.id}
+              data-row={t.id}
+              onClick={onSelect ? () => onSelect(t.id) : undefined}
+              className={cn(
+                'flex items-center py-1.5 gap-3 hover:bg-muted/30 transition-colors',
+                onSelect && 'cursor-pointer',
+                t.id === selectedId && 'bg-hl/10 shadow-[inset_2px_0_0_var(--color-hl)]',
+              )}
+            >
+              <span className="min-w-0 flex-1 truncate text-[13px]" title={t.title}>{t.title}</span>
+              <span aria-hidden className="w-8 shrink-0" />
+              <MoneyValue
+                amount={-Math.max(0, asNeededLeft(t))}
+                currency={currency}
+                tone="negative"
+                showSign="auto"
+                className="min-w-[5.5rem] shrink-0 text-right text-[13px] font-medium whitespace-nowrap"
+              />
+              <span className="w-[4.5rem] shrink-0 text-right text-[11px] text-muted-foreground whitespace-nowrap">
+                left this month
               </span>
             </div>
           ))}

@@ -1,7 +1,7 @@
 import { useState, useContext, useMemo, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, ArrowLeftRight, Banknote, Check, Pencil, Trash2, X, Users, History } from 'lucide-react'
+import { Plus, ArrowLeftRight, Banknote, Check, CircleHelp, Pencil, SkipForward, Trash2, X, Users, History } from 'lucide-react'
 import { Skeleton } from 'boneyard-js/react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,14 +9,14 @@ import { PageHeader, pageShell } from '@/components/ui/page-header'
 import { Chip } from '@/components/ui/chip'
 import { DateInput } from '@/components/ui/date-input'
 import { DataList } from '@/components/ui/data-list'
-import { ROW_KEYS } from '@/lib/row-actions'
+import { ROW_KEYS, type RowAction } from '@/lib/row-actions'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { MoneyValue } from '@/components/ui/money-value'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { ConfirmAmountDialog } from '@/components/ConfirmAmountDialog'
+import { useBillActions } from '@/components/bills/useBillActions'
 import { EditSheet } from '@/components/EditSheet'
 import { AccountSelector } from '@/components/AccountSelector'
 import { PaydayBanner } from '@/components/PaydayBanner'
@@ -32,9 +32,7 @@ import {
   createTransaction,
   updateTransaction,
   deleteTransaction,
-  confirmTransaction,
   effectiveAmount,
-  confirmInstallmentTransaction,
   listFriends,
   confirmDebt,
   deletePeerDebt,
@@ -47,6 +45,7 @@ import {
   type CreatePeerDebtRequest,
   type LedgerEntryResponse,
 } from '@/lib/api'
+import { asNeededBudget, asNeededSpent } from '@/lib/bills'
 import { formatDate, formatMoney } from '@/lib/format'
 import { cleanLinks } from '@/lib/links'
 import { fromDateInputValue, toDateInputValue } from '@/lib/locale'
@@ -78,8 +77,15 @@ function canConfirmTxn(txn: TransactionResponse) {
     : txn.is_recurring || (txn.requires_confirmation && !txn.confirmed_at)
 }
 
+/** A recurring bill with a date that can be skipped: not an as-needed one, which has no date. */
+function canSkipTxn(txn: TransactionResponse) {
+  return txn.is_recurring && !txn.is_as_needed && txn.next_occurrence !== null
+}
+
 function txnStatusLabel(txn: TransactionResponse) {
   if (txn.is_installment) return `Installment ${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'}`
+  if (txn.is_uncertain) return 'Não sei'
+  if (txn.is_as_needed) return 'Quando precisar'
   if (txn.is_recurring) return 'Recurring'
   if (txn.requires_confirmation) return txn.confirmed_at ? 'Pending payment · confirmed' : 'Pending payment'
   return 'One-time'
@@ -100,6 +106,8 @@ interface FormData {
   total_installments?: number
   estimate_source?: string
   estimate_key?: string
+  is_uncertain?: boolean
+  is_as_needed?: boolean
 }
 
 type FormErrors = Partial<Record<keyof FormData, string>>
@@ -117,7 +125,6 @@ export function TransactionsPage() {
   const [isCreatingSchedule, setIsCreatingSchedule] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  const [confirmAmountFor, setConfirmAmountFor] = useState<TransactionResponse | null>(null)
   const [peerDebtFilter, setPeerDebtFilter] = useState<{ friendId: string; direction: 'all' | 'i-owe' | 'they-owe'; status: 'all' | 'confirmed' | 'pending' }>({ friendId: 'all', direction: 'all', status: 'all' })
   const [isCreatingDebt, setIsCreatingDebt] = useState(false)
   const [debtForm, setDebtForm] = useState({
@@ -163,6 +170,7 @@ export function TransactionsPage() {
   const currentAccountId = selectedAccountId || accounts[0]?.id
   const currentAccount = accounts.find(a => a.id === currentAccountId)
   const currentAccountCurrency = currentAccount?.currency ?? 'BRL'
+  const billActions = useBillActions(currentAccountCurrency)
 
   const {
     data: transactions = [],
@@ -419,79 +427,27 @@ export function TransactionsPage() {
     },
   })
 
-  const confirmMutation = useMutation({
-    mutationFn: ({ id, amount }: { id: string; amount?: number }) => confirmTransaction(id, amount),
-    onMutate: async ({ id }) => {
-      await queryClient.cancelQueries({ queryKey: ['transactions', currentAccountId] })
-      await queryClient.cancelQueries({ queryKey: ['accounts'] })
-      await queryClient.cancelQueries({ queryKey: ['account', currentAccountId] })
-      const prevTxns = queryClient.getQueryData<TransactionResponse[]>(['transactions', currentAccountId])
-      const prevAccounts = queryClient.getQueryData(['accounts'])
-      const prevAccount = queryClient.getQueryData(['account', currentAccountId])
-      queryClient.setQueryData<TransactionResponse[]>(['transactions', currentAccountId], old =>
-        old?.map(t => t.id === id ? { ...t, confirmed_at: new Date().toISOString() } : t) ?? []
-      )
-      return { prevTxns, prevAccounts, prevAccount }
-    },
-    onSuccess: () => {
-      toast.success('Payment confirmed')
-    },
-    onError: (error, _id, ctx) => {
-      if (ctx?.prevTxns) queryClient.setQueryData(['transactions', currentAccountId], ctx.prevTxns)
-      if (ctx?.prevAccounts) queryClient.setQueryData(['accounts'], ctx.prevAccounts)
-      if (ctx?.prevAccount) queryClient.setQueryData(['account', currentAccountId], ctx.prevAccount)
-      toast.error((error as Error).message || 'Failed to confirm payment')
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      queryClient.invalidateQueries({ queryKey: ['accounts'] })
-      queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
-      queryClient.invalidateQueries({ queryKey: ['budget'] })
-    },
-  })
-
-  const confirmInstallmentMutation = useMutation({
-    mutationFn: (id: string) => confirmInstallmentTransaction(id),
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ['transactions', currentAccountId] })
-      await queryClient.cancelQueries({ queryKey: ['accounts'] })
-      await queryClient.cancelQueries({ queryKey: ['account', currentAccountId] })
-      const prevTxns = queryClient.getQueryData<TransactionResponse[]>(['transactions', currentAccountId])
-      const prevAccounts = queryClient.getQueryData(['accounts'])
-      const prevAccount = queryClient.getQueryData(['account', currentAccountId])
-      queryClient.setQueryData<TransactionResponse[]>(['transactions', currentAccountId], old =>
-        old?.map(t => t.id === id ? { ...t, paid_installments: (t.paid_installments ?? 0) + 1 } : t) ?? []
-      )
-      return { prevTxns, prevAccounts, prevAccount }
-    },
-    onSuccess: () => {
-      toast.success('Installment confirmed')
-    },
-    onError: (error, _id, ctx) => {
-      if (ctx?.prevTxns) queryClient.setQueryData(['transactions', currentAccountId], ctx.prevTxns)
-      if (ctx?.prevAccounts) queryClient.setQueryData(['accounts'], ctx.prevAccounts)
-      if (ctx?.prevAccount) queryClient.setQueryData(['account', currentAccountId], ctx.prevAccount)
-      toast.error((error as Error).message || 'Failed to confirm installment')
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      queryClient.invalidateQueries({ queryKey: ['accounts'] })
-      queryClient.invalidateQueries({ queryKey: ['account', currentAccountId] })
-      queryClient.invalidateQueries({ queryKey: ['budget'] })
-    },
-  })
-
   const handleConfirmClick = (id: string) => {
     const txn = transactions.find((t: TransactionResponse) => t.id === id)
-    if (txn?.is_installment) {
-      confirmInstallmentMutation.mutate(id)
-    } else if (txn?.estimate_source) {
-      // A variable amount: ask what it really cost first.
-      setConfirmAmountFor(txn)
-    } else {
-      confirmMutation.mutate({ id })
-    }
+    if (txn) billActions.pay(txn)
   }
+
+  /** Skip and "not sure", for the list rows and the inspector. */
+  const billRowActions = (txn: TransactionResponse): RowAction[] => [
+    ...(canSkipTxn(txn)
+      ? [{ id: 'skip', label: 'Pular este mês', icon: SkipForward, keys: ROW_KEYS.skip, variant: 'outline' as const, run: () => billActions.skip(txn) }]
+      : []),
+    ...(txn.is_recurring
+      ? [{
+          id: 'uncertain',
+          label: txn.is_uncertain ? 'Voltar para a conta' : 'Não sei',
+          icon: CircleHelp,
+          keys: ROW_KEYS.uncertain,
+          variant: 'outline' as const,
+          run: () => billActions.toggleUncertain(txn),
+        }]
+      : []),
+  ]
 
   const handleClearFilters = useCallback(() => {
     setPreset(null)
@@ -581,6 +537,8 @@ export function TransactionsPage() {
       total_installments: txn.total_installments ?? undefined,
       estimate_source: txn.estimate_source ?? '',
       estimate_key: txn.estimate_key ?? '',
+      is_uncertain: txn.is_uncertain ?? false,
+      is_as_needed: txn.is_as_needed ?? false,
     })
   }
 
@@ -598,15 +556,20 @@ export function TransactionsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate()) return
+    // An as-needed bill has no due date, but a recurring row needs an anchor: today stands in.
     const anchorDate = fromDateInputValue(formData.anchor_date)
+      ?? (formData.is_recurring && formData.is_as_needed ? fromDateInputValue(toDateInputValue(new Date().toISOString())) : undefined)
     // Only a recurring expense can be estimated; an empty source and key make the amount fixed.
-    const estimated = !!formData.is_recurring && !!formData.estimate_source && !!formData.estimate_key?.trim()
+    const asNeeded = !!formData.is_recurring && !!formData.is_as_needed
+    const estimated = !asNeeded && !!formData.is_recurring && !!formData.estimate_source && !!formData.estimate_key?.trim()
     const payload = {
       ...formData,
       anchor_date: anchorDate,
       links: cleanLinks(formData.links),
       estimate_source: estimated ? formData.estimate_source : '',
       estimate_key: estimated ? formData.estimate_key?.trim() : '',
+      is_as_needed: asNeeded,
+      is_uncertain: !!formData.is_recurring && !!formData.is_uncertain,
     }
     if (editingId) {
       updateMutation.mutate({ id: editingId, updates: payload })
@@ -709,7 +672,18 @@ export function TransactionsPage() {
       rows.push({ label: 'Per installment', value: <span className="num">{formatMoney(txn.amount, currentAccountCurrency)}</span> })
       rows.push({ label: 'Remaining', value: <span className="num">{formatMoney(txn.amount * remaining, currentAccountCurrency)}</span> })
     }
-    if (txn.is_recurring) rows.push({ label: 'Frequency', value: txn.frequency ?? '-' })
+    if (txn.is_recurring && !txn.is_as_needed) rows.push({ label: 'Frequency', value: txn.frequency ?? '-' })
+    if (txn.is_as_needed) {
+      rows.push({
+        label: 'Este mês',
+        value: (
+          <span className="num">
+            {formatMoney(asNeededSpent(txn), currentAccountCurrency)} de {formatMoney(asNeededBudget(txn), currentAccountCurrency)}
+          </span>
+        ),
+      })
+    }
+    if (txn.is_uncertain) rows.push({ label: 'Previsão', value: 'Fora da conta até pagar ou decidir' })
     if (txn.estimate_source) {
       rows.push({
         label: 'Estimate',
@@ -729,6 +703,7 @@ export function TransactionsPage() {
       { id: 'edit', label: 'Edit', icon: Pencil, keys: ROW_KEYS.edit, variant: 'default', run: () => handleEditClick(txn) },
       { id: 'delete', label: 'Delete', icon: Trash2, keys: ROW_KEYS.delete, variant: 'destructive', run: () => setConfirmDelete(txn.id) },
     ]
+    actions.unshift(...billRowActions(txn))
     if (canConfirmTxn(txn)) {
       actions.unshift({ id: 'paid', label: 'Mark paid', icon: Check, keys: ROW_KEYS.confirm, variant: 'outline', run: () => handleConfirmClick(txn.id) })
     }
@@ -766,17 +741,7 @@ export function TransactionsPage() {
         description="This action cannot be undone."
       />
 
-      <ConfirmAmountDialog
-        open={confirmAmountFor !== null}
-        title={confirmAmountFor?.title ?? ''}
-        suggested={confirmAmountFor ? effectiveAmount(confirmAmountFor) : 0}
-        samples={confirmAmountFor?.estimate_samples ?? 0}
-        onConfirm={amount => {
-          if (confirmAmountFor) confirmMutation.mutate({ id: confirmAmountFor.id, amount })
-          setConfirmAmountFor(null)
-        }}
-        onCancel={() => setConfirmAmountFor(null)}
-      />
+      {billActions.dialog}
 
       <PageHeader
         eyebrow="Ledger"
@@ -940,7 +905,11 @@ export function TransactionsPage() {
               status: {
                 label: txn.is_installment
                   ? `Installment ${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'}`
-                  : txn.is_recurring
+                  : txn.is_uncertain
+                    ? 'Não sei'
+                    : txn.is_as_needed
+                    ? 'Quando precisar'
+                    : txn.is_recurring
                     ? (txn.estimate_source ? 'Recurring · estimated' : 'Recurring')
                     : txn.requires_confirmation
                       ? (txn.confirmed_at ? 'Pending payment · confirmed' : 'Pending payment')
@@ -959,6 +928,10 @@ export function TransactionsPage() {
             emptyTitle="No transactions match your filters"
             emptyHint="Adjust filters and try again"
             onConfirm={handleConfirmClick}
+            extraActionsFor={id => {
+              const txn = transactions.find((t: TransactionResponse) => t.id === id)
+              return txn ? billRowActions(txn) : []
+            }}
             onDelete={setConfirmDelete}
             selectedId={selectedId}
             onSelect={select}

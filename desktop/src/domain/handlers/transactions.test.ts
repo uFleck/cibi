@@ -45,6 +45,7 @@ function fakeTransactionsService(overrides: Partial<TransactionsServiceIface>): 
     deleteTransaction: unset,
     confirmRecurring: unset,
     confirmInstallment: unset,
+    postponeRecurring: unset,
     ...overrides,
   }
 }
@@ -81,6 +82,8 @@ function storedTxn(over: Partial<Transaction>): Transaction {
     paidInstallments: 0,
     estimateSource: null,
     estimateKey: null,
+    isUncertain: false,
+    isAsNeeded: false,
     ...over,
   }
 }

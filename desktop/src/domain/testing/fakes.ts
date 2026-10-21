@@ -28,6 +28,7 @@ export function fakeTransactionsRepo(overrides: Partial<TransactionsRepo> = {}):
     markConfirmed: async () => undefined,
     sumUpcomingObligations: async () => 0,
     listDueRecurring: async () => [],
+    listAsNeeded: async () => [],
     incrementPaidInstallments: async () => undefined,
     ...overrides,
   }

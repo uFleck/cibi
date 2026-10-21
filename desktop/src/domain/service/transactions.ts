@@ -96,6 +96,10 @@ export class TransactionsService {
     t.estimateSource = blank(t.estimateSource)
     t.estimateKey = blank(t.estimateKey)
     assertEstimate(t.estimateSource, t.estimateKey, t.isRecurring, t.amount)
+    if (t.isAsNeeded) {
+      assertAsNeeded(t)
+      t.frequency = FREQ_MONTHLY
+    }
 
     if (t.category === null && t.amount < 0) {
       t.category = await this.autoCategory(t.title, t.description)
@@ -157,6 +161,19 @@ export class TransactionsService {
       const old = await wrapping('service.UpdateTransaction: get old transaction', () => this.txnsRepo.getById(id))
       upd = { ...upd, estimateSource: blank(upd.estimateSource ?? null), estimateKey: blank(upd.estimateKey ?? null) }
       assertEstimate(upd.estimateSource ?? null, upd.estimateKey ?? null, upd.isRecurring ?? old.isRecurring, upd.amount ?? old.amount)
+      if (upd.estimateSource !== null && (upd.isAsNeeded ?? old.isAsNeeded)) {
+        throw new AppError('an as-needed bill estimates its own budget; remove the estimate')
+      }
+    }
+    if (upd.isAsNeeded === true) {
+      const old = await wrapping('service.UpdateTransaction: get old transaction', () => this.txnsRepo.getById(id))
+      assertAsNeeded({
+        isRecurring: upd.isRecurring ?? old.isRecurring,
+        isInstallment: upd.isInstallment ?? old.isInstallment,
+        amount: upd.amount ?? old.amount,
+        estimateSource: upd.estimateSource !== undefined ? upd.estimateSource : old.estimateSource,
+      })
+      upd = { ...upd, frequency: FREQ_MONTHLY }
     }
     const setInstallment = upd.isInstallment === true
     const setRecurring = upd.isRecurring === true
@@ -295,9 +312,10 @@ export class TransactionsService {
    * next_occurrence, or null (Go's zero time) when there is none. D-03: the user must confirm
    * explicitly before anything is debited.
    *
-   * A transaction with an estimated amount is debited what it really cost: `amount` (cents, same sign
-   * as the transaction) when given, else its current estimate. A fixed one is always debited its own
-   * amount, and `amount` is ignored.
+   * The debit is what the bill really cost: `amount` (cents, same sign as the transaction) when given,
+   * else its current estimate (variable) or its own amount (fixed). An as-needed bill needs `amount`:
+   * it is one purchase subtracted from the month's budget, so next_occurrence stays where it is.
+   * Paying an uncertain bill clears the mark.
    */
   async confirmRecurring(transactionId: string, amount?: number): Promise<Date | null> {
     const t = await wrapping('service.ConfirmRecurring: get transaction', () => this.txnsRepo.getById(transactionId))
@@ -313,15 +331,15 @@ export class TransactionsService {
     }
 
     let debit = t.amount
-    if (isVariable(t)) {
-      if (amount !== undefined) {
-        if (amount === 0 || Math.sign(amount) !== Math.sign(t.amount)) {
-          throw new AppError('service.ConfirmRecurring: amount must be an expense')
-        }
-        debit = amount
-      } else {
-        debit = await this.estimator.effectiveAmount(t)
+    if (amount !== undefined) {
+      if (amount === 0 || Math.sign(amount) !== Math.sign(t.amount)) {
+        throw new AppError('service.ConfirmRecurring: amount must have the sign of the transaction')
       }
+      debit = amount
+    } else if (t.isAsNeeded) {
+      throw new AppError('service.ConfirmRecurring: an as-needed bill needs the amount paid')
+    } else if (isVariable(t)) {
+      debit = await this.estimator.effectiveAmount(t)
     }
 
     return this.db.tx(async (): Promise<Date | null> => {
@@ -341,8 +359,14 @@ export class TransactionsService {
         ),
       )
 
+      if (t.isUncertain) {
+        await wrapping('service.ConfirmRecurring: clear uncertain', () =>
+          this.txnsRepo.update(transactionId, { isUncertain: false }),
+        )
+      }
+
       let next: Date | null = null
-      if (t.isRecurring && t.nextOccurrence !== null && t.frequency !== null) {
+      if (t.isRecurring && !t.isAsNeeded && t.nextOccurrence !== null && t.frequency !== null) {
         const advanced = advanceOccurrence(t.nextOccurrence, t.frequency)
         await wrapping('service.ConfirmRecurring: advance next_occurrence', () =>
           this.txnsRepo.advanceNextOccurrence(transactionId, advanced),
@@ -397,8 +421,8 @@ export class TransactionsService {
     const t = await wrapping('service.PostponeRecurring: get transaction', () =>
       this.txnsRepo.getById(transactionId),
     )
-    if (!t.isRecurring) {
-      throw new AppError(`service.PostponeRecurring: transaction ${transactionId} is not recurring`)
+    if (!t.isRecurring || t.isAsNeeded) {
+      throw new AppError(`service.PostponeRecurring: transaction ${transactionId} has no due date to skip`)
     }
     if (t.nextOccurrence === null || t.frequency === null) {
       throw new AppError(`service.PostponeRecurring: transaction ${transactionId} missing next_occurrence or frequency`)
@@ -413,6 +437,9 @@ export class TransactionsService {
 
 /** Whether a transaction being created should impact the account balance immediately. */
 function shouldApplyBalanceOnCreate(t: Transaction, now: Date): boolean {
+  if (t.isAsNeeded || t.isUncertain) {
+    return false // paid purchase by purchase, or maybe never
+  }
   if (t.isInstallment) {
     return false // installment txns only debit balance on each confirm-installment
   }
@@ -427,6 +454,9 @@ function shouldApplyBalanceOnCreate(t: Transaction, now: Date): boolean {
 
 /** Whether a stored transaction is currently represented in the account balance. */
 function hasAppliedToBalance(t: Transaction, now: Date): boolean {
+  if (t.isAsNeeded) {
+    return false // its amount is a budget; the purchases are separate ledger rows
+  }
   if (t.isInstallment) {
     return t.paidInstallments > 0
   }
@@ -451,6 +481,13 @@ function assertEstimate(source: string | null, key: string | null, isRecurring: 
   if (key === null) throw new AppError('estimate_key is required with estimate_source')
   if (!isRecurring) throw new AppError('only a recurring transaction can have an estimated amount')
   if (amount >= 0) throw new AppError('only an expense can have an estimated amount')
+}
+
+/** An as-needed bill is a recurring expense with a budget, so it can be neither an installment nor estimated by keyword. */
+function assertAsNeeded(t: Pick<Transaction, 'isRecurring' | 'isInstallment' | 'amount' | 'estimateSource'>): void {
+  if (!t.isRecurring || t.isInstallment) throw new AppError('an as-needed bill must be recurring')
+  if (t.amount >= 0) throw new AppError('an as-needed bill must be an expense')
+  if (t.estimateSource !== null) throw new AppError('an as-needed bill estimates its own budget; remove the estimate')
 }
 
 /** The next occurrence after `current` for a frequency. Unknown frequencies are treated as monthly. */

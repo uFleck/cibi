@@ -67,6 +67,10 @@ export interface Transaction {
   estimateSource: string | null
   /** The category or keyword the estimate matches; null for a fixed amount. */
   estimateKey: string | null
+  /** Not sure it will be paid: listed, but left out of every forecast until paid or cleared. */
+  isUncertain: boolean
+  /** Bought as needed: `amount` is the fallback budget per calendar month, and paying never advances it. */
+  isAsNeeded: boolean
 }
 
 /** The fields Update can write. Go's nil pointer is `undefined` here (no change). */
@@ -90,6 +94,8 @@ export interface UpdateTransaction {
   /** Null makes the amount fixed again. */
   estimateSource?: string | null
   estimateKey?: string | null
+  isUncertain?: boolean
+  isAsNeeded?: boolean
 }
 
 export interface TransactionsRepo {
@@ -109,14 +115,16 @@ export interface TransactionsRepo {
   markConfirmed(id: string, confirmedAt: Date): Promise<void>
   /** Go's `after` is unused by the query and is accepted only to keep the Go signature. */
   sumUpcomingObligations(accountId: string, after: Date, onOrBefore: Date): Promise<number>
-  /** Recurring personal transactions, fixed or estimated, whose next occurrence is before `onOrBefore`. */
+  /** Recurring personal transactions, fixed or estimated, whose next occurrence is before `onOrBefore`; uncertain and as-needed ones are left out. */
   listDueRecurring(accountId: string, onOrBefore: Date): Promise<Transaction[]>
+  /** The personal as-needed bills of an account. */
+  listAsNeeded(accountId: string): Promise<Transaction[]>
   incrementPaidInstallments(id: string): Promise<void>
 }
 
 const SELECT_TXN = `SELECT id, account_id, COALESCE(type, 'personal') AS type, friend_id, amount, title, description, category, timestamp,
 			is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at,
-			is_installment, total_installments, paid_installments, estimate_source, estimate_key`
+			is_installment, total_installments, paid_installments, estimate_source, estimate_key, is_uncertain, is_as_needed`
 
 /** Go parseFlexTime: RFC3339, then the calendar date. */
 function parseFlexTime(s: string): Date {
@@ -157,6 +165,8 @@ function scanTransaction(row: Row): Transaction {
     paidInstallments: intCol(row, 'paid_installments'),
     estimateSource: nullableTextCol(row, 'estimate_source'),
     estimateKey: nullableTextCol(row, 'estimate_key'),
+    isUncertain: boolCol(row, 'is_uncertain'),
+    isAsNeeded: boolCol(row, 'is_as_needed'),
   }
 }
 
@@ -199,12 +209,14 @@ export class SqliteTxnsRepo implements TransactionsRepo {
       t.paidInstallments,
       blankToNull(t.estimateSource),
       blankToNull(t.estimateKey),
+      bit(t.isUncertain),
+      bit(t.isAsNeeded),
     ]
     try {
       await this.db.query(
         `INSERT INTO "Transaction"
-			(id, account_id, type, amount, title, description, category, timestamp, is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at, is_installment, total_installments, paid_installments, estimate_source, estimate_key)
-			VALUES (?, ?, 'personal', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			(id, account_id, type, amount, title, description, category, timestamp, is_recurring, frequency, anchor_date, next_occurrence, requires_confirmation, confirmed_at, is_installment, total_installments, paid_installments, estimate_source, estimate_key, is_uncertain, is_as_needed)
+			VALUES (?, ?, 'personal', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args,
       )
       await this.writeLinks(t.id, t.links)
@@ -384,6 +396,20 @@ export class SqliteTxnsRepo implements TransactionsRepo {
         throw wrap('transactions.Update estimate', err)
       })
     }
+    if (upd.isUncertain !== undefined) {
+      await this.exec(`UPDATE "Transaction" SET is_uncertain = ? WHERE id = ?`, [bit(upd.isUncertain), id]).catch(
+        (err: unknown) => {
+          throw wrap('transactions.Update is_uncertain', err)
+        },
+      )
+    }
+    if (upd.isAsNeeded !== undefined) {
+      await this.exec(`UPDATE "Transaction" SET is_as_needed = ? WHERE id = ?`, [bit(upd.isAsNeeded), id]).catch(
+        (err: unknown) => {
+          throw wrap('transactions.Update is_as_needed', err)
+        },
+      )
+    }
   }
 
   async deleteById(id: string): Promise<void> {
@@ -428,7 +454,7 @@ export class SqliteTxnsRepo implements TransactionsRepo {
 		WHERE account_id = ?
 		AND COALESCE(type, 'personal') = 'personal'
 		AND (
-			(is_recurring = 1 AND estimate_source IS NULL AND next_occurrence < ?)
+			(is_recurring = 1 AND estimate_source IS NULL AND is_uncertain = 0 AND is_as_needed = 0 AND next_occurrence < ?)
 			OR (is_recurring = 0 AND requires_confirmation = 1 AND confirmed_at IS NULL AND COALESCE(anchor_date, timestamp) < ?)
 		)`,
         [accountId, onOrBeforeStr, onOrBeforeStr],
@@ -448,7 +474,7 @@ export class SqliteTxnsRepo implements TransactionsRepo {
         `${SELECT_TXN}
 		FROM "Transaction"
 		WHERE account_id = ? AND COALESCE(type, 'personal') = 'personal'
-		AND is_recurring = 1 AND next_occurrence < ?`,
+		AND is_recurring = 1 AND is_uncertain = 0 AND is_as_needed = 0 AND next_occurrence < ?`,
         [accountId, formatDbTime(onOrBefore)],
       )
     } catch (err) {
@@ -458,6 +484,25 @@ export class SqliteTxnsRepo implements TransactionsRepo {
       return rows.map(scanTransaction)
     } catch (err) {
       throw wrap('transactions.ListDueRecurring: scan', err)
+    }
+  }
+
+  async listAsNeeded(accountId: string): Promise<Transaction[]> {
+    let rows: Row[]
+    try {
+      rows = await this.db.query(
+        `${SELECT_TXN}
+		FROM "Transaction"
+		WHERE account_id = ? AND COALESCE(type, 'personal') = 'personal' AND is_as_needed = 1`,
+        [accountId],
+      )
+    } catch (err) {
+      throw wrap('transactions.ListAsNeeded', err)
+    }
+    try {
+      return rows.map(scanTransaction)
+    } catch (err) {
+      throw wrap('transactions.ListAsNeeded: scan', err)
     }
   }
 

@@ -142,6 +142,8 @@ function sample(accountId: string, over: Partial<Transaction> = {}): Transaction
     paidInstallments: 0,
     estimateSource: null,
     estimateKey: null,
+    isUncertain: false,
+    isAsNeeded: false,
     ...over,
   }
 }

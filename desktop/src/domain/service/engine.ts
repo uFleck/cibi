@@ -163,7 +163,7 @@ export class EngineService {
   private readonly peerDebtRepo: PeerDebtRepo
   private readonly groupEventRepo: GroupEventRepo
   private readonly goalsRepo: GoalsRepo
-  private readonly estimator: Pick<EstimateService, 'effectiveAmount'>
+  private readonly estimator: Pick<EstimateService, 'effectiveAmount' | 'monthBudget'>
   private readonly reserve: Pick<ReserveService, 'bufferFor'>
 
   constructor(
@@ -173,7 +173,7 @@ export class EngineService {
     peerDebtRepo: PeerDebtRepo,
     groupEventRepo: GroupEventRepo,
     goalsRepo: GoalsRepo,
-    estimator: Pick<EstimateService, 'effectiveAmount'>,
+    estimator: Pick<EstimateService, 'effectiveAmount' | 'monthBudget'>,
     reserve: Pick<ReserveService, 'bufferFor'>,
   ) {
     this.accRepo = accRepo
@@ -203,6 +203,21 @@ export class EngineService {
       }
       if (isVariable(t)) total += (await this.estimator.effectiveAmount(t)) * count
       else total += t.amount * Math.max(0, count - 1)
+    }
+    return total
+  }
+
+  /**
+   * What the as-needed bills still need this calendar month: each one's budget minus what was already
+   * paid, never below zero (an overspent month frees nothing, the money is already gone).
+   */
+  private async sumAsNeededRemaining(accountId: string, now: Date): Promise<number> {
+    const bills = await this.txnsRepo.listAsNeeded(accountId)
+    let total = 0
+    for (const t of bills) {
+      if (t.isUncertain) continue
+      const { budget, spent } = await this.estimator.monthBudget(t, now)
+      total += Math.min(0, budget - spent)
     }
     return total
   }
@@ -247,7 +262,10 @@ export class EngineService {
     const repeatedObligations = await wrapping('engine.CanIBuyIt: sum repeated obligations', () =>
       this.sumRepeatedObligations(accountId, earliestPayday),
     )
-    const obligations = fixedObligations + repeatedObligations
+    const asNeededObligations = await wrapping('engine.CanIBuyIt: sum as-needed bills', () =>
+      this.sumAsNeededRemaining(accountId, now),
+    )
+    const obligations = fixedObligations + repeatedObligations + asNeededObligations
     const peerObligations = await wrapping('engine.CanIBuyIt: sum peer obligations', () =>
       this.peerDebtRepo.sumUpcomingPeerObligations(accountId, now, earliestPayday),
     )

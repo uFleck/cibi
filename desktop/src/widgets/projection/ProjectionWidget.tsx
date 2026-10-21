@@ -12,6 +12,7 @@ import type { CustomProjectionConfig } from '@/components/CustomProjectionSheet'
 import type { CustomProjection } from '@/lib/monthly-projection'
 import { effectiveAmount } from '@/lib/api'
 import { countInCurrentPayWindow, countOccurrences } from '@/lib/occurrences'
+import { asNeededForWindow, asNeededReserved, isScheduledBill } from '@/lib/bills'
 import type { ReserveAdjustment } from '@/lib/reserve-adjustment'
 import type { AccountResponse, FriendDebtBreakdownItem, PayScheduleResponse, TransactionResponse } from '@/lib/api'
 
@@ -57,8 +58,9 @@ export function ProjectionWidget({
   if (!windowEnd) return null
 
   const currentRecurringReserved = transactions
-    .filter(t => t.is_recurring)
+    .filter(isScheduledBill)
     .reduce((sum, t) => sum + Math.abs(effectiveAmount(t)) * countInCurrentPayWindow(t, nextPayday), 0)
+    + asNeededReserved(transactions)
 
   const currentInstallmentReserved = transactions
     .filter(
@@ -80,8 +82,9 @@ export function ProjectionWidget({
     account.current_balance - (reserve?.balance ?? 0) - currentRecurringReserved - currentInstallmentReserved - currentPeerReserved
 
   const nextRecurringObligations = transactions
-    .filter(t => t.is_recurring)
+    .filter(isScheduledBill)
     .reduce((sum, t) => sum + Math.abs(effectiveAmount(t)) * countOccurrences(t, windowEnd, windowStart), 0)
+    + asNeededForWindow(transactions, windowStart, windowEnd, now, false)
 
   const nextInstallmentObligations = transactions
     .filter(t => t.is_installment && t.next_occurrence !== null

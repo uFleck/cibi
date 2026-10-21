@@ -9,6 +9,8 @@ export const ROW_KEYS = {
   add: 'a',
   remove: 'r',
   copy: 'y',
+  skip: 'p',
+  uncertain: 'n',
 } as const
 
 export interface RowAction {

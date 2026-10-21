@@ -97,6 +97,7 @@ const EXPECTED_ROUTES: string[] = [
 
 // Desktop-only routes (no Go counterpart): app settings (migration 0002) and categories (migrations 0003 and 0007) and budget (migration 0004) and reserve (migration 0010).
 const DESKTOP_ROUTES = [
+  'POST /api/transactions/:id/skip',
   'GET /api/settings/:key',
   'PUT /api/settings/:key',
   'GET /api/categories',

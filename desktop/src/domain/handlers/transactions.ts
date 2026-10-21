@@ -35,6 +35,7 @@ export type TransactionsServiceIface = Pick<
   | 'deleteTransaction'
   | 'confirmRecurring'
   | 'confirmInstallment'
+  | 'postponeRecurring'
 >
 
 /** JSON shape of a transaction (Go: TransactionResponse). Amount is dollars. */
@@ -66,10 +67,18 @@ export interface TransactionResponse {
   estimated_amount: number | null
   /** How many past payments the estimate comes from; null when fixed. */
   estimate_samples: number | null
+  /** Not sure it will be paid: left out of every forecast. */
+  is_uncertain: boolean
+  /** Bought as needed, with a budget per calendar month. */
+  is_as_needed: boolean
+  /** Dollars, negative. An as-needed bill's budget for this month; null for other bills. */
+  month_budget: number | null
+  /** Dollars, negative or 0. What an as-needed bill was paid this month; null for other bills. */
+  month_spent: number | null
 }
 
-/** The estimator the handlers use to fill in estimated_amount (so tests can inject a fake). */
-export type EstimatorIface = Pick<EstimateService, 'estimate'>
+/** The estimator the handlers use to fill in estimated_amount and the month budget (so tests can inject a fake). */
+export type EstimatorIface = Pick<EstimateService, 'estimate' | 'monthBudget'>
 
 const CREATE_SCHEMA = {
   account_id: 'string',
@@ -86,6 +95,8 @@ const CREATE_SCHEMA = {
   total_installments: 'intPtr',
   estimate_source: 'stringPtr',
   estimate_key: 'stringPtr',
+  is_uncertain: 'bool',
+  is_as_needed: 'bool',
 } as const
 
 const CREATE_FIELDS: FieldSpec[] = [
@@ -108,6 +119,8 @@ const PATCH_SCHEMA = {
   anchor_date: 'stringPtr',
   estimate_source: 'stringPtr',
   estimate_key: 'stringPtr',
+  is_uncertain: 'boolPtr',
+  is_as_needed: 'boolPtr',
 } as const
 
 const CONFIRM_SCHEMA = {
@@ -139,6 +152,10 @@ export function toTransactionResponse(t: Transaction): TransactionResponse {
     estimate_key: t.estimateKey,
     estimated_amount: null,
     estimate_samples: null,
+    is_uncertain: t.isUncertain,
+    is_as_needed: t.isAsNeeded,
+    month_budget: null,
+    month_spent: null,
   }
   if (t.friendId !== null) {
     response.friend_id = t.friendId
@@ -161,6 +178,12 @@ async function withEstimate(t: Transaction, estimator: EstimatorIface): Promise<
   if (estimate !== null) {
     response.estimated_amount = estimate.amount / 100
     response.estimate_samples = estimate.samples
+  }
+  if (t.isAsNeeded) {
+    const month = await estimator.monthBudget(t)
+    response.month_budget = month.budget / 100
+    response.month_spent = month.spent / 100
+    response.estimate_samples = month.samples
   }
   return response
 }
@@ -261,6 +284,8 @@ export function registerTransactionsRoutes(
       paidInstallments: 0,
       estimateSource: req.estimate_source,
       estimateKey: req.estimate_key,
+      isUncertain: req.is_uncertain,
+      isAsNeeded: req.is_as_needed,
     }
     // An empty anchor_date is no anchor (Go: != "").
     if (req.anchor_date !== null && req.anchor_date !== '') {
@@ -284,6 +309,8 @@ export function registerTransactionsRoutes(
       isInstallment: req.is_installment ?? undefined,
       isRecurring: req.is_recurring ?? undefined,
       frequency: req.frequency ?? undefined,
+      isUncertain: req.is_uncertain ?? undefined,
+      isAsNeeded: req.is_as_needed ?? undefined,
     }
     // An empty source and key make the amount fixed again.
     if (req.estimate_source !== null || req.estimate_key !== null) {
@@ -322,6 +349,17 @@ export function registerTransactionsRoutes(
     await svc.confirmRecurring(id, cents).catch(notFoundOr500(NOT_FOUND))
 
     // Return updated transaction with new next_occurrence.
+    const txn = await svc.getTransaction(id).catch(rethrow500)
+    return { body: await withEstimate(txn, estimator).catch(rethrow500) }
+  })
+
+  // Skips one occurrence of a recurring bill: next_occurrence moves on, the balance stays.
+  route('POST', '/api/transactions/:id/skip', async ({ params }) => {
+    const id = parseIdOr400(params.id, 'invalid transaction id')
+    await svc.postponeRecurring(id).catch((err: unknown) => {
+      if (isErr(err, ErrNoRows)) throw new HttpError(404, NOT_FOUND)
+      throw new HttpError(400, messageOf(err))
+    })
     const txn = await svc.getTransaction(id).catch(rethrow500)
     return { body: await withEstimate(txn, estimator).catch(rethrow500) }
   })

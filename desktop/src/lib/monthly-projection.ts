@@ -1,4 +1,5 @@
 import { effectiveAmount } from '@/lib/api'
+import { asNeededForWindow, asNeededReserved, isScheduledBill } from '@/lib/bills'
 import { countOccurrences } from '@/lib/occurrences'
 import { nextPaydayAfter } from '@/lib/pay-schedule'
 import type { ReserveAdjustment } from '@/lib/reserve-adjustment'
@@ -44,8 +45,9 @@ export function computeMonthlyProjection(
   }
 
   const recurringObligations = transactions
-    .filter(t => t.is_recurring && !t.is_installment)
+    .filter(t => isScheduledBill(t) && !t.is_installment)
     .reduce((sum, t) => sum + Math.abs(effectiveAmount(t)) * countOccurrences(t, monthEnd, monthStart), 0)
+    + asNeededReserved(transactions)
 
   const installmentObligations = transactions
     .filter(t => t.is_installment && t.next_occurrence !== null && t.amount < 0
@@ -104,8 +106,9 @@ export function computeCustomProjection(
 
   const obStart = now > windowStart ? now : windowStart
   const recurringObligations = transactions
-    .filter(t => t.is_recurring && !t.is_installment)
+    .filter(t => isScheduledBill(t) && !t.is_installment)
     .reduce((sum, t) => sum + Math.abs(effectiveAmount(t)) * countOccurrences(t, windowEnd, obStart), 0)
+    + asNeededForWindow(transactions, obStart, windowEnd, now)
 
   const installmentObligations = transactions
     .filter(t => t.is_installment && t.next_occurrence !== null && t.amount < 0

@@ -68,6 +68,8 @@ async function variableMarket(over: { source?: string; key?: string; amount?: nu
     paidInstallments: 0,
     estimateSource: over.source ?? 'category',
     estimateKey: over.key ?? 'Groceries',
+    isUncertain: false,
+    isAsNeeded: false,
   })
 }
 
@@ -141,6 +143,8 @@ describe('validation', () => {
         paidInstallments: 0,
         estimateSource: 'category',
         estimateKey: 'Groceries',
+        isUncertain: false,
+        isAsNeeded: false,
       }),
     ).rejects.toThrow('only a recurring')
   })
@@ -210,7 +214,7 @@ describe('engine with fixed recurring bills', () => {
 })
 
 describe('confirm', () => {
-  it('debits the amount you typed, else the current estimate, and a fixed one always debits its own amount', async () => {
+  it('debits the amount you typed, else the current estimate, and rejects an amount of the wrong sign', async () => {
     await paidExpense(20000, 'Extra', 'Groceries', '2026-03-08T12:00:00Z')
     const t = await variableMarket()
     const before = (await app.accountsRepo.getById(accountId)).currentBalance
@@ -222,7 +226,7 @@ describe('confirm', () => {
     // The first confirmation joined the history: the payments are now -20000 and -23456.
     expect((await app.accountsRepo.getById(accountId)).currentBalance).toBe(before - 23456 - 21728)
 
-    await expect(app.txnsSvc.confirmRecurring(t.id, 500)).rejects.toThrow('must be an expense')
+    await expect(app.txnsSvc.confirmRecurring(t.id, 500)).rejects.toThrow('must have the sign of the transaction')
   })
 })
 

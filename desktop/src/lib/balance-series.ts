@@ -1,4 +1,5 @@
 import { effectiveAmount } from '@/lib/api'
+import { asNeededBudget, asNeededReserved, laterMonthShares, startOfNextMonth } from '@/lib/bills'
 import { occurrenceDates } from '@/lib/occurrences'
 import { nextPaydayAfter } from '@/lib/pay-schedule'
 import type { ReserveAdjustment } from '@/lib/reserve-adjustment'
@@ -76,6 +77,7 @@ export function computeBalanceSeries(input: BalanceSeriesInput): BalancePoint[] 
 
   for (const t of transactions) {
     if (t.next_occurrence === null) continue
+    if (t.is_uncertain || t.is_as_needed) continue
     const isBill = t.is_recurring && !t.is_installment
     const isInstallment = t.is_installment && t.amount < 0
     if (!isBill && !isInstallment) continue
@@ -86,6 +88,16 @@ export function computeBalanceSeries(input: BalanceSeriesInput): BalancePoint[] 
     }
     const date = inRange(t.next_occurrence, start, end)
     if (date) add(date, -Math.abs(t.amount))
+  }
+
+  // As-needed bills: what is left of this month on the first day, then each later day's share.
+  const asNeeded = transactions.filter(t => t.is_as_needed && !t.is_uncertain)
+  if (asNeeded.length > 0) {
+    const now = new Date()
+    const nextMonth = startOfNextMonth(now)
+    if (start.getTime() < nextMonth.getTime()) add(start, -asNeededReserved(asNeeded))
+    const budget = asNeeded.reduce((sum, t) => sum + asNeededBudget(t), 0)
+    for (const [day, share] of laterMonthShares(start, end, nextMonth)) add(day, -budget * share)
   }
 
   for (const debt of friendBreakdown) {

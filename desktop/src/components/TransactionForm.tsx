@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ValueInput } from '@/components/ui/value-input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CategoryField } from '@/components/CategoryField'
 import { LinksField } from '@/components/LinksField'
@@ -26,6 +27,10 @@ export interface TransactionFormValues {
   /** 'category' or 'keyword' to estimate the amount from past payments; empty for a fixed amount. */
   estimate_source?: string
   estimate_key?: string
+  /** Not sure it will be paid: left out of every forecast. */
+  is_uncertain?: boolean
+  /** Bought as needed, with a budget per calendar month (the amount) instead of a due date. */
+  is_as_needed?: boolean
 }
 
 export type TransactionFormErrors = Partial<Record<keyof TransactionFormValues, string>>
@@ -226,7 +231,7 @@ export function TransactionForm({
       )}
       {!formData.is_installment && (formData.is_recurring || formData.requires_confirmation) && (
         <>
-          {formData.is_recurring && (
+          {formData.is_recurring && !formData.is_as_needed && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="txn-frequency" className="text-xs">Frequency</Label>
               <Select
@@ -244,32 +249,37 @@ export function TransactionForm({
               </Select>
             </div>
           )}
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="txn-anchor" className="text-xs">{formData.is_recurring ? 'Anchor Date' : 'Pending date'}</Label>
-            <DateInput
-              id="txn-anchor"
-              value={formData.anchor_date || ''}
-              onChange={anchor_date => onChange({ anchor_date })}
-            />
-          </div>
+          {!formData.is_as_needed && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="txn-anchor" className="text-xs">{formData.is_recurring ? 'Anchor Date' : 'Pending date'}</Label>
+              <DateInput
+                id="txn-anchor"
+                value={formData.anchor_date || ''}
+                onChange={anchor_date => onChange({ anchor_date })}
+              />
+            </div>
+          )}
           {formData.is_recurring && (
             <div className="flex flex-col gap-2">
               <Label className="text-xs">Amount</Label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {([
                   { value: 'fixed', label: 'Always the same' },
                   { value: 'estimated', label: 'Varies: estimate it' },
+                  { value: 'as-needed', label: 'Quando precisar' },
                 ] as const).map(({ value, label }) => {
-                  const estimated = !!formData.estimate_source
-                  const active = value === 'estimated' ? estimated : !estimated
+                  const mode = formData.is_as_needed ? 'as-needed' : formData.estimate_source ? 'estimated' : 'fixed'
+                  const active = value === mode
                   return (
                     <button
                       type="button"
                       key={value}
                       className={`rounded-md border px-3 py-2.5 text-xs text-left transition-colors ${active ? 'border-primary bg-primary/10 text-primary font-medium' : 'border-border text-muted-foreground hover:border-muted-foreground hover:text-foreground'}`}
                       onClick={() => onChange(value === 'estimated'
-                        ? { estimate_source: 'category', estimate_key: formData.estimate_key || formData.category || '' }
-                        : { estimate_source: '', estimate_key: '' })}
+                        ? { estimate_source: 'category', estimate_key: formData.estimate_key || formData.category || '', is_as_needed: false }
+                        : value === 'as-needed'
+                          ? { estimate_source: '', estimate_key: '', is_as_needed: true, frequency: 'monthly' }
+                          : { estimate_source: '', estimate_key: '', is_as_needed: false })}
                     >
                       {label}
                     </button>
@@ -311,7 +321,27 @@ export function TransactionForm({
                   </p>
                 </div>
               )}
+              {formData.is_as_needed && (
+                <p className="text-xs text-muted-foreground">
+                  Sem data certa: o valor acima é o orçamento do mês. Cada compra registrada desconta dele, e todo mês
+                  começa de novo. Depois de alguns meses, o orçamento passa a ser a mediana do que vocês gastaram.
+                </p>
+              )}
             </div>
+          )}
+          {formData.is_recurring && (
+            <label className="flex items-start gap-3 rounded-md border border-border px-3 py-2.5 cursor-pointer">
+              <Switch
+                id="txn-uncertain"
+                checked={!!formData.is_uncertain}
+                onCheckedChange={checked => onChange({ is_uncertain: checked })}
+                className="mt-0.5"
+              />
+              <span className="flex flex-col gap-0.5">
+                <span className="text-xs font-medium">Não sei se vamos pagar</span>
+                <span className="text-xs text-muted-foreground">Fica na lista, mas fora da conta até pagar ou decidir.</span>
+              </span>
+            </label>
           )}
         </>
       )}
