@@ -24,8 +24,8 @@ export function EditSheet({ open, onOpenChange, title, description, children }: 
 
   useKeyboardShortcuts(open ? [{
     keys: 'Mod+Enter',
-    label: 'Save form',
-    group: 'Forms',
+    label: 'Salvar formulário',
+    group: 'Formulários',
     scope: 'form',
     allowInInput: true,
     run: () => {

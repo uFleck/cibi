@@ -47,20 +47,20 @@ function AmountForm({ title, suggested, samples, hint, sign: givenSign, onConfir
       className="space-y-4"
     >
       <DialogHeader>
-        <DialogTitle>How much was {title}?</DialogTitle>
+        <DialogTitle>Quanto foi {title}?</DialogTitle>
         <DialogDescription>
           {hint ?? (samples > 0
-            ? `The suggestion is the median of your last ${samples} matching payment${samples === 1 ? '' : 's'}.`
-            : 'There are no past payments to estimate from yet, so the suggestion is the amount you set.')}
+            ? `A sugestão é a mediana ${samples === 1 ? 'do último pagamento parecido' : `dos últimos ${samples} pagamentos parecidos`}.`
+            : 'Ainda não há pagamentos anteriores para estimar, então a sugestão é o valor definido.')}
         </DialogDescription>
       </DialogHeader>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="confirm-amount" className="text-xs">Amount paid</Label>
+        <Label htmlFor="confirm-amount" className="text-xs">Valor pago</Label>
         <ValueInput id="confirm-amount" value={text} onValueChange={setText} allowNegative={false} autoFocus />
       </div>
       <DialogFooter>
-        <Button type="button" variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" size="sm" disabled={amount === null}>Mark paid</Button>
+        <Button type="button" variant="outline" size="sm" onClick={onCancel}>Cancelar</Button>
+        <Button type="submit" size="sm" disabled={amount === null}>Marcar como pago</Button>
       </DialogFooter>
     </form>
   )

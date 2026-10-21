@@ -64,8 +64,8 @@ describe('FriendLedgerWidget', () => {
 
     renderWidget()
 
-    expect(await screen.findByText('No friends yet.')).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Add friend' }).getAttribute('href')).toBe('/friends')
+    expect(await screen.findByText('Nenhum amigo ainda.')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Adicionar amigo' }).getAttribute('href')).toBe('/friends')
   })
 
   it('keeps the balance message when friends exist without outstanding balances', async () => {
@@ -75,7 +75,7 @@ describe('FriendLedgerWidget', () => {
 
     renderWidget()
 
-    expect(await screen.findByText('No outstanding balances')).toBeTruthy()
-    expect(screen.queryByRole('link', { name: 'Add friend' })).toBeNull()
+    expect(await screen.findByText('Nenhum saldo pendente')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: 'Adicionar amigo' })).toBeNull()
   })
 })

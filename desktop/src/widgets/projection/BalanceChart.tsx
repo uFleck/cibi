@@ -55,7 +55,7 @@ export function BalanceChart({ points, floor, currency, endsOnPayday }: BalanceC
     <div>
       <div
         role="img"
-        aria-label={`Projected balance from ${shortDate(points[0].date)} to ${shortDate(points[last].date)}, ending at ${formatMoney(points[last].balance, currency)}`}
+        aria-label={`Saldo previsto de ${shortDate(points[0].date)} até ${shortDate(points[last].date)}, terminando em ${formatMoney(points[last].balance, currency)}`}
         className="relative mt-1 h-[150px] cursor-crosshair @min-[760px]/widget:h-[210px] @max-[340px]/widget:h-[116px]"
         onPointerMove={onMove}
         onPointerLeave={() => setHover(null)}
@@ -127,8 +127,8 @@ export function BalanceChart({ points, floor, currency, endsOnPayday }: BalanceC
               <br />
               <span className="opacity-65">
                 {gap >= 0
-                  ? `${formatMoney(gap, currency)} above buffer`
-                  : `${formatMoney(-gap, currency)} below buffer`}
+                  ? `${formatMoney(gap, currency)} acima da margem`
+                  : `${formatMoney(-gap, currency)} abaixo da margem`}
               </span>
             </div>
           </>

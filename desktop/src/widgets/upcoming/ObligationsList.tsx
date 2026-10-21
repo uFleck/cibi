@@ -49,9 +49,9 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
 
       {obligations.length === 0 && asNeeded.length === 0 ? (
         <div className="flex flex-col items-start gap-3">
-          <p className="text-sm text-muted-foreground">No upcoming obligations.</p>
+          <p className="text-sm text-muted-foreground">Nenhuma conta próxima.</p>
           <Button size="sm" variant="outline" asChild>
-            <Link to="/transactions">Add recurring bill</Link>
+            <Link to="/transactions">Adicionar conta recorrente</Link>
           </Button>
         </div>
       ) : (
@@ -106,14 +106,14 @@ export function ObligationsList({ transactions, currency = 'BRL', nextPayday, se
                 className="min-w-[5.5rem] shrink-0 text-right text-[13px] font-medium whitespace-nowrap"
               />
               <span className="w-[4.5rem] shrink-0 text-right text-[11px] text-muted-foreground whitespace-nowrap">
-                left this month
+                falta este mês
               </span>
             </div>
           ))}
           <div className="border-t border-line mt-1" />
           <div className="flex items-center py-1.5 gap-3">
             <span className="flex-1 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-              Total reserved
+              Total reservado
             </span>
             <span aria-hidden className="w-8 shrink-0" />
             <MoneyValue

@@ -9,9 +9,9 @@ import { createPaySchedule, type CreatePayScheduleRequest } from '@/lib/api'
 type Frequency = 'weekly' | 'bi-weekly' | 'monthly'
 
 const FREQUENCIES: { value: Frequency; label: string }[] = [
-  { value: 'weekly', label: 'Weekly' },
-  { value: 'bi-weekly', label: 'Bi-weekly' },
-  { value: 'monthly', label: 'Monthly' },
+  { value: 'weekly', label: 'Semanal' },
+  { value: 'bi-weekly', label: 'Quinzenal' },
+  { value: 'monthly', label: 'Mensal' },
 ]
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -33,15 +33,15 @@ export function PayScheduleForm() {
     e.preventDefault()
 
     if (!anchorDate) {
-      toast.error('Please enter your first pay date')
+      toast.error('Informe a data do primeiro recebimento')
       return
     }
     if (frequency === 'monthly' && !dayOfMonth) {
-      toast.error('Please enter the day of the month')
+      toast.error('Informe o dia do mês')
       return
     }
     if (frequency === 'bi-weekly' && (!dayOfMonth || !dayOfMonth2)) {
-      toast.error('Please enter both pay days')
+      toast.error('Informe os dois dias de recebimento')
       return
     }
 
@@ -55,10 +55,10 @@ export function PayScheduleForm() {
         day_of_month_2: dayOfMonth2 ? parseInt(dayOfMonth2, 10) : undefined,
       }
       await createPaySchedule(schedule)
-      toast.success('Pay schedule saved!')
+      toast.success('Recebimento salvo!')
     } catch (err) {
       const error = err as Error
-      toast.error(error.message || 'Failed to save pay schedule')
+      toast.error(error.message || 'Não deu para salvar o recebimento')
     } finally {
       setSaving(false)
     }
@@ -67,12 +67,12 @@ export function PayScheduleForm() {
   return (
     <div className="rounded-xl border border-border/60 bg-card px-5 py-5">
       <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-5">
-        Pay Schedule
+        Recebimento
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
-          <FieldLabel>Frequency</FieldLabel>
+          <FieldLabel>Frequência</FieldLabel>
           <div className="flex gap-2">
             {FREQUENCIES.map(f => (
               <Button
@@ -89,7 +89,7 @@ export function PayScheduleForm() {
         </div>
 
         <div className="flex flex-col gap-2">
-          <FieldLabel>First Pay Date</FieldLabel>
+          <FieldLabel>Data do primeiro recebimento</FieldLabel>
           <DateInput
             value={anchorDate}
             onChange={setAnchorDate}
@@ -99,7 +99,7 @@ export function PayScheduleForm() {
 
         {frequency === 'monthly' && (
           <div className="flex flex-col gap-2">
-            <FieldLabel>Day of Month (1–31)</FieldLabel>
+            <FieldLabel>Dia do mês (1–31)</FieldLabel>
             <Input
               type="number"
               min="1"
@@ -115,7 +115,7 @@ export function PayScheduleForm() {
         {frequency === 'bi-weekly' && (
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
-              <FieldLabel>First Day</FieldLabel>
+              <FieldLabel>Primeiro dia</FieldLabel>
               <Input
                 type="number"
                 min="1"
@@ -127,7 +127,7 @@ export function PayScheduleForm() {
               />
             </div>
             <div className="flex flex-col gap-2">
-              <FieldLabel>Second Day</FieldLabel>
+              <FieldLabel>Segundo dia</FieldLabel>
               <Input
                 type="number"
                 min="1"
@@ -148,11 +148,11 @@ export function PayScheduleForm() {
               disabled={saving}
               className="w-full h-11 font-semibold cursor-pointer mt-1"
             >
-              {saving ? 'Saving…' : 'Save Pay Schedule'}
+              {saving ? 'Salvando…' : 'Salvar recebimento'}
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Save your pay schedule</p>
+            <p>Salvar o recebimento</p>
           </TooltipContent>
         </Tooltip>
       </form>

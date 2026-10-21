@@ -30,7 +30,7 @@ export function AccountSelector({ selectedAccountId, onSelectAccount, fullWidth,
   if (accounts.length === 0) {
     return (
       <Button asChild variant="outline" className={`${compact ? 'h-8 text-xs' : 'h-10 text-sm'}${fullWidth ? ' w-full' : ''}`}>
-        <Link to="/accounts">Create account</Link>
+        <Link to="/accounts">Criar conta</Link>
       </Button>
     )
   }
@@ -42,9 +42,9 @@ export function AccountSelector({ selectedAccountId, onSelectAccount, fullWidth,
       <SelectTrigger
         size="sm"
         className={`${compact ? 'h-8 text-xs' : 'h-10 text-sm'}${fullWidth ? ' w-full' : ''}`}
-        title="Switch account"
+        title="Trocar conta"
       >
-        <SelectValue placeholder="Select account" />
+        <SelectValue placeholder="Selecione a conta" />
       </SelectTrigger>
       <SelectContent>
         {accounts.map(account => (

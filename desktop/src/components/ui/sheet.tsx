@@ -74,7 +74,7 @@ function SheetContent({
         {children}
         <SheetPrimitive.Close className="absolute top-2.5 right-2.5 rounded-sm p-1 text-muted-foreground opacity-80 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
           <XIcon className="size-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">Fechar</span>
         </SheetPrimitive.Close>
       </SheetPrimitive.Content>
     </SheetPortal>

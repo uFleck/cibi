@@ -30,12 +30,12 @@ describe('AccountsWidget', () => {
 
   it('says so when there are no accounts', () => {
     render(<AccountsWidget accounts={[]} />)
-    expect(screen.getByText('No accounts yet.')).toBeTruthy()
+    expect(screen.getByText('Nenhuma conta ainda.')).toBeTruthy()
   })
 
   it('offers a Create account action that links to the accounts page', () => {
     render(<AccountsWidget accounts={[]} />)
-    const link = screen.getByRole('link', { name: 'Create account' })
+    const link = screen.getByRole('link', { name: 'Criar conta' })
     expect(link.getAttribute('href')).toBe('/accounts')
   })
 })

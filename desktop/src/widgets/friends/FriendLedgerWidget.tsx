@@ -37,28 +37,28 @@ export function FriendLedgerWidget() {
         <Link to="/friends">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="sm" aria-label="Go to Friends">
+              <Button variant="ghost" size="sm" aria-label="Ir para Amigos">
                 <ChevronRight size={16} />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Go to Friends</p>
+              <p>Ir para Amigos</p>
             </TooltipContent>
           </Tooltip>
         </Link>
       </div>
       <div>
         {isLoading ? (
-          <div className="flex flex-col gap-2" role="status" aria-label="Loading friend summary">
+          <div className="flex flex-col gap-2" role="status" aria-label="Carregando resumo de amigos">
             {[0, 1, 2].map(i => (
               <div key={i} className="h-5 rounded bg-muted animate-pulse" />
             ))}
-            <span className="sr-only">Loading...</span>
+            <span className="sr-only">Carregando...</span>
           </div>
         ) : summary && (summary.total_owed_to_user !== 0 || summary.total_user_owes !== 0) ? (
           <div className="flex flex-col gap-1.5 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">They owe me</span>
+              <span className="text-muted-foreground">Me devem</span>
               <MoneyValue
                 amount={summary.total_owed_to_user}
                 tone="positive"
@@ -67,7 +67,7 @@ export function FriendLedgerWidget() {
               />
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">I owe</span>
+              <span className="text-muted-foreground">Eu devo</span>
               <MoneyValue
                 amount={summary.total_user_owes}
                 tone="negative"
@@ -76,7 +76,7 @@ export function FriendLedgerWidget() {
               />
             </div>
             <div className="flex justify-between border-t border-border/40 pt-1.5 mt-0.5">
-              <span className="font-semibold">Net</span>
+              <span className="font-semibold">Saldo</span>
               <MoneyValue
                 amount={summary.net}
                 tone={summary.net > 0 ? 'positive' : summary.net < 0 ? 'negative' : 'neutral'}
@@ -88,7 +88,7 @@ export function FriendLedgerWidget() {
             {breakdown && breakdown.length > 0 && (
               <div className="mt-2 pt-2 border-t border-border/40 flex flex-col gap-1">
                 <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-0.5">
-                  Next payments
+                  Próximos pagamentos
                 </span>
                 {breakdown.map((item, i) => (
                   <div key={i} className="flex items-center justify-between">
@@ -108,7 +108,7 @@ export function FriendLedgerWidget() {
                         {item.is_installment && (
                           <p className="text-muted-foreground">
                             <MoneyValue amount={item.per_install_amount} showSign="auto" />/installment
-                            {' '}({item.paid_installments}/{item.total_installments} paid)
+                            {' '}({item.paid_installments}/{item.total_installments} pagas)
                           </p>
                         )}
                       </TooltipContent>
@@ -126,14 +126,14 @@ export function FriendLedgerWidget() {
           </div>
         ) : friends?.length === 0 ? (
           <div className="flex flex-col items-start gap-3">
-            <p className="text-sm text-muted-foreground">No friends yet.</p>
+            <p className="text-sm text-muted-foreground">Nenhum amigo ainda.</p>
             <Button size="sm" asChild>
-              <Link to="/friends">Add friend</Link>
+              <Link to="/friends">Adicionar amigo</Link>
             </Button>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground text-center py-2">
-            No outstanding balances
+            Nenhum saldo pendente
           </p>
         )}
       </div>

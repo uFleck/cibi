@@ -9,6 +9,7 @@ import { usePayScheduleMutations } from '@/hooks/usePayScheduleMutations'
 import { formatDate } from '@/lib/format'
 import { ROW_KEYS } from '@/lib/row-actions'
 import type { CreatePayScheduleRequest, PayScheduleResponse } from '@/lib/api'
+import { frequencyLabel } from '@/lib/labels'
 
 const EMPTY_FORM: AccountScheduleValues = {
   label: '',
@@ -57,8 +58,8 @@ export function PaySchedulesPanel({ accountId, currency, schedules, creating, on
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     const found: Record<string, string> = {}
-    if (!form.anchor_date) found.anchor_date = 'Next payday is required'
-    if (!form.amount) found.amount = 'Amount is required'
+    if (!form.anchor_date) found.anchor_date = 'O próximo recebimento é obrigatório'
+    if (!form.amount) found.amount = 'O valor é obrigatório'
     if (Object.keys(found).length > 0) {
       setErrors(found)
       return
@@ -87,39 +88,39 @@ export function PaySchedulesPanel({ accountId, currency, schedules, creating, on
           setConfirmDelete(null)
         }}
         onCancel={() => setConfirmDelete(null)}
-        title={`Delete "${scheduleToDelete?.label ?? scheduleToDelete?.frequency}"?`}
-        description="Future paydays from this schedule are no longer expected. Income already received stays in the ledger."
+        title={`Excluir "${scheduleToDelete?.label ?? frequencyLabel(scheduleToDelete?.frequency)}"?`}
+        description="Os próximos recebimentos deste agendamento deixam de ser esperados. Entradas já recebidas continuam no extrato."
       />
 
       <DataList
-        aria-label="Pay schedules"
+        aria-label="Recebimentos"
         rows={sorted}
         rowId={ps => ps.id}
-        empty="No pay schedules yet. Add one so paydays show up as expected income."
+        empty="Nenhum recebimento ainda. Adicione um para os dias de pagamento aparecerem como entrada prevista."
         columns={[
           {
             id: 'schedule',
-            header: 'Schedule',
-            title: ps => ps.label ?? ps.frequency,
+            header: 'Recebimento',
+            title: ps => ps.label ?? frequencyLabel(ps.frequency),
             cell: ps => (
               <>
-                <div className="truncate font-medium">{ps.label ?? ps.frequency}</div>
+                <div className="truncate font-medium">{ps.label ?? frequencyLabel(ps.frequency)}</div>
                 <div className="truncate text-[11px] text-faint">
-                  {ps.frequency} · recurring income
-                  {ps.day_of_month_2 ? ` · 2nd payday on day ${ps.day_of_month_2}` : ''}
+                  {frequencyLabel(ps.frequency)} · entrada recorrente
+                  {ps.day_of_month_2 ? ` · 2º recebimento no dia ${ps.day_of_month_2}` : ''}
                 </div>
               </>
             ),
           },
           {
             id: 'next',
-            header: 'Next payday',
+            header: 'Próximo recebimento',
             className: 'hidden w-[20%] sm:table-cell',
             cell: ps => <span className="font-mono">{formatDate(ps.next_payday)}</span>,
           },
           {
             id: 'amount',
-            header: 'Amount',
+            header: 'Valor',
             align: 'right',
             numeric: true,
             className: 'w-[28%]',
@@ -129,16 +130,16 @@ export function PaySchedulesPanel({ accountId, currency, schedules, creating, on
         actions={ps => [
           {
             id: 'confirm',
-            label: 'Mark received',
+            label: 'Marcar como recebido',
             icon: Check,
             keys: ROW_KEYS.confirm,
             disabled: confirm.isPending,
             run: () => confirm.mutate(ps.id),
           },
-          { id: 'edit', label: 'Edit', icon: Edit2, keys: ROW_KEYS.edit, primary: true, run: () => startEdit(ps) },
+          { id: 'edit', label: 'Editar', icon: Edit2, keys: ROW_KEYS.edit, primary: true, run: () => startEdit(ps) },
           {
             id: 'delete',
-            label: 'Delete',
+            label: 'Excluir',
             icon: Trash2,
             keys: ROW_KEYS.delete,
             variant: 'destructive',
@@ -152,7 +153,7 @@ export function PaySchedulesPanel({ accountId, currency, schedules, creating, on
         onOpenChange={open => {
           if (!open) closeSheet()
         }}
-        title={editingId ? 'Edit Schedule' : 'New Schedule'}
+        title={editingId ? 'Editar recebimento' : 'Novo recebimento'}
       >
         <AccountScheduleForm
           editingScheduleId={editingId}

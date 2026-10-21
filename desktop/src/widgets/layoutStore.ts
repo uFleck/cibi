@@ -41,28 +41,28 @@ const preset = (entries: PresetEntry[]): WallItem[] => entries.map(([id, span]) 
 
 export const PRESETS: Record<PresetId, { name: string; wall: WallItem[] }> = {
   w1: {
-    name: 'W1 Balanced',
+    name: 'W1 Equilibrado',
     wall: preset([
       ['kpis', 12], ['projection', 8], ['check', 4], ['budget', 6], ['upcoming', 6], ['recent', 12],
       ['categories', 6], ['payday', 3], ['goals', 3], ['accounts', 4], ['reserve', 4], ['friends', 4],
     ]),
   },
   w2: {
-    name: 'W2 Projection',
+    name: 'W2 Projeção',
     wall: preset([
       ['kpis', 12], ['projection', 12], ['check', 4], ['budget', 4], ['payday', 4], ['upcoming', 6],
       ['categories', 6], ['recent', 12], ['goals', 4], ['accounts', 4], ['reserve', 4], ['friends', 4],
     ]),
   },
   w3: {
-    name: 'W3 Ledger',
+    name: 'W3 Extrato',
     wall: preset([
       ['kpis', 12], ['recent', 8], ['upcoming', 4], ['budget', 4], ['projection', 8], ['categories', 4],
       ['check', 4], ['payday', 4], ['goals', 4], ['accounts', 4], ['reserve', 4], ['friends', 4],
     ]),
   },
   w4: {
-    name: 'W4 Compact',
+    name: 'W4 Compacto',
     wall: preset([
       ['kpis', 12], ['projection', 6], ['budget', 6], ['upcoming', 4], ['categories', 4], ['check', 4],
       ['recent', 12], ['payday', 3], ['goals', 3], ['accounts', 3], ['reserve', 3], ['friends', 3],

@@ -23,7 +23,7 @@ describe('PayWindowBar empty state', () => {
   it('asks for a pay schedule and links to accounts when none exists', () => {
     render(<PayWindowBar nextPayday={null} paySchedules={[]} />)
 
-    expect(screen.getByText('No pay schedule yet. Add one to see your next payday.')).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Add pay schedule' }).getAttribute('href')).toBe('/accounts')
+    expect(screen.getByText('Nenhum recebimento cadastrado ainda. Adicione um para ver o próximo recebimento.')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Adicionar recebimento' }).getAttribute('href')).toBe('/accounts')
   })
 })

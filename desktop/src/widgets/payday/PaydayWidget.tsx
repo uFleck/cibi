@@ -40,7 +40,7 @@ export function PaydayWidget({ account, paySchedules }: Props) {
         account_id: account.id,
         pay_schedule_id: schedule.id,
         amount: schedule.amount,
-        description: `${schedule.label ?? 'Payday'} received`,
+        description: `${schedule.label ?? 'Recebimento'} recebido`,
       }),
     onMutate: (schedule) => {
       setPendingIds(prev => new Set(prev).add(schedule.id))
@@ -53,7 +53,7 @@ export function PaydayWidget({ account, paySchedules }: Props) {
       })
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       queryClient.invalidateQueries({ queryKey: ['ledger', account.id] })
-      toast.success('Income recorded')
+      toast.success('Entrada registrada')
     },
     onError: (_err, schedule) => {
       setPendingIds(prev => {
@@ -61,7 +61,7 @@ export function PaydayWidget({ account, paySchedules }: Props) {
         next.delete(schedule.id)
         return next
       })
-      toast.error('Failed to record income')
+      toast.error('Não deu para registrar a entrada')
     },
   })
 
@@ -72,12 +72,12 @@ export function PaydayWidget({ account, paySchedules }: Props) {
       <CardContent className="py-3 flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <PartyPopper size={18} className="text-pos shrink-0" />
-          <p className="font-semibold text-sm">Payday</p>
+          <p className="font-semibold text-sm">Recebimento</p>
         </div>
         {dueSchedules.map(schedule => (
           <div key={schedule.id} className="flex items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">
-              {schedule.label ?? 'Pay schedule'} ·{' '}
+              {schedule.label ?? 'Recebimento'} ·{' '}
               {formatMoney(schedule.amount, account.currency)}
             </p>
             <Button
@@ -87,7 +87,7 @@ export function PaydayWidget({ account, paySchedules }: Props) {
               onClick={() => markReceived(schedule)}
               disabled={pendingIds.has(schedule.id)}
             >
-              Mark as received
+              Marcar como recebido
             </Button>
           </div>
         ))}

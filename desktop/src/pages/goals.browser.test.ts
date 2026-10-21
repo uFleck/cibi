@@ -195,24 +195,24 @@ describe('GoalsPage browser contract', () => {
     // main.tsx supplies TooltipProvider in the real app; App itself does not.
     render(React.createElement(TooltipProvider, null, React.createElement(App)))
 
-    expect(await screen.findByRole('heading', { name: 'Goals Tracking' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Acompanhamento de metas' })).toBeTruthy()
     expect(window.location.pathname).toBe('/goals')
 
     const user = userEvent.setup()
 
-    await user.click((await screen.findAllByRole('button', { name: 'View goal details' }))[0])
-    const progress = await screen.findByRole('progressbar', { name: 'Emergency fund progress' })
+    await user.click((await screen.findAllByRole('button', { name: 'Ver detalhes da meta' }))[0])
+    const progress = await screen.findByRole('progressbar', { name: 'Emergency fund progresso' })
     expect(progress.getAttribute('aria-valuemin')).toBe('0')
     expect(progress.getAttribute('aria-valuemax')).toBe('100')
     expect(progress.getAttribute('aria-valuenow')).toBe('42.5')
     await user.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('progressbar', { name: 'Emergency fund progress' })).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('progressbar', { name: 'Emergency fund progresso' })).toBeNull())
 
-    await user.click(screen.getByRole('button', { name: 'New Goal' }))
+    await user.click(screen.getByRole('button', { name: 'Nova meta' }))
     const dialog = await screen.findByRole('dialog')
-    const goalName = within(dialog).getByLabelText('Goal name') as HTMLInputElement
-    const targetAmount = within(dialog).getByLabelText('Target amount') as HTMLInputElement
-    const createButton = within(dialog).getByRole('button', { name: 'Create' }) as HTMLButtonElement
+    const goalName = within(dialog).getByLabelText('Nome da meta') as HTMLInputElement
+    const targetAmount = within(dialog).getByLabelText('Valor da meta') as HTMLInputElement
+    const createButton = within(dialog).getByRole('button', { name: 'Criar' }) as HTMLButtonElement
     expect(goalName.className).toContain('focus-visible:ring')
     expect(targetAmount.getAttribute('inputmode')).toBe('decimal')
     expect(createButton.disabled).toBe(true)
@@ -232,13 +232,13 @@ describe('GoalsPage browser contract', () => {
 
     renderGoalsPageWithClient()
 
-    const page = await screen.findByRole('heading', { name: 'Goals Tracking' })
+    const page = await screen.findByRole('heading', { name: 'Acompanhamento de metas' })
     const pageShell = page.closest('.max-w-3xl')
     expect(pageShell?.className).toContain('px-4')
     expect(pageShell?.className).toContain('sm:px-6')
 
     // The dense goals table keeps one fixed layout: it clamps long text and never scrolls sideways.
-    const addMoney = (await screen.findAllByRole('button', { name: 'Add money' }))[0]
+    const addMoney = (await screen.findAllByRole('button', { name: 'Adicionar valor' }))[0]
     expect(addMoney.closest('table')?.className).toContain('table-fixed')
     expect(addMoney.closest('.overflow-x-auto')).toBeNull()
 
@@ -246,8 +246,8 @@ describe('GoalsPage browser contract', () => {
     await user.click(addMoney)
 
     const dialog = await screen.findByRole('dialog')
-    const quickContribution = within(dialog).getByLabelText('Quick contribution')
-    const submit = within(dialog).getByRole('button', { name: 'Add contribution' })
+    const quickContribution = within(dialog).getByLabelText('Aporte rápido')
+    const submit = within(dialog).getByRole('button', { name: 'Adicionar aporte' })
     expect(quickContribution.closest('form')?.className).toContain('flex-col')
     expect(submit).toHaveProperty('disabled', true)
 
@@ -262,16 +262,16 @@ describe('GoalsPage browser contract', () => {
 
     renderGoalsPageWithClient()
 
-    expect(await screen.findByText('No goals yet')).toBeTruthy()
-    expect(screen.getByText(/Create your first goal and CIBI will track/)).toBeTruthy()
-    const newGoal = screen.getByRole('button', { name: 'New Goal' })
+    expect(await screen.findByText('Nenhuma meta ainda')).toBeTruthy()
+    expect(screen.getByText(/Crie sua primeira meta e o cibi acompanha/)).toBeTruthy()
+    const newGoal = screen.getAllByRole('button', { name: 'Nova meta' }).at(-1)!
     expect(newGoal).toHaveProperty('disabled', false)
 
     const user = userEvent.setup()
     await user.click(newGoal)
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByLabelText('Goal name')).toBeTruthy()
-    expect(within(dialog).getByLabelText('Target amount')).toBeTruthy()
+    expect(within(dialog).getByLabelText('Nome da meta')).toBeTruthy()
+    expect(within(dialog).getByLabelText('Valor da meta')).toBeTruthy()
 
     cleanup()
     vi.clearAllMocks()
@@ -282,13 +282,13 @@ describe('GoalsPage browser contract', () => {
 
     renderGoalsPageWithClient()
 
-    const alert = await screen.findByRole('alert', { name: 'Goals tracking error' })
-    expect(alert.textContent).toContain('Could not load goals tracking.')
-    expect(alert.textContent).toContain('Your saved goals were not changed')
-    expect(screen.getByRole('button', { name: 'New Goal' })).toHaveProperty('disabled', false)
+    const alert = await screen.findByRole('alert', { name: 'Erro ao carregar metas' })
+    expect(alert.textContent).toContain('Não deu para carregar as metas.')
+    expect(alert.textContent).toContain('Suas metas salvas não foram alteradas')
+    expect(screen.getByRole('button', { name: 'Nova meta' })).toHaveProperty('disabled', false)
 
-    fireEvent.click(within(alert).getByRole('button', { name: 'Retry' }))
+    fireEvent.click(within(alert).getByRole('button', { name: 'Tentar de novo' }))
     await waitFor(() => expect(mockFetchGoalsTracking).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(screen.queryByRole('alert', { name: 'Goals tracking error' })).not.toBeTruthy())
+    await waitFor(() => expect(screen.queryByRole('alert', { name: 'Erro ao carregar metas' })).not.toBeTruthy())
   })
 })

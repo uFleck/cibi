@@ -65,11 +65,11 @@ describe('CheckWidget impact wiring', () => {
 
     render(<CheckWidget accountId="acct-1" />)
 
-    await user.type(screen.getByLabelText('Purchase amount'), '50,00')
-    await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
+    await user.type(screen.getByLabelText('Valor da compra'), '50,00')
+    await user.click(screen.getByRole('button', { name: 'Verificar impacto da compra' }))
 
     await waitFor(() => expect(mockPostCheck).toHaveBeenCalledWith(50, 'acct-1'))
-    expect(await screen.findByText('WAIT')).toBeTruthy()
+    expect(await screen.findByText('AGUARDE')).toBeTruthy()
     expect(sessionStorage.getItem(LAST_CHECK_RESULT_KEY)).toBe(JSON.stringify(baseResult))
   })
 
@@ -79,17 +79,17 @@ describe('CheckWidget impact wiring', () => {
 
     render(<CheckWidget accountId="acct-1" />)
 
-    await user.type(screen.getByLabelText('Purchase amount'), '50')
-    await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
+    await user.type(screen.getByLabelText('Valor da compra'), '50')
+    await user.click(screen.getByRole('button', { name: 'Verificar impacto da compra' }))
 
-    expect(await screen.findByLabelText('Emergency fund purchase impact')).toBeTruthy()
-    expect(screen.getByLabelText('Goal impact preview')).toBeTruthy()
-    expect(screen.getByText('1 affected')).toBeTruthy()
-    expect(screen.getByText('Contribution capacity impact')).toBeTruthy()
+    expect(await screen.findByLabelText('Impacto da compra em Emergency fund')).toBeTruthy()
+    expect(screen.getByLabelText('Prévia do impacto nas metas')).toBeTruthy()
+    expect(screen.getByText('1 afetadas')).toBeTruthy()
+    expect(screen.getByText('Impacto na capacidade de aporte')).toBeTruthy()
     expect(screen.getByText('high')).toBeTruthy()
-    expect(screen.getByText('Min contribution / payment window')).toBeTruthy()
-    expect(screen.getByText((_, el) => el?.tagName === 'P' && (el.textContent ?? '').includes('This check does not move goal progress.'))).toBeTruthy()
-    expect(screen.getByText('leaves too little for your minimum window contribution', { exact: false })).toBeTruthy()
+    expect(screen.getByText('Aporte mínimo no período')).toBeTruthy()
+    expect(screen.getByText((_, el) => el?.tagName === 'P' && (el.textContent ?? '').includes('Esta verificação não altera o progresso da meta.'))).toBeTruthy()
+    expect(screen.getByText('deixa pouco para o aporte mínimo do período', { exact: false })).toBeTruthy()
   })
 
   it('keeps latest-impact semantics explicit when no active goals are affected', async () => {
@@ -98,12 +98,12 @@ describe('CheckWidget impact wiring', () => {
 
     render(<CheckWidget accountId="acct-1" />)
 
-    await user.type(screen.getByLabelText('Purchase amount'), '15')
-    await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
+    await user.type(screen.getByLabelText('Valor da compra'), '15')
+    await user.click(screen.getByRole('button', { name: 'Verificar impacto da compra' }))
 
-    expect(await screen.findByLabelText('Goal impact preview')).toBeTruthy()
-    expect(screen.getByText('No active goals affected.')).toBeTruthy()
-    expect(screen.getByText('no goal progress would move', { exact: false })).toBeTruthy()
+    expect(await screen.findByLabelText('Prévia do impacto nas metas')).toBeTruthy()
+    expect(screen.getByText('Nenhuma meta ativa afetada.')).toBeTruthy()
+    expect(screen.getByText('nenhum progresso de meta muda', { exact: false })).toBeTruthy()
   })
 
   it('shows covered goals when current window minimum was already met', async () => {
@@ -123,11 +123,11 @@ describe('CheckWidget impact wiring', () => {
 
     render(<CheckWidget accountId="acct-1" />)
 
-    await user.type(screen.getByLabelText('Purchase amount'), '12')
-    await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
+    await user.type(screen.getByLabelText('Valor da compra'), '12')
+    await user.click(screen.getByRole('button', { name: 'Verificar impacto da compra' }))
 
-    expect(await screen.findByLabelText('Goals already covered this window')).toBeTruthy()
-    expect(screen.getByText('Already covered this window')).toBeTruthy()
+    expect(await screen.findByLabelText('Metas já cobertas neste período')).toBeTruthy()
+    expect(screen.getByText('Já coberto neste período')).toBeTruthy()
     expect(screen.getByText('Vacation fund')).toBeTruthy()
   })
 
@@ -138,19 +138,19 @@ describe('CheckWidget impact wiring', () => {
 
     render(<CheckWidget accountId="acct-1" />)
 
-    expect(screen.getByLabelText('Purchase amount')).toBeTruthy()
-    await user.type(screen.getByLabelText('Purchase amount'), '25')
-    await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
+    expect(screen.getByLabelText('Valor da compra')).toBeTruthy()
+    await user.type(screen.getByLabelText('Valor da compra'), '25')
+    await user.click(screen.getByRole('button', { name: 'Verificar impacto da compra' }))
 
-    const input = screen.getByLabelText('Purchase amount') as HTMLInputElement
-    const button = screen.getByRole('button', { name: 'Checking purchase impact' }) as HTMLButtonElement
-    expect(screen.getByRole('status').textContent).toContain('Checking this purchase against your cash flow')
+    const input = screen.getByLabelText('Valor da compra') as HTMLInputElement
+    const button = screen.getByRole('button', { name: 'Verificando impacto da compra' }) as HTMLButtonElement
+    expect(screen.getByRole('status').textContent).toContain('Verificando esta compra com seu fluxo de caixa')
     expect(input.disabled).toBe(true)
     expect(button.disabled).toBe(true)
 
     resolveCheck({ ...baseResult, can_buy: true, risk_level: 'LOW', will_afford_after_payday: false, wait_until: null })
 
-    expect(await screen.findByText('YES')).toBeTruthy()
+    expect(await screen.findByText('SIM')).toBeTruthy()
   })
 
   it('keeps retry/recovery readable after API failures', async () => {
@@ -159,19 +159,19 @@ describe('CheckWidget impact wiring', () => {
 
     render(<CheckWidget accountId="acct-1" />)
 
-    await user.type(screen.getByLabelText('Purchase amount'), '25')
-    await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
+    await user.type(screen.getByLabelText('Valor da compra'), '25')
+    await user.click(screen.getByRole('button', { name: 'Verificar impacto da compra' }))
 
-    await waitFor(() => expect(toastErrorMock).toHaveBeenCalledWith('Something went wrong. Try again.'))
-    const alert = screen.getByRole('alert', { name: 'Purchase check error' })
-    expect(alert.textContent).toContain('Could not check purchase impact.')
-    expect(alert.textContent).toContain('Something went wrong. Try again when the connection is ready.')
-    expect(screen.getByLabelText('Purchase amount').getAttribute('aria-invalid')).toBe('true')
-    expect(screen.getByRole('button', { name: 'Check purchase impact' })).toBeTruthy()
+    await waitFor(() => expect(toastErrorMock).toHaveBeenCalledWith('Algo deu errado. Tente de novo.'))
+    const alert = screen.getByRole('alert', { name: 'Erro na verificação da compra' })
+    expect(alert.textContent).toContain('Não deu para verificar o impacto da compra.')
+    expect(alert.textContent).toContain('Algo deu errado. Tente de novo quando a conexão estiver disponível.')
+    expect(screen.getByLabelText('Valor da compra').getAttribute('aria-invalid')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Verificar impacto da compra' })).toBeTruthy()
 
-    await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
+    await user.click(screen.getByRole('button', { name: 'Verificar impacto da compra' }))
 
-    expect(await screen.findByText('WAIT')).toBeTruthy()
+    expect(await screen.findByText('AGUARDE')).toBeTruthy()
     expect(mockPostCheck).toHaveBeenCalledTimes(2)
   })
 
@@ -181,13 +181,13 @@ describe('CheckWidget impact wiring', () => {
 
     render(<CheckWidget accountId="acct-1" />)
 
-    await user.type(screen.getByLabelText('Purchase amount'), '25')
-    await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
-    await user.click(await screen.findByText('Check another'))
+    await user.type(screen.getByLabelText('Valor da compra'), '25')
+    await user.click(screen.getByRole('button', { name: 'Verificar impacto da compra' }))
+    await user.click(await screen.findByText('Verificar outra'))
 
-    const input = screen.getByLabelText('Purchase amount') as HTMLInputElement
+    const input = screen.getByLabelText('Valor da compra') as HTMLInputElement
     expect(input.value).toBe('')
-    expect(screen.getByRole('button', { name: 'Check purchase impact' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Verificar impacto da compra' })).toBeTruthy()
   })
 
   it('supports Enter key submission without changing check-flow semantics', async () => {
@@ -195,8 +195,8 @@ describe('CheckWidget impact wiring', () => {
 
     render(<CheckWidget accountId="acct-1" />)
 
-    fireEvent.change(screen.getByLabelText('Purchase amount'), { target: { value: '33' } })
-    fireEvent.keyDown(screen.getByLabelText('Purchase amount'), { key: 'Enter' })
+    fireEvent.change(screen.getByLabelText('Valor da compra'), { target: { value: '33' } })
+    fireEvent.keyDown(screen.getByLabelText('Valor da compra'), { key: 'Enter' })
 
     await waitFor(() => expect(mockPostCheck).toHaveBeenCalledWith(33, 'acct-1'))
   })

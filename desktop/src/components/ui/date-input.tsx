@@ -61,7 +61,7 @@ function DateInput({ value, onChange, placeholder = "DD/MM/AAAA", className, onB
           }
         }}
       />
-      {invalid && <p className="text-xs text-destructive">Invalid date</p>}
+      {invalid && <p className="text-xs text-destructive">Data inválida</p>}
     </>
   )
 }

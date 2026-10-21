@@ -18,9 +18,9 @@ import { cn } from '@/lib/utils'
 import { useBudgetMonth } from './useBudgetMonth'
 
 const STATUS_LABEL: Record<BudgetStatus, string> = {
-  over: 'Over budget',
-  ahead: 'Ahead of pace',
-  ok: 'On track',
+  over: 'Acima do orçamento',
+  ahead: 'Gastando rápido',
+  ok: 'No ritmo',
 }
 
 const STATUS_TEXT: Record<BudgetStatus, string> = {
@@ -94,15 +94,15 @@ export function BudgetWidget({ currency }: { currency: string }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['budget'] }),
   })
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading budget...</p>
-  if (isError || !data) return <p className="text-sm text-muted-foreground">Could not load budget.</p>
+  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando orçamento...</p>
+  if (isError || !data) return <p className="text-sm text-muted-foreground">Não deu para carregar o orçamento.</p>
 
   const money = (cents: number) => formatMoney(cents / 100, currency)
   const header = (
     <div className="flex items-center justify-between gap-2">
       <span className="text-xs text-muted-foreground">{shortMonth(data.month)}</span>
       <Button variant="ghost" size="sm" onClick={() => requestShellAction('open-budget')}>
-        Edit
+        Editar
       </Button>
     </div>
   )
@@ -112,10 +112,10 @@ export function BudgetWidget({ currency }: { currency: string }) {
     return (
       <div className="flex flex-col gap-3">
         {header}
-        <p className="text-sm text-muted-foreground">Set monthly limits to track spending against your budget.</p>
+        <p className="text-sm text-muted-foreground">Defina limites mensais para acompanhar os gastos do orçamento.</p>
         <div>
           <Button size="sm" onClick={() => requestShellAction('open-budget')}>
-            Set limits
+            Definir limites
           </Button>
         </div>
       </div>
@@ -137,9 +137,9 @@ export function BudgetWidget({ currency }: { currency: string }) {
         <div className="flex items-center justify-between text-[11px] text-faint">
           <span className="flex items-center gap-1.5">
             <span aria-hidden className="inline-block h-2.5 w-0.5 rounded-full bg-foreground opacity-50" />
-            Today
+            Hoje
           </span>
-          <span className="font-mono">of {money(totals.limit)}</span>
+          <span className="font-mono">de {money(totals.limit)}</span>
         </div>
       </div>
       <ul className="flex flex-col gap-2">
@@ -166,10 +166,10 @@ function SummaryFigures({ data, money }: { data: BudgetResponse; money: (cents: 
   const { totals } = data
   return (
     <div className="grid grid-cols-2 gap-2 @md:grid-cols-3">
-      <Figure label="Spent" value={money(totals.spent)} />
-      <Figure label="Scheduled" value={money(totals.scheduled)} />
+      <Figure label="Gasto" value={money(totals.spent)} />
+      <Figure label="Agendado" value={money(totals.scheduled)} />
       <Figure
-        label="Left"
+        label="Falta"
         value={money(totals.left)}
         className="col-span-2 @md:col-span-1"
         valueClassName={totals.left < 0 ? 'text-neg' : undefined}
@@ -196,7 +196,7 @@ function BudgetRowItem({ row, ratio, money }: { row: BudgetRow; ratio: number; m
       <div className="flex min-w-0 flex-col">
         <div className="flex min-w-0 items-center gap-1.5 text-sm">
           <span className="truncate">{category}</span>
-          {isFixed && <Badge variant="secondary">Fixed</Badge>}
+          {isFixed && <Badge variant="secondary">Fixo</Badge>}
         </div>
         {status && <span className={cn('text-[11px]', STATUS_TEXT[status])}>{STATUS_LABEL[status]}</span>}
       </div>
@@ -245,18 +245,18 @@ function BillsDisclosure({ bills, scheduledTotal, money, open, onToggle, panelId
         className="flex items-center justify-between gap-2 text-left text-sm"
       >
         <span>
-          Scheduled bills <span className="text-xs text-muted-foreground">({bills.length})</span>
+          Contas agendadas <span className="text-xs text-muted-foreground">({bills.length})</span>
         </span>
         <span className="font-mono text-xs text-muted-foreground">{money(scheduledTotal)}</span>
       </button>
       {open && (
         <div id={panelId} className="flex flex-col gap-1.5">
-          {bills.length === 0 && <p className="text-sm text-muted-foreground">No scheduled bills this month.</p>}
+          {bills.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma conta agendada neste mês.</p>}
           {bills.map(bill => (
             <label key={bill.transactionId} className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 text-sm">
               <input
                 type="checkbox"
-                aria-label={`Count ${bill.title}`}
+                aria-label={`Incluir ${bill.title}`}
                 checked={!bill.excluded}
                 disabled={pending}
                 onChange={event => onToggleBill(bill, !event.target.checked)}
@@ -267,7 +267,7 @@ function BillsDisclosure({ bills, scheduledTotal, money, open, onToggle, panelId
               <span className={cn('font-mono text-xs', bill.excluded && 'text-muted-foreground line-through')}>{money(bill.amount)}</span>
             </label>
           ))}
-          {failed && <p className="text-xs text-neg">Could not update the bill. Try again.</p>}
+          {failed && <p className="text-xs text-neg">Não deu para atualizar a conta. Tente de novo.</p>}
         </div>
       )}
     </div>

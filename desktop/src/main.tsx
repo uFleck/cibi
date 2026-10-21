@@ -27,7 +27,7 @@ async function bootstrap(): Promise<void> {
   } catch (err) {
     root.render(
       <div className="p-6 text-sm">
-        Could not open the database
+        Não foi possível abrir o banco de dados
         <pre className="mt-2 whitespace-pre-wrap">{err instanceof Error ? err.message : String(err)}</pre>
       </div>,
     )

@@ -17,41 +17,41 @@ export function usePayScheduleMutations(onSaved?: () => void) {
   const create = useMutation({
     mutationFn: createPaySchedule,
     onSuccess: () => {
-      toast.success('Schedule added')
+      toast.success('Recebimento adicionado')
       refreshSchedules()
       onSaved?.()
     },
-    onError: onError('Failed to add schedule'),
+    onError: onError('Não deu para adicionar o recebimento'),
   })
 
   const update = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<CreatePayScheduleRequest> }) => updatePaySchedule(id, data),
     onSuccess: () => {
-      toast.success('Schedule updated')
+      toast.success('Recebimento atualizado')
       refreshSchedules()
       onSaved?.()
     },
-    onError: onError('Failed to update schedule'),
+    onError: onError('Não deu para atualizar o recebimento'),
   })
 
   const remove = useMutation({
     mutationFn: deletePaySchedule,
     onSuccess: () => {
-      toast.success('Schedule deleted')
+      toast.success('Recebimento excluído')
       refreshSchedules()
     },
-    onError: onError('Failed to delete schedule'),
+    onError: onError('Não deu para excluir o recebimento'),
   })
 
   const confirm = useMutation({
     mutationFn: confirmPaySchedule,
     onSuccess: () => {
-      toast.success('Payday confirmed')
+      toast.success('Recebimento confirmado')
       refreshSchedules()
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       queryClient.invalidateQueries({ queryKey: ['ledger'] })
     },
-    onError: onError('Failed to confirm schedule'),
+    onError: onError('Não deu para confirmar o recebimento'),
   })
 
   return { create, update, remove, confirm }

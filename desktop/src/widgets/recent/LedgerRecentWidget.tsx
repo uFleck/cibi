@@ -16,12 +16,12 @@ export function LedgerRecentWidget({ account }: Props) {
     queryFn: () => fetchLedger(account.id),
   })
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading activity...</p>
+  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando atividade...</p>
 
   if (!entries || entries.length === 0) {
     return (
       <div className="flex flex-col items-start gap-3">
-        <p className="text-sm text-muted-foreground">No activity yet.</p>
+        <p className="text-sm text-muted-foreground">Nenhuma atividade ainda.</p>
         <Button
           size="sm"
           onClick={() => {
@@ -29,7 +29,7 @@ export function LedgerRecentWidget({ account }: Props) {
             requestShellAction('new-transaction')
           }}
         >
-          Add transaction
+          Adicionar transação
         </Button>
       </div>
     )
@@ -55,7 +55,7 @@ export function LedgerRecentWidget({ account }: Props) {
         onClick={() => (navigate as (opts: { to: string; search?: Record<string, string> }) => void)({ to: '/transactions', search: { tab: 'ledger' } })}
         className="text-xs text-muted-foreground hover:text-foreground mt-1 self-start"
       >
-        View all
+        Ver todas
       </button>
     </div>
   )

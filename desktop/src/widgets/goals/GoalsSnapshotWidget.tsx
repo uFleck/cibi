@@ -46,30 +46,30 @@ function DashboardGoalCard({ goal, currency }: DashboardGoalCardProps) {
   const toneClass = progressTone(progress)
 
   return (
-    <article className="rounded-xl border border-border/60 bg-card p-3 shadow-sm" aria-label={`${goal.name} goal snapshot`}>
+    <article className="rounded-xl border border-border/60 bg-card p-3 shadow-sm" aria-label={`Resumo da meta ${goal.name}`}>
       <div className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex flex-col gap-1">
             <p className="truncate text-sm font-semibold tracking-tight text-foreground">{goal.name}</p>
-            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Dashboard goal</p>
+            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Meta do painel</p>
           </div>
           <Badge variant="secondary" className="capitalize">{goal.status}</Badge>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <GoalMoneyCell label="Invested" amount={goal.invested_total} currency={currency} />
-          <GoalMoneyCell label="Remaining" amount={goal.remaining_amount} currency={currency} />
+          <GoalMoneyCell label="Investido" amount={goal.invested_total} currency={currency} />
+          <GoalMoneyCell label="Restante" amount={goal.remaining_amount} currency={currency} />
         </div>
 
-        <div className="flex flex-col gap-2" aria-label={`${goal.name} progress`}>
+        <div className="flex flex-col gap-2" aria-label={`Progresso de ${goal.name}`}>
           <div className="flex items-center justify-between gap-2 text-xs">
-            <span className="font-medium text-foreground">Progress</span>
+            <span className="font-medium text-foreground">Progresso</span>
             <span className="font-semibold tabular-nums text-foreground">{progress.toFixed(1)}%</span>
           </div>
           <div
             className="h-2.5 w-full overflow-hidden rounded-full bg-muted shadow-inner"
             role="progressbar"
-            aria-label={`${goal.name} progress`}
+            aria-label={`Progresso de ${goal.name}`}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Number(progress.toFixed(1))}
@@ -100,21 +100,21 @@ export function GoalsSnapshotWidget() {
   const emptyState = !trackingQuery.isLoading && !trackingQuery.isError && goals.length === 0
 
   return (
-    <div aria-label="Goals snapshot" className="flex flex-col gap-3">
+    <div aria-label="Resumo das metas" className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex flex-col gap-1">
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Goals Snapshot</p>
-            <p className="text-sm font-semibold tracking-tight text-foreground">Top urgent goals</p>
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Resumo das metas</p>
+            <p className="text-sm font-semibold tracking-tight text-foreground">Metas mais urgentes</p>
           </div>
-          <Button size="xs" variant="ghost" onClick={() => navigate({ to: '/goals' })}>View all</Button>
+          <Button size="xs" variant="ghost" onClick={() => navigate({ to: '/goals' })}>Ver todas</Button>
         </div>
 
         {trackingQuery.isError ? (
-          <Card className="border-destructive/30 bg-destructive/5 py-0 shadow-none" role="alert" aria-label="Goals snapshot error">
+          <Card className="border-destructive/30 bg-destructive/5 py-0 shadow-none" role="alert" aria-label="Erro no resumo das metas">
             <CardContent className="py-3 flex flex-col gap-3 @md:flex-row @md:items-center @md:justify-between">
               <div className="min-w-0 flex flex-col gap-1">
-                <p className="text-sm font-medium text-destructive">Could not load goals.</p>
-                <p className="text-xs text-muted-foreground">Retry goals tracking without changing dashboard data.</p>
+                <p className="text-sm font-medium text-destructive">Não deu para carregar as metas.</p>
+                <p className="text-xs text-muted-foreground">Tente de novo sem alterar os dados do painel.</p>
               </div>
               <Button
                 size="xs"
@@ -122,7 +122,7 @@ export function GoalsSnapshotWidget() {
                 onClick={() => void trackingQuery.refetch()}
                 className="w-fit border-destructive/30 text-destructive hover:text-destructive"
               >
-                Retry
+                Tentar de novo
               </Button>
             </CardContent>
           </Card>
@@ -132,24 +132,24 @@ export function GoalsSnapshotWidget() {
           name="goals-widget"
           loading={trackingQuery.isLoading}
           fallback={(
-            <div className="space-y-2" role="status" aria-label="Loading goals snapshot">
+            <div className="space-y-2" role="status" aria-label="Carregando resumo das metas">
               <div className="h-28 rounded-xl border border-border/40 bg-card/60 animate-pulse" aria-hidden="true" />
-              <span className="sr-only">Loading goals snapshot...</span>
+              <span className="sr-only">Carregando resumo das metas...</span>
             </div>
           )}
         >
           {emptyState ? (
             <Card className="border-border/60 bg-muted/20 py-0 shadow-none">
               <CardContent className="py-5 text-center flex flex-col gap-2 items-center">
-                <p className="text-sm font-semibold text-foreground">No goals yet</p>
+                <p className="text-sm font-semibold text-foreground">Nenhuma meta ainda</p>
                 <p className="max-w-[24rem] text-xs text-muted-foreground text-pretty">
-                  Open Goals to create your first target and start tracking progress, money, and purchase impact.
+                  Abra Metas para criar seu primeiro objetivo e acompanhar progresso, dinheiro e impacto de compras.
                 </p>
-                <Button size="xs" onClick={() => navigate({ to: '/goals' })}>New goal</Button>
+                <Button size="xs" onClick={() => navigate({ to: '/goals' })}>Nova meta</Button>
               </CardContent>
             </Card>
           ) : !trackingQuery.isError ? (
-            <div className="flex flex-col gap-2" aria-label="Dashboard goal snapshot cards">
+            <div className="flex flex-col gap-2" aria-label="Cartões de resumo das metas">
               {goals.map(goal => <DashboardGoalCard key={goal.id} goal={goal} currency={currency} />)}
             </div>
           ) : null}

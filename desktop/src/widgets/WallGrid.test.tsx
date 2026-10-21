@@ -159,12 +159,12 @@ describe('WallGrid', () => {
     await renderLoaded()
     frame('friends')!.focus()
     fireEvent.keyDown(frame('friends')!, { key: 'Delete' })
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Friend ledger' }))
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Extrato de amigos' }))
   })
 
   it('the Remove button moves focus to the next widget', async () => {
     await renderLoaded()
-    fireEvent.click(within(frame('kpis')!).getByRole('button', { name: 'Remove Key figures' }))
+    fireEvent.click(within(frame('kpis')!).getByRole('button', { name: 'Remover Indicadores principais' }))
     expect(document.activeElement).toBe(frame('projection'))
   })
 
@@ -177,25 +177,25 @@ describe('WallGrid', () => {
 
   it('removes a widget from the wall and offers it in the tray', async () => {
     await renderLoaded()
-    fireEvent.click(within(frame('projection')!).getByRole('button', { name: 'Remove Projection' }))
+    fireEvent.click(within(frame('projection')!).getByRole('button', { name: 'Remover Projeção' }))
     expect(frame('projection')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Projection' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Projeção' }))
     expect(frameIds().at(-1)).toBe('projection')
   })
 
   it('applies a preset from the edit bar', async () => {
     await renderLoaded()
-    fireEvent.click(screen.getByRole('button', { name: 'W2 Projection' }))
+    fireEvent.click(screen.getByRole('button', { name: 'W2 Projeção' }))
     expect(frameIds().slice(0, 2)).toEqual(['kpis', 'projection'])
     expect(frameIds()).toHaveLength(12)
-    expect(screen.getByRole('button', { name: 'W2 Projection', pressed: true })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'W2 Projeção', pressed: true })).toBeTruthy()
   })
 
   it('Reset returns the wall to the last applied preset after an edit', async () => {
     await renderLoaded()
     fireEvent.keyDown(frame('kpis')!, { key: 'Delete' })
     expect(frameIds()).toHaveLength(11)
-    fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Redefinir' }))
     expect(frameIds()).toHaveLength(12)
     expect(frameIds()[0]).toBe('kpis')
   })
@@ -203,7 +203,7 @@ describe('WallGrid', () => {
   it('Done leaves edit mode', async () => {
     const setEditMode = vi.fn()
     await renderLoaded(true, setEditMode)
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Concluir' }))
     expect(setEditMode).toHaveBeenCalledWith(false)
   })
 
@@ -212,8 +212,8 @@ describe('WallGrid', () => {
     const setEditMode = vi.fn()
     renderWall(false, setEditMode)
 
-    expect(await screen.findByText('No widgets on this wall.')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Add widget' }))
+    expect(await screen.findByText('Nenhum widget neste painel.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar widget' }))
     expect(setEditMode).toHaveBeenCalledWith(true)
   })
 })

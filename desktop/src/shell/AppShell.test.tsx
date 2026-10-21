@@ -68,15 +68,15 @@ describe('AppShell', () => {
   it('marks the current page in the rail', async () => {
     renderShell('/transactions')
 
-    const transactionsLink = await screen.findByRole('link', { name: 'Transactions' })
+    const transactionsLink = await screen.findByRole('link', { name: 'Transações' })
     expect(transactionsLink.getAttribute('aria-current')).toBe('page')
-    expect(screen.getByRole('link', { name: 'Goals' }).getAttribute('aria-current')).toBeNull()
+    expect(screen.getByRole('link', { name: 'Metas' }).getAttribute('aria-current')).toBeNull()
   })
 
   it('navigates when a rail link is clicked', async () => {
     renderShell('/')
 
-    fireEvent.click(await screen.findByRole('link', { name: 'Goals' }))
+    fireEvent.click(await screen.findByRole('link', { name: 'Metas' }))
 
     expect(await screen.findByText('Page /goals')).toBeTruthy()
   })
@@ -87,7 +87,7 @@ describe('AppShell', () => {
 
     press('g')
 
-    expect(screen.getByRole('status').textContent).toContain('Settings')
+    expect(screen.getByRole('status').textContent).toContain('Configurações')
     press('s')
 
     expect(await screen.findByText('Page /settings')).toBeTruthy()
@@ -100,7 +100,7 @@ describe('AppShell', () => {
 
     press('k', { ctrlKey: true })
 
-    expect(await screen.findByRole('dialog', { name: 'Command palette' })).toBeTruthy()
+    expect(await screen.findByRole('dialog', { name: 'Paleta de comandos' })).toBeTruthy()
   })
 
   it('opens the keyboard shortcuts sheet with ?', async () => {
@@ -109,19 +109,19 @@ describe('AppShell', () => {
 
     press('?')
 
-    expect(await screen.findByRole('dialog', { name: 'Keyboard shortcuts' })).toBeTruthy()
+    expect(await screen.findByRole('dialog', { name: 'Atalhos de teclado' })).toBeTruthy()
   })
 
   it('toggles the inspector column with I on a non-overview page', async () => {
     renderShell('/transactions', false, true)
-    await screen.findByRole('link', { name: 'Transactions' })
-    expect(await screen.findByRole('complementary', { name: 'Inspector' })).toBeTruthy()
+    await screen.findByRole('link', { name: 'Transações' })
+    expect(await screen.findByRole('complementary', { name: 'Detalhes' })).toBeTruthy()
 
     press('i')
-    expect(screen.queryByRole('complementary', { name: 'Inspector' })).toBeNull()
+    expect(screen.queryByRole('complementary', { name: 'Detalhes' })).toBeNull()
 
     press('i')
-    expect(await screen.findByRole('complementary', { name: 'Inspector' })).toBeTruthy()
+    expect(await screen.findByRole('complementary', { name: 'Detalhes' })).toBeTruthy()
   })
 
   it('never shows the inspector column on Overview', async () => {
@@ -129,39 +129,39 @@ describe('AppShell', () => {
     await screen.findByRole('link', { name: 'A pagar' })
 
     press('i')
-    expect(screen.queryByRole('complementary', { name: 'Inspector' })).toBeNull()
+    expect(screen.queryByRole('complementary', { name: 'Detalhes' })).toBeNull()
   })
 
   it('navigates to transactions from the New button on another page', async () => {
     const router = renderShell('/')
 
-    fireEvent.click(await screen.findByRole('button', { name: 'New transaction' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Nova transação' }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
   })
 
   it('opens the monthly budget with B from another page', async () => {
     const router = renderShell('/transactions')
-    await screen.findByRole('link', { name: 'Transactions' })
+    await screen.findByRole('link', { name: 'Transações' })
 
     press('b')
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/widgets'))
-    expect(await screen.findByRole('dialog', { name: 'Monthly budget' })).toBeTruthy()
+    expect(await screen.findByRole('dialog', { name: 'Orçamento do mês' })).toBeTruthy()
   })
 
   it('starts the hint bar collapsed, expands it from the pill, and remembers the choice', async () => {
     window.localStorage.removeItem('cibi.hintbar.collapsed')
     renderShell('/')
     await screen.findByRole('link', { name: 'A pagar' })
-    expect(screen.queryByRole('note', { name: 'Keyboard hints' })).toBeNull()
+    expect(screen.queryByRole('note', { name: 'Dicas de teclado' })).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show keyboard hints' }))
-    expect(screen.getByRole('note', { name: 'Keyboard hints' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar dicas de teclado' }))
+    expect(screen.getByRole('note', { name: 'Dicas de teclado' })).toBeTruthy()
     expect(window.localStorage.getItem('cibi.hintbar.collapsed')).toBe('0')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Hide keyboard hints' }))
-    expect(screen.queryByRole('note', { name: 'Keyboard hints' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Ocultar dicas de teclado' }))
+    expect(screen.queryByRole('note', { name: 'Dicas de teclado' })).toBeNull()
     expect(window.localStorage.getItem('cibi.hintbar.collapsed')).toBe('1')
     window.localStorage.removeItem('cibi.hintbar.collapsed')
   })
@@ -170,21 +170,21 @@ describe('AppShell', () => {
     window.localStorage.setItem('cibi.hintbar.collapsed', '0')
     renderShell('/')
     await screen.findByRole('link', { name: 'A pagar' })
-    expect(screen.getByRole('note', { name: 'Keyboard hints' })).toBeTruthy()
+    expect(screen.getByRole('note', { name: 'Dicas de teclado' })).toBeTruthy()
 
     press('h')
-    expect(screen.getByRole('button', { name: 'Show keyboard hints' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Mostrar dicas de teclado' })).toBeTruthy()
 
     press('h')
-    expect(screen.getByRole('note', { name: 'Keyboard hints' })).toBeTruthy()
+    expect(screen.getByRole('note', { name: 'Dicas de teclado' })).toBeTruthy()
     window.localStorage.removeItem('cibi.hintbar.collapsed')
   })
 
   it('shows the bottom bar instead of the rail at compact widths', async () => {
     renderShell('/', true)
 
-    const nav = await screen.findByRole('navigation', { name: 'Main' })
+    const nav = await screen.findByRole('navigation', { name: 'Principal' })
     expect(nav.className).toContain('fixed')
-    expect(screen.getAllByRole('link', { name: 'Transactions' })).toHaveLength(1)
+    expect(screen.getAllByRole('link', { name: 'Transações' })).toHaveLength(1)
   })
 })

@@ -193,23 +193,23 @@ describe('dashboard goals browser contract', () => {
   it('keeps snapshot cards responsive, keyboard navigable, and explicit about ARIA progress', async () => {
     renderWithProviders(React.createElement(GoalsSnapshotWidget))
 
-    const snapshot = await screen.findByLabelText('Goals snapshot')
-    expect(within(snapshot).getByText('Top urgent goals')).toBeTruthy()
+    const snapshot = await screen.findByLabelText('Resumo das metas')
+    expect(within(snapshot).getByText('Metas mais urgentes')).toBeTruthy()
 
-    const cards = await screen.findByLabelText('Dashboard goal snapshot cards')
+    const cards = await screen.findByLabelText('Cartões de resumo das metas')
     expect(snapshot.contains(cards)).toBe(true)
     expect(cards.className).toContain('flex')
     expect(cards.className).toContain('flex-col')
-    expect(within(cards).getByLabelText('Emergency fund goal snapshot')).toBeTruthy()
+    expect(within(cards).getByLabelText('Resumo da meta Emergency fund')).toBeTruthy()
 
-    const emergencyProgress = within(cards).getByRole('progressbar', { name: 'Emergency fund progress' })
-    const completedProgress = within(cards).getByRole('progressbar', { name: 'Bike upgrade progress' })
+    const emergencyProgress = within(cards).getByRole('progressbar', { name: 'Progresso de Emergency fund' })
+    const completedProgress = within(cards).getByRole('progressbar', { name: 'Progresso de Bike upgrade' })
     expect(emergencyProgress.getAttribute('aria-valuenow')).toBe('42.5')
     expect(completedProgress.getAttribute('aria-valuenow')).toBe('100')
 
     const user = userEvent.setup()
     await user.tab()
-    expect(document.activeElement).toBe(within(snapshot).getByRole('button', { name: 'View all' }))
+    expect(document.activeElement).toBe(within(snapshot).getByRole('button', { name: 'Ver todas' }))
     await user.keyboard('{Enter}')
     expect(navigateMock).toHaveBeenCalledWith({ to: '/goals' })
 
@@ -221,8 +221,8 @@ describe('dashboard goals browser contract', () => {
     mockFetchGoalsTracking.mockReturnValueOnce(new Promise<GoalsTrackingResponse>(() => {}))
     renderWithProviders(React.createElement(GoalsSnapshotWidget))
 
-    expect(screen.getByRole('status', { name: 'Loading goals snapshot' })).toBeTruthy()
-    expect(screen.getByText('Loading goals snapshot...')).toBeTruthy()
+    expect(screen.getByRole('status', { name: 'Carregando resumo das metas' })).toBeTruthy()
+    expect(screen.getByText('Carregando resumo das metas...')).toBeTruthy()
 
     cleanup()
     vi.clearAllMocks()
@@ -230,8 +230,8 @@ describe('dashboard goals browser contract', () => {
     mockFetchGoalsTracking.mockResolvedValueOnce(emptyTrackingFixture)
     renderWithProviders(React.createElement(GoalsSnapshotWidget))
 
-    expect(await screen.findByText('No goals yet')).toBeTruthy()
-    expect(screen.getByText(/Open Goals to create your first target/)).toBeTruthy()
+    expect(await screen.findByText('Nenhuma meta ainda')).toBeTruthy()
+    expect(screen.getByText(/Abra Metas para criar seu primeiro objetivo/)).toBeTruthy()
 
     cleanup()
     vi.clearAllMocks()
@@ -241,11 +241,11 @@ describe('dashboard goals browser contract', () => {
       .mockResolvedValueOnce(emptyTrackingFixture)
     renderWithProviders(React.createElement(GoalsSnapshotWidget))
 
-    const alert = await screen.findByRole('alert', { name: 'Goals snapshot error' })
-    expect(alert.textContent).toContain('Could not load goals.')
-    expect(alert.textContent).toContain('Retry goals tracking without changing dashboard data.')
+    const alert = await screen.findByRole('alert', { name: 'Erro no resumo das metas' })
+    expect(alert.textContent).toContain('Não deu para carregar as metas.')
+    expect(alert.textContent).toContain('Tente de novo sem alterar os dados do painel.')
 
-    fireEvent.click(within(alert).getByRole('button', { name: 'Retry' }))
+    fireEvent.click(within(alert).getByRole('button', { name: 'Tentar de novo' }))
     await waitFor(() => expect(mockFetchGoalsTracking).toHaveBeenCalledTimes(2))
   })
 })
@@ -255,8 +255,8 @@ describe('check-impact browser contract', () => {
     setViewport(390, 844)
     renderWithProviders(React.createElement(CheckWidget, { accountId: 'acct-1' }))
 
-    const input = screen.getByLabelText('Purchase amount') as HTMLInputElement
-    const checkButton = screen.getByRole('button', { name: 'Check purchase impact' }) as HTMLButtonElement
+    const input = screen.getByLabelText('Valor da compra') as HTMLInputElement
+    const checkButton = screen.getByRole('button', { name: 'Verificar impacto da compra' }) as HTMLButtonElement
     const inputRow = input.closest('.relative')?.parentElement
     expect(input.className).toContain('focus-visible:ring-primary/50')
     expect(input.getAttribute('aria-invalid')).toBe('false')
@@ -270,12 +270,12 @@ describe('check-impact browser contract', () => {
     await user.keyboard('{Enter}')
 
     await waitFor(() => expect(mockPostCheck).toHaveBeenCalledWith(50, 'acct-1'))
-    expect(await screen.findByText('WAIT')).toBeTruthy()
-    expect(screen.getByLabelText('Goal impact preview')).toBeTruthy()
-    expect(screen.getByLabelText('Emergency fund purchase impact')).toBeTruthy()
+    expect(await screen.findByText('AGUARDE')).toBeTruthy()
+    expect(screen.getByLabelText('Prévia do impacto nas metas')).toBeTruthy()
+    expect(screen.getByLabelText('Impacto da compra em Emergency fund')).toBeTruthy()
 
-    expect(screen.getByText('Contribution capacity impact')).toBeTruthy()
-    expect(screen.getByText((_, el) => el?.tagName === 'P' && (el.textContent ?? '').includes('This check does not move goal progress.'))).toBeTruthy()
+    expect(screen.getByText('Impacto na capacidade de aporte')).toBeTruthy()
+    expect(screen.getByText((_, el) => el?.tagName === 'P' && (el.textContent ?? '').includes('Esta verificação não altera o progresso da meta.'))).toBeTruthy()
   })
 
   it('makes check loading and error recovery visible without screenshots', async () => {
@@ -285,20 +285,20 @@ describe('check-impact browser contract', () => {
     renderWithProviders(React.createElement(CheckWidget))
 
     const user = userEvent.setup()
-    await user.type(screen.getByLabelText('Purchase amount'), '25')
-    await user.click(screen.getByRole('button', { name: 'Check purchase impact' }))
+    await user.type(screen.getByLabelText('Valor da compra'), '25')
+    await user.click(screen.getByRole('button', { name: 'Verificar impacto da compra' }))
 
     const status = screen.getByRole('status')
-    expect(status.textContent).toContain('Checking this purchase against your cash flow')
-    expect(screen.getByRole('button', { name: 'Checking purchase impact' })).toHaveProperty('disabled', true)
+    expect(status.textContent).toContain('Verificando esta compra com seu fluxo de caixa')
+    expect(screen.getByRole('button', { name: 'Verificando impacto da compra' })).toHaveProperty('disabled', true)
 
     rejectCheck(new Error('network down'))
 
-    await waitFor(() => expect(toastErrorMock).toHaveBeenCalledWith('Something went wrong. Try again.'))
-    const alert = screen.getByRole('alert', { name: 'Purchase check error' })
-    expect(alert.textContent).toContain('Could not check purchase impact.')
-    expect(alert.textContent).toContain('Something went wrong. Try again when the connection is ready.')
-    expect(screen.getByLabelText('Purchase amount').getAttribute('aria-invalid')).toBe('true')
-    expect(screen.getByRole('button', { name: 'Check purchase impact' })).toBeTruthy()
+    await waitFor(() => expect(toastErrorMock).toHaveBeenCalledWith('Algo deu errado. Tente de novo.'))
+    const alert = screen.getByRole('alert', { name: 'Erro na verificação da compra' })
+    expect(alert.textContent).toContain('Não deu para verificar o impacto da compra.')
+    expect(alert.textContent).toContain('Algo deu errado. Tente de novo quando a conexão estiver disponível.')
+    expect(screen.getByLabelText('Valor da compra').getAttribute('aria-invalid')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Verificar impacto da compra' })).toBeTruthy()
   })
 })

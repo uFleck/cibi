@@ -73,13 +73,13 @@ export function TransactionForm({
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
       {!editingId && (
         <div className="flex flex-col gap-2">
-          <Label htmlFor="txn-account" className="text-xs">Account *</Label>
+          <Label htmlFor="txn-account" className="text-xs">Conta *</Label>
           <Select
             value={formData.account_id}
             onValueChange={v => onChange({ account_id: v })}
           >
             <SelectTrigger id="txn-account" size="sm" className="w-full">
-              <SelectValue placeholder="Select account" />
+              <SelectValue placeholder="Escolha a conta" />
             </SelectTrigger>
             <SelectContent>
               {accounts.map(acc => (
@@ -92,7 +92,7 @@ export function TransactionForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-2">
           <Label htmlFor="txn-amount" className="text-xs">
-            {formData.is_installment ? 'Per installment amount *' : 'Amount *'}
+            {formData.is_installment ? 'Valor por parcela *' : 'Valor *'}
           </Label>
           <ValueInput
             id="txn-amount"
@@ -114,7 +114,7 @@ export function TransactionForm({
           )}
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="txn-title" className="text-xs">Title *</Label>
+          <Label htmlFor="txn-title" className="text-xs">Título *</Label>
           <Input
             id="txn-title"
             value={formData.title}
@@ -122,7 +122,7 @@ export function TransactionForm({
               onChange({ title: e.target.value })
               if (formErrors.title) onClearError('title')
             }}
-            placeholder="Transaction title"
+            placeholder="Título da transação"
             aria-invalid={!!formErrors.title || undefined}
             aria-describedby={formErrors.title ? 'txn-title-error' : undefined}
           />
@@ -134,13 +134,13 @@ export function TransactionForm({
         </div>
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="txn-description" className="text-xs">Description</Label>
+        <Label htmlFor="txn-description" className="text-xs">Descrição</Label>
         <Textarea
           id="txn-description"
           rows={3}
           value={formData.description ?? ''}
           onChange={e => onChange({ description: e.target.value })}
-          placeholder="Details that help you, and help suggest a category (optional)"
+          placeholder="Detalhes que ajudam a sugerir uma categoria (opcional)"
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -148,7 +148,7 @@ export function TransactionForm({
         <LinksField id="txn-links" value={formData.links ?? []} onChange={links => onChange({ links })} />
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="txn-category" className="text-xs">Category</Label>
+        <Label htmlFor="txn-category" className="text-xs">Categoria</Label>
         <CategoryField
           id="txn-category"
           value={formData.category ?? ''}
@@ -158,13 +158,13 @@ export function TransactionForm({
         />
       </div>
       <div className="flex flex-col gap-2">
-        <Label className="text-xs">Type</Label>
+        <Label className="text-xs">Tipo</Label>
         <div className="grid grid-cols-2 gap-2">
           {([
-            { value: 'none', label: 'One-time' },
-            { value: 'recurring', label: 'Recurring' },
-            { value: 'pending', label: 'Pending payment' },
-            { value: 'installment', label: 'Installment plan' },
+            { value: 'none', label: 'Avulsa' },
+            { value: 'recurring', label: 'Recorrente' },
+            { value: 'pending', label: 'Pagamento pendente' },
+            { value: 'installment', label: 'Parcelado' },
           ] as const).map(({ value, label }) => {
             const active =
               (value === 'recurring' && !!formData.is_recurring) ||
@@ -191,7 +191,7 @@ export function TransactionForm({
       {formData.is_installment && (
         <>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="txn-total-installments" className="text-xs">Total installments</Label>
+            <Label htmlFor="txn-total-installments" className="text-xs">Total de parcelas</Label>
             <Input
               id="txn-total-installments"
               type="number"
@@ -205,7 +205,7 @@ export function TransactionForm({
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="txn-frequency" className="text-xs">Frequency</Label>
+            <Label htmlFor="txn-frequency" className="text-xs">Frequência</Label>
             <Select
               value={formData.frequency || 'monthly'}
               onValueChange={v => onChange({ frequency: v })}
@@ -214,13 +214,13 @@ export function TransactionForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="weekly">Semanal</SelectItem>
+                <SelectItem value="monthly">Mensal</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="txn-anchor" className="text-xs">First payment date</Label>
+            <Label htmlFor="txn-anchor" className="text-xs">Data do primeiro pagamento</Label>
             <DateInput
               id="txn-anchor"
               value={formData.anchor_date || ''}
@@ -233,7 +233,7 @@ export function TransactionForm({
         <>
           {formData.is_recurring && !formData.is_as_needed && (
             <div className="flex flex-col gap-2">
-              <Label htmlFor="txn-frequency" className="text-xs">Frequency</Label>
+              <Label htmlFor="txn-frequency" className="text-xs">Frequência</Label>
               <Select
                 value={formData.frequency || 'monthly'}
                 onValueChange={v => onChange({ frequency: v })}
@@ -242,16 +242,16 @@ export function TransactionForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="bi-weekly">Bi-weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="weekly">Semanal</SelectItem>
+                  <SelectItem value="bi-weekly">Quinzenal</SelectItem>
+                  <SelectItem value="monthly">Mensal</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           )}
           {!formData.is_as_needed && (
             <div className="flex flex-col gap-2">
-              <Label htmlFor="txn-anchor" className="text-xs">{formData.is_recurring ? 'Anchor Date' : 'Pending date'}</Label>
+              <Label htmlFor="txn-anchor" className="text-xs">{formData.is_recurring ? 'Data de início' : 'Data pendente'}</Label>
               <DateInput
                 id="txn-anchor"
                 value={formData.anchor_date || ''}
@@ -261,11 +261,11 @@ export function TransactionForm({
           )}
           {formData.is_recurring && (
             <div className="flex flex-col gap-2">
-              <Label className="text-xs">Amount</Label>
+              <Label className="text-xs">Valor</Label>
               <div className="grid grid-cols-3 gap-2">
                 {([
-                  { value: 'fixed', label: 'Always the same' },
-                  { value: 'estimated', label: 'Varies: estimate it' },
+                  { value: 'fixed', label: 'Sempre o mesmo' },
+                  { value: 'estimated', label: 'Varia: estimar' },
                   { value: 'as-needed', label: 'Quando precisar' },
                 ] as const).map(({ value, label }) => {
                   const mode = formData.is_as_needed ? 'as-needed' : formData.estimate_source ? 'estimated' : 'fixed'
@@ -293,12 +293,12 @@ export function TransactionForm({
                       value={formData.estimate_source}
                       onValueChange={v => onChange({ estimate_source: v })}
                     >
-                      <SelectTrigger id="txn-estimate-source" size="sm" className="w-full" aria-label="Estimate from">
+                      <SelectTrigger id="txn-estimate-source" size="sm" className="w-full" aria-label="Estimar a partir de">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="category">Payments in the category</SelectItem>
-                        <SelectItem value="keyword">Payments containing the text</SelectItem>
+                        <SelectItem value="category">Pagamentos da categoria</SelectItem>
+                        <SelectItem value="keyword">Pagamentos com o texto</SelectItem>
                       </SelectContent>
                     </Select>
                     <Input
@@ -308,8 +308,8 @@ export function TransactionForm({
                         onChange({ estimate_key: e.target.value })
                         if (formErrors.estimate_key) onClearError('estimate_key')
                       }}
-                      placeholder={formData.estimate_source === 'category' ? 'Groceries' : 'market'}
-                      aria-label="Category or text to match"
+                      placeholder={formData.estimate_source === 'category' ? 'Mercado' : 'mercado'}
+                      aria-label="Categoria ou texto a buscar"
                       aria-invalid={!!formErrors.estimate_key || undefined}
                     />
                   </div>
@@ -317,7 +317,7 @@ export function TransactionForm({
                     <p className="text-xs text-destructive">{formErrors.estimate_key}</p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    The amount above is used until there are past payments. After that, it is the median of the last 6 matching payments.
+                    Enquanto não houver pagamentos anteriores, usa o valor acima. Depois, é a mediana dos últimos 6 pagamentos parecidos.
                   </p>
                 </div>
               )}
@@ -349,11 +349,11 @@ export function TransactionForm({
         <Button type="submit" size="sm" disabled={isPending}>
           {isPending
             ? editingId
-              ? 'Updating...'
-              : 'Creating...'
+              ? 'Atualizando...'
+              : 'Criando...'
             : editingId
-              ? 'Update'
-              : 'Create'}
+              ? 'Atualizar'
+              : 'Criar'}
         </Button>
         <Button
           type="button"
@@ -362,7 +362,7 @@ export function TransactionForm({
           onClick={onCancel}
           disabled={isPending}
         >
-          Cancel
+          Cancelar
         </Button>
       </div>
     </form>

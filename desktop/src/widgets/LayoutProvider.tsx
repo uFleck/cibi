@@ -62,7 +62,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   }, [settled, state, query.data, query.isSuccess])
 
   useEffect(() => {
-    if (query.isError) toast.error('Could not load your layout. Showing the default, and changes will not be saved.')
+    if (query.isError) toast.error('Não deu para carregar seu painel. Mostrando o padrão, e as alterações não serão salvas.')
   }, [query.isError])
 
   const save = useCallback(() => {
@@ -71,7 +71,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     if (!next) return
     pending.current = null
     Promise.all([putSetting(LAYOUT_KEY, next.layout), putSetting(BASE_KEY, next.base)]).catch(() => {
-      toast.error('Could not save the layout')
+      toast.error('Não deu para salvar o painel')
     })
   }, [])
 

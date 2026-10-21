@@ -24,5 +24,5 @@ export function progressTone(progress: number): string {
 
 export function formatUpdatedCue(updatedAtUtc?: string): string | null {
   if (!updatedAtUtc) return null
-  return `Updated ${formatTimeUTC(updatedAtUtc)}`
+  return `Atualizado ${formatTimeUTC(updatedAtUtc)}`
 }

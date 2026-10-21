@@ -31,7 +31,7 @@ import type { WidgetData } from './useWorkspace'
 const EASE = [0.2, 0, 0, 1] as const
 const DRAG_DISTANCE_PX = 6
 /** Where focus goes after the last widget is removed: the first tray chip, else the Done button. */
-const FALLBACK_FOCUS_SELECTOR = '[aria-label="Widgets not on this page"] button, [data-edit-done]'
+const FALLBACK_FOCUS_SELECTOR = '[aria-label="Widgets fora deste painel"] button, [data-edit-done]'
 
 /**
  * Tray first (pointer inside it). Otherwise the nearest wall cell, so a drop never lands on the
@@ -191,7 +191,7 @@ function WallZone({ empty, editing, children }: { empty: boolean; editing: boole
       {children}
       {empty && (
         <div className="col-span-12">
-          <EmptyZone editing={editing} label="No widgets on this wall." />
+          <EmptyZone editing={editing} label="Nenhum widget neste painel." />
         </div>
       )}
     </div>

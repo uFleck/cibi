@@ -53,11 +53,11 @@ export function CustomProjectionSheet({ open, paySchedules, onApply, onClose }: 
     <EditSheet
       open={open}
       onOpenChange={o => { if (!o) onClose() }}
-      title="Custom projection"
+      title="Projeção personalizada"
     >
       <div className="space-y-4">
         <div>
-          <p className="text-sm font-medium mb-2">Start paycheck</p>
+          <p className="text-sm font-medium mb-2">Início do período</p>
           <div className="flex flex-wrap gap-2">
             {uniqueDates.map(d => (
               <button
@@ -73,7 +73,7 @@ export function CustomProjectionSheet({ open, paySchedules, onApply, onClose }: 
         </div>
         {selectedStart && (
           <div>
-            <p className="text-sm font-medium mb-2">End paycheck</p>
+            <p className="text-sm font-medium mb-2">Fim do período</p>
             <div className="flex flex-wrap gap-2">
               {endDates.map(d => (
                 <button
@@ -95,10 +95,10 @@ export function CustomProjectionSheet({ open, paySchedules, onApply, onClose }: 
             onChange={e => setExcludeBalance(e.target.checked)}
             className="rounded"
           />
-          Start from zero (ignore current balance)
+          Começar do zero (ignorar o saldo atual)
         </label>
         <Button onClick={handleApply} disabled={!selectedStart || !selectedEnd} className="w-full">
-          Apply
+          Aplicar
         </Button>
       </div>
     </EditSheet>

@@ -145,7 +145,7 @@ describe('GoalsSnapshotWidget', () => {
 
     renderWidget()
 
-    fireEvent.click(await screen.findByText('View all'))
+    fireEvent.click(await screen.findByText('Ver todas'))
 
     expect(navigateMock).toHaveBeenCalledTimes(1)
     expect(navigateMock).toHaveBeenCalledWith({ to: '/goals' })
@@ -158,16 +158,16 @@ describe('GoalsSnapshotWidget', () => {
 
     renderWidget()
 
-    expect(await screen.findByLabelText('Emergency fund goal snapshot')).toBeTruthy()
+    expect(await screen.findByLabelText('Resumo da meta Emergency fund')).toBeTruthy()
     expect(screen.getByText('active')).toBeTruthy()
     expect(screen.getByText('completed')).toBeTruthy()
-    expect(screen.getAllByText('Invested').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Remaining').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Investido').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Restante').length).toBeGreaterThan(0)
     expect(screen.getByText('42.5%')).toBeTruthy()
     expect(screen.getByText('100.0%')).toBeTruthy()
 
-    const emergencyProgress = screen.getByRole('progressbar', { name: 'Emergency fund progress' })
-    const completedProgress = screen.getByRole('progressbar', { name: 'Bike upgrade progress' })
+    const emergencyProgress = screen.getByRole('progressbar', { name: 'Progresso de Emergency fund' })
+    const completedProgress = screen.getByRole('progressbar', { name: 'Progresso de Bike upgrade' })
     expect(emergencyProgress.getAttribute('aria-valuenow')).toBe('42.5')
     expect(completedProgress.getAttribute('aria-valuenow')).toBe('100')
     expect(screen.getAllByText(/R\$/).length).toBeGreaterThanOrEqual(4)
@@ -178,8 +178,8 @@ describe('GoalsSnapshotWidget', () => {
 
     renderWidget()
 
-    expect(await screen.findByText('No goals yet')).toBeTruthy()
-    expect(screen.getByText(/Open Goals to create your first target/)).toBeTruthy()
+    expect(await screen.findByText('Nenhuma meta ainda')).toBeTruthy()
+    expect(screen.getByText(/Abra Metas para criar seu primeiro objetivo/)).toBeTruthy()
   })
 
   it('offers a New goal action in the empty state that navigates to goals', async () => {
@@ -187,7 +187,7 @@ describe('GoalsSnapshotWidget', () => {
 
     renderWidget()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'New goal' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Nova meta' }))
 
     expect(navigateMock).toHaveBeenCalledWith({ to: '/goals' })
   })
@@ -197,8 +197,8 @@ describe('GoalsSnapshotWidget', () => {
 
     renderWidget()
 
-    expect(screen.getByLabelText('Loading goals snapshot')).toBeTruthy()
-    expect(screen.getByText('Loading goals snapshot...')).toBeTruthy()
+    expect(screen.getByLabelText('Carregando resumo das metas')).toBeTruthy()
+    expect(screen.getByText('Carregando resumo das metas...')).toBeTruthy()
   })
 
   it('keeps retry state observable and refetchable', async () => {
@@ -206,10 +206,10 @@ describe('GoalsSnapshotWidget', () => {
 
     renderWidget()
 
-    expect(await screen.findByRole('alert', { name: 'Goals snapshot error' })).toBeTruthy()
-    expect(screen.getByText('Could not load goals.')).toBeTruthy()
+    expect(await screen.findByRole('alert', { name: 'Erro no resumo das metas' })).toBeTruthy()
+    expect(screen.getByText('Não deu para carregar as metas.')).toBeTruthy()
 
-    fireEvent.click(screen.getByText('Retry'))
+    fireEvent.click(screen.getByText('Tentar de novo'))
 
     await waitFor(() => expect(mockFetchGoalsTracking).toHaveBeenCalledTimes(2))
   })

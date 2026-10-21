@@ -27,8 +27,8 @@ function renderList(props: Partial<Parameters<typeof DataList<Row>>[0]> & { onEd
         rowId={row => row.id}
         columns={COLUMNS}
         actions={row => [
-          { id: 'edit', label: 'Edit', ariaLabel: `Edit ${row.name}`, icon: Pencil, keys: ROW_KEYS.edit, primary: true, run: () => onEdit(row.id) },
-          { id: 'delete', label: 'Delete', ariaLabel: `Delete ${row.name}`, icon: Trash2, keys: ROW_KEYS.delete, variant: 'destructive', run: () => onDelete(row.id) },
+          { id: 'edit', label: 'Editar', ariaLabel: `Editar ${row.name}`, icon: Pencil, keys: ROW_KEYS.edit, primary: true, run: () => onEdit(row.id) },
+          { id: 'delete', label: 'Excluir', ariaLabel: `Excluir ${row.name}`, icon: Trash2, keys: ROW_KEYS.delete, variant: 'destructive', run: () => onDelete(row.id) },
         ]}
         {...rest}
       />
@@ -57,7 +57,7 @@ describe('DataList', () => {
 
   it('keeps action buttons hidden until the row is hovered, focused or selected', () => {
     renderList()
-    const actions = screen.getByRole('button', { name: 'Edit Alpha' }).parentElement!
+    const actions = screen.getByRole('button', { name: 'Editar Alpha' }).parentElement!
     expect(actions.className).toContain('opacity-0')
     expect(actions.className).toContain('group-hover/row:opacity-100')
     expect(actions.className).toContain('group-focus-within/row:opacity-100')

@@ -44,7 +44,7 @@ export function CategoryField({ id, value, title, description, onChange }: Categ
         autoComplete="off"
         value={value}
         onChange={e => onChange(e.target.value)}
-        placeholder="Set from the title"
+        placeholder="Definida pelo título"
       />
       <datalist id={listId}>
         {options.map(option => (
@@ -53,7 +53,7 @@ export function CategoryField({ id, value, title, description, onChange }: Categ
       </datalist>
       {blank && suggestion && (
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
-          Suggested
+          Sugestão
           <Button type="button" variant="ghost" size="sm" onClick={() => onChange(suggestion.category)}>
             {suggestion.category}
           </Button>

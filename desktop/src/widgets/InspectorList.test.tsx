@@ -107,8 +107,8 @@ describe('InspectorList', () => {
     const setEditMode = vi.fn()
     renderInspector(false, setEditMode)
 
-    expect(await screen.findByText('No widgets in the inspector.')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Add widget' }))
+    expect(await screen.findByText('Nenhum widget nos detalhes.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar widget' }))
     expect(setEditMode).toHaveBeenCalledWith(true)
   })
 

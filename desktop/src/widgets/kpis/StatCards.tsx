@@ -43,9 +43,9 @@ function AdjustBalanceForm({ account }: { account: AccountResponse }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       queryClient.invalidateQueries({ queryKey: ['ledger'] })
-      toast.success('Balance adjusted')
+      toast.success('Saldo ajustado')
     },
-    onError: (error: Error) => toast.error(error.message || 'Failed to adjust balance'),
+    onError: (error: Error) => toast.error(error.message || 'Não deu para ajustar o saldo'),
   })
 
   const unchanged = parsed === null || parsed === account.current_balance
@@ -57,7 +57,7 @@ function AdjustBalanceForm({ account }: { account: AccountResponse }) {
   return (
     <form onSubmit={submit} className="flex flex-col gap-2 text-sm" noValidate>
       <Label htmlFor="adjust-balance" className="text-xs text-muted-foreground">
-        Set the balance to match your bank. The difference is recorded as a manual adjustment.
+        Ajuste o saldo para bater com o banco. A diferença fica registrada como ajuste manual.
       </Label>
       <div className="flex items-start gap-2">
         <ValueInput
@@ -69,7 +69,7 @@ function AdjustBalanceForm({ account }: { account: AccountResponse }) {
           wrapperClassName="flex-1"
         />
         <Button type="submit" size="sm" disabled={unchanged || adjust.isPending}>
-          {adjust.isPending ? 'Saving...' : 'Adjust'}
+          {adjust.isPending ? 'Salvando...' : 'Ajustar'}
         </Button>
       </div>
     </form>
@@ -143,7 +143,7 @@ export function StatCards({
   return (
     <div className="grid grid-cols-1 @md:grid-cols-3 gap-3">
       <StatCard
-        label="Balance"
+        label="Saldo"
         value={(
           <MoneyValue
             amount={account.current_balance}
@@ -159,7 +159,7 @@ export function StatCards({
         </PopoverContent>
       </StatCard>
       <StatCard
-        label="Reserved"
+        label="Reservado"
         value={(
           <MoneyValue
             amount={reserved}
@@ -174,30 +174,30 @@ export function StatCards({
         <PopoverContent className="w-64 p-4">
           <div className="flex flex-col gap-2 text-sm">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-muted-foreground">Recurring obligations</span>
+              <span className="text-muted-foreground">Contas recorrentes</span>
               <span className="tabular-nums font-medium">{formatMoney(recurringReserved, account.currency)}</span>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-muted-foreground">Peer debts (owed)</span>
+              <span className="text-muted-foreground">Dívidas com amigos (a pagar)</span>
               <span className="tabular-nums font-medium">{formatMoney(peerObligations, account.currency)}</span>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-muted-foreground">Installment obligations</span>
+              <span className="text-muted-foreground">Parcelas</span>
               <span className="tabular-nums font-medium">{formatMoney(installmentObligations, account.currency)}</span>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-muted-foreground">Safety buffer</span>
+              <span className="text-muted-foreground">Margem de segurança</span>
               <span className="tabular-nums font-medium">{formatMoney(safetyBuffer, account.currency)}</span>
             </div>
             <div className="border-t border-border/40 pt-1.5 flex items-center justify-between gap-2">
-              <span className="font-semibold">Total reserved</span>
+              <span className="font-semibold">Total reservado</span>
               <span className="tabular-nums font-semibold">{formatMoney(reserved + safetyBuffer, account.currency)}</span>
             </div>
           </div>
         </PopoverContent>
       </StatCard>
       <StatCard
-        label="Liquid"
+        label="Sobra"
         value={(
           <MoneyValue
             amount={liquid}

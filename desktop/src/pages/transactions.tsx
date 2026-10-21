@@ -54,14 +54,15 @@ import { AccountContext } from '@/App'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { focusWhenReady, useShellAction } from '@/shell/shellActions'
 import { usePublishSelection, useSelection, type SelectionDetail } from '@/shell/selection'
+import { frequencyLabel } from '@/lib/labels'
 
 type KindFilter = 'all' | 'income' | 'expense' | 'recurring'
 
 const KIND_CHIPS: { value: KindFilter; label: string; shortcut: string }[] = [
-  { value: 'all', label: 'All', shortcut: '1' },
-  { value: 'income', label: 'Income', shortcut: '2' },
-  { value: 'expense', label: 'Expenses', shortcut: '3' },
-  { value: 'recurring', label: 'Recurring', shortcut: '4' },
+  { value: 'all', label: 'Todas', shortcut: '1' },
+  { value: 'income', label: 'Entradas', shortcut: '2' },
+  { value: 'expense', label: 'Saídas', shortcut: '3' },
+  { value: 'recurring', label: 'Recorrente', shortcut: '4' },
 ]
 
 function matchesKind(txn: TransactionResponse, kind: KindFilter) {
@@ -83,12 +84,12 @@ function canSkipTxn(txn: TransactionResponse) {
 }
 
 function txnStatusLabel(txn: TransactionResponse) {
-  if (txn.is_installment) return `Installment ${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'}`
+  if (txn.is_installment) return `Parcela ${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'}`
   if (txn.is_uncertain) return 'Não sei'
   if (txn.is_as_needed) return 'Quando precisar'
-  if (txn.is_recurring) return 'Recurring'
-  if (txn.requires_confirmation) return txn.confirmed_at ? 'Pending payment · confirmed' : 'Pending payment'
-  return 'One-time'
+  if (txn.is_recurring) return 'Recorrente'
+  if (txn.requires_confirmation) return txn.confirmed_at ? 'Pagamento pendente · confirmado' : 'Pagamento pendente'
+  return 'Avulsa'
 }
 
 interface FormData {
@@ -289,7 +290,7 @@ export function TransactionsPage() {
       return { prevTxns, prevAccounts, prevAccount }
     },
     onSuccess: () => {
-      toast.success('Transaction created')
+      toast.success('Transação criada')
       setIsCreating(false)
       setFormData({
         account_id: currentAccountId,
@@ -312,7 +313,7 @@ export function TransactionsPage() {
       if (ctx?.prevTxns) queryClient.setQueryData(['transactions', currentAccountId], ctx.prevTxns)
       if (ctx?.prevAccounts) queryClient.setQueryData(['accounts'], ctx.prevAccounts)
       if (ctx?.prevAccount) queryClient.setQueryData(['account', currentAccountId], ctx.prevAccount)
-      toast.error((error as Error).message || 'Failed to create transaction')
+      toast.error((error as Error).message || 'Não deu para criar a transação')
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
@@ -338,7 +339,7 @@ export function TransactionsPage() {
       return { prevTxns, prevAccounts, prevAccount }
     },
     onSuccess: () => {
-      toast.success('Transaction updated')
+      toast.success('Transação atualizada')
       setEditingId(null)
       setFormData({
         account_id: currentAccountId,
@@ -361,7 +362,7 @@ export function TransactionsPage() {
       if (ctx?.prevTxns) queryClient.setQueryData(['transactions', currentAccountId], ctx.prevTxns)
       if (ctx?.prevAccounts) queryClient.setQueryData(['accounts'], ctx.prevAccounts)
       if (ctx?.prevAccount) queryClient.setQueryData(['account', currentAccountId], ctx.prevAccount)
-      toast.error((error as Error).message || 'Failed to update transaction')
+      toast.error((error as Error).message || 'Não deu para atualizar a transação')
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
@@ -388,10 +389,10 @@ export function TransactionsPage() {
     },
     onSuccess: (_, _id, ctx) => {
       const deletedTxn = ctx?.deletedTxn
-      const deletedName = deletedTxn?.title ?? 'Transaction'
-      toast(`${deletedName} deleted`, {
+      const deletedName = deletedTxn?.title ?? 'Transação'
+      toast(`${deletedName} excluída`, {
         action: {
-          label: 'Undo',
+          label: 'Desfazer',
           onClick: () => {
             if (deletedTxn) {
               createMutation.mutate({
@@ -417,7 +418,7 @@ export function TransactionsPage() {
       if (ctx?.prevTxns) queryClient.setQueryData(['transactions', currentAccountId], ctx.prevTxns)
       if (ctx?.prevAccounts) queryClient.setQueryData(['accounts'], ctx.prevAccounts)
       if (ctx?.prevAccount) queryClient.setQueryData(['account', currentAccountId], ctx.prevAccount)
-      toast.error((error as Error).message || 'Failed to delete transaction')
+      toast.error((error as Error).message || 'Não deu para excluir a transação')
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
@@ -461,18 +462,18 @@ export function TransactionsPage() {
     mutationFn: (id: string) => confirmDebt(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      toast.success('Debt confirmed')
+      toast.success('Dívida confirmada')
     },
-    onError: () => toast.error('Failed to confirm debt'),
+    onError: () => toast.error('Não deu para confirmar a dívida'),
   })
 
   const deletePeerDebtMutation = useMutation({
     mutationFn: (id: string) => deletePeerDebt(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      toast.success('Debt deleted')
+      toast.success('Dívida excluída')
     },
-    onError: () => toast.error('Failed to delete debt'),
+    onError: () => toast.error('Não deu para excluir a dívida'),
   })
 
   const updateDebtMutation = useMutation({
@@ -480,21 +481,21 @@ export function TransactionsPage() {
       updatePeerDebt(id, { amount, title }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      toast.success('Debt updated')
+      toast.success('Dívida atualizada')
       setEditingDebtId(null)
     },
-    onError: () => toast.error('Failed to update debt'),
+    onError: () => toast.error('Não deu para atualizar a dívida'),
   })
 
   const createDebtMutation = useMutation({
     mutationFn: (data: CreatePeerDebtRequest) => createPeerDebt(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      toast.success('Debt created')
+      toast.success('Dívida criada')
       setIsCreatingDebt(false)
       setDebtForm({ friend_id: '', amount: '', title: '', date: new Date().toISOString().slice(0, 10) })
     },
-    onError: () => toast.error('Failed to create debt'),
+    onError: () => toast.error('Não deu para criar a dívida'),
   })
 
   const handleCreateClick = () => {
@@ -544,10 +545,10 @@ export function TransactionsPage() {
 
   const validate = (): boolean => {
     const errors: FormErrors = {}
-    if (!formData.title.trim()) errors.title = 'Title is required'
-    if (formData.amount === 0) errors.amount = 'Amount must be non-zero'
+    if (!formData.title.trim()) errors.title = 'Título é obrigatório'
+    if (formData.amount === 0) errors.amount = 'O valor não pode ser zero'
     if (formData.is_recurring && formData.estimate_source && !formData.estimate_key?.trim()) {
-      errors.estimate_key = 'Say which category or text to estimate from'
+      errors.estimate_key = 'Diga a categoria ou o texto para estimar'
     }
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -648,11 +649,11 @@ export function TransactionsPage() {
   usePublishSelection(selectedTxn ? transactionDetail(selectedTxn) : null)
 
   useKeyboardShortcuts([
-    { keys: 'f', label: 'Search', group: 'Transactions', scope: 'list', run: focusSearch },
+    { keys: 'f', label: 'Buscar', group: 'Transações', scope: 'list', run: focusSearch },
     ...KIND_CHIPS.map(chip => ({
       keys: chip.shortcut,
       label: chip.label,
-      group: 'Transactions',
+      group: 'Transações',
       scope: 'list' as const,
       run: () => setKindFilter(chip.value),
     })),
@@ -662,17 +663,17 @@ export function TransactionsPage() {
     const due = txn.requires_confirmation && !txn.confirmed_at
     const dateValue = txn.is_recurring ? txn.next_occurrence || txn.anchor_date : txn.anchor_date || txn.timestamp
     const rows: SelectionDetail['rows'] = [
-      { label: 'Account', value: accounts.find(a => a.id === txn.account_id)?.name ?? '-' },
-      { label: 'Category', value: txn.category ?? '-' },
-      { label: txn.is_recurring ? 'Next' : 'Date', value: <span className="num">{dateValue ? formatDate(dateValue) : '-'}</span> },
+      { label: 'Conta', value: accounts.find(a => a.id === txn.account_id)?.name ?? '-' },
+      { label: 'Categoria', value: txn.category ?? '-' },
+      { label: txn.is_recurring ? 'Próximo' : 'Data', value: <span className="num">{dateValue ? formatDate(dateValue) : '-'}</span> },
     ]
     if (txn.is_installment) {
       const totalInstallments = txn.total_installments ?? 0
       const remaining = totalInstallments - (txn.paid_installments ?? 0)
-      rows.push({ label: 'Per installment', value: <span className="num">{formatMoney(txn.amount, currentAccountCurrency)}</span> })
-      rows.push({ label: 'Remaining', value: <span className="num">{formatMoney(txn.amount * remaining, currentAccountCurrency)}</span> })
+      rows.push({ label: 'Por parcela', value: <span className="num">{formatMoney(txn.amount, currentAccountCurrency)}</span> })
+      rows.push({ label: 'Restante', value: <span className="num">{formatMoney(txn.amount * remaining, currentAccountCurrency)}</span> })
     }
-    if (txn.is_recurring && !txn.is_as_needed) rows.push({ label: 'Frequency', value: txn.frequency ?? '-' })
+    if (txn.is_recurring && !txn.is_as_needed) rows.push({ label: 'Frequência', value: frequencyLabel(txn.frequency ?? '-') })
     if (txn.is_as_needed) {
       rows.push({
         label: 'Este mês',
@@ -686,31 +687,31 @@ export function TransactionsPage() {
     if (txn.is_uncertain) rows.push({ label: 'Previsão', value: 'Fora da conta até pagar ou decidir' })
     if (txn.estimate_source) {
       rows.push({
-        label: 'Estimate',
-        value: `${txn.estimate_source === 'category' ? 'Category' : 'Text'} "${txn.estimate_key ?? ''}" · ${
-          txn.estimate_samples ? `median of ${txn.estimate_samples}` : 'no history yet, using the amount you set'
+        label: 'Estimativa',
+        value: `${txn.estimate_source === 'category' ? 'Categoria' : 'Texto'} "${txn.estimate_key ?? ''}" · ${
+          txn.estimate_samples ? `mediana de ${txn.estimate_samples}` : 'sem histórico ainda, usando o valor definido'
         }`,
       })
     }
     if (txn.description) {
-      rows.push({ label: 'Description', value: <span className="whitespace-pre-wrap break-words">{txn.description}</span> })
+      rows.push({ label: 'Descrição', value: <span className="whitespace-pre-wrap break-words">{txn.description}</span> })
     }
     if (txn.links.length > 0) rows.push({ label: 'Links', value: <TransactionLinks links={txn.links} /> })
     if (txn.requires_confirmation) {
-      rows.push({ label: 'Confirmed', value: <span className="num">{txn.confirmed_at ? formatDate(txn.confirmed_at) : 'Not yet'}</span> })
+      rows.push({ label: 'Confirmado', value: <span className="num">{txn.confirmed_at ? formatDate(txn.confirmed_at) : 'Ainda não'}</span> })
     }
     const actions: SelectionDetail['actions'] = [
-      { id: 'edit', label: 'Edit', icon: Pencil, keys: ROW_KEYS.edit, variant: 'default', run: () => handleEditClick(txn) },
-      { id: 'delete', label: 'Delete', icon: Trash2, keys: ROW_KEYS.delete, variant: 'destructive', run: () => setConfirmDelete(txn.id) },
+      { id: 'edit', label: 'Editar', icon: Pencil, keys: ROW_KEYS.edit, variant: 'default', run: () => handleEditClick(txn) },
+      { id: 'delete', label: 'Excluir', icon: Trash2, keys: ROW_KEYS.delete, variant: 'destructive', run: () => setConfirmDelete(txn.id) },
     ]
     actions.unshift(...billRowActions(txn))
     if (canConfirmTxn(txn)) {
-      actions.unshift({ id: 'paid', label: 'Mark paid', icon: Check, keys: ROW_KEYS.confirm, variant: 'outline', run: () => handleConfirmClick(txn.id) })
+      actions.unshift({ id: 'paid', label: 'Marcar como pago', icon: Check, keys: ROW_KEYS.confirm, variant: 'outline', run: () => handleConfirmClick(txn.id) })
     }
     return {
       id: txn.id,
       title: txn.title,
-      eyebrow: due ? `Due ${formatDate(txn.anchor_date || txn.timestamp)}` : formatDate(txn.timestamp),
+      eyebrow: due ? `Vence ${formatDate(txn.anchor_date || txn.timestamp)}` : formatDate(txn.timestamp),
       amount: <MoneyValue amount={txn.is_installment ? txn.amount * (txn.total_installments ?? 0) : effectiveAmount(txn)} currency={currentAccountCurrency} showSign="always" tone="auto" />,
       badge: txnStatusLabel(txn),
       rows,
@@ -722,7 +723,7 @@ export function TransactionsPage() {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
         <div className="text-center text-destructive">
-          {isError ? 'Failed to load transactions.' : 'Loading accounts...'}
+          {isError ? 'Não deu para carregar as transações.' : 'Carregando contas...'}
         </div>
       </div>
     )
@@ -737,31 +738,31 @@ export function TransactionsPage() {
           setConfirmDelete(null)
         }}
         onCancel={() => setConfirmDelete(null)}
-        title={`Delete "${txnToDelete?.title}"?`}
-        description="This action cannot be undone."
+        title={`Excluir "${txnToDelete?.title}"?`}
+        description="Não dá para desfazer."
       />
 
       {billActions.dialog}
 
       <PageHeader
-        eyebrow="Ledger"
-        title="Transactions"
-        description={`Record, schedule and review money in and out${currentAccount ? ` for ${currentAccount.name}` : ''}.`}
+        eyebrow="Extrato"
+        title="Transações"
+        description={`Registre, agende e revise as entradas e saídas${currentAccount ? ` de ${currentAccount.name}` : ''}.`}
         actions={
           activeTab === 'transactions' ? (
             <Button onClick={handleCreateClick} size="sm" className="hidden sm:inline-flex">
               <Plus size={16} />
-              Add Transaction
+              Adicionar transação
             </Button>
           ) : activeTab === 'friend-debts' ? (
             <Button onClick={() => setIsCreatingDebt(true)} size="sm">
               <Plus size={16} />
-              New Debt
+              Nova dívida
             </Button>
           ) : activeTab === 'pay-schedules' ? (
             <Button onClick={() => setIsCreatingSchedule(true)} size="sm">
               <Plus size={16} />
-              New Schedule
+              Novo recebimento
             </Button>
           ) : null
         }
@@ -775,28 +776,28 @@ export function TransactionsPage() {
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'transactions' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
         >
           <ArrowLeftRight size={14} className="inline mr-1.5 -mt-0.5" />
-          Transactions
+          Transações
         </button>
         <button
           onClick={() => { setActiveTab('friend-debts'); select(null) }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'friend-debts' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
         >
           <Users size={14} className="inline mr-1.5 -mt-0.5" />
-          Friend Debts
+          Dívidas com amigos
         </button>
         <button
           onClick={() => { setActiveTab('pay-schedules'); select(null) }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'pay-schedules' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
         >
           <Banknote size={14} className="inline mr-1.5 -mt-0.5" />
-          Pay schedules
+          Recebimentos
         </button>
         <button
           onClick={() => { setActiveTab('ledger'); select(null) }}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'ledger' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
         >
           <History size={14} className="inline mr-1.5 -mt-0.5" />
-          Recent activity
+          Atividade recente
         </button>
       </div>
 
@@ -833,14 +834,14 @@ export function TransactionsPage() {
 
       {hasActiveFilters && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-muted-foreground mr-1">Filters:</span>
+          <span className="text-xs text-muted-foreground mr-1">Filtros:</span>
           {preset !== null && (
             <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => setPreset(null)}>
               {preset === 'due-now' ? windowLabels?.dueNowLabel :
                preset === 'current-window' ? windowLabels?.currentWindowLabel :
                preset === 'next-window' ? windowLabels?.nextWindowLabel :
-               preset === 'all-recurring' ? 'All recurring' :
-               preset === 'one-time-only' ? 'One-time only' : preset}
+               preset === 'all-recurring' ? 'Todas recorrentes' :
+               preset === 'one-time-only' ? 'Só avulsas' : preset}
               <X size={12} />
             </Badge>
           )}
@@ -857,7 +858,7 @@ export function TransactionsPage() {
             </Badge>
           )}
           <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-xs h-7">
-            Clear all
+            Limpar filtros
           </Button>
         </div>
       )}
@@ -866,11 +867,11 @@ export function TransactionsPage() {
         name="transaction-list"
         loading={txnsLoading}
         fallback={
-          <div className="flex flex-col gap-2" role="status" aria-label="Loading transactions">
+          <div className="flex flex-col gap-2" role="status" aria-label="Carregando transações">
             {[0, 1, 2].map(i => (
               <div key={i} className="h-10 rounded-lg bg-card/60 animate-pulse border border-border/40" />
             ))}
-            <span className="sr-only">Loading...</span>
+            <span className="sr-only">Carregando...</span>
           </div>
         }
       >
@@ -878,10 +879,10 @@ export function TransactionsPage() {
           <Card>
             <CardContent className="text-center py-12">
               <ArrowLeftRight className="mx-auto mb-4 text-muted-foreground/40" size={40} />
-              <p className="text-muted-foreground mb-4">No transactions yet</p>
+              <p className="text-muted-foreground mb-4">Nenhuma transação ainda</p>
               <Button onClick={handleCreateClick} size="sm">
                 <Plus size={16} />
-                Create First Transaction
+                Criar primeira transação
               </Button>
             </CardContent>
           </Card>
@@ -894,26 +895,26 @@ export function TransactionsPage() {
               title: txn.title,
               category: txn.category,
               subtitle: txn.is_installment
-                ? `Installment · ${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'} paid · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : '-'}`
+                ? `Parcela ${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'} paga · próximo ${txn.next_occurrence ? formatDate(txn.next_occurrence) : '-'}`
                 : txn.is_recurring
-                  ? `${txn.frequency} · next ${txn.next_occurrence ? formatDate(txn.next_occurrence) : (txn.anchor_date ? formatDate(txn.anchor_date) : '-')}`
+                  ? `${frequencyLabel(txn.frequency ?? '')} · próximo ${txn.next_occurrence ? formatDate(txn.next_occurrence) : (txn.anchor_date ? formatDate(txn.anchor_date) : '-')}`
                   : txn.requires_confirmation
-                    ? (txn.confirmed_at ? `confirmed ${formatDate(txn.confirmed_at)}` : `pending ${formatDate(txn.anchor_date || txn.timestamp)}`)
+                    ? (txn.confirmed_at ? `confirmado ${formatDate(txn.confirmed_at)}` : `pendente ${formatDate(txn.anchor_date || txn.timestamp)}`)
                     : formatDate(txn.timestamp),
               amount: txn.is_installment ? txn.amount : effectiveAmount(txn),
               currency: currentAccountCurrency,
               status: {
                 label: txn.is_installment
-                  ? `Installment ${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'}`
+                  ? `Parcela ${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'}`
                   : txn.is_uncertain
                     ? 'Não sei'
                     : txn.is_as_needed
                     ? 'Quando precisar'
                     : txn.is_recurring
-                    ? (txn.estimate_source ? 'Recurring · estimated' : 'Recurring')
+                    ? (txn.estimate_source ? 'Recorrente · estimado' : 'Recorrente')
                     : txn.requires_confirmation
-                      ? (txn.confirmed_at ? 'Pending payment · confirmed' : 'Pending payment')
-                      : 'One-time',
+                      ? (txn.confirmed_at ? 'Pagamento pendente · confirmado' : 'Pagamento pendente')
+                      : 'Avulsa',
                 tone: (txn.is_installment || txn.is_recurring || txn.requires_confirmation)
                   ? 'default'
                   : 'secondary',
@@ -925,8 +926,8 @@ export function TransactionsPage() {
               canDelete: true,
               canEdit: true,
             }))}
-            emptyTitle="No transactions match your filters"
-            emptyHint="Adjust filters and try again"
+            emptyTitle="Nenhuma transação corresponde aos filtros"
+            emptyHint="Ajuste os filtros e tente de novo"
             onConfirm={handleConfirmClick}
             extraActionsFor={id => {
               const txn = transactions.find((t: TransactionResponse) => t.id === id)
@@ -947,13 +948,13 @@ export function TransactionsPage() {
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap gap-2 items-end">
             <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">Friend</span>
+              <span className="text-xs text-muted-foreground">Amigo</span>
               <Select value={peerDebtFilter.friendId} onValueChange={v => setPeerDebtFilter(f => ({ ...f, friendId: v }))}>
                 <SelectTrigger className="h-9 min-w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All friends</SelectItem>
+                  <SelectItem value="all">Todos os amigos</SelectItem>
                   {friends.map((fr: FriendResponse) => (
                     <SelectItem key={fr.id} value={fr.id}>{fr.name}</SelectItem>
                   ))}
@@ -961,28 +962,28 @@ export function TransactionsPage() {
               </Select>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">Direction</span>
+              <span className="text-xs text-muted-foreground">Direção</span>
               <Select value={peerDebtFilter.direction} onValueChange={v => setPeerDebtFilter(f => ({ ...f, direction: v as typeof f.direction }))}>
                 <SelectTrigger className="h-9 min-w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="i-owe">I owe</SelectItem>
-                  <SelectItem value="they-owe">They owe</SelectItem>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="i-owe">Eu devo</SelectItem>
+                  <SelectItem value="they-owe">Me devem</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">Status</span>
+              <span className="text-xs text-muted-foreground">Situação</span>
               <Select value={peerDebtFilter.status} onValueChange={v => setPeerDebtFilter(f => ({ ...f, status: v as typeof f.status }))}>
                 <SelectTrigger className="h-9 min-w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="pending">Pendente</SelectItem>
+                  <SelectItem value="confirmed">Confirmado</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1001,19 +1002,19 @@ export function TransactionsPage() {
             <SharedDebtList
               view="owner"
               items={filteredPeerDebts.map((txn: TransactionResponse) => {
-                const friendName = friends.find((f: FriendResponse) => f.id === txn.friend_id)?.name ?? 'Unknown'
+                const friendName = friends.find((f: FriendResponse) => f.id === txn.friend_id)?.name ?? 'Desconhecido'
                 const isConfirmed = txn.confirmed_at !== null
-                const direction = txn.amount < 0 ? 'I owe' : 'They owe'
+                const direction = txn.amount < 0 ? 'Eu devo' : 'Me devem'
                 return {
                   id: txn.id,
                   title: txn.title,
-                  subtitle: `${friendName} · ${direction} · ${isConfirmed ? `confirmed ${formatDate(txn.confirmed_at!)}` : `pending ${formatDate(txn.anchor_date || txn.timestamp)}`}`,
+                  subtitle: `${friendName} · ${direction} · ${isConfirmed ? `confirmado ${formatDate(txn.confirmed_at!)}` : `pendente ${formatDate(txn.anchor_date || txn.timestamp)}`}`,
                   amount: txn.is_installment && txn.total_installments
                     ? txn.amount / txn.total_installments
                     : txn.amount,
                   currency: currentAccountCurrency,
                   status: {
-                    label: isConfirmed ? 'Confirmed' : (txn.is_installment ? `${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'} paid` : 'Pending'),
+                    label: isConfirmed ? 'Confirmado' : (txn.is_installment ? `${txn.paid_installments ?? 0}/${txn.total_installments ?? '?'} paga` : 'Pendente'),
                     tone: isConfirmed ? 'default' as const : 'outline' as const,
                   },
                   canConfirm: !isConfirmed,
@@ -1021,8 +1022,8 @@ export function TransactionsPage() {
                   canDelete: true,
                 }
               })}
-              emptyTitle="No friend debts"
-              emptyHint="Adjust filters or click New Debt"
+              emptyTitle="Nenhuma dívida com amigos"
+              emptyHint="Ajuste os filtros ou clique em Nova dívida"
               onConfirm={(id) => confirmPeerDebtMutation.mutate(id)}
               onEdit={(id) => {
                 const txn = filteredPeerDebts.find((t: TransactionResponse) => t.id === id)
@@ -1055,25 +1056,25 @@ export function TransactionsPage() {
             <Card>
               <CardContent className="text-center py-12">
                 <History className="mx-auto mb-4 text-muted-foreground/40" size={40} />
-                <p className="text-muted-foreground">No activity yet</p>
+                <p className="text-muted-foreground">Nenhuma atividade ainda</p>
               </CardContent>
             </Card>
           ) : (
             <DataList
-              aria-label="Recent activity"
+              aria-label="Atividade recente"
               rows={ledgerEntries}
               rowId={(entry: LedgerEntryResponse) => entry.id}
               columns={[
                 {
                   id: 'date',
-                  header: 'Date',
+                  header: 'Data',
                   className: 'w-[18%]',
                   cell: (entry: LedgerEntryResponse) => <span className="num text-muted-foreground">{formatDate(entry.posted_at)}</span>,
                 },
-                { id: 'description', header: 'Description', cell: (entry: LedgerEntryResponse) => entry.description },
+                { id: 'description', header: 'Descrição', cell: (entry: LedgerEntryResponse) => entry.description },
                 {
                   id: 'amount',
-                  header: 'Amount',
+                  header: 'Valor',
                   align: 'right',
                   numeric: true,
                   className: 'w-[24%]',
@@ -1092,8 +1093,8 @@ export function TransactionsPage() {
       <EditSheet
         open={isCreatingDebt}
         onOpenChange={(open) => !open && setIsCreatingDebt(false)}
-        title="New Friend Debt"
-        description="Record a debt between you and a friend."
+        title="Nova dívida com amigo"
+        description="Registre uma dívida com um amigo."
       >
         <form
           className="flex flex-col gap-4"
@@ -1112,10 +1113,10 @@ export function TransactionsPage() {
           }}
         >
           <div className="flex flex-col gap-1">
-            <Label>Friend</Label>
+            <Label>Amigo</Label>
             <Select value={debtForm.friend_id} onValueChange={v => setDebtForm(f => ({ ...f, friend_id: v }))}>
-              <SelectTrigger className="w-full h-9" aria-label="Friend">
-                <SelectValue placeholder="Select friend..." />
+              <SelectTrigger className="w-full h-9" aria-label="Amigo">
+                <SelectValue placeholder="Escolha um amigo..." />
               </SelectTrigger>
               <SelectContent>
                 {friends.map((fr: FriendResponse) => (
@@ -1125,37 +1126,37 @@ export function TransactionsPage() {
             </Select>
           </div>
           <div className="flex flex-col gap-1">
-            <Label>Amount</Label>
-            <p className="text-xs text-muted-foreground">Positive = they owe you. Negative = you owe them.</p>
+            <Label>Valor</Label>
+            <p className="text-xs text-muted-foreground">Positivo: ele deve para você. Negativo: você deve para ele.</p>
             <Input
               type="number"
               step="0.01"
-              placeholder="e.g. 50.00 or -30.00"
+              placeholder="ex. 50.00 ou -30.00"
               value={debtForm.amount}
               onChange={e => setDebtForm(f => ({ ...f, amount: e.target.value }))}
               required
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label>Title</Label>
+            <Label>Título</Label>
             <Input
-              placeholder="e.g. Dinner, Movie tickets"
+              placeholder="ex. Jantar, ingressos de cinema"
               value={debtForm.title}
               onChange={e => setDebtForm(f => ({ ...f, title: e.target.value }))}
               required
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label>Date</Label>
+            <Label>Data</Label>
             <DateInput
               value={debtForm.date}
               onChange={date => setDebtForm(f => ({ ...f, date }))}
             />
           </div>
           <div className="flex gap-2 justify-end">
-            <Button type="button" variant="outline" onClick={() => setIsCreatingDebt(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => setIsCreatingDebt(false)}>Cancelar</Button>
             <Button type="submit" disabled={createDebtMutation.isPending}>
-              {createDebtMutation.isPending ? 'Saving...' : 'Create Debt'}
+              {createDebtMutation.isPending ? 'Salvando...' : 'Criar dívida'}
             </Button>
           </div>
         </form>
@@ -1164,8 +1165,8 @@ export function TransactionsPage() {
       <EditSheet
         open={!!editingDebtId}
         onOpenChange={(open) => !open && setEditingDebtId(null)}
-        title="Edit Friend Debt"
-        description="Update amount or title."
+        title="Editar dívida com amigo"
+        description="Atualize o valor ou o título."
       >
         <form
           className="flex flex-col gap-4"
@@ -1183,7 +1184,7 @@ export function TransactionsPage() {
           }}
         >
           <div className="flex flex-col gap-1">
-            <Label>Title</Label>
+            <Label>Título</Label>
             <Input
               value={editDebtDraft.title}
               onChange={e => setEditDebtDraft(d => ({ ...d, title: e.target.value }))}
@@ -1191,8 +1192,8 @@ export function TransactionsPage() {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label>Amount</Label>
-            <p className="text-xs text-muted-foreground">Enter positive number. Sign (who owes whom) is preserved.</p>
+            <Label>Valor</Label>
+            <p className="text-xs text-muted-foreground">Digite um número positivo. O sinal (quem deve a quem) é mantido.</p>
             <Input
               type="number"
               step="0.01"
@@ -1203,9 +1204,9 @@ export function TransactionsPage() {
             />
           </div>
           <div className="flex gap-2 justify-end">
-            <Button type="button" variant="outline" onClick={() => setEditingDebtId(null)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => setEditingDebtId(null)}>Cancelar</Button>
             <Button type="submit" disabled={updateDebtMutation.isPending}>
-              {updateDebtMutation.isPending ? 'Saving...' : 'Save'}
+              {updateDebtMutation.isPending ? 'Salvando...' : 'Salvar'}
             </Button>
           </div>
         </form>
@@ -1214,8 +1215,8 @@ export function TransactionsPage() {
       <EditSheet
         open={isCreating || !!editingId}
         onOpenChange={(open) => !open && handleCancel()}
-        title={editingId ? 'Edit Transaction' : 'New Transaction'}
-        description={editingId ? 'Update transaction details.' : 'Create a new transaction.'}
+        title={editingId ? 'Editar transação' : 'Nova transação'}
+        description={editingId ? 'Atualize os detalhes da transação.' : 'Crie uma nova transação.'}
       >
         <TransactionForm
           editingId={editingId}
@@ -1239,7 +1240,7 @@ export function TransactionsPage() {
         <div className="sm:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] right-4 z-30">
           <Button onClick={handleCreateClick} className="h-12 shadow-lg rounded-full px-5">
             <Plus size={18} />
-            New Transaction
+            Nova transação
           </Button>
         </div>
       )}

@@ -39,9 +39,9 @@ const money = (n: number) => (content: string) => flat(content) === flat(formatM
 describe('ProjectionWidget', () => {
   it('projects from the balance and the whole paycheck while the reserve is off', () => {
     renderWidget(null)
-    expect(screen.queryByText('Set aside for the reserve')).toBeNull()
-    expect(screen.getByText('Safety buffer')).toBeTruthy()
-    expect(screen.getByText('Projected start balance')).toBeTruthy()
+    expect(screen.queryByText('Separado para a reserva')).toBeNull()
+    expect(screen.getByText('Margem de segurança')).toBeTruthy()
+    expect(screen.getByText('Saldo inicial previsto')).toBeTruthy()
     expect(screen.getByText(money(10000))).toBeTruthy()
     // 10000 balance + 5000 paycheck
     expect(screen.getByText(money(15000))).toBeTruthy()
@@ -49,11 +49,11 @@ describe('ProjectionWidget', () => {
 
   it('leaves the reserve out of the start and takes its share off the paycheck', () => {
     renderWidget({ balance: 400, contributionAt: () => 250 })
-    expect(screen.getByText('Set aside for the reserve')).toBeTruthy()
-    expect(screen.getByText('Projected start balance (without the reserve)')).toBeTruthy()
-    expect(screen.getByText('Reserve left out')).toBeTruthy()
+    expect(screen.getByText('Separado para a reserva')).toBeTruthy()
+    expect(screen.getByText('Saldo inicial previsto (sem a reserva)')).toBeTruthy()
+    expect(screen.getByText('Reserva fora do cálculo')).toBeTruthy()
     // The typed buffer no longer applies once the reserve is on.
-    expect(screen.queryByText('Safety buffer')).toBeNull()
+    expect(screen.queryByText('Margem de segurança')).toBeNull()
     expect(screen.getByText(money(9600))).toBeTruthy()
     // 10000 - 400 reserve + 5000 paycheck - 250 set aside
     expect(screen.getByText(money(14350))).toBeTruthy()

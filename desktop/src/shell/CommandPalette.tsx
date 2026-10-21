@@ -41,8 +41,8 @@ export function CommandPalette({ open, onOpenChange, commands }: CommandPaletteP
           command.run()
         }}
         className="inset-x-3 top-[12%] bottom-auto w-auto translate-y-0 gap-0 overflow-hidden rounded-over p-0 sm:top-[18%] sm:w-full sm:max-w-[560px] sm:translate-y-0">
-        <DialogTitle className="sr-only">Command palette</DialogTitle>
-        <DialogDescription className="sr-only">Search pages and actions</DialogDescription>
+        <DialogTitle className="sr-only">Paleta de comandos</DialogTitle>
+        <DialogDescription className="sr-only">Buscar páginas e ações</DialogDescription>
         <PaletteBody commands={commands} onRun={runCommand} />
       </DialogContent>
     </Dialog>
@@ -97,14 +97,14 @@ function PaletteBody({ commands, onRun }: PaletteBodyProps) {
           aria-expanded="true"
           aria-controls="command-palette-list"
           aria-activedescendant={matches.length > 0 ? `palette-option-${index}` : undefined}
-          aria-label="Search commands"
+          aria-label="Buscar comandos"
           value={query}
           onChange={event => {
             setQuery(event.target.value)
             setActive(0)
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Type a command or search…"
+          placeholder="Digite um comando ou busque…"
           autoComplete="off"
           className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-faint"
         />
@@ -113,7 +113,7 @@ function PaletteBody({ commands, onRun }: PaletteBodyProps) {
 
       <div id="command-palette-list" role="listbox" aria-label="Commands" className="max-h-[360px] overflow-auto p-1.5">
         {matches.length === 0 && (
-          <div className="px-3 py-6 text-center text-sm text-faint">No matching commands</div>
+          <div className="px-3 py-6 text-center text-sm text-faint">Nenhum comando encontrado</div>
         )}
         {matches.map((command, position) => (
           <div key={command.id}>
@@ -142,9 +142,9 @@ function PaletteBody({ commands, onRun }: PaletteBodyProps) {
       </div>
 
       <div className="flex items-center gap-4 border-t border-line px-3.5 py-2 text-[11px] text-faint">
-        <span className="inline-flex items-center gap-1.5"><KeyChips keys="ArrowUp" />/<KeyChips keys="ArrowDown" />navigate</span>
-        <span className="inline-flex items-center gap-1.5"><KeyChips keys="Enter" />run</span>
-        <span className="inline-flex items-center gap-1.5"><KeyChips keys="Escape" />close</span>
+        <span className="inline-flex items-center gap-1.5"><KeyChips keys="ArrowUp" />/<KeyChips keys="ArrowDown" />navegar</span>
+        <span className="inline-flex items-center gap-1.5"><KeyChips keys="Enter" />executar</span>
+        <span className="inline-flex items-center gap-1.5"><KeyChips keys="Escape" />fechar</span>
       </div>
     </>
   )

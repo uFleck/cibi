@@ -96,7 +96,7 @@ export function ToPayPage() {
       <PageHeader
         eyebrow="Início"
         title="A pagar"
-        description={payday ? `O que precisa sair da conta até o próximo pagamento (${payday}).` : 'O que precisa sair da conta.'}
+        description={payday ? `O que precisa ser pago até o próximo recebimento (${payday}).` : 'O que precisa ser pago.'}
         actions={
           <Button size="sm" variant="outline" asChild>
             <Link to="/transactions">Ver todas as contas</Link>
@@ -136,7 +136,7 @@ export function ToPayPage() {
         note={due.length > 0 ? `Total: ${formatMoney(dueTotal, currency)}` : undefined}
       >
         {due.length === 0 ? (
-          <p className="py-3 text-sm text-muted-foreground">Nada para pagar antes do próximo pagamento.</p>
+          <p className="py-3 text-sm text-muted-foreground">Nada para pagar antes do próximo recebimento.</p>
         ) : (
           due.map(({ t, date, times }) => {
             const late = isOverdue(date, now)

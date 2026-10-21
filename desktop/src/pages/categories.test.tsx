@@ -54,22 +54,22 @@ describe('CategoriesPage', () => {
     expect(await screen.findByText('Mercado')).toBeTruthy()
     expect(screen.getByText(/Supermercados, hortifruti/)).toBeTruthy()
     expect(screen.getByText('Pet')).toBeTruthy()
-    expect(screen.getByText(/No description/)).toBeTruthy()
+    expect(screen.getByText(/Sem descrição/)).toBeTruthy()
   })
 
   it('edits the name and the description of a category', async () => {
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('button', { name: 'Edit Mercado' }))
+    await user.click(await screen.findByRole('button', { name: 'Editar Mercado' }))
 
-    const name = await screen.findByLabelText('Name')
+    const name = await screen.findByLabelText('Nome')
     await user.clear(name)
     await user.type(name, 'Feira')
-    expect(screen.getByText(/The 3 transactions in this category move to the new name/)).toBeTruthy()
-    const description = screen.getByLabelText('Description for Laya')
+    expect(screen.getByText(/3 transações desta categoria vão para o novo nome/)).toBeTruthy()
+    const description = screen.getByLabelText('Descrição para a Laya')
     await user.clear(description)
     await user.type(description, 'Feira livre e açougue')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar' }))
 
     await waitFor(() =>
       expect(updateCategory).toHaveBeenCalledWith('mercado', { label: 'Feira', description: 'Feira livre e açougue' }),
@@ -79,20 +79,20 @@ describe('CategoriesPage', () => {
   it('resets a built-in description to its default', async () => {
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('button', { name: 'Edit Mercado' }))
-    const description = (await screen.findByLabelText('Description for Laya')) as HTMLTextAreaElement
+    await user.click(await screen.findByRole('button', { name: 'Editar Mercado' }))
+    const description = (await screen.findByLabelText('Descrição para a Laya')) as HTMLTextAreaElement
     await user.clear(description)
     await user.type(description, 'outra coisa')
-    await user.click(screen.getByRole('button', { name: /Reset to default description/ }))
+    await user.click(screen.getByRole('button', { name: /Restaurar descrição padrão/ }))
     expect(description.value).toBe(CATEGORIES[0].description)
   })
 
   it('deletes a category after confirming', async () => {
     const user = userEvent.setup()
     renderPage()
-    await user.click(await screen.findByRole('button', { name: 'Delete Mercado' }))
-    expect(await screen.findByText(/3 transactions will become uncategorized/)).toBeTruthy()
-    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await user.click(await screen.findByRole('button', { name: 'Excluir Mercado' }))
+    expect(await screen.findByText(/3 transações ficarão sem categoria/)).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Excluir' }))
     await waitFor(() => expect(deleteCategory).toHaveBeenCalledWith('mercado'))
   })
 
@@ -100,17 +100,17 @@ describe('CategoriesPage', () => {
     vi.mocked(suggestCategory).mockResolvedValue({ category: 'Mercado', confidence: 0.9 })
     const user = userEvent.setup()
     renderPage()
-    await user.type(await screen.findByLabelText('Sample title'), 'Padaria')
-    await user.click(screen.getByRole('button', { name: 'Test' }))
-    expect((await screen.findByTestId('try-it-result')).textContent).toBe('Mercado (90% confident)')
+    await user.type(await screen.findByLabelText('Título de exemplo'), 'Padaria')
+    await user.click(screen.getByRole('button', { name: 'Testar' }))
+    expect((await screen.findByTestId('try-it-result')).textContent).toBe('Mercado (90% de confiança)')
   })
 
   it('says so when the classifier has no confident match', async () => {
     vi.mocked(suggestCategory).mockResolvedValue(null)
     const user = userEvent.setup()
     renderPage()
-    await user.type(await screen.findByLabelText('Sample title'), 'Pix Maria')
-    await user.click(screen.getByRole('button', { name: 'Test' }))
-    expect((await screen.findByTestId('try-it-result')).textContent).toMatch(/No confident match/)
+    await user.type(await screen.findByLabelText('Título de exemplo'), 'Pix Maria')
+    await user.click(screen.getByRole('button', { name: 'Testar' }))
+    expect((await screen.findByTestId('try-it-result')).textContent).toMatch(/Nenhuma correspondência confiável/)
   })
 })

@@ -1,6 +1,7 @@
 import { MoneyValue } from '@/components/ui/money-value'
 import { formatDate } from '@/lib/format'
 import type { PayScheduleResponse } from '@/lib/api'
+import { frequencyLabel } from '@/lib/labels'
 
 interface PayScheduleListProps {
   schedules: PayScheduleResponse[]
@@ -27,7 +28,7 @@ export function PayScheduleList({ schedules, currency = 'BRL' }: PayScheduleList
             key={ps.id}
             className="flex items-center py-2 gap-4 hover:bg-muted/30 transition-colors"
           >
-            <span className="flex-1 text-sm">{ps.label ?? ps.frequency}</span>
+            <span className="flex-1 text-sm">{ps.label ?? frequencyLabel(ps.frequency)}</span>
             <MoneyValue
               amount={ps.amount}
               currency={currency}
@@ -43,7 +44,7 @@ export function PayScheduleList({ schedules, currency = 'BRL' }: PayScheduleList
         <div className="border-t border-line mt-1" />
         <div className="flex items-center py-2 gap-4">
           <span className="flex-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            Total incoming
+            Total de entradas
           </span>
           <MoneyValue
             amount={total}

@@ -21,7 +21,7 @@ export function HintBar({ items, hidden = false, collapsed, onCollapsedChange }:
     return (
       <button
         type="button"
-        aria-label="Show keyboard hints"
+        aria-label="Mostrar dicas de teclado"
         onClick={() => onCollapsedChange(false)}
         className={`${POSITION} grid size-7 place-items-center rounded-full border border-line bg-surface/90 text-faint shadow-pop backdrop-blur transition-colors outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/25`}
       >
@@ -32,7 +32,7 @@ export function HintBar({ items, hidden = false, collapsed, onCollapsedChange }:
   return (
     <div
       role="note"
-      aria-label="Keyboard hints"
+      aria-label="Dicas de teclado"
       className={`${POSITION} pointer-events-none flex items-center gap-3 rounded-full border border-line bg-surface/90 py-1.5 pr-1.5 pl-3 text-[11px] whitespace-nowrap text-faint shadow-pop backdrop-blur`}
     >
       {items.map(item => (
@@ -43,7 +43,7 @@ export function HintBar({ items, hidden = false, collapsed, onCollapsedChange }:
       ))}
       <button
         type="button"
-        aria-label="Hide keyboard hints"
+        aria-label="Ocultar dicas de teclado"
         onClick={() => onCollapsedChange(true)}
         className="pointer-events-auto grid size-5 place-items-center rounded-full transition-colors outline-none hover:bg-surface-3 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/25"
       >

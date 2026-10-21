@@ -61,12 +61,12 @@ export function AccountsPage() {
     mutationFn: (data: FormData) => createAccount(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
-      toast.success('Account created')
+      toast.success('Conta criada')
       setIsCreating(false)
       resetForm()
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create account')
+      toast.error(error.message || 'Não deu para criar a conta')
     },
   })
 
@@ -75,12 +75,12 @@ export function AccountsPage() {
       updateAccount(data.id, data.updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
-      toast.success('Account updated')
+      toast.success('Conta atualizada')
       setEditingId(null)
       resetForm()
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update account')
+      toast.error(error.message || 'Não deu para atualizar a conta')
     },
   })
 
@@ -88,10 +88,10 @@ export function AccountsPage() {
     mutationFn: deleteAccount,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
-      toast.success('Account deleted')
+      toast.success('Conta excluída')
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete account')
+      toast.error(error.message || 'Não deu para excluir a conta')
     },
   })
 
@@ -113,7 +113,7 @@ export function AccountsPage() {
 
   const validate = (): boolean => {
     const errors: FormErrors = {}
-    if (!formData.name.trim()) errors.name = 'Name is required'
+    if (!formData.name.trim()) errors.name = 'O nome é obrigatório'
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -154,7 +154,7 @@ export function AccountsPage() {
     return (
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
         <div className="text-center text-neg">
-          Failed to load accounts. Please try again.
+          Não deu para carregar as contas. Tente de novo.
         </div>
       </div>
     )
@@ -169,19 +169,19 @@ export function AccountsPage() {
           setConfirmDelete(null)
         }}
         onCancel={() => setConfirmDelete(null)}
-        title={`Permanently delete "${accountToDelete?.name}"?`}
-        description="This deletes the account and ALL of its transactions, ledger history, pay schedules, goals (with their contributions), group events and debts. Friends are not deleted. This cannot be undone."
-        confirmLabel="Delete account and all data"
+        title={`Excluir "${accountToDelete?.name}" permanentemente?`}
+        description="Isto exclui a conta e TODAS as suas transações, o extrato, os recebimentos, as metas (com seus aportes), os eventos em grupo e as dívidas. Amigos não são excluídos. Não dá para desfazer."
+        confirmLabel="Excluir conta e todos os dados"
       />
 
       <PageHeader
-        eyebrow="Accounts"
-        title="Accounts"
-        description="Manage your accounts. Adjust a balance from the Balance card on the overview; pay schedules live in Transactions."
+        eyebrow="Contas"
+        title="Contas"
+        description="Gerencie suas contas. Ajuste um saldo pelo cartão Saldo no painel; os recebimentos ficam em Transações."
         actions={
           <Button onClick={handleCreateClick} size="sm" className="hidden sm:inline-flex">
             <Plus size={16} />
-            New Account
+            Nova conta
           </Button>
         }
       />
@@ -190,11 +190,11 @@ export function AccountsPage() {
         name="account-list"
         loading={isLoading}
         fallback={
-          <div className="flex flex-col gap-1.5" role="status" aria-label="Loading accounts">
+          <div className="flex flex-col gap-1.5" role="status" aria-label="Carregando contas">
             {[0, 1, 2].map(i => (
               <div key={i} className="h-8 rounded-md bg-surface-2 animate-pulse" />
             ))}
-            <span className="sr-only">Loading...</span>
+            <span className="sr-only">Carregando...</span>
           </div>
         }
       >
@@ -202,28 +202,28 @@ export function AccountsPage() {
           {accounts.length === 0 ? (
             <div className="rounded-md border border-line bg-surface text-center py-12">
               <Wallet className="mx-auto mb-4 text-faint" size={40} />
-              <p className="text-muted-foreground mb-4">No accounts yet</p>
+              <p className="text-muted-foreground mb-4">Nenhuma conta ainda</p>
               <Button onClick={handleCreateClick} size="sm">
                 <Plus size={16} />
-                Create First Account
+                Criar primeira conta
               </Button>
             </div>
           ) : (
             <DataList
-              aria-label="Accounts"
+              aria-label="Contas"
               rows={accounts}
               rowId={account => account.id}
               columns={[
-                { id: 'name', header: 'Name', cell: account => <span className="font-medium">{account.name}</span> },
+                { id: 'name', header: 'Nome', cell: account => <span className="font-medium">{account.name}</span> },
                 {
                   id: 'currency',
-                  header: 'Currency',
+                  header: 'Moeda',
                   className: 'hidden w-[12%] sm:table-cell',
                   cell: account => <span className="font-mono text-faint">{account.currency}</span>,
                 },
                 {
                   id: 'balance',
-                  header: 'Balance',
+                  header: 'Saldo',
                   align: 'right',
                   numeric: true,
                   className: 'w-[28%]',
@@ -235,7 +235,7 @@ export function AccountsPage() {
               actions={account => [
                 {
                   id: 'edit',
-                  label: 'Edit',
+                  label: 'Editar',
                   icon: Edit2,
                   keys: ROW_KEYS.edit,
                   primary: true,
@@ -243,7 +243,7 @@ export function AccountsPage() {
                 },
                 {
                   id: 'delete',
-                  label: 'Delete',
+                  label: 'Excluir',
                   icon: Trash2,
                   keys: ROW_KEYS.delete,
                   variant: 'destructive',
@@ -258,8 +258,8 @@ export function AccountsPage() {
       <AppModal
         open={isCreating || !!editingId}
         onOpenChange={(open) => !open && handleCancel()}
-        title={editingId ? 'Edit Account' : 'New Account'}
-        description={editingId ? 'Update account details.' : 'Create a new account.'}
+        title={editingId ? 'Editar conta' : 'Nova conta'}
+        description={editingId ? 'Atualize os dados da conta.' : 'Criar uma nova conta.'}
       >
         <AccountForm
           formData={formData}
@@ -282,7 +282,7 @@ export function AccountsPage() {
       <div className="sm:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] right-4 z-30">
         <Button onClick={handleCreateClick} className="h-12 shadow-lg rounded-full px-5">
           <Plus size={18} />
-          New Account
+          Nova conta
         </Button>
       </div>
     </div>

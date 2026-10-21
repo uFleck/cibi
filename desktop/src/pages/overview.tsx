@@ -10,6 +10,7 @@ import { useSelection, usePublishSelection } from '@/shell/selection'
 import { useLayout } from '@/widgets/layoutContext'
 import { WallGrid } from '@/widgets/WallGrid'
 import { useWorkspace } from '@/widgets/useWorkspace'
+import { frequencyLabel } from '@/lib/labels'
 
 const SKELETON_SPANS = [12, 8, 4, 6, 6]
 
@@ -24,24 +25,24 @@ export function OverviewPage() {
   usePublishSelection(data && selectedTxn ? {
     id: selectedTxn.id,
     title: selectedTxn.title,
-    eyebrow: selectedTxn.next_occurrence ? `Due ${formatDate(selectedTxn.next_occurrence)}` : 'Scheduled',
+    eyebrow: selectedTxn.next_occurrence ? `Vence ${formatDate(selectedTxn.next_occurrence)}` : 'Agendada',
     amount: <MoneyValue amount={selectedTxn.amount} currency={data.account.currency} showSign="auto" tone="negative" />,
-    badge: selectedTxn.is_recurring ? 'Recurring' : undefined,
+    badge: selectedTxn.is_recurring ? 'Recorrente' : undefined,
     rows: [
-      { label: 'Account', value: data.account.name },
-      { label: 'Next', value: <span className="num">{selectedTxn.next_occurrence ? formatDate(selectedTxn.next_occurrence) : '-'}</span> },
-      { label: 'Frequency', value: selectedTxn.frequency ?? '-' },
+      { label: 'Conta', value: data.account.name },
+      { label: 'Próximo', value: <span className="num">{selectedTxn.next_occurrence ? formatDate(selectedTxn.next_occurrence) : '-'}</span> },
+      { label: 'Frequência', value: frequencyLabel(selectedTxn.frequency) },
     ],
     actions: [{
       id: 'open',
-      label: 'Open in Transactions',
+      label: 'Abrir em Transações',
       variant: 'outline',
       run: () => void navigate({ to: '/transactions', search: { select: selectedTxn.id } }),
     }],
   } : null)
 
   useEffect(() => {
-    if (isError) toast.error('Could not load financial data. Retrying in 30 seconds.')
+    if (isError) toast.error('Não deu para carregar os dados financeiros. Tentando de novo em 30 segundos.')
   }, [isError])
 
   if (!data) {
@@ -50,11 +51,11 @@ export function OverviewPage() {
       <Page>
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="mb-4 text-muted-foreground">Create your first account to get started</p>
+            <p className="mb-4 text-muted-foreground">Crie sua primeira conta para começar</p>
             <Link to="/accounts">
               <Button size="sm">
                 <Plus size={16} />
-                Create Account
+                Criar conta
               </Button>
             </Link>
           </CardContent>
@@ -68,11 +69,11 @@ export function OverviewPage() {
       {data.transactions.length === 0 && data.paySchedules.length === 0 && (
         <Card>
           <CardContent className="py-6 text-center">
-            <p className="mb-2 font-semibold">Set up your finances</p>
+            <p className="mb-2 font-semibold">Configure suas finanças</p>
             <div className="mx-auto max-w-xs space-y-1 text-left text-sm text-muted-foreground">
-              <p>&#9312; <Link to="/transactions" search={{ tab: 'pay-schedules' }} className="underline">Add a pay schedule</Link> — tell us when you get paid</p>
-              <p>&#9313; <Link to="/transactions" className="underline">Create recurring bills</Link> — subscriptions, rent, etc.</p>
-              <p>&#9314; <span>Check what you can afford</span> — use the Can I buy it? widget</p>
+              <p>&#9312; <Link to="/transactions" search={{ tab: 'pay-schedules' }} className="underline">Adicionar recebimento</Link> — diga quando você recebe</p>
+              <p>&#9313; <Link to="/transactions" className="underline">Criar contas recorrentes</Link> — assinaturas, aluguel, etc.</p>
+              <p>&#9314; <span>Veja o que você pode pagar</span> — use o widget Posso comprar?</p>
             </div>
           </CardContent>
         </Card>
@@ -88,7 +89,7 @@ function Page({ children }: { children: ReactNode }) {
 
 function OverviewSkeleton() {
   return (
-    <div role="status" aria-label="Loading overview" className="mx-auto grid w-full max-w-[1400px] grid-cols-12 gap-3 px-4 py-6 sm:px-6">
+    <div role="status" aria-label="Carregando painel" className="mx-auto grid w-full max-w-[1400px] grid-cols-12 gap-3 px-4 py-6 sm:px-6">
       {SKELETON_SPANS.map((span, i) => (
         <div
           key={i}
@@ -96,7 +97,7 @@ function OverviewSkeleton() {
           className="h-40 animate-pulse rounded-md border border-line bg-surface/60"
         />
       ))}
-      <span className="sr-only">Loading...</span>
+      <span className="sr-only">Carregando...</span>
     </div>
   )
 }

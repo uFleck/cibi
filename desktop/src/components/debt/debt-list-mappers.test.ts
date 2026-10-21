@@ -25,7 +25,7 @@ describe('debt-list-mappers installment regression', () => {
     const debt = makeInstallmentDebt()
 
     expect(debtStatus(debt)).toMatchObject({
-      label: '0/3 paid',
+      label: '0/3 pagas',
       tone: 'secondary',
     })
   })
@@ -36,7 +36,7 @@ describe('debt-list-mappers installment regression', () => {
     expect(calculateNextPayDate(debt)).toBe('2026-05-01')
 
     const [vm] = mapFriendDebtsToVM([debt])
-    expect(vm.status.label).toBe('0/3 paid')
-    expect(vm.subtitle).toContain('Next payment: 01/05/2026')
+    expect(vm.status.label).toBe('0/3 pagas')
+    expect(vm.subtitle).toContain('Próximo pagamento: 01/05/2026')
   })
 })

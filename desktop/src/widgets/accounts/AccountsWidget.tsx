@@ -11,9 +11,9 @@ export function AccountsWidget({ accounts }: AccountsWidgetProps) {
   if (accounts.length === 0) {
     return (
       <div className="flex flex-col items-start gap-3">
-        <p className="text-sm text-muted-foreground">No accounts yet.</p>
+        <p className="text-sm text-muted-foreground">Nenhuma conta ainda.</p>
         <Button size="sm" asChild>
-          <Link to="/accounts">Create account</Link>
+          <Link to="/accounts">Criar conta</Link>
         </Button>
       </div>
     )

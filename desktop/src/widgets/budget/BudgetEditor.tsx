@@ -58,12 +58,12 @@ function checkRows(rows: FormRow[]): RowCheck[] {
   return rows.map((row): RowCheck => {
     if (row.limit.trim() === '') return { included: false, cents: null, problem: null }
     const reais = parseReais(row.limit)
-    if (reais === null) return { included: true, cents: null, problem: 'Enter an amount, such as 1234,56.' }
-    if (reais < 0) return { included: true, cents: null, problem: 'The limit cannot be negative.' }
+    if (reais === null) return { included: true, cents: null, problem: 'Informe um valor, como 1234,56.' }
+    if (reais < 0) return { included: true, cents: null, problem: 'O limite não pode ser negativo.' }
     const cents = Math.round(reais * 100)
     const category = row.category.trim()
-    if (category === '') return { included: true, cents, problem: 'Enter a category.' }
-    if ((counts.get(category) ?? 0) > 1) return { included: true, cents, problem: 'This category is already in the list.' }
+    if (category === '') return { included: true, cents, problem: 'Informe uma categoria.' }
+    if ((counts.get(category) ?? 0) > 1) return { included: true, cents, problem: 'Esta categoria já está na lista.' }
     return { included: true, cents, problem: null }
   })
 }
@@ -85,7 +85,7 @@ function BudgetForm({ data, currency, onSaved }: BudgetFormProps) {
     mutationFn: (limits: BudgetLimit[]) => saveBudgetLimits(limits),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['budget'] })
-      toast.success('Budget saved')
+      toast.success('Orçamento salvo')
       onSaved()
     },
   })
@@ -120,7 +120,7 @@ function BudgetForm({ data, currency, onSaved }: BudgetFormProps) {
       </datalist>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No limits yet. Add a category to start tracking.</p>
+        <p className="text-sm text-muted-foreground">Nenhum limite ainda. Adicione uma categoria para começar a acompanhar.</p>
       ) : (
         <ul className="flex flex-col gap-2.5">
           {rows.map((row, index) => {
@@ -131,7 +131,7 @@ function BudgetForm({ data, currency, onSaved }: BudgetFormProps) {
               <li key={row.key} className="flex flex-col gap-1.5 rounded-md border border-line p-2.5">
                 <div className="flex items-center gap-2">
                   <Input
-                    aria-label="Category"
+                    aria-label="Categoria"
                     list={OPTIONS_ID}
                     placeholder="Category"
                     value={row.category}
@@ -140,7 +140,7 @@ function BudgetForm({ data, currency, onSaved }: BudgetFormProps) {
                     onChange={event => updateRow(row.key, { category: event.target.value })}
                   />
                   <Input
-                    aria-label="Monthly limit"
+                    aria-label="Limite mensal"
                     inputMode="decimal"
                     placeholder="0,00"
                     value={row.limit}
@@ -149,7 +149,7 @@ function BudgetForm({ data, currency, onSaved }: BudgetFormProps) {
                     className="w-28 shrink-0 text-right tabular-nums"
                     onChange={event => updateRow(row.key, { limit: event.target.value })}
                   />
-                  <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove category" onClick={() => removeRow(row.key)}>
+                  <Button type="button" variant="ghost" size="icon-sm" aria-label="Remover categoria" onClick={() => removeRow(row.key)}>
                     <Trash2 />
                   </Button>
                 </div>
@@ -161,7 +161,7 @@ function BudgetForm({ data, currency, onSaved }: BudgetFormProps) {
                       checked={row.isFixed}
                       onCheckedChange={checked => updateRow(row.key, { isFixed: checked })}
                     />
-                    <Label htmlFor={fixedId}>Fixed bill</Label>
+                    <Label htmlFor={fixedId}>Conta fixa</Label>
                   </div>
                   {check.problem && (
                     <p id={problemId} role="alert" className="text-xs text-destructive">{check.problem}</p>
@@ -176,7 +176,7 @@ function BudgetForm({ data, currency, onSaved }: BudgetFormProps) {
       <div className="flex items-center justify-between gap-2 border-t border-line pt-3">
         <Button type="button" variant="outline" size="sm" onClick={addRow}>
           <Plus />
-          Add category
+          Adicionar categoria
         </Button>
         <p className="text-sm text-muted-foreground">
           Total <span className="font-semibold tabular-nums text-foreground">{formatMoney(total / 100, currency)}</span>
@@ -185,12 +185,12 @@ function BudgetForm({ data, currency, onSaved }: BudgetFormProps) {
 
       {save.isError && (
         <p role="alert" className="text-sm text-destructive">
-          {save.error instanceof Error ? save.error.message : 'Could not save the budget.'}
+          {save.error instanceof Error ? save.error.message : 'Não deu para salvar o orçamento.'}
         </p>
       )}
 
       <Button type="submit" disabled={hasProblem || save.isPending} className="w-full">
-        Save
+        Salvar
       </Button>
     </form>
   )
@@ -224,13 +224,13 @@ export function BudgetEditor() {
   const fresh = budget.data !== undefined && budget.dataUpdatedAt >= openedAt
 
   return (
-    <EditSheet open={open} onOpenChange={setOpen} title="Monthly budget">
+    <EditSheet open={open} onOpenChange={setOpen} title="Orçamento do mês">
       {fresh && budget.data ? (
         <BudgetForm key={openedAt} data={budget.data} currency={currency} onSaved={() => setOpen(false)} />
       ) : budget.isError ? (
-        <p role="alert" className="text-sm text-destructive">Could not load the budget.</p>
+        <p role="alert" className="text-sm text-destructive">Não deu para carregar o orçamento.</p>
       ) : (
-        <p className="text-sm text-muted-foreground">Loading...</p>
+        <p className="text-sm text-muted-foreground">Carregando...</p>
       )}
     </EditSheet>
   )

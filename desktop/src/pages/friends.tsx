@@ -70,19 +70,19 @@ function FriendDetailsModal({
     mutationFn: () => updateFriend(friend!.id, { name: nameDraft.trim(), pix_key: pixKeyDraft.trim() }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['friends'] })
-      toast.success('Friend updated')
+      toast.success('Amigo atualizado')
     },
-    onError: () => toast.error('Failed to update friend'),
+    onError: () => toast.error('Não deu para atualizar o amigo'),
   })
 
   const deleteFriendMutation = useMutation({
     mutationFn: () => deleteFriend(friend!.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['friends'] })
-      toast.success('Friend deleted')
+      toast.success('Amigo excluído')
       onOpenChange(false)
     },
-    onError: (error) => toast.error(error.message || 'Failed to delete friend'),
+    onError: (error) => toast.error(error.message || 'Não deu para excluir o amigo'),
   })
 
   if (!friend) return null
@@ -91,8 +91,8 @@ function FriendDetailsModal({
     <AppModal
       open={open}
       onOpenChange={onOpenChange}
-      title="Friend Details"
-      description="Manage friend and link access"
+      title="Detalhes do amigo"
+      description="Gerencie o amigo e o acesso pelo link"
     >
         <ConfirmDialog
           open={confirmDeleteFriendOpen}
@@ -101,21 +101,21 @@ function FriendDetailsModal({
             setConfirmDeleteFriendOpen(false)
             deleteFriendMutation.mutate()
           }}
-          title={`Delete "${friend.name}"?`}
-          description="The friend will be removed. Friends with debts or group events cannot be deleted."
-          confirmLabel="Delete"
+          title={`Excluir "${friend.name}"?`}
+          description="O amigo será removido. Amigos com dívidas ou eventos em grupo não podem ser excluídos."
+          confirmLabel="Excluir"
         />
 
         <div className="flex flex-col gap-2">
           <Input
             value={nameDraft}
             onChange={e => setNameDraft(e.target.value)}
-            placeholder="Friend name"
+            placeholder="Nome do amigo"
           />
           <Input
             value={pixKeyDraft}
             onChange={e => setPixKeyDraft(e.target.value)}
-            placeholder="PIX key (optional)"
+            placeholder="Chave PIX (opcional)"
           />
           <div className="flex gap-2 justify-end">
             <Button
@@ -124,13 +124,13 @@ function FriendDetailsModal({
               className="size-8"
               onClick={() => {
                 if (!nameDraft.trim()) {
-                  toast.error('Name required')
+                  toast.error('Nome é obrigatório')
                   return
                 }
                 renameMutation.mutate()
               }}
               disabled={renameMutation.isPending}
-              aria-label="Save friend"
+              aria-label="Salvar amigo"
             >
               <Save size={14} />
             </Button>
@@ -140,7 +140,7 @@ function FriendDetailsModal({
               className="size-8"
               onClick={() => setConfirmDeleteFriendOpen(true)}
               disabled={deleteFriendMutation.isPending}
-              aria-label="Delete friend"
+              aria-label="Excluir amigo"
             >
               <Trash2 size={14} />
             </Button>
@@ -223,19 +223,19 @@ function GroupEventDetailsModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['group-events'] })
       queryClient.invalidateQueries({ queryKey: ['group-event', event?.id] })
-      toast.success('Group event updated')
+      toast.success('Evento em grupo atualizado')
     },
-    onError: () => toast.error('Failed to update group event'),
+    onError: () => toast.error('Não deu para atualizar o evento em grupo'),
   })
 
   const deleteEventMutation = useMutation({
     mutationFn: () => deleteGroupEvent(event!.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['group-events'] })
-      toast.success('Group event deleted')
+      toast.success('Evento em grupo excluído')
       onOpenChange(false)
     },
-    onError: () => toast.error('Failed to delete group event'),
+    onError: () => toast.error('Não deu para excluir o evento em grupo'),
   })
 
   const saveParticipantsMutation = useMutation({
@@ -254,13 +254,13 @@ function GroupEventDetailsModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['group-event', event?.id] })
       queryClient.invalidateQueries({ queryKey: ['group-events'] })
-      toast.success('Participants updated')
+      toast.success('Participantes atualizados')
     },
-    onError: () => toast.error('Failed to update participants'),
+    onError: () => toast.error('Não deu para atualizar os participantes'),
   })
 
   const participantLabel = (friendId: string | null) => {
-    if (friendId === null) return 'You (admin)'
+    if (friendId === null) return 'Você (admin)'
     const friend = friends.find(f => f.id === friendId)
     return friend?.name ?? `${friendId.slice(0, 8)}...`
   }
@@ -347,12 +347,12 @@ function GroupEventDetailsModal({
             changed = true
           }
         } catch {
-          errors.push(`create failed: ${token}`)
+          errors.push(`Não deu para criar: ${token}`)
         }
         continue
       }
 
-      if (res.error && res.error !== 'empty') errors.push(res.error)
+      if (res.error && res.error !== 'empty') errors.push(res.error.replace('ambiguous:', 'Mais de um amigo para:'))
     }
 
     setParticipantsInput('')
@@ -363,7 +363,7 @@ function GroupEventDetailsModal({
 
   function removeParticipant(friendId: string | null) {
     if (friendId === null) {
-      toast.error('You (admin) must always stay in participants')
+      toast.error('Você (admin) deve continuar nos participantes')
       return
     }
     const next = participantIds.filter(id => id !== friendId)
@@ -386,8 +386,8 @@ function GroupEventDetailsModal({
     <AppModal
       open={open}
       onOpenChange={onOpenChange}
-      title="Group Event Details"
-      description="Manage event, participants, link access"
+      title="Detalhes do evento em grupo"
+      description="Gerencie o evento, os participantes e o acesso pelo link"
       contentClassName="md:w-[720px] md:max-w-[720px]"
     >
 
@@ -398,9 +398,9 @@ function GroupEventDetailsModal({
             setConfirmDeleteEventOpen(false)
             deleteEventMutation.mutate()
           }}
-          title={`Delete "${event.title}"?`}
-          description="This removes all participants."
-          confirmLabel="Delete"
+          title={`Excluir "${event.title}"?`}
+          description="Isso remove todos os participantes."
+          confirmLabel="Excluir"
         />
 
         <div className="flex gap-2 items-center">
@@ -408,7 +408,7 @@ function GroupEventDetailsModal({
             className="flex-1"
             value={titleDraft}
             onChange={e => setTitleDraft(e.target.value)}
-            placeholder="Group event name"
+            placeholder="Nome do evento em grupo"
           />
           <Button
             size="icon"
@@ -416,13 +416,13 @@ function GroupEventDetailsModal({
             className="size-8"
             onClick={() => {
               if (!titleDraft.trim()) {
-                toast.error('Title required')
+                toast.error('Título é obrigatório')
                 return
               }
               renameMutation.mutate()
             }}
             disabled={renameMutation.isPending}
-            aria-label="Save event"
+            aria-label="Salvar evento"
           >
             <Save size={14} />
           </Button>
@@ -432,7 +432,7 @@ function GroupEventDetailsModal({
             className="size-8"
             onClick={() => setConfirmDeleteEventOpen(true)}
             disabled={deleteEventMutation.isPending}
-            aria-label="Delete event"
+            aria-label="Excluir evento"
           >
             <Trash2 size={14} />
           </Button>
@@ -469,8 +469,8 @@ function GroupEventDetailsModal({
           onHostChange={(nextHost) => persistParticipants(participantIds, participantConfirmedMap, nextHost)}
           onToggleParticipantConfirmed={toggleParticipantConfirmed}
           onRemoveParticipant={removeParticipant}
-          addParticipantsLabel="Add participants"
-          emptyLabel="No participants set"
+          addParticipantsLabel="Adicionar participantes"
+          emptyLabel="Nenhum participante definido"
         />
     </AppModal>
   )
@@ -509,11 +509,11 @@ export function FriendsPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['friends'] })
-      toast.success('Friend added')
+      toast.success('Amigo adicionado')
       setFriendForm(EMPTY_FRIEND_FORM)
       setShowCreateFriend(false)
     },
-    onError: () => toast.error('Failed to add friend'),
+    onError: () => toast.error('Não deu para adicionar o amigo'),
   })
 
   const createEventMutation = useMutation({
@@ -527,11 +527,11 @@ export function FriendsPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['group-events'] })
-      toast.success('Group event created')
+      toast.success('Evento em grupo criado')
       setEventForm(EMPTY_EVENT_FORM)
       setShowCreateEvent(false)
     },
-    onError: () => toast.error('Failed to create group event'),
+    onError: () => toast.error('Não deu para criar o evento em grupo'),
   })
 
   const activeFriend = friends.find(f => f.id === activeFriendId) ?? null
@@ -542,18 +542,18 @@ export function FriendsPage() {
 
     const totalAmount = parseDecimalInput(eventForm.total_amount)
     if (totalAmount == null) {
-      toast.error('Please enter a valid total amount')
+      toast.error('Informe um valor total válido')
       return
     }
 
     // Stored as whole cents: anything that rounds to 0 (or below) would be saved as 0.
     if (Math.round(totalAmount * 100) <= 0) {
-      toast.error('Total amount must be greater than 0.')
+      toast.error('O valor total deve ser maior que 0.')
       return
     }
 
     if (!selectedAccountId) {
-      toast.error('Select an account first')
+      toast.error('Selecione uma conta primeiro')
       return
     }
 
@@ -564,13 +564,13 @@ export function FriendsPage() {
     <div className={pageShell}>
       <section className="flex flex-col gap-3">
         <PageHeader
-          eyebrow="Shared spending"
-          title="Friends"
-          description="Track who owes what, and settle up."
+          eyebrow="Gastos compartilhados"
+          title="Amigos"
+          description="Acompanhe quem deve o quê e acerte as contas."
           actions={
             <Button size="sm" onClick={() => setShowCreateFriend(true)}>
               <Plus size={16} />
-              Add Friend
+              Adicionar amigo
             </Button>
           }
         />
@@ -583,19 +583,19 @@ export function FriendsPage() {
           </div>
         ) : friends.length === 0 ? (
           <div className="flex flex-col items-center gap-1 rounded-md border border-line bg-surface py-8 text-center">
-            <p className="text-[13px] font-semibold text-foreground">No friends yet</p>
-            <p className="text-[12px] text-faint">Add friend to track debts.</p>
-            <Button size="sm" className="mt-2" onClick={() => setShowCreateFriend(true)}>Add friend</Button>
+            <p className="text-[13px] font-semibold text-foreground">Nenhum amigo ainda</p>
+            <p className="text-[12px] text-faint">Adicione um amigo para acompanhar dívidas.</p>
+            <Button size="sm" className="mt-2" onClick={() => setShowCreateFriend(true)}>Adicionar amigo</Button>
           </div>
         ) : (
           <DataList
-            aria-label="Friends"
+            aria-label="Amigos"
             rows={friends}
             rowId={(friend) => friend.id}
             columns={[
               {
                 id: 'friend',
-                header: 'Friend',
+                header: 'Amigo',
                 title: (friend) => friend.name,
                 cell: (friend) => (
                   <div className="flex items-center gap-2">
@@ -608,14 +608,14 @@ export function FriendsPage() {
               },
               {
                 id: 'pix',
-                header: 'PIX key',
+                header: 'Chave PIX',
                 className: 'hidden w-[26%] sm:table-cell',
                 title: (friend) => friend.pix_key,
                 cell: (friend) => <span className="font-mono text-muted-foreground">{friend.pix_key || '—'}</span>,
               },
               {
                 id: 'notes',
-                header: 'Notes',
+                header: 'Observações',
                 className: 'hidden w-[28%] md:table-cell',
                 title: (friend) => friend.notes,
                 cell: (friend) => <span className="text-muted-foreground">{friend.notes || '—'}</span>,
@@ -624,8 +624,8 @@ export function FriendsPage() {
             actions={(friend) => [
               {
                 id: 'open',
-                label: 'Open',
-                ariaLabel: 'Access friend details',
+                label: 'Abrir',
+                ariaLabel: 'Ver detalhes do amigo',
                 icon: Eye,
                 keys: ROW_KEYS.open,
                 primary: true,
@@ -638,10 +638,10 @@ export function FriendsPage() {
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">Group Events</h2>
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">Eventos em grupo</h2>
           <Button size="sm" onClick={() => setShowCreateEvent(true)}>
             <Plus size={16} />
-            New Event
+            Novo evento
           </Button>
         </div>
 
@@ -654,17 +654,17 @@ export function FriendsPage() {
           </div>
         ) : groupEvents.length === 0 ? (
           <div className="flex flex-col items-center gap-1 rounded-md border border-line bg-surface py-8 text-center">
-            <p className="text-[13px] font-semibold text-foreground">No group events yet</p>
-            <p className="text-[12px] text-faint">Create event to split costs.</p>
+            <p className="text-[13px] font-semibold text-foreground">Nenhum evento em grupo ainda</p>
+            <p className="text-[12px] text-faint">Crie um evento para dividir custos.</p>
           </div>
         ) : (
           <DataList
-            aria-label="Group events"
+            aria-label="Eventos em grupo"
             rows={groupEvents}
             rowId={(event) => event.id}
             columns={[
-              { id: 'event', header: 'Event', cell: (event) => <span className="font-medium text-foreground">{event.title}</span> },
-              { id: 'date', header: 'Date', className: 'w-[22%]', cell: (event) => <span className="font-mono text-muted-foreground">{formatDate(event.date)}</span> },
+              { id: 'event', header: 'Evento', cell: (event) => <span className="font-medium text-foreground">{event.title}</span> },
+              { id: 'date', header: 'Data', className: 'w-[22%]', cell: (event) => <span className="font-mono text-muted-foreground">{formatDate(event.date)}</span> },
               {
                 id: 'total',
                 header: 'Total',
@@ -677,8 +677,8 @@ export function FriendsPage() {
             actions={(event) => [
               {
                 id: 'open',
-                label: 'Open',
-                ariaLabel: 'Access group event details',
+                label: 'Abrir',
+                ariaLabel: 'Ver detalhes do evento em grupo',
                 icon: Eye,
                 keys: ROW_KEYS.open,
                 primary: true,
@@ -695,8 +695,8 @@ export function FriendsPage() {
           setShowCreateEvent(open)
           if (!open) setEventForm(EMPTY_EVENT_FORM)
         }}
-        title="New Group Event"
-        description="Create event to split costs with friends."
+        title="Novo evento em grupo"
+        description="Crie um evento para dividir custos com amigos."
       >
         <GroupEventForm
           form={eventForm}
@@ -707,8 +707,8 @@ export function FriendsPage() {
             setEventForm(EMPTY_EVENT_FORM)
           }}
           isSubmitting={createEventMutation.isPending}
-          submitLabel="Create Event"
-          cancelLabel="Discard"
+          submitLabel="Criar evento"
+          cancelLabel="Descartar"
         />
       </AppModal>
 
@@ -718,8 +718,8 @@ export function FriendsPage() {
           setShowCreateFriend(open)
           if (!open) setFriendForm(EMPTY_FRIEND_FORM)
         }}
-        title="New Friend"
-        description="Create friend to track debts and share link."
+        title="Novo amigo"
+        description="Crie um amigo para acompanhar dívidas e compartilhar o link."
       >
         <FriendForm
           name={friendForm.name}
@@ -734,8 +734,8 @@ export function FriendsPage() {
             setFriendForm(EMPTY_FRIEND_FORM)
           }}
           isSubmitting={createFriendMutation.isPending}
-          submitLabel="Create Friend"
-          cancelLabel="Discard"
+          submitLabel="Criar amigo"
+          cancelLabel="Descartar"
         />
       </AppModal>
 

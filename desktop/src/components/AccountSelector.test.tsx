@@ -38,12 +38,12 @@ afterEach(() => {
 })
 
 describe('AccountSelector', () => {
-  it('offers a Create account link when there are no accounts', async () => {
+  it('offers a Criar conta link when there are no accounts', async () => {
     mockFetchAccounts.mockResolvedValue([])
 
     renderSelector()
 
-    const link = await screen.findByRole('link', { name: 'Create account' })
+    const link = await screen.findByRole('link', { name: 'Criar conta' })
     expect(link.getAttribute('href')).toBe('/accounts')
   })
 })

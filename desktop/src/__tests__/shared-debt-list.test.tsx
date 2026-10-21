@@ -33,7 +33,7 @@ describe('SharedDebtList', () => {
   it('renders error state and retry callback', () => {
     const onRetry = vi.fn()
     render(<SharedDebtList view="owner" items={[]} error="boom" onRetry={onRetry} />)
-    fireEvent.click(screen.getByText('Retry'))
+    fireEvent.click(screen.getByText('Tentar de novo'))
     expect(onRetry).toHaveBeenCalledTimes(1)
   })
 
@@ -42,9 +42,9 @@ describe('SharedDebtList', () => {
     const onDelete = vi.fn()
     render(<TooltipProvider><SharedDebtList view="owner" items={baseItems} mode="mobile" onConfirm={onConfirm} onDelete={onDelete} /></TooltipProvider>)
 
-    expect(screen.getByLabelText('Mark paid')).toBeTruthy()
-    expect(screen.getByLabelText('Delete')).toBeTruthy()
-    expect(screen.queryByLabelText('Edit')).toBeNull()
+    expect(screen.getByLabelText('Marcar como pago')).toBeTruthy()
+    expect(screen.getByLabelText('Excluir')).toBeTruthy()
+    expect(screen.queryByLabelText('Editar')).toBeNull()
   })
 
 })

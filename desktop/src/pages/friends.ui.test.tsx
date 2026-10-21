@@ -68,14 +68,14 @@ describe('FriendsPage create group event', () => {
   it('sends total_amount as a number in dollars in the create request body', async () => {
     renderFriendsPage()
 
-    fireEvent.click(await screen.findByRole('button', { name: /new event/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /novo evento/i }))
 
-    fireEvent.change(screen.getByPlaceholderText('Pizza Night'), { target: { value: 'Pizza Night' } })
+    fireEvent.change(screen.getByPlaceholderText('Jantar de pizza'), { target: { value: 'Pizza Night' } })
     const dateInput = document.querySelector('input[placeholder="DD/MM/AAAA"]') as HTMLInputElement
     fireEvent.change(dateInput, { target: { value: '01/07/2026' } })
     fireEvent.blur(dateInput)
     fireEvent.change(screen.getByPlaceholderText('0.00'), { target: { value: '45,5' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Create Event' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Criar evento' }))
 
     await waitFor(() => expect(mockCreateGroupEvent).toHaveBeenCalledTimes(1))
     const body = mockCreateGroupEvent.mock.calls[0]![0]
@@ -93,17 +93,17 @@ describe('FriendsPage create group event', () => {
     async (amount) => {
       renderFriendsPage()
 
-      fireEvent.click(await screen.findByRole('button', { name: /new event/i }))
+      fireEvent.click(await screen.findByRole('button', { name: /novo evento/i }))
 
-      fireEvent.change(screen.getByPlaceholderText('Pizza Night'), { target: { value: 'Pizza Night' } })
+      fireEvent.change(screen.getByPlaceholderText('Jantar de pizza'), { target: { value: 'Pizza Night' } })
       const dateInput = document.querySelector('input[placeholder="DD/MM/AAAA"]') as HTMLInputElement
       fireEvent.change(dateInput, { target: { value: '01/07/2026' } })
       fireEvent.blur(dateInput)
       fireEvent.change(screen.getByPlaceholderText('0.00'), { target: { value: amount } })
-      fireEvent.click(screen.getByRole('button', { name: 'Create Event' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Criar evento' }))
 
       await waitFor(() =>
-        expect(toast.error).toHaveBeenCalledWith('Total amount must be greater than 0.')
+        expect(toast.error).toHaveBeenCalledWith('O valor total deve ser maior que 0.')
       )
       expect(mockCreateGroupEvent).not.toHaveBeenCalled()
     }
@@ -134,10 +134,10 @@ describe('FriendsPage delete friend', () => {
   async function openDeleteConfirm() {
     renderFriendsPage()
     // The row renders its open action in more than one layout; either one opens the same modal.
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Access friend details' }))[0]!)
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete friend' }))
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Ver detalhes do amigo' }))[0]!)
+    fireEvent.click(await screen.findByRole('button', { name: 'Excluir amigo' }))
     expect(
-      await screen.findByText('The friend will be removed. Friends with debts or group events cannot be deleted.')
+      await screen.findByText('O amigo será removido. Amigos com dívidas ou eventos em grupo não podem ser excluídos.')
     ).toBeTruthy()
     expect(screen.queryByText(/debt history/i)).toBeNull()
   }
@@ -147,7 +147,7 @@ describe('FriendsPage delete friend', () => {
     mockDeleteFriend.mockRejectedValue(new Error(serverMessage))
     await openDeleteConfirm()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir' }))
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(serverMessage))
     expect(mockDeleteFriend).toHaveBeenCalledWith('f1')
@@ -157,18 +157,20 @@ describe('FriendsPage delete friend', () => {
     mockDeleteFriend.mockRejectedValue(new Error(''))
     await openDeleteConfirm()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir' }))
 
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to delete friend'))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Não deu para excluir o amigo'))
   })
 
-  it('offers an Add friend action in the empty state that opens the friend form', async () => {
+  it('offers an Adicionar amigo action in the empty state that opens the friend form', async () => {
     mockListFriends.mockResolvedValue([])
     renderFriendsPage()
 
-    expect(await screen.findByText('No friends yet')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Add friend' }))
+    expect(await screen.findByText('Nenhum amigo ainda')).toBeTruthy()
+    // The page header has the same button; the empty-state one comes last in the DOM.
+    const addButtons = screen.getAllByRole('button', { name: 'Adicionar amigo' })
+    fireEvent.click(addButtons[addButtons.length - 1]!)
 
-    expect(await screen.findByText('New Friend')).toBeTruthy()
+    expect(await screen.findByText('Novo amigo')).toBeTruthy()
   })
 })

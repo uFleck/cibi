@@ -16,7 +16,7 @@ describe('goals tracking view helpers', () => {
 
   it('renders updated cue only when timestamp exists', () => {
     expect(formatUpdatedCue()).toBeNull()
-    expect(formatUpdatedCue('2026-01-01T10:00:00Z')).toMatch(/^Updated /)
+    expect(formatUpdatedCue('2026-01-01T10:00:00Z')).toMatch(/^Atualizado /)
   })
 })
 

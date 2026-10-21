@@ -24,7 +24,7 @@ export function ConfirmDialog({
   onCancel,
   title,
   description,
-  confirmLabel = 'Delete',
+  confirmLabel = 'Excluir',
 }: ConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onCancel() }}>
@@ -36,7 +36,7 @@ export function ConfirmDialog({
           )}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={onCancel}>Cancelar</AlertDialogCancel>
           <AlertDialogAction variant="destructive" onClick={onConfirm}>
             {confirmLabel}
           </AlertDialogAction>

@@ -9,7 +9,7 @@ const SIZE_OPTIONS: ReadonlyArray<readonly [WallSpan, string]> = [
   [4, 'M'],
   [6, 'L'],
   [8, 'XL'],
-  [12, 'Full'],
+  [12, 'Total'],
 ]
 
 export interface DropMark {
@@ -75,7 +75,7 @@ export function WidgetFrame({
     >
       {editing && (
         <span id={hintId} className="sr-only">
-          Alt+Arrows move, Alt+Shift+Arrows resize, Delete removes
+          Alt+setas move, Alt+Shift+setas redimensionam, Delete remove
         </span>
       )}
 
@@ -101,13 +101,13 @@ export function WidgetFrame({
         {editing && (
           <div className="flex items-center gap-1.5">
             {onResize && (
-              <div role="group" aria-label={`${title} width`} className="flex overflow-hidden rounded-sm border border-line-strong">
+              <div role="group" aria-label={`Largura de ${title}`} className="flex overflow-hidden rounded-sm border border-line-strong">
                 {SIZE_OPTIONS.map(([n, label]) => (
                   <button
                     key={n}
                     type="button"
                     aria-pressed={span === n}
-                    title={`${n} of 12 columns`}
+                    title={`${n} de 12 colunas`}
                     onClick={() => onResize(n)}
                     className={cn(
                       'h-5 cursor-pointer px-1.5 font-mono text-[10.5px] text-faint transition-colors hover:bg-surface-3 hover:text-foreground',
@@ -121,7 +121,7 @@ export function WidgetFrame({
             )}
             <button
               type="button"
-              aria-label={`Remove ${title}`}
+              aria-label={`Remover ${title}`}
               onClick={onRemove}
               className="grid size-5 cursor-pointer place-items-center rounded-sm text-faint transition-colors hover:bg-surface-3 hover:text-neg"
             >

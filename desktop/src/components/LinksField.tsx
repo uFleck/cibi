@@ -20,24 +20,24 @@ export function LinksField({ id, value, onChange }: LinksFieldProps) {
         <div key={index} className="grid grid-cols-[1fr_8rem_auto] items-center gap-2">
           <Input
             id={index === 0 ? id : undefined}
-            aria-label={`Link ${index + 1} url`}
+            aria-label={`Endereço do link ${index + 1}`}
             value={link.url}
             onChange={e => update(index, { url: e.target.value })}
             placeholder="https://..."
             autoComplete="off"
           />
           <Input
-            aria-label={`Link ${index + 1} label`}
+            aria-label={`Nome do link ${index + 1}`}
             value={link.label ?? ''}
             onChange={e => update(index, { label: e.target.value })}
-            placeholder="Label"
+            placeholder="Nome"
             autoComplete="off"
           />
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
-            aria-label={`Remove link ${index + 1}`}
+            aria-label={`Remover link ${index + 1}`}
             onClick={() => onChange(value.filter((_, i) => i !== index))}
           >
             <X size={14} />
@@ -47,7 +47,7 @@ export function LinksField({ id, value, onChange }: LinksFieldProps) {
       <div>
         <Button type="button" variant="outline" size="sm" onClick={() => onChange([...value, { url: '', label: null }])}>
           <Plus size={14} />
-          Add link
+          Adicionar link
         </Button>
       </div>
     </div>

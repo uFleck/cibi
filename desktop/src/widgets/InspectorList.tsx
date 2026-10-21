@@ -28,8 +28,8 @@ import { WIDGETS } from './registry'
 import type { WidgetData } from './useWorkspace'
 
 const DRAG_DISTANCE_PX = 6
-const FALLBACK_FOCUS_SELECTOR = '[aria-label="Widgets not on this page"] button, [data-edit-done]'
-const POSITION_LABELS: Record<InspectorPos, string> = { left: 'Left', right: 'Right', off: 'Off' }
+const FALLBACK_FOCUS_SELECTOR = '[aria-label="Widgets fora deste painel"] button, [data-edit-done]'
+const POSITION_LABELS: Record<InspectorPos, string> = { left: 'Esquerda', right: 'Direita', off: 'Desligado' }
 
 /** Tray first (pointer inside it), then the nearest widget, then the empty list itself. */
 const collision: CollisionDetection = args => {
@@ -122,10 +122,10 @@ export function InspectorList({ layout, data }: InspectorListProps) {
           <div className="flex flex-col gap-2 rounded-md border border-dashed border-hl bg-surface-2 p-2.5">
             <div className="flex items-center gap-2 text-sm font-medium">
               <LayoutGrid aria-hidden className="size-4 text-hl" />
-              Customize inspector
+              Personalizar detalhes
             </div>
             <Tray available={available} onAdd={id => layout.dispatch({ type: 'add', zone: 'insp', id })} />
-            <div role="group" aria-label="Inspector position" className="flex overflow-hidden rounded-sm border border-line-strong">
+            <div role="group" aria-label="Posição dos detalhes" className="flex overflow-hidden rounded-sm border border-line-strong">
               {POSITIONS.map(option => (
                 <button
                   key={option}
@@ -142,8 +142,8 @@ export function InspectorList({ layout, data }: InspectorListProps) {
               ))}
             </div>
             <div className="flex gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={resetInspector}>Reset</Button>
-              <Button type="button" size="sm" data-edit-done className="flex-1" onClick={() => shell.setEditMode(false)}>Done</Button>
+              <Button type="button" variant="outline" size="sm" onClick={resetInspector}>Redefinir</Button>
+              <Button type="button" size="sm" data-edit-done className="flex-1" onClick={() => shell.setEditMode(false)}>Concluir</Button>
             </div>
           </div>
         )}
@@ -180,7 +180,7 @@ function InspectorZone({ empty, editing, children }: { empty: boolean; editing: 
   return (
     <div ref={setNodeRef} className="flex min-h-16 flex-col gap-2.5">
       {children}
-      {empty && <EmptyZone editing={editing} label="No widgets in the inspector." />}
+      {empty && <EmptyZone editing={editing} label="Nenhum widget nos detalhes." />}
     </div>
   )
 }

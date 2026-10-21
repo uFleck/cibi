@@ -28,23 +28,23 @@ export function GroupEventForm({
   onSubmit,
   onCancel,
   isSubmitting = false,
-  submitLabel = 'Create Event',
-  cancelLabel = 'Discard',
+  submitLabel = 'Criar evento',
+  cancelLabel = 'Descartar',
 }: GroupEventFormProps) {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <div>
-        <Label className="block text-sm font-medium mb-1">Title</Label>
+        <Label className="block text-sm font-medium mb-1">Título</Label>
         <Input
           required
           value={form.title}
           onChange={e => onChange({ ...form, title: e.target.value })}
-          placeholder="Pizza Night"
+          placeholder="Jantar de pizza"
         />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <Label className="block text-sm font-medium mb-1">Date</Label>
+          <Label className="block text-sm font-medium mb-1">Data</Label>
           <DateInput
             required
             value={form.date}
@@ -52,7 +52,7 @@ export function GroupEventForm({
           />
         </div>
         <div>
-          <Label className="block text-sm font-medium mb-1">Total Amount ($)</Label>
+          <Label className="block text-sm font-medium mb-1">Valor total ($)</Label>
           <ValueInput
             required
             value={form.total_amount}
@@ -63,12 +63,12 @@ export function GroupEventForm({
         </div>
       </div>
       <div>
-        <Label className="block text-sm font-medium mb-1">Notes (optional)</Label>
+        <Label className="block text-sm font-medium mb-1">Observações (opcional)</Label>
         <Textarea
           rows={2}
           value={form.notes}
           onChange={e => onChange({ ...form, notes: e.target.value })}
-          placeholder="Optional notes"
+          placeholder="Observações opcionais"
           className="resize-none"
         />
       </div>

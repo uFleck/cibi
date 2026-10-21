@@ -51,8 +51,8 @@ export function ParticipantEditor({
   onHostChange,
   onToggleParticipantConfirmed,
   onRemoveParticipant,
-  addParticipantsLabel = 'Add participants',
-  emptyLabel = 'No participants set',
+  addParticipantsLabel = 'Adicionar participantes',
+  emptyLabel = 'Nenhum participante definido',
 }: ParticipantEditorProps) {
   const equalShare = useMemo(() => {
     if (participantIds.length === 0) return 0
@@ -77,7 +77,7 @@ export function ParticipantEditor({
                 onParticipantsInputClose()
               }
             }}
-            placeholder="Add participants: lin, Mari, Amanda"
+            placeholder="Adicionar participantes: lin, Mari, Amanda"
             className={highlightParticipantsInput ? 'border-primary ring-2 ring-primary/30' : undefined}
             disabled={isPending}
           />
@@ -90,7 +90,7 @@ export function ParticipantEditor({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label className="text-sm font-medium">Host</Label>
+        <Label className="text-sm font-medium">Anfitrião</Label>
         <Select
           value={hostFriendId ?? '__owner__'}
           onValueChange={(value) => {
@@ -99,10 +99,10 @@ export function ParticipantEditor({
           }}
         >
           <SelectTrigger className="w-full h-10">
-            <SelectValue placeholder="Select host" />
+            <SelectValue placeholder="Selecione o anfitrião" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__owner__">You (admin)</SelectItem>
+            <SelectItem value="__owner__">Você (admin)</SelectItem>
             {participantIds.filter((id): id is string => id !== null).map(id => (
               <SelectItem key={id} value={id}>{participantLabel(id)}</SelectItem>
             ))}
@@ -127,33 +127,33 @@ export function ParticipantEditor({
                   <div className="inline-flex items-center gap-1 font-medium">
                     {participantLabel(friendId)}
                     {((hostFriendId === null && friendId === null) || (hostFriendId !== null && friendId === hostFriendId)) && (
-                      <Badge variant="secondary">Host</Badge>
+                      <Badge variant="secondary">Anfitrião</Badge>
                     )}
                   </div>
                   <MoneyValue amount={equalShare} currency="BRL" showSign="never" tone="auto" className="font-semibold" />                </div>
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <Badge variant={(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'default' : 'outline'}>
-                    {(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'Confirmed' : 'Pending'}
+                    {(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'Confirmado' : 'Pendente'}
                   </Badge>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => onToggleParticipantConfirmed(friendId)}
-                      aria-label="Toggle payment confirmation"
+                      aria-label="Alternar confirmação de pagamento"
                     >
                       <Check size={14} />
-                      Toggle
+                      Alternar
                     </Button>
                     {friendId !== null && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => onRemoveParticipant(friendId)}
-                        aria-label="Remove participant"
+                        aria-label="Remover participante"
                       >
                         <X size={14} />
-                        Remove
+                        Remover
                       </Button>
                     )}
                   </div>
@@ -166,10 +166,10 @@ export function ParticipantEditor({
             <table className="min-w-full w-max text-sm">
               <thead className="bg-muted/50 text-muted-foreground">
                 <tr>
-                  <th className="text-left px-3 py-2 font-medium">Participant</th>
-                  <th className="text-right px-3 py-2 font-medium">Share</th>
-                  <th className="text-left px-3 py-2 font-medium">Status</th>
-                  <th className="text-right px-3 py-2 font-medium w-20">Actions</th>
+                  <th className="text-left px-3 py-2 font-medium">Participante</th>
+                  <th className="text-right px-3 py-2 font-medium">Parte</th>
+                  <th className="text-left px-3 py-2 font-medium">Situação</th>
+                  <th className="text-right px-3 py-2 font-medium w-20">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -178,7 +178,7 @@ export function ParticipantEditor({
                     <td className="px-3 py-2 inline-flex items-center gap-1">
                       {participantLabel(friendId)}
                       {((hostFriendId === null && friendId === null) || (hostFriendId !== null && friendId === hostFriendId)) && (
-                        <Badge variant="secondary">Host</Badge>
+                        <Badge variant="secondary">Anfitrião</Badge>
                       )}
                     </td>
                     <td className="px-3 py-2 text-right font-medium tabular-nums">
@@ -186,7 +186,7 @@ export function ParticipantEditor({
                     </td>
                     <td className="px-3 py-2">
                       <Badge variant={(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'default' : 'outline'}>
-                        {(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'Confirmed' : 'Pending'}
+                        {(participantConfirmedMap.get(friendId ?? '__owner__') ?? false) ? 'Confirmado' : 'Pendente'}
                       </Badge>
                     </td>
                     <td className="px-3 py-2">
@@ -196,7 +196,7 @@ export function ParticipantEditor({
                           size="icon"
                           className="h-9 w-9"
                           onClick={() => onToggleParticipantConfirmed(friendId)}
-                          aria-label="Toggle payment confirmation"
+                          aria-label="Alternar confirmação de pagamento"
                         >
                           <Check size={14} />
                         </Button>
@@ -206,7 +206,7 @@ export function ParticipantEditor({
                             size="icon"
                             className="h-9 w-9"
                             onClick={() => onRemoveParticipant(friendId)}
-                            aria-label="Remove participant"
+                            aria-label="Remover participante"
                           >
                             <X size={14} />
                           </Button>

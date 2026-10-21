@@ -14,19 +14,19 @@ export function CategoriesWidget({ account, transactions }: CategoriesWidgetProp
     queryFn: () => fetchLedger(account.id),
   })
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading spending...</p>
-  if (isError) return <p className="text-sm text-muted-foreground">Could not load spending.</p>
+  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando gastos...</p>
+  if (isError) return <p className="text-sm text-muted-foreground">Não deu para carregar os gastos.</p>
 
   const { rows, total } = spendByCategory(entries ?? [], transactions, new Date())
   if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">No spending recorded this month.</p>
+    return <p className="text-sm text-muted-foreground">Nenhum gasto registrado neste mês.</p>
   }
   const largest = rows[0].amount
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between text-xs text-muted-foreground">
-        <span>Spent this month</span>
+        <span>Gasto neste mês</span>
         <MoneyValue amount={total} currency={account.currency} tone="neutral" showSign="never" className="font-mono text-foreground" />
       </div>
       <ul className="flex flex-col gap-2.5">

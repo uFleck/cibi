@@ -28,17 +28,17 @@ describe('StatCards balance adjustment', () => {
 
   it('adjusts the balance from the Balance card popover', async () => {
     renderCards()
-    fireEvent.click(screen.getByText('Balance'))
-    const input = await screen.findByLabelText(/Set the balance to match your bank/)
+    fireEvent.click(screen.getByText('Saldo'))
+    const input = await screen.findByLabelText(/Ajuste o saldo para bater com o banco/)
     fireEvent.change(input, { target: { value: '1250.5' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Adjust' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Ajustar' }))
     await waitFor(() => expect(updateAccount).toHaveBeenCalledWith('a1', { current_balance: 1250.5 }))
   })
 
   it('keeps Adjust disabled until the value changes', async () => {
     renderCards()
-    fireEvent.click(screen.getByText('Balance'))
-    const button = await screen.findByRole('button', { name: 'Adjust' })
+    fireEvent.click(screen.getByText('Saldo'))
+    const button = await screen.findByRole('button', { name: 'Ajustar' })
     expect((button as HTMLButtonElement).disabled).toBe(true)
   })
 })

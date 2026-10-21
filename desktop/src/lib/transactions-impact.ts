@@ -69,11 +69,11 @@ export function getWindowLabels(
   const nextPaydayStr = nextPaydayDay ? fmtDay(nextPaydayDay) : '?'
 
   return {
-    dueNowLabel: `Due now (before ${nextPaydayStr})`,
-    currentWindowLabel: `Current (until ${nextPaydayStr})`,
+    dueNowLabel: `Vence agora (antes de ${nextPaydayStr})`,
+    currentWindowLabel: `Atual (até ${nextPaydayStr})`,
     nextWindowLabel: followingPaydayDay
-      ? `Next (${nextPaydayStr} – ${fmtDay(followingPaydayDay)})`
-      : `Next window`,
+      ? `Próximo (${nextPaydayStr} – ${fmtDay(followingPaydayDay)})`
+      : `Próximo período`,
   }
 }
 

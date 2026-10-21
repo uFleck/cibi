@@ -69,38 +69,38 @@ describe('PaySchedulesPanel', () => {
     expect(rows).toHaveLength(2)
     expect(rows[0].textContent).toContain('Main paycheck')
     expect(rows[1].textContent).toContain('Side gig')
-    expect(rows[0].textContent).toContain('recurring income')
+    expect(rows[0].textContent).toContain('entrada recorrente')
   })
 
   it('marks a schedule received from its row action', async () => {
     renderPanel()
-    fireEvent.click(screen.getAllByRole('button', { name: 'Mark received' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: 'Marcar como recebido' })[0])
     await waitFor(() => expect(vi.mocked(confirmPaySchedule).mock.calls[0]?.[0]).toBe('s1'))
   })
 
   it('deletes only after the confirm dialog', async () => {
     renderPanel()
-    fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: 'Excluir' })[0])
     expect(deletePaySchedule).not.toHaveBeenCalled()
     const dialog = await screen.findByRole('alertdialog')
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Excluir' }))
     await waitFor(() => expect(vi.mocked(deletePaySchedule).mock.calls[0]?.[0]).toBe('s1'))
   })
 
   it('edits the next payday and saves it as the anchor', async () => {
     renderPanel()
-    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[1])
+    fireEvent.click(screen.getAllByRole('button', { name: 'Editar' })[1])
     const field = await screen.findByLabelText('Next payday *')
     expect((field as HTMLInputElement).value).toBe('30/12/2026')
     fireEvent.change(field, { target: { value: '15/12/2026' } })
     fireEvent.blur(field)
-    fireEvent.click(screen.getByRole('button', { name: 'Update Schedule' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Atualizar recebimento' }))
     await waitFor(() => expect(vi.mocked(updatePaySchedule).mock.calls[0]?.[1]).toMatchObject({ anchor_date: '2026-12-15' }))
   })
 
   it('shows an empty hint with no schedules', () => {
     renderPanel({ schedules: [] })
-    expect(screen.getByText(/No pay schedules yet/)).toBeTruthy()
+    expect(screen.getByText(/Nenhum recebimento ainda/)).toBeTruthy()
   })
 })
 
@@ -109,13 +109,13 @@ describe('PaydayBanner', () => {
 
   it('offers Mark received only for schedules paying today', async () => {
     renderWith(<PaydayBanner schedules={SCHEDULES} />)
-    expect(screen.getByText('Payday today')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: /Mark received/ }))
+    expect(screen.getByText('Hoje é dia de recebimento')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Marcar como recebido/ }))
     await waitFor(() => expect(vi.mocked(confirmPaySchedule).mock.calls[0]?.[0]).toBe('s1'))
   })
 
   it('renders nothing when no schedule pays today', () => {
     renderWith(<PaydayBanner schedules={[SCHEDULES[0]]} />)
-    expect(screen.queryByText('Payday today')).toBeNull()
+    expect(screen.queryByText('Hoje é dia de recebimento')).toBeNull()
   })
 })

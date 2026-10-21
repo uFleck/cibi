@@ -113,7 +113,7 @@ function press(key: string, init: KeyboardEventInit = {}) {
 }
 
 function inspector() {
-  return screen.queryByRole('complementary', { name: 'Inspector' })
+  return screen.queryByRole('complementary', { name: 'Detalhes' })
 }
 
 /** True when the inspector sits before the page content in the DOM (left column). */
@@ -144,7 +144,7 @@ describe('inspector and row selection', () => {
     store.settings[LAYOUT_KEY] = { pos: 'right', wall: [], insp: [{ id: 'goals' }, { id: 'payday' }] }
     renderShell('/transactions')
 
-    const aside = await screen.findByRole('complementary', { name: 'Inspector' })
+    const aside = await screen.findByRole('complementary', { name: 'Detalhes' })
     await within(aside).findByText('body goals')
     const goals = within(aside).getByText('body goals')
     const payday = within(aside).getByText('body payday')
@@ -162,21 +162,21 @@ describe('inspector and row selection', () => {
     store.settings[LAYOUT_KEY] = { pos: 'off', wall: [], insp: [{ id: 'payday' }] }
     renderShell('/transactions')
 
-    await screen.findByRole('complementary', { name: 'Inspector' })
+    await screen.findByRole('complementary', { name: 'Detalhes' })
     await waitFor(() => expect(inspector()).toBeNull())
     press('i')
-    expect(await screen.findByRole('button', { name: 'Close inspector' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'Fechar detalhes' })).toBeTruthy()
     expect(inspector()).not.toBeNull()
   })
 
   it('edits the inspector zone from Customize on a non-overview page', async () => {
     store.settings[LAYOUT_KEY] = { pos: 'right', wall: [], insp: [{ id: 'payday' }] }
     renderShell('/transactions')
-    await screen.findByRole('complementary', { name: 'Inspector' })
+    await screen.findByRole('complementary', { name: 'Detalhes' })
 
     press('l')
-    expect(await screen.findByText('Customize inspector')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Left' }))
+    expect(await screen.findByText('Personalizar detalhes')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Esquerda' }))
 
     await waitFor(() => expect(inspectorBeforeMain()).toBe(true))
   })
@@ -234,11 +234,11 @@ describe('inspector and row selection', () => {
   it('shows the selected row detail with its actions when the inspector is off', async () => {
     store.settings[LAYOUT_KEY] = { pos: 'off', wall: [], insp: [{ id: 'payday' }] }
     renderShell('/transactions')
-    await screen.findByRole('complementary', { name: 'Inspector' })
+    await screen.findByRole('complementary', { name: 'Detalhes' })
     await waitFor(() => expect(inspector()).toBeNull())
 
     fireEvent.click(screen.getByText('Item b'))
-    const aside = await screen.findByRole('complementary', { name: 'Inspector' })
+    const aside = await screen.findByRole('complementary', { name: 'Detalhes' })
     expect(await within(aside).findByText('Detail b')).toBeTruthy()
     expect(within(aside).getByRole('button', { name: /edit/i })).toBeTruthy()
 
@@ -267,7 +267,7 @@ describe('inspector and row selection', () => {
     expect(inspector()).toBeNull()
 
     fireEvent.click(screen.getByText('Item b'))
-    expect(await within(await screen.findByRole('complementary', { name: 'Inspector' })).findByText('Detail b')).toBeTruthy()
+    expect(await within(await screen.findByRole('complementary', { name: 'Detalhes' })).findByText('Detail b')).toBeTruthy()
 
     press('Escape')
     await waitFor(() => expect(inspector()).toBeNull())

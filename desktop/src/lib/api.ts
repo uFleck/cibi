@@ -186,7 +186,7 @@ export interface CreatePayScheduleRequest {
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await localFetch(path, options)
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: 'Unknown error' }))
+    const body = await res.json().catch(() => ({ error: 'Erro desconhecido' }))
     const error = body.error ?? `HTTP ${res.status}`
     const code = body.code // May be present for specific errors like PAY_SCHEDULE_REQUIRED
     const apiError = new Error(error) as Error & { code?: string }

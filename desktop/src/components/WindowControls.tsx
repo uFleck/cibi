@@ -26,12 +26,12 @@ export function WindowControls() {
 
   return (
     <div className="pointer-events-auto fixed top-0 right-0 z-[60] flex h-[43px]">
-      <button type="button" aria-label="Minimize" className={BUTTON} onClick={() => void win.minimize()}>
+      <button type="button" aria-label="Minimizar" className={BUTTON} onClick={() => void win.minimize()}>
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1" className="pointer-events-none">
           <path d="M0 5.5h10" />
         </svg>
       </button>
-      <button type="button" aria-label={maximized ? 'Restore' : 'Maximize'} className={BUTTON} onClick={() => void win.toggleMaximize()}>
+      <button type="button" aria-label={maximized ? 'Restaurar' : 'Maximizar'} className={BUTTON} onClick={() => void win.toggleMaximize()}>
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1" className="pointer-events-none">
           {maximized ? (
             <>
@@ -45,7 +45,7 @@ export function WindowControls() {
       </button>
       <button
         type="button"
-        aria-label="Close"
+        aria-label="Fechar"
         className={`${BUTTON} hover:bg-[#e81123] hover:text-white`}
         onClick={() => void win.close()}
       >

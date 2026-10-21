@@ -66,8 +66,8 @@ describe('LedgerRecentWidget', () => {
 
     renderWidget()
 
-    expect(await screen.findByText('No activity yet.')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Add transaction' }))
+    expect(await screen.findByText('Nenhuma atividade ainda.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar transação' }))
 
     expect(navigateMock).toHaveBeenCalledWith({ to: '/transactions' })
     expect(requestShellAction).toHaveBeenCalledWith('new-transaction')

@@ -40,7 +40,7 @@ export function AccountScheduleForm({
   return (
     <form onSubmit={onSubmit} className="border-t pt-4 mt-4">
       <h4 className="font-medium mb-4">
-        {editingScheduleId ? 'Edit Schedule' : 'Add Schedule'}
+        {editingScheduleId ? 'Editar recebimento' : 'Adicionar recebimento'}
       </h4>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="flex flex-col gap-2">
@@ -62,10 +62,10 @@ export function AccountScheduleForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="weekly">Weekly</SelectItem>
-              <SelectItem value="bi-weekly">Bi-weekly</SelectItem>
-              <SelectItem value="semi-monthly">Semi-monthly</SelectItem>
-              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="weekly">Semanal</SelectItem>
+              <SelectItem value="bi-weekly">Quinzenal</SelectItem>
+              <SelectItem value="semi-monthly">Duas vezes no mês</SelectItem>
+              <SelectItem value="monthly">Mensal</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -117,11 +117,11 @@ export function AccountScheduleForm({
       </div>
       <div className="sticky bottom-0 bg-popover/95 backdrop-blur-sm flex gap-2 mt-4 pt-2 pb-1">
         <Button type="submit" size="sm" disabled={isPending}>
-          {editingScheduleId ? 'Update Schedule' : 'Add Schedule'}
+          {editingScheduleId ? 'Atualizar recebimento' : 'Adicionar recebimento'}
         </Button>
         {editingScheduleId && (
           <Button type="button" variant="outline" size="sm" onClick={onCancelEdit}>
-            Cancel
+            Cancelar
           </Button>
         )}
       </div>

@@ -72,21 +72,21 @@ describe('ReserveWidget', () => {
   it('invites you to set it up while it is off', async () => {
     mockFetch.mockResolvedValue(reserve({ enabled: false, balance: 0, progress: 0 }))
     renderWidget()
-    expect(await screen.findByRole('button', { name: 'Set up the reserve' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'Configurar a reserva' })).toBeTruthy()
   })
 
   it('shows the balance against the target and the pace', async () => {
     mockFetch.mockResolvedValue(reserve())
     renderWidget()
-    expect(await screen.findByText(/Covers 0.4 months of obligations, aiming for 2 months/)).toBeTruthy()
-    expect(screen.getByRole('progressbar', { name: 'Reserve progress' }).getAttribute('aria-valuenow')).toBe('20')
-    expect(screen.getByText(/the target is reached on/)).toBeTruthy()
+    expect(await screen.findByText(/Cobre 0.4 meses das contas, com meta de 2 meses/)).toBeTruthy()
+    expect(screen.getByRole('progressbar', { name: 'Progresso da reserva' }).getAttribute('aria-valuenow')).toBe('20')
+    expect(screen.getByText(/a meta será atingida em/)).toBeTruthy()
   })
 
   it('says so when the target is never reached at the current pace', async () => {
     mockFetch.mockResolvedValue(reserve({ eta: null }))
     renderWidget()
-    expect(await screen.findByText(/target is not reached/)).toBeTruthy()
+    expect(await screen.findByText(/a meta não será atingida/)).toBeTruthy()
   })
 
   it('reminds you to move what was set aside, and marks it done', async () => {
@@ -100,8 +100,8 @@ describe('ReserveWidget', () => {
     )
     mockMoved.mockResolvedValue(undefined)
     renderWidget()
-    expect(await screen.findByText(/to your investment/)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    expect(await screen.findByText(/para seu investimento/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Feito' }))
     await waitFor(() => expect(mockMoved).toHaveBeenCalledTimes(2))
     expect(mockMoved).toHaveBeenNthCalledWith(1, 'e1')
     expect(mockMoved).toHaveBeenNthCalledWith(2, 'e2')
@@ -111,10 +111,10 @@ describe('ReserveWidget', () => {
     mockFetch.mockResolvedValue(reserve())
     mockSave.mockResolvedValue(reserve({ target_months: 3 }))
     renderWidget()
-    fireEvent.click(await screen.findByRole('button', { name: 'Settings' }))
-    fireEvent.change(screen.getByLabelText('Target, in months of obligations'), { target: { value: '3' } })
-    expect(screen.getByText(/the target is R\$\s*4\.500,00/)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Configurações' }))
+    fireEvent.change(screen.getByLabelText('Meta, em meses de contas'), { target: { value: '3' } })
+    expect(screen.getByText(/a meta é R\$\s*4\.500,00/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
     await waitFor(() => expect(mockSave).toHaveBeenCalled())
     expect(mockSave.mock.calls[0]?.[0]).toMatchObject({
       account_id: 'acc-1',
@@ -129,11 +129,11 @@ describe('ReserveWidget', () => {
   it('will not use the reserve without a reason', async () => {
     mockFetch.mockResolvedValue(reserve())
     renderWidget()
-    fireEvent.click(await screen.findByRole('button', { name: 'Use reserve' }))
-    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '100' } })
-    const confirm = screen.getAllByRole('button', { name: 'Use reserve' }).at(-1) as HTMLButtonElement
+    fireEvent.click(await screen.findByRole('button', { name: 'Usar reserva' }))
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '100' } })
+    const confirm = screen.getAllByRole('button', { name: 'Usar reserva' }).at(-1) as HTMLButtonElement
     expect(confirm.disabled).toBe(true)
-    fireEvent.change(screen.getByLabelText('Why do you need it?'), { target: { value: 'Car repair' } })
+    fireEvent.change(screen.getByLabelText('Para que você precisa?'), { target: { value: 'Conserto do carro' } })
     expect(confirm.disabled).toBe(false)
   })
 })

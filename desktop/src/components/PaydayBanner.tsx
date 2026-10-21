@@ -2,6 +2,7 @@ import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { usePayScheduleMutations } from '@/hooks/usePayScheduleMutations'
 import type { PayScheduleResponse } from '@/lib/api'
+import { frequencyLabel } from '@/lib/labels'
 
 /** Shown on payday: one button per schedule that pays today. */
 export function PaydayBanner({ schedules }: { schedules: PayScheduleResponse[] }) {
@@ -14,8 +15,8 @@ export function PaydayBanner({ schedules }: { schedules: PayScheduleResponse[] }
   return (
     <div className="rounded-md border border-pos/30 bg-pos/10 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center gap-3">
       <div className="flex-1">
-        <p className="font-medium text-sm">Payday today</p>
-        <p className="text-xs text-muted-foreground">{due.map(ps => ps.label ?? ps.frequency).join(', ')}</p>
+        <p className="font-medium text-sm">Hoje é dia de recebimento</p>
+        <p className="text-xs text-muted-foreground">{due.map(ps => ps.label ?? frequencyLabel(ps.frequency)).join(', ')}</p>
       </div>
       <div className="flex gap-2 flex-wrap">
         {due.map(ps => (
@@ -28,7 +29,7 @@ export function PaydayBanner({ schedules }: { schedules: PayScheduleResponse[] }
             disabled={confirm.isPending}
           >
             <Check size={14} />
-            Mark received{due.length > 1 ? ` (${ps.label ?? ps.frequency})` : ''}
+            Marcar como recebido{due.length > 1 ? ` (${ps.label ?? frequencyLabel(ps.frequency)})` : ''}
           </Button>
         ))}
       </div>

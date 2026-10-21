@@ -39,12 +39,12 @@ interface GoalImpactCardProps {
 
 function GoalImpactCard({ impact }: GoalImpactCardProps) {
   return (
-    <article className="rounded-xl border border-border/60 bg-card p-3 shadow-sm" aria-label={`${impact.goal_name} purchase impact`}>
+    <article className="rounded-xl border border-border/60 bg-card p-3 shadow-sm" aria-label={`Impacto da compra em ${impact.goal_name}`}>
       <div className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex flex-col gap-1">
             <p className="truncate text-sm font-semibold tracking-tight text-foreground">{impact.goal_name}</p>
-            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Contribution capacity impact</p>
+            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Impacto na capacidade de aporte</p>
           </div>
           <Badge variant="outline" className={`uppercase tracking-wide ${SEVERITY_BADGE_CLASS[impact.severity]}`}>
             {impact.severity}
@@ -52,15 +52,15 @@ function GoalImpactCard({ impact }: GoalImpactCardProps) {
         </div>
 
         <div className="rounded-lg bg-muted/40 px-2.5 py-2">
-          <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Min contribution / payment window</p>
+          <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Aporte mínimo no período</p>
           <p className="text-xs font-semibold tabular-nums text-foreground">
             <MoneyValue amount={impact.min_contribution_per_window} tone="neutral" showSign="never" className="text-foreground" />
           </p>
         </div>
 
         <p className="text-xs text-foreground">
-          This check does <span className="font-semibold">not</span> move goal progress.
-          It only flags that this purchase leaves too little for your minimum window contribution.
+          Esta verificação <span className="font-semibold">não</span> altera o progresso da meta.
+          Ela só indica que esta compra deixa pouco para o aporte mínimo do período.
         </p>
       </div>
     </article>
@@ -97,11 +97,11 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
     } catch (err) {
       const error = err as Error & { code?: string }
       if (error.code === 'PAY_SCHEDULE_REQUIRED') {
-        setErrorMessage('Set up your pay schedule in Accounts first, then try this check again.')
-        toast.error('Set up your pay schedule in Accounts first.')
+        setErrorMessage('Configure o recebimento em Contas primeiro, depois tente esta verificação de novo.')
+        toast.error('Configure o recebimento em Contas primeiro.')
       } else {
-        setErrorMessage('Something went wrong. Try again when the connection is ready.')
-        toast.error('Something went wrong. Try again.')
+        setErrorMessage('Algo deu errado. Tente de novo quando a conexão estiver disponível.')
+        toast.error('Algo deu errado. Tente de novo.')
       }
       setState('idle')
     }
@@ -115,11 +115,11 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
   }
 
   return (
-    <div aria-label="Can I Buy It checker" className="flex flex-col gap-4">
+    <div aria-label="Verificador Posso comprar?" className="flex flex-col gap-4">
 
         {state !== 'verdict' ? (
-          <div className="flex flex-col gap-3" aria-label={state === 'loading' ? 'Checking purchase impact' : 'Check purchase impact'}>
-            <Label htmlFor="check-amount">Purchase amount</Label>
+          <div className="flex flex-col gap-3" aria-label={state === 'loading' ? 'Verificando impacto da compra' : 'Verificar impacto da compra'}>
+            <Label htmlFor="check-amount">Valor da compra</Label>
             <div className="flex flex-col gap-2 @md:flex-row @md:items-stretch">
               <div className="relative flex-1">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground select-none text-sm" aria-hidden="true">
@@ -145,33 +145,33 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
                       onClick={handleCheck}
                       disabled={state === 'loading'}
                       className="h-11 w-full px-6 font-semibold tracking-wide cursor-pointer @md:w-auto"
-                      aria-label={state === 'loading' ? 'Checking purchase impact' : 'Check purchase impact'}
+                      aria-label={state === 'loading' ? 'Verificando impacto da compra' : 'Verificar impacto da compra'}
                     >
                       {state === 'loading' ? (
                         <>
                           <Loader2 className="animate-spin" size={15} aria-hidden="true" />
-                          <span>Checking...</span>
+                          <span>Verificando...</span>
                         </>
                       ) : (
-                        'CHECK'
+                        'VERIFICAR'
                       )}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Check if you can afford this purchase</p>
+                    <p>Veja se você pode fazer esta compra</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
             {state === 'loading' ? (
               <p role="status" aria-live="polite" className="text-xs text-muted-foreground">
-                Checking this purchase against your cash flow, buffer, and active goals...
+                Verificando esta compra com seu fluxo de caixa, margem e metas ativas...
               </p>
             ) : null}
             {errorMessage ? (
-              <Card className="border-destructive/30 bg-destructive/5 py-0 shadow-none" role="alert" aria-label="Purchase check error">
+              <Card className="border-destructive/30 bg-destructive/5 py-0 shadow-none" role="alert" aria-label="Erro na verificação da compra">
                 <CardContent id="check-error" className="px-3 py-3">
-                  <p className="text-sm font-medium text-destructive">Could not check purchase impact.</p>
+                  <p className="text-sm font-medium text-destructive">Não deu para verificar o impacto da compra.</p>
                   <p className="mt-1 text-xs text-muted-foreground">{errorMessage}</p>
                 </CardContent>
               </Card>
@@ -217,9 +217,9 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
                               : 'var(--color-verdict-no)',
                         }}
                       >
-                        {result.can_buy ? 'YES' : isWait ? 'WAIT' : 'NO'}
+                        {result.can_buy ? 'SIM' : isWait ? 'AGUARDE' : 'NÃO'}
                       </p>
-                      <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Verdict</p>
+                      <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Veredito</p>
                     </div>
 
                     <span
@@ -236,13 +236,13 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
 
                   <div className="grid grid-cols-2 gap-2">
                     <div className="rounded-lg bg-background/60 px-2.5 py-2">
-                      <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Purchasing power</p>
+                      <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Poder de compra</p>
                       <p className="text-xs font-semibold tabular-nums">
                         <MoneyValue amount={result.purchasing_power} tone="auto" showSign="always" />
                       </p>
                     </div>
                     <div className="rounded-lg bg-background/60 px-2.5 py-2">
-                      <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Buffer remaining</p>
+                      <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Margem restante</p>
                       <p className="text-xs font-semibold tabular-nums">
                         <MoneyValue amount={result.buffer_remaining} tone="auto" showSign="always" />
                       </p>
@@ -253,7 +253,7 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
                     <Card className="border-[var(--color-verdict-wait)]/30 bg-background/60 py-0 shadow-none">
                       <CardContent className="px-3 py-3">
                         <p className="text-sm text-foreground/80">
-                          Not yet — you'll have enough after{' '}
+                          Ainda não — você terá o suficiente depois de{' '}
                           <span className="font-medium">{formatDate(result.wait_until)}</span>
                         </p>
                       </CardContent>
@@ -261,30 +261,30 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
                   ) : null}
 
                   {result.goal_impacts.length > 0 ? (
-                    <div className="flex flex-col gap-2" aria-label="Goal impact preview">
+                    <div className="flex flex-col gap-2" aria-label="Prévia do impacto nas metas">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Goal impact preview</p>
-                        <Badge variant="secondary">{result.goal_impacts.length} affected</Badge>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prévia do impacto nas metas</p>
+                        <Badge variant="secondary">{result.goal_impacts.length} afetadas</Badge>
                       </div>
                       {result.goal_impacts.map(impact => <GoalImpactCard key={impact.goal_id} impact={impact} />)}
                     </div>
                   ) : (
-                    <Card className="border-border/60 bg-background/60 py-0 shadow-none" aria-label="Goal impact preview">
+                    <Card className="border-border/60 bg-background/60 py-0 shadow-none" aria-label="Prévia do impacto nas metas">
                       <CardContent className="px-3 py-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Goal impact preview</p>
-                        <p className="mt-1 text-sm text-foreground">No active goals affected.</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prévia do impacto nas metas</p>
+                        <p className="mt-1 text-sm text-foreground">Nenhuma meta ativa afetada.</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Your verdict is based on cash flow and buffer rules; no goal progress would move for this check.
+                          O veredito é baseado nas regras de fluxo de caixa e margem; nenhum progresso de meta muda nesta verificação.
                         </p>
                       </CardContent>
                     </Card>
                   )}
 
                   {result.goals_covered_this_window.length > 0 ? (
-                    <Card className="border-[var(--color-risk-low)]/30 bg-[var(--color-risk-low)]/5 py-0 shadow-none" aria-label="Goals already covered this window">
+                    <Card className="border-[var(--color-risk-low)]/30 bg-[var(--color-risk-low)]/5 py-0 shadow-none" aria-label="Metas já cobertas neste período">
                       <CardContent className="px-3 py-3">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Already covered this window</p>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Já coberto neste período</p>
                           <Badge variant="outline" className="uppercase tracking-wide">{result.goals_covered_this_window.length}</Badge>
                         </div>
                         <ul className="mt-2 space-y-1.5">
@@ -309,7 +309,7 @@ export function CheckWidget({ accountId }: CheckWidgetProps) {
               onClick={handleReset}
               className="w-full h-11 border-border/60 text-muted-foreground hover:text-foreground cursor-pointer"
             >
-              Check another
+              Verificar outra
             </Button>
           </div>
         ) : null}

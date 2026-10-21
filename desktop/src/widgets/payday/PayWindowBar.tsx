@@ -39,9 +39,9 @@ function getPreviousPayday(schedule: PayScheduleResponse): Date | null {
 export function NoPaySchedule() {
   return (
     <div className="flex flex-col items-start gap-3">
-      <p className="text-sm text-muted-foreground">No pay schedule yet. Add one to see your next payday.</p>
+      <p className="text-sm text-muted-foreground">Nenhum recebimento cadastrado ainda. Adicione um para ver o próximo recebimento.</p>
       <Button size="sm" variant="outline" asChild>
-        <Link to="/accounts">Add pay schedule</Link>
+        <Link to="/accounts">Adicionar recebimento</Link>
       </Button>
     </div>
   )
@@ -98,10 +98,10 @@ export function PayWindowBar({ nextPayday, paySchedules }: PayWindowBarProps) {
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-col gap-1">
             <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Pay Window
+              Período
             </p>
             <p className="text-sm font-semibold tracking-tight text-foreground">
-              {daysRemaining} day{daysRemaining !== 1 ? 's' : ''} until next payday
+              Faltam {daysRemaining} {daysRemaining !== 1 ? 'dias' : 'dia'} até o próximo recebimento
             </p>
           </div>
           <Button
@@ -109,7 +109,7 @@ export function PayWindowBar({ nextPayday, paySchedules }: PayWindowBarProps) {
             size="icon"
             className="h-8 w-8"
             onClick={() => setExpanded(!expanded)}
-            aria-label={expanded ? 'Collapse pay window details' : 'Expand pay window details'}
+            aria-label={expanded ? 'Recolher detalhes do período' : 'Expandir detalhes do período'}
           >
             {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </Button>
@@ -117,8 +117,8 @@ export function PayWindowBar({ nextPayday, paySchedules }: PayWindowBarProps) {
 
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-            <span>Payday: {prevLabel}</span>
-            <span>Next: {nextLabel}</span>
+            <span>Recebimento: {prevLabel}</span>
+            <span>Próximo: {nextLabel}</span>
           </div>
           <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted shadow-inner">
             <div
@@ -127,18 +127,18 @@ export function PayWindowBar({ nextPayday, paySchedules }: PayWindowBarProps) {
             />
           </div>
           <div className="text-center text-[10px] text-muted-foreground">
-            Today ({progress.toFixed(0)}%)
+            Hoje ({progress.toFixed(0)}%)
           </div>
         </div>
 
         {expanded && (
           <div className="flex flex-col gap-2 pt-1 border-t border-border/40">
             <div className="flex items-center justify-between gap-2 text-sm">
-              <span className="text-muted-foreground">Days remaining</span>
+              <span className="text-muted-foreground">Dias restantes</span>
               <span className="tabular-nums font-medium">{daysRemaining}</span>
             </div>
             <div className="flex items-center justify-between gap-2 text-sm">
-              <span className="text-muted-foreground">Next income</span>
+              <span className="text-muted-foreground">Próxima entrada</span>
               <MoneyValue
                 amount={primary.amount}
                 tone="positive"
@@ -147,7 +147,7 @@ export function PayWindowBar({ nextPayday, paySchedules }: PayWindowBarProps) {
               />
             </div>
             <div className="flex items-center justify-between gap-2 text-sm">
-              <span className="text-muted-foreground">Window total</span>
+              <span className="text-muted-foreground">Total do período</span>
               <MoneyValue
                 amount={incoming}
                 tone="positive"

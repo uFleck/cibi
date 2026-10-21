@@ -11,13 +11,13 @@ export interface NavItem {
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { to: '/', label: 'A pagar', icon: ListChecks, chord: 'd' },
-  { to: '/widgets', label: 'Widgets', icon: LayoutDashboard, chord: 'w' },
-  { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight, chord: 't' },
-  { to: '/goals', label: 'Goals', icon: Target, chord: 'g' },
-  { to: '/friends', label: 'Friends', icon: HandCoins, chord: 'f' },
-  { to: '/accounts', label: 'Accounts', icon: Wallet, chord: 'a' },
-  { to: '/categories', label: 'Categories', icon: Tags, chord: 'c' },
-  { to: '/settings', label: 'Settings', icon: Settings, chord: 's' },
+  { to: '/widgets', label: 'Painel', icon: LayoutDashboard, chord: 'w' },
+  { to: '/transactions', label: 'Transações', icon: ArrowLeftRight, chord: 't' },
+  { to: '/goals', label: 'Metas', icon: Target, chord: 'g' },
+  { to: '/friends', label: 'Amigos', icon: HandCoins, chord: 'f' },
+  { to: '/accounts', label: 'Contas', icon: Wallet, chord: 'a' },
+  { to: '/categories', label: 'Categorias', icon: Tags, chord: 'c' },
+  { to: '/settings', label: 'Configurações', icon: Settings, chord: 's' },
 ]
 
 export function navItemFor(pathname: string): NavItem | undefined {

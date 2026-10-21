@@ -22,12 +22,12 @@ export function EditBar({ layout }: EditBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-hl bg-surface-2 px-2.5 py-2">
       <LayoutGrid aria-hidden className="size-4 text-hl" />
-      <span className="text-sm font-medium">Customize overview</span>
-      <span className="hidden text-xs text-muted-foreground xl:inline">Drag by the grip, or use Alt+Arrow and Alt+Shift+Arrow on a focused widget</span>
+      <span className="text-sm font-medium">Personalizar painel</span>
+      <span className="hidden text-xs text-muted-foreground xl:inline">Arraste pela alça, ou use Alt+seta e Alt+Shift+seta em um widget selecionado</span>
 
       <Tray available={available} onAdd={id => layout.dispatch({ type: 'add', zone: 'wall', id })} />
 
-      <div role="group" aria-label="Preset" className="flex overflow-hidden rounded-sm border border-line-strong">
+      <div role="group" aria-label="Predefinição" className="flex overflow-hidden rounded-sm border border-line-strong">
         {PRESET_IDS.map(id => (
           <button
             key={id}
@@ -45,16 +45,16 @@ export function EditBar({ layout }: EditBarProps) {
       </div>
 
       <Button type="button" variant="outline" size="sm" onClick={() => layout.dispatch({ type: 'reset', zone: 'wall' })}>
-        Reset
+        Redefinir
       </Button>
       <Button type="button" size="sm" data-edit-done onClick={() => shell.setEditMode(false)}>
-        Done
+        Concluir
       </Button>
     </div>
   )
 }
 
-const TRAY_SELECTOR = '[aria-label="Widgets not on this page"] button'
+const TRAY_SELECTOR = '[aria-label="Widgets fora deste painel"] button'
 
 interface EmptyZoneProps {
   editing: boolean
@@ -72,10 +72,10 @@ export function EmptyZone({ editing, label }: EmptyZoneProps) {
 
   return (
     <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
-      <p>{editing ? 'Drag widgets here' : label}</p>
+      <p>{editing ? 'Arraste widgets para cá' : label}</p>
       <Button type="button" size="sm" onClick={openTray}>
         <Plus />
-        Add widget
+        Adicionar widget
       </Button>
     </div>
   )
@@ -92,14 +92,14 @@ export function Tray({ available, onAdd }: TrayProps) {
   return (
     <div
       ref={setNodeRef}
-      aria-label="Widgets not on this page"
+      aria-label="Widgets fora deste painel"
       className={cn(
         'flex min-h-7 min-w-[200px] flex-1 flex-wrap items-center gap-1.5 rounded-sm border border-dashed border-line-strong bg-surface px-2 py-0.5',
         isOver && 'border-hl bg-hl/10',
       )}
     >
       {available.length === 0 ? (
-        <span className="text-xs text-muted-foreground">Every widget is on the page</span>
+        <span className="text-xs text-muted-foreground">Todos os widgets estão no painel</span>
       ) : (
         available.map(id => <TrayChip key={id} id={id} onAdd={() => onAdd(id)} />)
       )}
@@ -116,7 +116,7 @@ function TrayChip({ id, onAdd }: { id: WidgetId; onAdd: () => void }) {
     <button
       ref={setNodeRef}
       type="button"
-      title="Drag onto the page, or click to add"
+      title="Arraste para o painel, ou clique para adicionar"
       onClick={onAdd}
       {...attributes}
       {...listeners}

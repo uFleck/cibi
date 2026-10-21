@@ -103,16 +103,16 @@ describe('SettingsPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    const input = await screen.findByLabelText('Safety buffer ($)')
+    const input = await screen.findByLabelText('Margem de segurança ($)')
     await user.click(input)
     await user.keyboard('{Control>}a{/Control}{Backspace}250.5')
 
-    await user.click(screen.getByRole('button', { name: 'Save safety buffer' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar margem de segurança' }))
 
     await waitFor(() => {
       expect(mockUpdateAccount).toHaveBeenCalledWith('acct-1', { safety_buffer: 250.5 })
     })
-    expect(toastSuccessMock).toHaveBeenCalledWith('Safety buffer saved')
+    expect(toastSuccessMock).toHaveBeenCalledWith('Margem de segurança salva')
   })
 
   it('categorizes uncategorized transactions and reports the counts', async () => {
@@ -120,27 +120,27 @@ describe('SettingsPage', () => {
     vi.mocked(backfillCategories).mockResolvedValue({ scanned: 3, categorized: 2, skipped: 1 })
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: 'Categorize uncategorized transactions' }))
+    await user.click(await screen.findByRole('button', { name: 'Categorizar transações sem categoria' }))
 
     await waitFor(() => {
       expect(backfillCategories).toHaveBeenCalledTimes(1)
     })
-    expect(toastSuccessMock).toHaveBeenCalledWith('Categorized 2 of 3 expenses')
+    expect(toastSuccessMock).toHaveBeenCalledWith('2 de 3 gastos categorizados')
   })
 
   it('keeps profile save behavior unchanged', async () => {
     const user = userEvent.setup()
     renderPage()
 
-    const displayNameInput = await screen.findByLabelText('Display name *')
-    const pixKeyInput = screen.getByLabelText('PIX key (optional)')
+    const displayNameInput = await screen.findByLabelText('Nome de exibição *')
+    const pixKeyInput = screen.getByLabelText('Chave PIX (opcional)')
 
     await user.click(displayNameInput)
     await user.keyboard('{Control>}a{/Control}{Backspace}Jane Doe')
     await user.click(pixKeyInput)
     await user.keyboard('{Control>}a{/Control}{Backspace}jane.doe@pix.test')
 
-    await user.click(screen.getByRole('button', { name: 'Save preferences' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar preferências' }))
 
     await waitFor(() => {
       expect(mockUpdateProfile).toHaveBeenCalledWith('acct-1', {
@@ -154,7 +154,7 @@ describe('SettingsPage', () => {
   it('shows Start at login off when autostart is disabled', async () => {
     renderPage()
 
-    const toggle = await screen.findByRole('switch', { name: 'Start at login' })
+    const toggle = await screen.findByRole('switch', { name: 'Iniciar ao fazer login' })
     await waitFor(() => expect(toggle).toHaveProperty('disabled', false))
     expect(toggle.getAttribute('aria-checked')).toBe('false')
     expect(mockIsEnabled).toHaveBeenCalled()
@@ -164,7 +164,7 @@ describe('SettingsPage', () => {
     mockIsEnabled.mockResolvedValue(true)
     renderPage()
 
-    const toggle = await screen.findByRole('switch', { name: 'Start at login' })
+    const toggle = await screen.findByRole('switch', { name: 'Iniciar ao fazer login' })
     await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
   })
 
@@ -172,18 +172,18 @@ describe('SettingsPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    const toggle = await screen.findByRole('switch', { name: 'Start at login' })
+    const toggle = await screen.findByRole('switch', { name: 'Iniciar ao fazer login' })
     await waitFor(() => expect(toggle).toHaveProperty('disabled', false))
 
     await user.click(toggle)
     await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'))
     expect(mockEnable).toHaveBeenCalledTimes(1)
-    expect(toastSuccessMock).toHaveBeenCalledWith('Start at login enabled')
+    expect(toastSuccessMock).toHaveBeenCalledWith('Iniciar ao fazer login ativado')
 
     await user.click(toggle)
     await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'))
     expect(mockDisable).toHaveBeenCalledTimes(1)
-    expect(toastSuccessMock).toHaveBeenCalledWith('Start at login disabled')
+    expect(toastSuccessMock).toHaveBeenCalledWith('Iniciar ao fazer login desativado')
   })
 
   it('disables the switch while the change is pending', async () => {
@@ -192,7 +192,7 @@ describe('SettingsPage', () => {
     mockEnable.mockReturnValue(new Promise<void>((resolve) => { finish = resolve }))
     renderPage()
 
-    const toggle = await screen.findByRole('switch', { name: 'Start at login' })
+    const toggle = await screen.findByRole('switch', { name: 'Iniciar ao fazer login' })
     await waitFor(() => expect(toggle).toHaveProperty('disabled', false))
     await user.click(toggle)
 
@@ -206,22 +206,22 @@ describe('SettingsPage', () => {
     mockEnable.mockRejectedValue(new Error('registry write denied'))
     renderPage()
 
-    const toggle = await screen.findByRole('switch', { name: 'Start at login' })
+    const toggle = await screen.findByRole('switch', { name: 'Iniciar ao fazer login' })
     await waitFor(() => expect(toggle).toHaveProperty('disabled', false))
     await user.click(toggle)
 
-    expect((await screen.findByRole('alert')).textContent).toBe('Could not change start at login: registry write denied')
+    expect((await screen.findByRole('alert')).textContent).toBe('Não deu para alterar a opção de iniciar ao fazer login: registry write denied')
     expect(toggle.getAttribute('aria-checked')).toBe('false')
-    expect(toastErrorMock).toHaveBeenCalledWith('Could not change start at login')
-    expect(toastSuccessMock).not.toHaveBeenCalledWith('Start at login enabled')
+    expect(toastErrorMock).toHaveBeenCalledWith('Não deu para alterar a opção de iniciar ao fazer login')
+    expect(toastSuccessMock).not.toHaveBeenCalledWith('Iniciar ao fazer login ativado')
   })
 
   it('shows the switch disabled when the autostart plugin is unavailable', async () => {
     mockIsEnabled.mockRejectedValue(new Error('plugin not available'))
     renderPage()
 
-    expect(await screen.findByText('Start at login is not available here.')).toBeTruthy()
-    const toggle = screen.getByRole('switch', { name: 'Start at login' })
+    expect(await screen.findByText('Iniciar ao fazer login não está disponível aqui.')).toBeTruthy()
+    const toggle = screen.getByRole('switch', { name: 'Iniciar ao fazer login' })
     expect(toggle).toHaveProperty('disabled', true)
     expect(await screen.findByDisplayValue('Jane')).toBeTruthy()
   })

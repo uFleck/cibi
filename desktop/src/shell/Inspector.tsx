@@ -27,7 +27,7 @@ function InspectorDetail({ detail, onBack }: { detail: SelectionDetail; onBack: 
       <div className="flex items-center justify-between gap-2">
         <Button variant="ghost" size="sm" onClick={onBack}>
           <ChevronLeft />
-          Back
+          Voltar
           <KeyChips keys="Escape" />
         </Button>
         {detail.badge && <Badge variant="secondary">{detail.badge}</Badge>}

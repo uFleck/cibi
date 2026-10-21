@@ -62,7 +62,7 @@ export function DataList<T>({ rows, rowId, columns, actions, selection, empty, '
                 {column.header}
               </th>
             ))}
-            {actionCount > 0 && <th className={denseHead} style={{ width: actionsWidth(actionCount) }} aria-label="Actions" />}
+            {actionCount > 0 && <th className={denseHead} style={{ width: actionsWidth(actionCount) }} aria-label="Ações" />}
           </tr>
         </thead>
         <tbody>

@@ -107,12 +107,12 @@ export function useListSelection({ ids, actionsFor, selection }: ListSelectionOp
   // Bound only while there are rows and this is the active list, so the arrow keys keep scrolling an
   // empty page and two lists on one page never answer the same key.
   const bindings: ShortcutBinding[] = !isActive ? [] : [
-    { keys: 'j', label: 'Next row', group: 'List', scope: 'list', run: () => move(1) },
-    { keys: 'ArrowDown', label: 'Next row', group: 'List', scope: 'list', run: () => move(1) },
-    { keys: 'k', label: 'Previous row', group: 'List', scope: 'list', run: () => move(-1) },
-    { keys: 'ArrowUp', label: 'Previous row', group: 'List', scope: 'list', run: () => move(-1) },
+    { keys: 'j', label: 'Próxima linha', group: 'List', scope: 'list', run: () => move(1) },
+    { keys: 'ArrowDown', label: 'Próxima linha', group: 'List', scope: 'list', run: () => move(1) },
+    { keys: 'k', label: 'Linha anterior', group: 'List', scope: 'list', run: () => move(-1) },
+    { keys: 'ArrowUp', label: 'Linha anterior', group: 'List', scope: 'list', run: () => move(-1) },
     ...(own && selected !== null
-      ? [{ keys: 'Escape', label: 'Clear selection', group: 'List', scope: 'list' as const, run: () => select(null) }]
+      ? [{ keys: 'Escape', label: 'Limpar seleção', group: 'List', scope: 'list' as const, run: () => select(null) }]
       : []),
     ...actions.flatMap(action => {
       const list: ShortcutBinding[] = []

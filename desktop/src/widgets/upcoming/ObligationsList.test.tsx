@@ -18,8 +18,8 @@ describe('ObligationsList', () => {
   it('offers an Add recurring bill link when there are no obligations', () => {
     render(<ObligationsList transactions={[]} nextPayday={null} />)
 
-    expect(screen.getByText('No upcoming obligations.')).toBeTruthy()
-    const link = screen.getByRole('link', { name: 'Add recurring bill' })
+    expect(screen.getByText('Nenhuma conta próxima.')).toBeTruthy()
+    const link = screen.getByRole('link', { name: 'Adicionar conta recorrente' })
     expect(link.getAttribute('href')).toBe('/transactions')
   })
 
@@ -80,7 +80,7 @@ describe('ObligationsList', () => {
 
     expect(screen.getByText('×3')).toBeTruthy()
     const flat = (text: string) => text.replace(/\s/g, ' ')
-    const total = screen.getByText('Total reserved').parentElement as HTMLElement
+    const total = screen.getByText('Total reservado').parentElement as HTMLElement
     expect(flat(total.textContent ?? '')).toContain(flat('R$ 300,00'))
   })
 })

@@ -81,7 +81,7 @@ describe('BudgetWidget', () => {
     expect(await screen.findByText(money(293000))).toBeTruthy()
     expect(screen.getAllByText(money(95000)).length).toBeGreaterThan(0)
     expect(screen.getByText(money(22000))).toBeTruthy()
-    expect(screen.getByText('Today')).toBeTruthy()
+    expect(screen.getByText('Hoje')).toBeTruthy()
     expect(mockFetchBudget).toHaveBeenCalledWith(MONTH)
 
     const [overallTick, ...rowTicks] = screen.getAllByTestId('pace-tick') as HTMLElement[]
@@ -89,14 +89,14 @@ describe('BudgetWidget', () => {
     expect(rowTicks.length).toBe(4)
     rowTicks.forEach(tick => expect(tick.style.left).toBe('50%'))
 
-    expect(screen.getByText('Over budget')).toBeTruthy()
-    expect(screen.getByText('Ahead of pace')).toBeTruthy()
-    expect(screen.getAllByText('On track')).toHaveLength(2)
-    expect(screen.getByText('Fixed')).toBeTruthy()
+    expect(screen.getByText('Acima do orçamento')).toBeTruthy()
+    expect(screen.getByText('Gastando rápido')).toBeTruthy()
+    expect(screen.getAllByText('No ritmo')).toHaveLength(2)
+    expect(screen.getByText('Fixo')).toBeTruthy()
     expect(screen.getByText('Shopping')).toBeTruthy()
 
     const groceries = screen.getByText('Groceries').closest('li') as HTMLElement
-    expect(within(groceries).getByText('Over budget')).toBeTruthy()
+    expect(within(groceries).getByText('Acima do orçamento')).toBeTruthy()
     const groceriesText = groceries.textContent?.replace(/\s/g, ' ') ?? ''
     expect(groceriesText).toContain(money(91000))
     expect(groceriesText).toContain(money(80000))
@@ -120,8 +120,8 @@ describe('BudgetWidget', () => {
     )
     renderWidget()
 
-    expect(await screen.findByText('Set monthly limits to track spending against your budget.')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Set limits' }))
+    expect(await screen.findByText('Defina limites mensais para acompanhar os gastos do orçamento.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Definir limites' }))
     expect(mockRequestShellAction).toHaveBeenCalledWith('open-budget')
   })
 
@@ -129,7 +129,7 @@ describe('BudgetWidget', () => {
     mockFetchBudget.mockResolvedValue(budgetFixture())
     renderWidget()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar' }))
     expect(mockRequestShellAction).toHaveBeenCalledWith('open-budget')
   })
 
@@ -144,8 +144,8 @@ describe('BudgetWidget', () => {
     })
     renderWidget()
 
-    fireEvent.click(await screen.findByRole('button', { name: /Scheduled bills/ }))
-    const internet = screen.getByRole('checkbox', { name: 'Count Internet' }) as HTMLInputElement
+    fireEvent.click(await screen.findByRole('button', { name: /Contas agendadas/ }))
+    const internet = screen.getByRole('checkbox', { name: 'Incluir Internet' }) as HTMLInputElement
     expect(internet.checked).toBe(true)
 
     fireEvent.click(internet)
@@ -155,9 +155,9 @@ describe('BudgetWidget', () => {
       const label = screen.getByText('Internet')
       expect(label.className).toContain('line-through')
     })
-    expect((screen.getByRole('checkbox', { name: 'Count Internet' }) as HTMLInputElement).checked).toBe(false)
+    expect((screen.getByRole('checkbox', { name: 'Incluir Internet' }) as HTMLInputElement).checked).toBe(false)
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Count Internet' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Incluir Internet' }))
     await waitFor(() => expect(mockRemove).toHaveBeenCalledWith('tx-1', MONTH))
     await waitFor(() => expect(mockFetchBudget).toHaveBeenCalledTimes(3))
     await waitFor(() => expect(screen.getByText('Internet').className).not.toContain('line-through'))
@@ -167,7 +167,7 @@ describe('BudgetWidget', () => {
     mockFetchBudget.mockResolvedValue(budgetFixture({ bills: [] }))
     renderWidget()
 
-    fireEvent.click(await screen.findByRole('button', { name: /Scheduled bills/ }))
-    expect(screen.getByText('No scheduled bills this month.')).toBeTruthy()
+    fireEvent.click(await screen.findByRole('button', { name: /Contas agendadas/ }))
+    expect(screen.getByText('Nenhuma conta agendada neste mês.')).toBeTruthy()
   })
 })

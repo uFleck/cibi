@@ -27,8 +27,8 @@ export function FriendForm({
   onSubmit,
   onCancel,
   isSubmitting = false,
-  submitLabel = 'Create Friend',
-  cancelLabel = 'Discard',
+  submitLabel = 'Criar amigo',
+  cancelLabel = 'Descartar',
 }: FriendFormProps) {
   return (
     <form
@@ -39,7 +39,7 @@ export function FriendForm({
       className="flex flex-col gap-4"
     >
       <div>
-        <Label className="block text-sm font-medium mb-1">Name</Label>
+        <Label className="block text-sm font-medium mb-1">Nome</Label>
         <Input
           required
           value={name}
@@ -48,21 +48,21 @@ export function FriendForm({
         />
       </div>
       <div>
-        <Label className="block text-sm font-medium mb-1">Notes (optional)</Label>
+        <Label className="block text-sm font-medium mb-1">Observações (opcional)</Label>
         <Textarea
           rows={2}
           value={notes}
           onChange={e => onNotesChange(e.target.value)}
-          placeholder="Optional notes"
+          placeholder="Observações opcionais"
           className="resize-none"
         />
       </div>
       <div>
-        <Label className="block text-sm font-medium mb-1">PIX key (optional)</Label>
+        <Label className="block text-sm font-medium mb-1">Chave PIX (opcional)</Label>
         <Input
           value={pixKey}
           onChange={e => onPixKeyChange(e.target.value)}
-          placeholder="CPF, phone, email, random key"
+          placeholder="CPF, telefone, e-mail, chave aleatória"
         />
       </div>
       <div className="flex gap-2">

@@ -111,8 +111,8 @@ describe('ToPayPage', () => {
     renderPage()
     fireEvent.click(await screen.findByRole('button', { name: /comprei/i }))
     const dialog = await screen.findByRole('dialog')
-    fireEvent.change(within(dialog).getByLabelText(/amount paid/i), { target: { value: '45,50' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: /mark paid/i }))
+    fireEvent.change(within(dialog).getByLabelText(/valor pago/i), { target: { value: '45,50' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: /marcar como pago/i }))
 
     await waitFor(() => expect(called('/api/transactions/txn-diapers/confirm')).toBeTruthy())
     expect(JSON.parse(String(called('/api/transactions/txn-diapers/confirm')?.[1]?.body))).toEqual({ amount: -45.5 })

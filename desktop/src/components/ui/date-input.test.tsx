@@ -49,7 +49,7 @@ describe('DateInput', () => {
     await user.tab()
 
     expect(onChange).not.toHaveBeenCalled()
-    expect(screen.getByText('Invalid date')).toBeTruthy()
+    expect(screen.getByText('Data inválida')).toBeTruthy()
     expect(input.getAttribute('aria-invalid')).toBe('true')
     expect((input as HTMLInputElement).value).toBe('31/02')
   })

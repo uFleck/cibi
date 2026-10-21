@@ -12,14 +12,14 @@ export function SharedDebtList({
   items,
   loading = false,
   error,
-  emptyTitle = 'No items',
-  emptyHint = 'Nothing to show yet',
+  emptyTitle = 'Nenhum item',
+  emptyHint = 'Nada para mostrar ainda',
   onRetry,
   onConfirm,
   onDelete,
   onEdit,
   extraActionsFor,
-  confirmLabel = 'Mark paid',
+  confirmLabel = 'Marcar como pago',
   selectedId = null,
   onSelect,
 }: SharedDebtListProps) {
@@ -32,10 +32,10 @@ export function SharedDebtList({
       : []),
     ...(extraActionsFor?.(item.id) ?? []),
     ...(onEdit && item.canEdit
-      ? [{ id: 'edit', label: 'Edit', icon: Pencil, keys: ROW_KEYS.edit, primary: true, run: () => onEdit(item.id) }]
+      ? [{ id: 'edit', label: 'Editar', icon: Pencil, keys: ROW_KEYS.edit, primary: true, run: () => onEdit(item.id) }]
       : []),
     ...(onDelete && item.canDelete
-      ? [{ id: 'delete', label: 'Delete', icon: Trash2, keys: ROW_KEYS.delete, variant: 'destructive' as const, run: () => onDelete(item.id) }]
+      ? [{ id: 'delete', label: 'Excluir', icon: Trash2, keys: ROW_KEYS.delete, variant: 'destructive' as const, run: () => onDelete(item.id) }]
       : []),
   ]
 
@@ -63,7 +63,7 @@ export function SharedDebtList({
       <div className="border rounded-md p-4 flex items-center justify-between gap-3" data-testid="shared-debt-list-error">
         <p className="text-sm text-destructive">{error}</p>
         {onRetry ? (
-          <Button variant="outline" size="sm" onClick={onRetry}>Retry</Button>
+          <Button variant="outline" size="sm" onClick={onRetry}>Tentar de novo</Button>
         ) : null}
       </div>
     )

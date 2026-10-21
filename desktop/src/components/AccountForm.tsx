@@ -45,12 +45,12 @@ export function AccountForm({
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="account-name" className="text-xs">Name *</Label>
+        <Label htmlFor="account-name" className="text-xs">Nome *</Label>
         <Input
           id="account-name"
           value={formData.name}
           onChange={e => onNameChange(e.target.value)}
-          placeholder="Account name"
+          placeholder="Nome da conta"
           aria-invalid={!!formErrors.name || undefined}
           aria-describedby={formErrors.name ? 'account-name-error' : undefined}
         />
@@ -63,7 +63,7 @@ export function AccountForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {!editingId && (
           <div className="flex flex-col gap-2">
-            <Label htmlFor="account-balance" className="text-xs">Opening Balance</Label>
+            <Label htmlFor="account-balance" className="text-xs">Saldo inicial</Label>
             <ValueInput
               id="account-balance"
               value={balanceText}
@@ -74,7 +74,7 @@ export function AccountForm({
           </div>
         )}
         <div className="flex flex-col gap-2">
-          <Label htmlFor="account-currency" className="text-xs">Currency *</Label>
+          <Label htmlFor="account-currency" className="text-xs">Moeda *</Label>
           <Select
             value={formData.currency}
             onValueChange={onCurrencyChange}
@@ -94,11 +94,11 @@ export function AccountForm({
         <Button type="submit" size="sm" disabled={isPending}>
           {isPending
             ? editingId
-              ? 'Updating...'
-              : 'Creating...'
+              ? 'Atualizando...'
+              : 'Criando...'
             : editingId
-              ? 'Update'
-              : 'Create'}
+              ? 'Atualizar'
+              : 'Criar'}
         </Button>
         <Button
           type="button"
@@ -107,7 +107,7 @@ export function AccountForm({
           onClick={onCancel}
           disabled={isPending}
         >
-          Cancel
+          Cancelar
         </Button>
       </div>
     </form>

@@ -87,11 +87,11 @@ export function SettingsPage() {
       if (next) await enable()
       else await disable()
       setAutostartEnabled(next)
-      toast.success(next ? 'Start at login enabled' : 'Start at login disabled')
+      toast.success(next ? 'Iniciar ao fazer login ativado' : 'Iniciar ao fazer login desativado')
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err)
-      setAutostartError(`Could not change start at login: ${detail}`)
-      toast.error('Could not change start at login')
+      setAutostartError(`Não deu para alterar a opção de iniciar ao fazer login: ${detail}`)
+      toast.error('Não deu para alterar a opção de iniciar ao fazer login')
     } finally {
       setAutostartPending(false)
     }
@@ -118,22 +118,22 @@ export function SettingsPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile', selectedAccountId] })
-      toast.success('Preferences saved')
+      toast.success('Preferências salvas')
     },
-    onError: () => toast.error('Could not save preferences'),
+    onError: () => toast.error('Não deu para salvar as preferências'),
   })
 
   const updateSafetyBufferMutation = useMutation({
     mutationFn: () => {
-      if (!selectedAccount) throw new Error('No selected account')
+      if (!selectedAccount) throw new Error('Nenhuma conta selecionada')
       const parsed = Number(safetyBufferDraft)
       return updateAccount(selectedAccount.id, { safety_buffer: Number.isFinite(parsed) ? parsed : 0 })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
-      toast.success('Safety buffer saved')
+      toast.success('Margem de segurança salva')
     },
-    onError: () => toast.error('Could not save safety buffer'),
+    onError: () => toast.error('Não deu para salvar a margem de segurança'),
   })
 
   const backfillCategoriesMutation = useMutation({
@@ -141,26 +141,26 @@ export function SettingsPage() {
     onSuccess: ({ scanned, categorized }) => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       queryClient.invalidateQueries({ queryKey: ['categories'] })
-      toast.success(scanned === 0 ? 'No uncategorized expenses' : `Categorized ${categorized} of ${scanned} expenses`)
+      toast.success(scanned === 0 ? 'Nenhum gasto sem categoria' : `${categorized} de ${scanned} gastos categorizados`)
     },
-    onError: () => toast.error('Could not categorize transactions'),
+    onError: () => toast.error('Não deu para categorizar as transações'),
   })
 
   return (
     <div className={pageShell}>
       <PageHeader
-        eyebrow="Settings"
-        title="Preferences"
-        description="Manage how your profile and payment details appear."
+        eyebrow="Configurações"
+        title="Preferências"
+        description="Gerencie como o seu perfil e os dados de pagamento aparecem."
       />
 
       <SettingsPanel
         icon={Palette}
-        title="Appearance"
-        description="Light or dark. Applied immediately on this device."
+        title="Aparência"
+        description="Claro ou escuro. Aplicado na hora neste aparelho."
       >
         <div className="flex items-center justify-between gap-4">
-          <span className="text-muted-foreground">Theme</span>
+          <span className="text-muted-foreground">Tema</span>
           <div className="flex gap-1.5">
             {(['dark', 'light'] as const).map(mode => (
               <Button
@@ -172,7 +172,7 @@ export function SettingsPage() {
                 onClick={() => setTheme(mode)}
                 className="capitalize"
               >
-                {mode}
+                {mode === 'dark' ? 'Escuro' : 'Claro'}
               </Button>
             ))}
           </div>
@@ -181,30 +181,30 @@ export function SettingsPage() {
 
       <SettingsPanel
         icon={User}
-        title="Profile preferences"
-        description="This name is shown in shared views."
+        title="Preferências do perfil"
+        description="Este nome aparece nas telas compartilhadas."
       >
         <div className="grid grid-cols-[120px_1fr] items-center gap-x-4 gap-y-3">
-          <Label htmlFor="display-name" className="text-muted-foreground">Display name *</Label>
+          <Label htmlFor="display-name" className="text-muted-foreground">Nome de exibição *</Label>
           <Input
             id="display-name"
             value={displayNameDraft}
             onChange={e => setDisplayNameDraft(e.target.value)}
-            placeholder="How should people see your name?"
+            placeholder="Como as pessoas devem ver o seu nome?"
           />
 
           <Label htmlFor="pix-key" className="flex items-center gap-2 text-muted-foreground">
             <HandCoins size={14} />
-            PIX key (optional)
+            Chave PIX (opcional)
           </Label>
           <div className="flex flex-col gap-1">
             <Input
               id="pix-key"
               value={pixKeyDraft}
               onChange={e => setPixKeyDraft(e.target.value)}
-              placeholder="CPF, email, phone, or random key"
+              placeholder="CPF, e-mail, telefone ou chave aleatória"
             />
-            <p className="text-xs text-faint">Used when friends need your payment key.</p>
+            <p className="text-xs text-faint">Usada quando os amigos precisarem da sua chave de pagamento.</p>
           </div>
         </div>
 
@@ -215,17 +215,17 @@ export function SettingsPage() {
             disabled={updateProfileMutation.isPending || !displayNameDraft.trim() || !selectedAccountId}
           >
             <Save size={14} />
-            {updateProfileMutation.isPending ? 'Saving...' : 'Save preferences'}
+            {updateProfileMutation.isPending ? 'Salvando...' : 'Salvar preferências'}
           </Button>
         </div>
       </SettingsPanel>
 
       <SettingsPanel
-        title="Account safety buffer"
-        description="Keep this amount in dollars in the selected account before approving purchases. It stops applying once the Reserve widget is switched on, because the reserve balance takes its place."
+        title="Margem de segurança da conta"
+        description="Mantenha este valor em reais na conta selecionada antes de aprovar compras. Ele deixa de valer quando o widget Reserva é ativado, porque o saldo da reserva ocupa o lugar dele."
       >
         <div className="grid grid-cols-[120px_1fr] items-center gap-x-4">
-          <Label htmlFor="safety-buffer" className="text-muted-foreground">Safety buffer ($)</Label>
+          <Label htmlFor="safety-buffer" className="text-muted-foreground">Margem de segurança ($)</Label>
           <Input
             id="safety-buffer"
             className="num"
@@ -243,15 +243,15 @@ export function SettingsPage() {
             disabled={updateSafetyBufferMutation.isPending || !selectedAccount}
           >
             <Save size={14} />
-            {updateSafetyBufferMutation.isPending ? 'Saving...' : 'Save safety buffer'}
+            {updateSafetyBufferMutation.isPending ? 'Salvando...' : 'Salvar margem de segurança'}
           </Button>
         </div>
       </SettingsPanel>
 
       <SettingsPanel
         icon={Tags}
-        title="Categories"
-        description="Set the category of uncategorized expenses from their descriptions. Categories you already set are not changed."
+        title="Categorias"
+        description="Defina a categoria dos gastos sem categoria a partir das descrições. As categorias que você já definiu não são alteradas."
       >
         <div>
           <Button
@@ -260,23 +260,23 @@ export function SettingsPage() {
             onClick={() => backfillCategoriesMutation.mutate()}
             disabled={backfillCategoriesMutation.isPending}
           >
-            {backfillCategoriesMutation.isPending ? 'Categorizing...' : 'Categorize uncategorized transactions'}
+            {backfillCategoriesMutation.isPending ? 'Categorizando...' : 'Categorizar transações sem categoria'}
           </Button>
         </div>
         <p className="text-xs text-faint" data-testid="classifier-status">
-          {layaStatus?.state === 'active' && 'Classifier: rules, then the on-device Laya model.'}
-          {layaStatus?.state === 'missing' && `Classifier: rules only. Laya model not found in ${layaStatus.folder}. Run scripts\\export-laya.ps1 to install it.`}
-          {(layaStatus === undefined || layaStatus.state === 'rules') && 'Classifier: rules only.'}
+          {layaStatus?.state === 'active' && 'Classificador: regras, depois o modelo Laya no aparelho.'}
+          {layaStatus?.state === 'missing' && `Classificador: só regras. Modelo Laya não encontrado em ${layaStatus.folder}. Execute scripts\\export-laya.ps1 para instalar.`}
+          {(layaStatus === undefined || layaStatus.state === 'rules') && 'Classificador: só regras.'}
         </p>
       </SettingsPanel>
 
       <SettingsPanel
         icon={Power}
-        title="Startup"
-        description="Open cibi when you sign in to Windows. It starts hidden in the tray."
+        title="Inicialização"
+        description="Abre o cibi quando você entra no Windows. Ele começa escondido na bandeja."
       >
         <div className="flex items-center justify-between gap-4">
-          <Label htmlFor="start-at-login" className="text-muted-foreground">Start at login</Label>
+          <Label htmlFor="start-at-login" className="text-muted-foreground">Iniciar ao fazer login</Label>
           <Switch
             id="start-at-login"
             checked={autostartEnabled}
@@ -285,7 +285,7 @@ export function SettingsPage() {
           />
         </div>
         {autostartAvailable === false && (
-          <p className="text-xs text-faint">Start at login is not available here.</p>
+          <p className="text-xs text-faint">Iniciar ao fazer login não está disponível aqui.</p>
         )}
         {autostartError && (
           <p role="alert" className="text-xs text-neg">{autostartError}</p>

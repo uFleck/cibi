@@ -10,9 +10,9 @@ function makeCommands() {
   const runNew = vi.fn()
   const runCheck = vi.fn()
   const commands: PaletteCommand[] = [
-    { id: 'go-transactions', label: 'Transactions', group: 'Go to', icon: Search, keys: 'g t', run: runTransactions },
-    { id: 'new', label: 'New transaction', group: 'Actions', icon: Plus, keys: 'n', run: runNew },
-    { id: 'check', label: 'Can I buy it?', group: 'Actions', icon: Calculator, keys: 'c', run: runCheck },
+    { id: 'go-transactions', label: 'Transações', group: 'Ir para', icon: Search, keys: 'g t', run: runTransactions },
+    { id: 'new', label: 'Nova transação', group: 'Ações', icon: Plus, keys: 'n', run: runNew },
+    { id: 'check', label: 'Posso comprar?', group: 'Ações', icon: Calculator, keys: 'c', run: runCheck },
   ]
   return { commands, runTransactions, runNew, runCheck }
 }
@@ -33,7 +33,7 @@ function Harness({ commands, onOpenChange }: { commands: PaletteCommand[]; onOpe
 
 function renderPalette(commands: PaletteCommand[], onOpenChange = vi.fn()) {
   render(<Harness commands={commands} onOpenChange={onOpenChange} />)
-  return { onOpenChange, input: screen.getByRole('combobox', { name: 'Search commands' }) }
+  return { onOpenChange, input: screen.getByRole('combobox', { name: 'Buscar comandos' }) }
 }
 
 describe('CommandPalette', () => {
@@ -60,19 +60,19 @@ describe('CommandPalette', () => {
 
     const options = screen.getAllByRole('option')
     expect(options).toHaveLength(3)
-    expect(screen.getByText('Go to')).toBeTruthy()
-    expect(screen.getAllByText('Actions')).toHaveLength(1)
+    expect(screen.getByText('Ir para')).toBeTruthy()
+    expect(screen.getAllByText('Ações')).toHaveLength(1)
   })
 
   it('filters commands with a fuzzy match on the label and group', () => {
     const { commands } = makeCommands()
     const { input } = renderPalette(commands)
 
-    fireEvent.change(input, { target: { value: 'buy' } })
+    fireEvent.change(input, { target: { value: 'comprar' } })
 
     const options = screen.getAllByRole('option')
     expect(options).toHaveLength(1)
-    expect(options[0].textContent).toContain('Can I buy it?')
+    expect(options[0].textContent).toContain('Posso comprar?')
   })
 
   it('shows an empty state when nothing matches', () => {
@@ -82,17 +82,17 @@ describe('CommandPalette', () => {
     fireEvent.change(input, { target: { value: 'zzzz' } })
 
     expect(screen.queryAllByRole('option')).toHaveLength(0)
-    expect(screen.getByText('No matching commands')).toBeTruthy()
+    expect(screen.getByText('Nenhum comando encontrado')).toBeTruthy()
   })
 
   it('moves the selection with the arrow keys and runs it on Enter', async () => {
     const { commands, runNew } = makeCommands()
     const { onOpenChange, input } = renderPalette(commands)
 
-    expect(screen.getByRole('option', { name: /Transactions/ }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('option', { name: /Transações/ }).getAttribute('aria-selected')).toBe('true')
 
     fireEvent.keyDown(input, { key: 'ArrowDown' })
-    expect(screen.getByRole('option', { name: /New transaction/ }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('option', { name: /Nova transação/ }).getAttribute('aria-selected')).toBe('true')
 
     fireEvent.keyDown(input, { key: 'Enter' })
 
@@ -105,7 +105,7 @@ describe('CommandPalette', () => {
     const run = vi.fn(() => {
       dialogOpenWhenRun = document.querySelector('[role="dialog"]') !== null
     })
-    const commands: PaletteCommand[] = [{ id: 'sheet', label: 'Shortcuts', group: 'Help', icon: Search, run }]
+    const commands: PaletteCommand[] = [{ id: 'sheet', label: 'Atalhos', group: 'Ajuda',icon: Search, run }]
     const { input } = renderPalette(commands)
 
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -120,14 +120,14 @@ describe('CommandPalette', () => {
 
     fireEvent.keyDown(input, { key: 'ArrowUp' })
 
-    expect(screen.getByRole('option', { name: /Can I buy it/ }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('option', { name: /Posso comprar/ }).getAttribute('aria-selected')).toBe('true')
   })
 
   it('runs a command when it is clicked and closes the palette', async () => {
     const { commands, runCheck } = makeCommands()
     const { onOpenChange } = renderPalette(commands)
 
-    fireEvent.click(within(screen.getByRole('listbox')).getByText('Can I buy it?'))
+    fireEvent.click(within(screen.getByRole('listbox')).getByText('Posso comprar?'))
 
     expect(onOpenChange).toHaveBeenCalledWith(false)
     await waitFor(() => expect(runCheck).toHaveBeenCalledTimes(1))

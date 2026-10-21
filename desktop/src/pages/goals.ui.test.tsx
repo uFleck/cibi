@@ -180,34 +180,34 @@ describe('GoalsPage compact + modal flow', () => {
   it('renders compact goals rows with view actions', async () => {
     setup()
 
-    expect(await screen.findByRole('heading', { name: 'Goals Tracking' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Acompanhamento de metas' })).toBeTruthy()
     expect((await screen.findAllByText('Emergency fund')).length).toBeGreaterThan(0)
     expect((await screen.findAllByText('Vacation fund')).length).toBeGreaterThan(0)
 
-    const viewButtons = await screen.findAllByRole('button', { name: 'View goal details' })
+    const viewButtons = await screen.findAllByRole('button', { name: 'Ver detalhes da meta' })
     expect(viewButtons.length).toBeGreaterThanOrEqual(2)
   })
 
   it('opens goal modal with edit hidden by default', async () => {
     setup()
 
-    await userEvent.click((await screen.findAllByRole('button', { name: 'View goal details' }))[0])
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Ver detalhes da meta' }))[0])
 
-    expect(await screen.findByText('View and edit goal details.')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Edit goal' })).toBeTruthy()
-    expect(screen.queryByLabelText('Goal name')).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Save edits' })).toBeNull()
+    expect(await screen.findByText('Veja e edite os detalhes da meta.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Editar meta' })).toBeTruthy()
+    expect(screen.queryByLabelText('Nome da meta')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Salvar alterações' })).toBeNull()
   })
 
   it('submits goal edits via modal', async () => {
     const { invalidateSpy } = setup()
 
-    await userEvent.click((await screen.findAllByRole('button', { name: 'View goal details' }))[0])
-    await userEvent.click(await screen.findByRole('button', { name: 'Edit goal' }))
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Ver detalhes da meta' }))[0])
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar meta' }))
 
-    const nameInput = await screen.findByLabelText('Goal name')
-    const targetInput = screen.getByLabelText('Target amount')
-    const minInput = screen.getByLabelText('Min contribution / window')
+    const nameInput = await screen.findByLabelText('Nome da meta')
+    const targetInput = screen.getByLabelText('Valor da meta')
+    const minInput = screen.getByLabelText('Aporte mínimo por período')
 
     await userEvent.clear(nameInput)
     await userEvent.type(nameInput, 'Emergency++')
@@ -216,7 +216,7 @@ describe('GoalsPage compact + modal flow', () => {
     await userEvent.clear(minInput)
     await userEvent.type(minInput, '40')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save edits' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }))
 
     await waitFor(() => {
       expect(mockUpdateGoal).toHaveBeenCalledWith('goal-1', {
@@ -233,14 +233,14 @@ describe('GoalsPage compact + modal flow', () => {
   it('removes money from action button with required reason', async () => {
     const { invalidateSpy } = setup()
 
-    await userEvent.click((await screen.findAllByRole('button', { name: 'Remove money' }))[0])
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Retirar valor' }))[0])
 
-    const removeButton = await screen.findByRole('button', { name: 'Remove money' })
+    const removeButton = await screen.findByRole('button', { name: 'Retirar valor' })
     expect((removeButton as HTMLButtonElement).disabled).toBe(true)
 
-    await userEvent.type(screen.getByLabelText('Amount to remove'), '20')
-    await userEvent.type(screen.getByLabelText('Reason'), 'Needed for urgent bill')
-    fireEvent.click(screen.getByRole('button', { name: 'Remove money' }))
+    await userEvent.type(screen.getByLabelText('Valor a retirar'), '20')
+    await userEvent.type(screen.getByLabelText('Motivo'), 'Needed for urgent bill')
+    fireEvent.click(screen.getByRole('button', { name: 'Retirar valor' }))
 
     await waitFor(() => {
       expect(mockAddGoalLedgerEntry).toHaveBeenCalledWith('goal-1', {
@@ -260,10 +260,12 @@ describe('GoalsPage empty state', () => {
   it('offers a New goal action that opens the create form', async () => {
     setup(emptyTrackingFixture)
 
-    expect(await screen.findByText('No goals yet')).toBeTruthy()
-    await userEvent.click(screen.getByRole('button', { name: 'New goal' }))
+    expect(await screen.findByText('Nenhuma meta ainda')).toBeTruthy()
+    // The page header has the same button; the empty-state one comes last in the DOM.
+    const newGoalButtons = screen.getAllByRole('button', { name: 'Nova meta' })
+    await userEvent.click(newGoalButtons[newGoalButtons.length - 1]!)
 
-    expect(await screen.findByLabelText('Goal name')).toBeTruthy()
+    expect(await screen.findByLabelText('Nome da meta')).toBeTruthy()
   })
 })
 
@@ -271,10 +273,10 @@ describe('GoalsPage create-goal flow still works', () => {
   it('creates goal with comma decimal target', async () => {
     const { invalidateSpy } = setup(emptyTrackingFixture)
 
-    await userEvent.click(screen.getByRole('button', { name: 'New Goal' }))
-    await userEvent.type(await screen.findByLabelText('Goal name'), 'Trip')
-    await userEvent.type(screen.getByLabelText('Target amount'), '123,45')
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Nova meta' }))
+    await userEvent.type(await screen.findByLabelText('Nome da meta'), 'Trip')
+    await userEvent.type(screen.getByLabelText('Valor da meta'), '123,45')
+    fireEvent.click(screen.getByRole('button', { name: 'Criar' }))
 
     await waitFor(() => {
       expect(mockCreateGoal).toHaveBeenCalledWith({

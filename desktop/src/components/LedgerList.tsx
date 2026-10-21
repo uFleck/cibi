@@ -23,6 +23,13 @@ const BADGE_VARIANT: Record<
   manual_adjustment: 'outline',
 }
 
+const ENTRY_TYPE_LABELS: Record<string, string> = {
+  payment: 'Pagamento',
+  income: 'Entrada',
+  opening_balance: 'Saldo inicial',
+  manual_adjustment: 'Ajuste manual',
+}
+
 interface Props {
   account: AccountResponse
 }
@@ -42,17 +49,17 @@ export function LedgerList({ account }: Props) {
       queryClient.invalidateQueries({ queryKey: ['ledger', account.id] })
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       queryClient.invalidateQueries({ queryKey: ['budget'] })
-      toast.success('Entry deleted')
+      toast.success('Lançamento excluído')
       setConfirmDeleteId(null)
     },
-    onError: () => toast.error('Failed to delete entry'),
+    onError: () => toast.error('Não deu para excluir o lançamento'),
   })
 
   const entryToDelete = entries.find(e => e.id === confirmDeleteId)
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-2" role="status" aria-label="Loading ledger">
+      <div className="flex flex-col gap-2" role="status" aria-label="Carregando extrato">
         {[0, 1, 2].map(i => (
           <div key={i} className="h-10 rounded-lg bg-card/60 animate-pulse border border-border/40" />
         ))}
@@ -73,8 +80,8 @@ export function LedgerList({ account }: Props) {
           if (confirmDeleteId) deleteMutation.mutate(confirmDeleteId)
         }}
         onCancel={() => setConfirmDeleteId(null)}
-        title={`Delete "${entryToDelete?.description}"?`}
-        description="This action cannot be undone."
+        title={`Excluir "${entryToDelete?.description}"?`}
+        description="Não dá para desfazer."
       />
 
       <div className="flex flex-col divide-y divide-border rounded-lg border border-border overflow-hidden">
@@ -85,7 +92,7 @@ export function LedgerList({ account }: Props) {
               <p className="text-xs text-muted-foreground">{formatDate(entry.posted_at)}</p>
             </div>
             <Badge variant={BADGE_VARIANT[entry.entry_type]} className="shrink-0 text-xs">
-              {entry.entry_type.replace('_', ' ')}
+              {ENTRY_TYPE_LABELS[entry.entry_type] ?? entry.entry_type.replace('_', ' ')}
             </Badge>
             <span
               className={`text-sm font-medium tabular-nums shrink-0 ${
@@ -99,7 +106,7 @@ export function LedgerList({ account }: Props) {
               size="icon"
               className="shrink-0 h-7 w-7"
               onClick={() => setConfirmDeleteId(entry.id)}
-              aria-label={`Delete ${entry.description}`}
+              aria-label={`Excluir ${entry.description}`}
             >
               <Trash2 size={14} />
             </Button>

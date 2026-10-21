@@ -21,29 +21,29 @@ function renderFrame(overrides: Partial<WidgetFrameProps> = {}) {
 describe('WidgetFrame', () => {
   it('shows the widget title and body with no edit controls outside edit mode', () => {
     renderFrame()
-    expect(screen.getByRole('heading', { name: 'Projection' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Projeção' })).toBeTruthy()
     expect(screen.getByText('chart goes here')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Remove Projection' })).toBeNull()
-    expect(screen.queryByRole('group', { name: 'Projection width' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Remover Projeção' })).toBeNull()
+    expect(screen.queryByRole('group', { name: 'Largura de Projeção' })).toBeNull()
   })
 
   it('in edit mode shows the size control with the current span pressed, and a remove button', () => {
     const { props } = renderFrame({ editing: true })
-    const sizes = screen.getByRole('group', { name: 'Projection width' })
+    const sizes = screen.getByRole('group', { name: 'Largura de Projeção' })
     expect(within(sizes).getByRole('button', { name: 'XL', pressed: true })).toBeTruthy()
     fireEvent.click(within(sizes).getByRole('button', { name: 'L' }))
     expect(props.onResize).toHaveBeenCalledWith(6)
-    fireEvent.click(screen.getByRole('button', { name: 'Remove Projection' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remover Projeção' }))
     expect(props.onRemove).toHaveBeenCalledOnce()
   })
 
   it('makes the frame focusable and inerts its body in edit mode', () => {
     renderFrame({ editing: true })
-    const frame = screen.getByRole('group', { name: 'Projection' })
+    const frame = screen.getByRole('group', { name: 'Projeção' })
     expect(frame.getAttribute('tabindex')).toBe('0')
     expect(frame.getAttribute('data-widget-frame')).toBe('projection')
     const hint = document.getElementById(frame.getAttribute('aria-describedby') ?? '')
-    expect(hint?.textContent).toContain('Alt+Arrows move, Alt+Shift+Arrows resize, Delete removes')
+    expect(hint?.textContent).toContain('Alt+setas move, Alt+Shift+setas redimensionam, Delete remove')
     expect(screen.getByText('chart goes here').parentElement?.hasAttribute('inert')).toBe(true)
   })
 

@@ -67,10 +67,10 @@ function SettingsForm({ accountId, currency, reserve, onClose }: Omit<DialogProp
       }),
     onSuccess: data => {
       queryClient.setQueryData(reserveKey(accountId), data)
-      toast.success('Reserve saved')
+      toast.success('Reserva salva')
       onClose()
     },
-    onError: error => toast.error((error as Error).message || 'Could not save the reserve'),
+    onError: error => toast.error((error as Error).message || 'Não deu para salvar a reserva'),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['reserve'] }),
   })
 
@@ -86,45 +86,45 @@ function SettingsForm({ accountId, currency, reserve, onClose }: Omit<DialogProp
       }}
     >
       <DialogHeader>
-        <DialogTitle>Reserve</DialogTitle>
+        <DialogTitle>Reserva</DialogTitle>
         <DialogDescription>
           Money set aside on every payday that the purchase check never spends. It starts small and grows each month.
         </DialogDescription>
       </DialogHeader>
 
       <div className="flex items-center justify-between gap-3">
-        <Label htmlFor="reserve-enabled" className="text-xs">Fund the reserve on every payday</Label>
+        <Label htmlFor="reserve-enabled" className="text-xs">Separar para a reserva em todo recebimento</Label>
         <Switch id="reserve-enabled" checked={enabled} onCheckedChange={setEnabled} />
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="reserve-months" className="text-xs">Target, in months of obligations</Label>
+        <Label htmlFor="reserve-months" className="text-xs">Meta, em meses de contas</Label>
         <Input id="reserve-months" className="num" inputMode="decimal" value={months} onChange={e => setMonths(e.target.value)} />
         <p className="text-xs text-muted-foreground">
-          A month of obligations is {money(reserve.monthly_obligations)}, so the target is {money(targetPreview)}.
+          Um mês de contas é {money(reserve.monthly_obligations)}, então a meta é {money(targetPreview)}.
         </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="reserve-start" className="text-xs">Set aside per payday at first</Label>
+          <Label htmlFor="reserve-start" className="text-xs">Separado por recebimento, no início</Label>
           <ValueInput id="reserve-start" value={start} onValueChange={setStart} allowNegative={false} />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="reserve-step" className="text-xs">Add every month</Label>
+          <Label htmlFor="reserve-step" className="text-xs">Aumento mensal</Label>
           <ValueInput id="reserve-step" value={step} onValueChange={setStep} allowNegative={false} />
         </div>
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="reserve-cap" className="text-xs">Never more than this percent of a paycheck</Label>
+        <Label htmlFor="reserve-cap" className="text-xs">Nunca mais que este percentual de um recebimento</Label>
         <Input id="reserve-cap" className="num" inputMode="decimal" value={cap} onChange={e => setCap(e.target.value)} />
       </div>
 
       <DialogFooter>
-        <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+        <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
         <Button type="submit" size="sm" disabled={!valid || save.isPending}>
-          {save.isPending ? 'Saving...' : 'Save'}
+          {save.isPending ? 'Salvando...' : 'Salvar'}
         </Button>
       </DialogFooter>
     </form>
@@ -154,10 +154,10 @@ function WithdrawForm({ accountId, currency, reserve, onClose }: Omit<DialogProp
     mutationFn: () => withdrawReserve({ account_id: accountId, amount: parsed ?? 0, note: note.trim() }),
     onSuccess: data => {
       queryClient.setQueryData(reserveKey(accountId), data)
-      toast.success('Taken from the reserve')
+      toast.success('Retirado da reserva')
       onClose()
     },
-    onError: error => toast.error((error as Error).message || 'Could not use the reserve'),
+    onError: error => toast.error((error as Error).message || 'Não deu para usar a reserva'),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['reserve'] }),
   })
 
@@ -170,23 +170,23 @@ function WithdrawForm({ accountId, currency, reserve, onClose }: Omit<DialogProp
       }}
     >
       <DialogHeader>
-        <DialogTitle>Use the reserve</DialogTitle>
+        <DialogTitle>Usar a reserva</DialogTitle>
         <DialogDescription>
           The reserve holds {formatMoney(reserve.balance, currency)}. Taking from it is for emergencies, and it is logged with your reason.
         </DialogDescription>
       </DialogHeader>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="reserve-withdraw-amount" className="text-xs">Amount</Label>
+        <Label htmlFor="reserve-withdraw-amount" className="text-xs">Valor</Label>
         <ValueInput id="reserve-withdraw-amount" value={amount} onValueChange={setAmount} allowNegative={false} autoFocus />
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="reserve-withdraw-note" className="text-xs">Why do you need it?</Label>
-        <Input id="reserve-withdraw-note" value={note} onChange={e => setNote(e.target.value)} placeholder="Car repair" />
+        <Label htmlFor="reserve-withdraw-note" className="text-xs">Para que você precisa?</Label>
+        <Input id="reserve-withdraw-note" value={note} onChange={e => setNote(e.target.value)} placeholder="Conserto do carro" />
       </div>
       <DialogFooter>
-        <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+        <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
         <Button type="submit" size="sm" variant="destructive" disabled={!valid || withdraw.isPending}>
-          {withdraw.isPending ? 'Saving...' : 'Use reserve'}
+          {withdraw.isPending ? 'Salvando...' : 'Usar reserva'}
         </Button>
       </DialogFooter>
     </form>

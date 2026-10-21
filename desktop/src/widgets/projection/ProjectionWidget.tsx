@@ -169,14 +169,14 @@ export function ProjectionWidget({
               onClick={() => setMode('window')}
               className={`px-2.5 py-1 transition-colors ${mode === 'window' ? 'bg-muted font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              Next window
+              Próximo período
             </button>
             <button
               type="button"
               onClick={() => setSheetOpen(true)}
               className={`px-2.5 py-1 transition-colors border-l border-border/60 ${mode === 'custom' ? 'bg-muted font-medium' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              Custom
+              Personalizado
             </button>
           </div>
       </div>
@@ -186,11 +186,11 @@ export function ProjectionWidget({
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-faint @max-[340px]/widget:hidden">
               <span>
                 <i className="mr-1.5 inline-block h-0.5 w-2.5 rounded-sm bg-foreground align-middle" />
-                Balance
+                Saldo
               </span>
               <span>
                 <i className="mr-1.5 inline-block h-0.5 w-2.5 rounded-sm bg-neg align-middle opacity-70" />
-                {reserve ? 'Reserve left out' : 'Safety buffer'}
+                {reserve ? 'Reserva fora do cálculo' : 'Margem de segurança'}
               </span>
               {dailyBaseline > 0 && (
                 <span className="ml-auto">
@@ -210,13 +210,13 @@ export function ProjectionWidget({
         {mode === 'window' && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">
-              Projected start balance{reserve ? ' (without the reserve)' : ''}
+              Saldo inicial previsto{reserve ? ' (sem a reserva)' : ''}
             </span>
             <span className="tabular-nums">{formatMoney(projectedStartBalance, account.currency)}</span>
           </div>
         )}
         <div className="flex justify-between">
-          <span className="text-muted-foreground">Incoming</span>
+          <span className="text-muted-foreground">Entradas</span>
           <MoneyValue
             amount={displayIncome}
             currency={account.currency}
@@ -226,7 +226,7 @@ export function ProjectionWidget({
         </div>
         {reserve && (
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Set aside for the reserve</span>
+            <span className="text-muted-foreground">Separado para a reserva</span>
             <MoneyValue
               amount={-displayReserve}
               currency={account.currency}
@@ -236,7 +236,7 @@ export function ProjectionWidget({
           </div>
         )}
         <div className="flex justify-between">
-          <span className="text-muted-foreground">Obligations</span>
+          <span className="text-muted-foreground">Contas</span>
           <MoneyValue
             amount={-displayObligations}
             currency={account.currency}
@@ -245,7 +245,7 @@ export function ProjectionWidget({
           />
         </div>
         <div className="flex justify-between border-t border-border/40 pt-1.5 mt-1">
-          <span className="font-semibold">Projected end balance</span>
+          <span className="font-semibold">Saldo final previsto</span>
           <span className={`font-semibold tabular-nums ${displayEndBalance < 0 ? 'text-neg' : 'text-pos'}`}>
             {formatMoney(displayEndBalance, account.currency)}
           </span>

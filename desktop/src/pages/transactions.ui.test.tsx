@@ -118,9 +118,9 @@ describe('TransactionsPage delete', () => {
 
     expect(await screen.findByText('Internet bill')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir' }))
     const dialog = await screen.findByRole('alertdialog')
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Excluir' }))
 
     await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalledWith(LEDGER_MESSAGE))
     expect(
@@ -141,7 +141,7 @@ function renderWithInspector() {
         <AccountContext.Provider value={{ selectedAccountId: 'acct-1', setSelectedAccountId: vi.fn() }}>
           <SelectionProvider resetKey="/transactions">
             <TransactionsPage />
-            <aside aria-label="Inspector">
+            <aside aria-label="Detalhes">
               <Inspector />
             </aside>
           </SelectionProvider>
@@ -181,13 +181,13 @@ describe('TransactionsPage selection and filters', () => {
     renderWithInspector()
 
     fireEvent.click(await screen.findByText('Internet bill'))
-    const inspector = screen.getByRole('complementary', { name: 'Inspector' })
+    const inspector = screen.getByRole('complementary', { name: 'Detalhes' })
     expect(await within(inspector).findByRole('heading', { name: 'Internet bill' })).toBeTruthy()
 
-    fireEvent.click(within(inspector).getByRole('button', { name: /mark paid/i }))
+    fireEvent.click(within(inspector).getByRole('button', { name: /marcar como pago/i }))
     // A recurring bill asks what it really cost, starting from its amount.
     const dialog = await screen.findByRole('dialog')
-    fireEvent.click(within(dialog).getByRole('button', { name: /mark paid/i }))
+    fireEvent.click(within(dialog).getByRole('button', { name: /marcar como pago/i }))
 
     await waitFor(() =>
       expect(mockLocalFetch.mock.calls.some(([path, init]) => path === '/api/transactions/txn-1/confirm' && init?.method === 'POST')).toBe(true),
@@ -198,10 +198,10 @@ describe('TransactionsPage selection and filters', () => {
     renderWithInspector()
 
     fireEvent.click(await screen.findByText('Internet bill'))
-    const inspector = screen.getByRole('complementary', { name: 'Inspector' })
-    fireEvent.click(await within(inspector).findByRole('button', { name: /edit/i }))
+    const inspector = screen.getByRole('complementary', { name: 'Detalhes' })
+    fireEvent.click(await within(inspector).findByRole('button', { name: /editar/i }))
 
-    expect(await screen.findByRole('dialog', { name: 'Edit Transaction' })).toBeTruthy()
+    expect(await screen.findByRole('dialog', { name: 'Editar transação' })).toBeTruthy()
   })
 
   it('sends the current category when an edit only changes the title', async () => {
@@ -222,11 +222,11 @@ describe('TransactionsPage selection and filters', () => {
 
     expect(await screen.findByText('Contas e serviços')).toBeTruthy()
     fireEvent.click(screen.getByText('Internet bill'))
-    const inspector = screen.getByRole('complementary', { name: 'Inspector' })
+    const inspector = screen.getByRole('complementary', { name: 'Detalhes' })
     expect(await within(inspector).findByText('Contas e serviços')).toBeTruthy()
-    fireEvent.click(await within(inspector).findByRole('button', { name: /edit/i }))
-    fireEvent.change(await screen.findByLabelText('Title *'), { target: { value: 'Internet fiber' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Update' }))
+    fireEvent.click(await within(inspector).findByRole('button', { name: /editar/i }))
+    fireEvent.change(await screen.findByLabelText('Título *'), { target: { value: 'Internet fiber' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Atualizar' }))
 
     await waitFor(() => expect(patchBodies).toHaveLength(1))
     expect(patchBodies[0].category).toBe('Contas e serviços')
@@ -237,7 +237,7 @@ describe('TransactionsPage selection and filters', () => {
     window.history.replaceState({}, '', '/transactions?select=txn-1')
     renderWithInspector()
 
-    const inspector = screen.getByRole('complementary', { name: 'Inspector' })
+    const inspector = screen.getByRole('complementary', { name: 'Detalhes' })
     expect(await within(inspector).findByRole('heading', { name: 'Internet bill' })).toBeTruthy()
     window.history.replaceState({}, '', '/')
   })
@@ -259,7 +259,7 @@ describe('TransactionsPage selection and filters', () => {
     await waitFor(() => expect(gate.release).toBeDefined())
     gate.release?.(json([confirmedTxn]))
 
-    const inspector = screen.getByRole('complementary', { name: 'Inspector' })
+    const inspector = screen.getByRole('complementary', { name: 'Detalhes' })
     expect(await within(inspector).findByRole('heading', { name: 'Internet bill' })).toBeTruthy()
     window.history.replaceState({}, '', '/')
   })
@@ -268,13 +268,13 @@ describe('TransactionsPage selection and filters', () => {
     renderWithInspector()
 
     fireEvent.click(await screen.findByText('Internet bill'))
-    const inspector = screen.getByRole('complementary', { name: 'Inspector' })
+    const inspector = screen.getByRole('complementary', { name: 'Detalhes' })
     expect(await within(inspector).findByRole('heading', { name: 'Internet bill' })).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: /income/i }))
+    fireEvent.click(screen.getByRole('button', { name: /entradas/i }))
     await waitFor(() => expect(within(inspector).queryByRole('heading', { name: 'Internet bill' })).toBeNull())
 
-    fireEvent.click(screen.getByRole('button', { name: /^all/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^todas/i }))
     expect(await screen.findByText('Internet bill')).toBeTruthy()
     expect(within(inspector).queryByRole('heading', { name: 'Internet bill' })).toBeNull()
   })
@@ -283,9 +283,9 @@ describe('TransactionsPage selection and filters', () => {
     renderWithInspector()
     expect(await screen.findByText('Internet bill')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: /income/i }))
+    fireEvent.click(screen.getByRole('button', { name: /entradas/i }))
 
-    expect(await screen.findByText('No transactions match your filters')).toBeTruthy()
+    expect(await screen.findByText('Nenhuma transação corresponde aos filtros')).toBeTruthy()
     expect(screen.queryByText('Internet bill')).toBeNull()
   })
 })

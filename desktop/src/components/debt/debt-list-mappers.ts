@@ -4,16 +4,16 @@ import { formatDate, formatMoney } from '@/lib/format'
 
 export function debtStatus(debt: PeerDebtResponse): DebtListItemVM['status'] {
   const isEffectivelyPaid = debt.is_confirmed || Math.abs(getDisplayAmount(debt)) <= Number.EPSILON
-  if (isEffectivelyPaid) return { label: 'Paid', tone: 'default' }
+  if (isEffectivelyPaid) return { label: 'Pago', tone: 'default' }
   if (debt.is_installment && debt.total_installments != null && debt.total_installments > 0) {
     const perInstallment = debt.amount / debt.total_installments
     return {
-      label: `${debt.paid_installments}/${debt.total_installments} paid`,
+      label: `${debt.paid_installments}/${debt.total_installments} pagas`,
       tone: 'secondary',
-      tooltip: `Per installment: R$ ${perInstallment.toFixed(2)}`,
+      tooltip: `Por parcela: R$ ${perInstallment.toFixed(2)}`,
     }
   }
-  return { label: 'Unpaid', tone: 'outline' }
+  return { label: 'Pendente', tone: 'outline' }
 }
 
 export function calculateNextPayDate(debt: PeerDebtResponse): string | null {
@@ -56,7 +56,7 @@ export function mapFriendDebtsToVM(input: PeerDebtResponse[]): DebtListItemVM[] 
   return input.map((debt) => {
     const remainingAmount = getDisplayAmount(debt)
     const nextDate = calculateNextPayDate(debt)
-    const baseSubtitle = nextDate ? `Next payment: ${formatDate(nextDate)}` : 'No pending payment'
+    const baseSubtitle = nextDate ? `Próximo pagamento: ${formatDate(nextDate)}` : 'Nenhum pagamento pendente'
 
     const subtitle = debt.is_installment
       ? `${baseSubtitle} · Total: ${formatMoney(debt.amount, 'BRL')}`

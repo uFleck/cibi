@@ -27,6 +27,7 @@ import { formatDate } from '@/lib/format'
 import { parseDecimalInput } from '@/lib/locale'
 import { formatUpdatedCue, parseContributionAmount, sourceVariant } from './goals-helpers'
 import { AppModal } from '@/components/AppModal'
+import { goalEntryTypeLabel, goalSourceLabel, goalStatusLabel } from '@/lib/labels'
 
 function parseCreateGoalTarget(raw: string): number | null {
   const parsed = parseDecimalInput(raw)
@@ -133,7 +134,7 @@ export function GoalsPage() {
       setMinContribution('')
       setIsCreateModalOpen(false)
       await qc.invalidateQueries({ queryKey: ['goals', 'tracking', accountId] })
-      toast.success('Goal created')
+      toast.success('Meta criada')
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -142,7 +143,7 @@ export function GoalsPage() {
     mutationFn: ({ goalId, payload }: { goalId: string; payload: Partial<{ name: string; target_amount: number; min_contribution_per_window: number }> }) => updateGoal(goalId, payload),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['goals', 'tracking', accountId] })
-      toast.success('Goal updated')
+      toast.success('Meta atualizada')
     },
     onError: (e: Error & { code?: string }) => toast.error(e.code ? `${e.code}: ${e.message}` : e.message),
   })
@@ -157,7 +158,7 @@ export function GoalsPage() {
       setEditContribution('')
       await qc.invalidateQueries({ queryKey: ['goals', 'tracking', accountId] })
       await qc.invalidateQueries({ queryKey: ['accounts'] })
-      toast.success('Contribution added')
+      toast.success('Aporte adicionado')
     },
     onError: (e: Error & { code?: string }) => toast.error(e.code ? `${e.code}: ${e.message}` : e.message),
   })
@@ -174,7 +175,7 @@ export function GoalsPage() {
       setEditWithdrawalReason('')
       await qc.invalidateQueries({ queryKey: ['goals', 'tracking', accountId] })
       await qc.invalidateQueries({ queryKey: ['accounts'] })
-      toast.success('Money removed from goal')
+      toast.success('Valor retirado da meta')
     },
     onError: (e: Error & { code?: string }) => toast.error(e.code ? `${e.code}: ${e.message}` : e.message),
   })
@@ -197,33 +198,33 @@ export function GoalsPage() {
   return (
     <div className={pageShell}>
       <PageHeader
-        eyebrow="Savings goals"
-        title="Goals Tracking"
-        description={`Plan targets, monitor progress, and keep purchase impact visible${accountName ? ` for ${accountName}` : ''}.`}
+        eyebrow="Metas de economia"
+        title="Acompanhamento de metas"
+        description={`Planeje as metas, acompanhe o progresso e veja o impacto das compras${accountName ? ` na conta ${accountName}` : ''}.`}
         actions={
           <>
             {updatedCue ? <span className="whitespace-nowrap font-mono text-[11px] text-faint">{updatedCue}</span> : null}
-            <Button size="sm" onClick={() => setIsCreateModalOpen(true)} disabled={!accountId}>New Goal</Button>
+            <Button size="sm" onClick={() => setIsCreateModalOpen(true)} disabled={!accountId}>Nova meta</Button>
           </>
         }
       />
 
       {trackingQuery.isError ? (
-        <div className="flex flex-col gap-3 rounded-md border border-neg/40 bg-neg/10 p-4" role="alert" aria-label="Goals tracking error">
+        <div className="flex flex-col gap-3 rounded-md border border-neg/40 bg-neg/10 p-4" role="alert" aria-label="Erro ao carregar metas">
           <div className="flex flex-col gap-1">
-            <p className="text-[12px] font-medium text-neg">Could not load goals tracking.</p>
-            <p className="text-[12px] text-faint">Your saved goals were not changed. Retry the tracking query when the connection is ready.</p>
+            <p className="text-[12px] font-medium text-neg">Não deu para carregar as metas.</p>
+            <p className="text-[12px] text-faint">Suas metas salvas não foram alteradas. Tente de novo quando a conexão estiver pronta.</p>
           </div>
           <Button
             variant="outline"
             size="sm"
             onClick={() => {
-              toast.error('Retrying goals tracking...')
+              toast.error('Tentando carregar as metas de novo...')
               void trackingQuery.refetch()
             }}
             className="w-fit border-neg/40 text-neg hover:text-neg"
           >
-            Retry
+            Tentar de novo
           </Button>
         </div>
       ) : null}
@@ -232,27 +233,27 @@ export function GoalsPage() {
         name="goals-summary"
         loading={trackingQuery.isLoading}
         fallback={(
-          <div className="space-y-3" role="status" aria-label="Loading goals tracking summary">
+          <div className="space-y-3" role="status" aria-label="Carregando resumo das metas">
             <div className="h-16 rounded-md border border-line bg-surface animate-pulse" aria-hidden="true" />
-            <span className="sr-only">Loading goals tracking summary...</span>
+            <span className="sr-only">Carregando resumo das metas...</span>
           </div>
         )}
       >
         {trackingQuery.data ? (
-          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-line bg-line sm:grid-cols-4" aria-label="Goals summary">
-            <GoalSummaryCell label="Goals" value={<span className="num">{trackingQuery.data.summary.goals_count}</span>} hint="Tracked targets" />
-            <GoalSummaryCell label="Completed" value={<span className="num">{trackingQuery.data.summary.completed_count}</span>} hint="Finished goals" />
-            <GoalSummaryCell label="Invested" value={<MoneyValue amount={trackingQuery.data.summary.total_invested} currency={currency} tone="neutral" showSign="never" className="text-foreground" />} hint="Already saved" />
-            <GoalSummaryCell label="Remaining" value={<MoneyValue amount={trackingQuery.data.summary.total_remaining} currency={currency} tone="neutral" showSign="never" className="text-foreground" />} hint="Left to fund" />
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-line bg-line sm:grid-cols-4" aria-label="Resumo das metas">
+            <GoalSummaryCell label="Metas" value={<span className="num">{trackingQuery.data.summary.goals_count}</span>} hint="Metas acompanhadas" />
+            <GoalSummaryCell label="Concluídas" value={<span className="num">{trackingQuery.data.summary.completed_count}</span>} hint="Metas finalizadas" />
+            <GoalSummaryCell label="Aportado" value={<MoneyValue amount={trackingQuery.data.summary.total_invested} currency={currency} tone="neutral" showSign="never" className="text-foreground" />} hint="Já guardado" />
+            <GoalSummaryCell label="Restante" value={<MoneyValue amount={trackingQuery.data.summary.total_remaining} currency={currency} tone="neutral" showSign="never" className="text-foreground" />} hint="Falta juntar" />
           </div>
         ) : null}
       </Skeleton>
 
       {emptyState ? (
         <div className="flex flex-col items-center gap-2 rounded-md border border-line bg-surface py-10 text-center">
-          <p className="text-[13px] font-semibold text-foreground">No goals yet</p>
-          <p className="max-w-sm text-[12px] text-muted-foreground">Create your first goal and CIBI will track contributions, progress, and purchase impact over time.</p>
-          <Button size="sm" className="mt-2" onClick={() => setIsCreateModalOpen(true)} disabled={!accountId}>New goal</Button>
+          <p className="text-[13px] font-semibold text-foreground">Nenhuma meta ainda</p>
+          <p className="max-w-sm text-[12px] text-muted-foreground">Crie sua primeira meta e o cibi acompanha os aportes, o progresso e o impacto das compras ao longo do tempo.</p>
+          <Button size="sm" className="mt-2" onClick={() => setIsCreateModalOpen(true)} disabled={!accountId}>Nova meta</Button>
         </div>
       ) : null}
 
@@ -266,8 +267,8 @@ export function GoalsPage() {
             setMinContribution('')
           }
         }}
-        title="New Goal"
-        description="Create a savings goal and track progress over time."
+        title="Nova meta"
+        description="Crie uma meta de economia e acompanhe o progresso ao longo do tempo."
       >
         <form
           className="grid grid-cols-1 gap-4"
@@ -278,18 +279,18 @@ export function GoalsPage() {
           }}
         >
           <div className="flex flex-col gap-2">
-            <Label htmlFor="goal-name">Goal name</Label>
-            <Input id="goal-name" value={name} onChange={e => setName(e.target.value)} placeholder="Trip, emergency fund, new bike..." disabled={createMut.isPending} />
+            <Label htmlFor="goal-name">Nome da meta</Label>
+            <Input id="goal-name" value={name} onChange={e => setName(e.target.value)} placeholder="Viagem, reserva de emergência, bicicleta nova..." disabled={createMut.isPending} />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="goal-target">Target amount</Label>
+            <Label htmlFor="goal-target">Valor da meta</Label>
             <ValueInput id="goal-target" value={target} onValueChange={setTarget} placeholder="123,45" disabled={createMut.isPending} />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="goal-min-contribution">Min contribution / payment window</Label>
+            <Label htmlFor="goal-min-contribution">Aporte mínimo por período</Label>
             <ValueInput id="goal-min-contribution" value={minContribution} onValueChange={setMinContribution} placeholder="0,00" allowNegative={false} disabled={createMut.isPending} />
           </div>
-          <Button type="submit" disabled={isCreateDisabled}>{createMut.isPending ? 'Creating...' : 'Create'}</Button>
+          <Button type="submit" disabled={isCreateDisabled}>{createMut.isPending ? 'Criando...' : 'Criar'}</Button>
         </form>
       </AppModal>
 
@@ -297,34 +298,34 @@ export function GoalsPage() {
         name="goals-list"
         loading={trackingQuery.isLoading}
         fallback={(
-          <div className="space-y-3" role="status" aria-label="Loading goals list">
+          <div className="space-y-3" role="status" aria-label="Carregando lista de metas">
             <div className="h-40 rounded-md border border-line bg-surface animate-pulse" aria-hidden="true" />
-            <span className="sr-only">Loading goals list...</span>
+            <span className="sr-only">Carregando lista de metas...</span>
           </div>
         )}
       >
         {goals.length > 0 ? (
           <DataList
-            aria-label="Goals"
+            aria-label="Metas"
             rows={goals}
             rowId={(g) => g.id}
             columns={[
               {
                 id: 'goal',
-                header: 'Goal',
+                header: 'Meta',
                 title: (g) => g.name,
                 cell: (g) => (
                   <div className="flex min-w-0 flex-col">
                     <span className="truncate font-medium text-foreground">{g.name}</span>
                     <span className="truncate text-[11px] capitalize text-faint">
-                      {g.status}{g.target_date_utc ? ` · ${formatDate(g.target_date_utc)}` : ''}
+                      {goalStatusLabel(g.status)}{g.target_date_utc ? ` · ${formatDate(g.target_date_utc)}` : ''}
                     </span>
                   </div>
                 ),
               },
               {
                 id: 'progress',
-                header: 'Progress',
+                header: 'Progresso',
                 className: 'hidden w-[20%] sm:table-cell',
                 cell: (g) => {
                   const progress = clampProgress(g.progress_pct)
@@ -340,7 +341,7 @@ export function GoalsPage() {
               },
               {
                 id: 'invested',
-                header: 'Invested / target',
+                header: 'Aportado / meta',
                 align: 'right',
                 numeric: true,
                 className: 'w-[24%]',
@@ -354,7 +355,7 @@ export function GoalsPage() {
               },
               {
                 id: 'remaining',
-                header: 'Remaining',
+                header: 'Restante',
                 align: 'right',
                 numeric: true,
                 className: 'hidden w-[14%] md:table-cell',
@@ -364,7 +365,7 @@ export function GoalsPage() {
             actions={(g) => [
               {
                 id: 'add',
-                label: 'Add money',
+                label: 'Adicionar valor',
                 icon: CirclePlus,
                 keys: ROW_KEYS.add,
                 run: () => {
@@ -374,7 +375,7 @@ export function GoalsPage() {
               },
               {
                 id: 'remove',
-                label: 'Remove money',
+                label: 'Retirar valor',
                 icon: CircleMinus,
                 keys: ROW_KEYS.remove,
                 run: () => {
@@ -385,8 +386,8 @@ export function GoalsPage() {
               },
               {
                 id: 'open',
-                label: 'Open',
-                ariaLabel: 'View goal details',
+                label: 'Abrir',
+                ariaLabel: 'Ver detalhes da meta',
                 icon: Eye,
                 keys: ROW_KEYS.open,
                 primary: true,
@@ -407,34 +408,34 @@ export function GoalsPage() {
             setIsEditOpen(false)
           }
         }}
-        title={activeGoal ? `Goal · ${activeGoal.name}` : 'Goal'}
-        description="View and edit goal details."
+        title={activeGoal ? `Meta · ${activeGoal.name}` : 'Meta'}
+        description="Veja e edite os detalhes da meta."
       >
         {activeGoal ? (
           <div className="flex flex-col gap-4">
             <KvList
               rows={[
-                { label: 'Invested', value: <SafeMoneyValue amount={activeGoal.invested_total} currency={currency} /> },
-                { label: 'Target', value: <SafeMoneyValue amount={activeGoal.target_amount} currency={currency} /> },
-                { label: 'Remaining', value: <SafeMoneyValue amount={activeGoal.remaining_amount} currency={currency} /> },
+                { label: 'Aportado', value: <SafeMoneyValue amount={activeGoal.invested_total} currency={currency} /> },
+                { label: 'Meta', value: <SafeMoneyValue amount={activeGoal.target_amount} currency={currency} /> },
+                { label: 'Restante', value: <SafeMoneyValue amount={activeGoal.remaining_amount} currency={currency} /> },
               ]}
             />
 
-            <div className="flex flex-col gap-2" aria-label={`${activeGoal.name} progress`}>
+            <div className="flex flex-col gap-2" aria-label={`${activeGoal.name} progresso`}>
               <div className="flex items-center justify-between gap-3">
-                <span className={eyebrow}>Progress</span>
+                <span className={eyebrow}>Progresso</span>
                 <span className="num text-[12px] font-semibold text-foreground">{clampProgress(activeGoal.progress_pct).toFixed(1)}%</span>
               </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-3" role="progressbar" aria-label={`${activeGoal.name} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Number(clampProgress(activeGoal.progress_pct).toFixed(1))}>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-3" role="progressbar" aria-label={`${activeGoal.name} progresso`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Number(clampProgress(activeGoal.progress_pct).toFixed(1))}>
                 <div className="h-full rounded-full bg-hl" style={{ width: `${clampProgress(activeGoal.progress_pct)}%` }} />
               </div>
             </div>
 
             <div className="flex flex-col gap-3 rounded-md border border-line bg-surface-2 p-3">
               <div className="flex items-center justify-between gap-2">
-                <p className={eyebrow}>Goal settings</p>
+                <p className={eyebrow}>Configurações da meta</p>
                 <Button type="button" size="sm" variant="outline" onClick={() => setIsEditOpen(v => !v)}>
-                  {isEditOpen ? 'Hide edit' : 'Edit goal'}
+                  {isEditOpen ? 'Ocultar edição' : 'Editar meta'}
                 </Button>
               </div>
               {isEditOpen ? (
@@ -456,42 +457,42 @@ export function GoalsPage() {
                   }}
                 >
                   <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="edit-goal-name">Goal name</Label>
+                    <Label htmlFor="edit-goal-name">Nome da meta</Label>
                     <Input id="edit-goal-name" value={editName} onChange={e => setEditName(e.target.value)} />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="edit-goal-target">Target amount</Label>
+                    <Label htmlFor="edit-goal-target">Valor da meta</Label>
                     <ValueInput id="edit-goal-target" value={editTarget} onValueChange={setEditTarget} allowNegative={false} />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="edit-goal-min">Min contribution / window</Label>
+                    <Label htmlFor="edit-goal-min">Aporte mínimo por período</Label>
                     <ValueInput id="edit-goal-min" value={editMinContribution} onValueChange={setEditMinContribution} allowNegative={false} />
                   </div>
                   <Button type="submit" size="sm" disabled={updateMut.isPending || !editName.trim() || parseCreateGoalTarget(editTarget) == null || parseContributionAmount(editMinContribution) == null}>
-                    {updateMut.isPending ? 'Saving...' : 'Save edits'}
+                    {updateMut.isPending ? 'Salvando...' : 'Salvar alterações'}
                   </Button>
                 </form>
               ) : null}
             </div>
 
             <div className="flex flex-col gap-2 rounded-md border border-line bg-surface-2 p-3">
-              <p className={eyebrow}>Recent activity</p>
+              <p className={eyebrow}>Atividade recente</p>
               {(activityByGoal[activeGoal.id] ?? []).length > 0 ? (
                 <div className="flex flex-col">
                   {(activityByGoal[activeGoal.id] ?? []).map(a => (
                     <div key={a.entry_id} className="flex flex-col gap-2 border-t border-line py-2 text-[12px] first:border-t-0 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between min-[420px]:gap-3">
                       <span className="min-w-0 flex flex-col gap-0.5">
-                        <span className="font-medium capitalize text-foreground">{a.type}</span>
+                        <span className="font-medium text-foreground">{goalEntryTypeLabel(a.type)}</span>
                         <span className="text-faint">{formatDate(a.timestamp_utc)}</span>
                       </span>
                       <span className="flex shrink-0 flex-wrap items-center gap-2 min-[420px]:justify-end">
-                        <Badge variant={sourceVariant(a.source)} className="capitalize">{a.source}</Badge>
+                        <Badge variant={sourceVariant(a.source)} >{goalSourceLabel(a.source)}</Badge>
                         <SafeMoneyValue amount={a.amount} currency={currency} showSign="auto" className="text-foreground" />
                       </span>
                     </div>
                   ))}
                 </div>
-              ) : <p className="text-[12px] text-faint">No recent activity for this goal.</p>}
+              ) : <p className="text-[12px] text-faint">Nenhuma atividade recente nesta meta.</p>}
             </div>
           </div>
         ) : null}
@@ -505,8 +506,8 @@ export function GoalsPage() {
             setEditContribution('')
           }
         }}
-        title={contributionGoal ? `Contribution · ${contributionGoal.name}` : 'Contribution'}
-        description="Add a manual contribution without editing goal fields."
+        title={contributionGoal ? `Aporte · ${contributionGoal.name}` : 'Aporte'}
+        description="Adicione um aporte manual sem editar os campos da meta."
       >
         {contributionGoal ? (
           <form
@@ -519,11 +520,11 @@ export function GoalsPage() {
             }}
           >
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="goal-contribution">Quick contribution</Label>
+              <Label htmlFor="goal-contribution">Aporte rápido</Label>
               <ValueInput id="goal-contribution" value={editContribution} onValueChange={setEditContribution} placeholder="0,00" allowNegative={false} disabled={addMut.isPending} />
             </div>
             <Button type="submit" size="sm" disabled={parseContributionAmount(editContribution) == null || addMut.isPending}>
-              {addMut.isPending ? 'Adding...' : 'Add contribution'}
+              {addMut.isPending ? 'Adicionando...' : 'Adicionar aporte'}
             </Button>
           </form>
         ) : null}
@@ -538,8 +539,8 @@ export function GoalsPage() {
             setEditWithdrawalReason('')
           }
         }}
-        title={withdrawGoal ? `Remove money · ${withdrawGoal.name}` : 'Remove money'}
-        description="Remove manual money from goal with reason."
+        title={withdrawGoal ? `Retirar valor · ${withdrawGoal.name}` : 'Retirar valor'}
+        description="Retire um valor manual da meta informando o motivo."
       >
         {withdrawGoal ? (
           <form
@@ -553,15 +554,15 @@ export function GoalsPage() {
             }}
           >
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="goal-withdrawal">Amount to remove</Label>
+              <Label htmlFor="goal-withdrawal">Valor a retirar</Label>
               <ValueInput id="goal-withdrawal" value={editWithdrawal} onValueChange={setEditWithdrawal} placeholder="0,00" allowNegative={false} disabled={withdrawMut.isPending} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="goal-withdrawal-reason">Reason</Label>
-              <Input id="goal-withdrawal-reason" value={editWithdrawalReason} onChange={e => setEditWithdrawalReason(e.target.value)} placeholder="Why are you removing this money?" disabled={withdrawMut.isPending} />
+              <Label htmlFor="goal-withdrawal-reason">Motivo</Label>
+              <Input id="goal-withdrawal-reason" value={editWithdrawalReason} onChange={e => setEditWithdrawalReason(e.target.value)} placeholder="Por que você está retirando este valor?" disabled={withdrawMut.isPending} />
             </div>
             <Button type="submit" size="sm" variant="outline" disabled={parseContributionAmount(editWithdrawal) == null || !editWithdrawalReason.trim() || withdrawMut.isPending}>
-              {withdrawMut.isPending ? 'Removing...' : 'Remove money'}
+              {withdrawMut.isPending ? 'Retirando...' : 'Retirar valor'}
             </Button>
           </form>
         ) : null}
@@ -571,29 +572,29 @@ export function GoalsPage() {
         name="goals-activity"
         loading={trackingQuery.isLoading}
         fallback={(
-          <div className="space-y-3" role="status" aria-label="Loading goals activity">
+          <div className="space-y-3" role="status" aria-label="Carregando atividade das metas">
             <div className="h-24 rounded-md border border-line bg-surface animate-pulse" aria-hidden="true" />
-            <span className="sr-only">Loading goals activity...</span>
+            <span className="sr-only">Carregando atividade das metas...</span>
           </div>
         )}
       >
         <section className="flex flex-col gap-2">
-          <p className={eyebrow}>Recent activity</p>
+          <p className={eyebrow}>Atividade recente</p>
           {activities.length === 0 ? (
-            <p className="rounded-md border border-line bg-surface px-3 py-4 text-[12px] text-faint">No recent entries.</p>
+            <p className="rounded-md border border-line bg-surface px-3 py-4 text-[12px] text-faint">Nenhum lançamento recente.</p>
           ) : (
             <DataList
-              aria-label="Recent goal activity"
+              aria-label="Atividade recente das metas"
               rows={activities.slice(0, 6)}
               rowId={(a) => a.entry_id}
               columns={[
-                { id: 'goal', header: 'Goal', cell: (a) => a.goal_name },
-                { id: 'type', header: 'Type', className: 'w-[16%]', cell: (a) => <span className="capitalize text-muted-foreground">{a.type}</span> },
-                { id: 'date', header: 'Date', className: 'w-[18%]', cell: (a) => <span className="text-muted-foreground">{formatDate(a.timestamp_utc)}</span> },
-                { id: 'source', header: 'Source', className: 'hidden w-[16%] sm:table-cell', cell: (a) => <Badge variant={sourceVariant(a.source)}>{a.source}</Badge> },
+                { id: 'goal', header: 'Meta', cell: (a) => a.goal_name },
+                { id: 'type', header: 'Tipo', className: 'w-[16%]', cell: (a) => <span className="text-muted-foreground">{goalEntryTypeLabel(a.type)}</span> },
+                { id: 'date', header: 'Data', className: 'w-[18%]', cell: (a) => <span className="text-muted-foreground">{formatDate(a.timestamp_utc)}</span> },
+                { id: 'source', header: 'Origem', className: 'hidden w-[16%] sm:table-cell', cell: (a) => <Badge variant={sourceVariant(a.source)}>{goalSourceLabel(a.source)}</Badge> },
                 {
                   id: 'amount',
-                  header: 'Amount',
+                  header: 'Valor',
                   align: 'right',
                   numeric: true,
                   className: 'w-[20%]',

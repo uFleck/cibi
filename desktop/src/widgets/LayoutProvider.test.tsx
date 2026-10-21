@@ -17,7 +17,7 @@ function Probe() {
       <p>ready</p>
       <pre data-testid="state">{JSON.stringify(layout.state)}</pre>
       <button type="button" onClick={() => layout.dispatch({ type: 'setPos', pos: 'left' })}>
-        Left
+        Esquerda
       </button>
     </div>
   )
@@ -95,8 +95,8 @@ describe('LayoutProvider', () => {
   it('saves one debounced write of the layout and the base preset after a change', async () => {
     renderProvider()
     await screen.findByText('ready')
-    fireEvent.click(screen.getByRole('button', { name: 'Left' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Left' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Esquerda' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Esquerda' }))
     await waitFor(() => expect(apiMock.putSetting).toHaveBeenCalledTimes(2), { timeout: 2000 })
     expect(apiMock.putSetting).toHaveBeenCalledWith(LAYOUT_KEY, expect.objectContaining({ pos: 'left' }))
     expect(apiMock.putSetting).toHaveBeenCalledWith(BASE_KEY, 'w1')
@@ -114,7 +114,7 @@ describe('LayoutProvider', () => {
 
     online = true
     await client.refetchQueries({ queryKey: LAYOUT_QUERY_KEY })
-    fireEvent.click(screen.getByRole('button', { name: 'Left' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Esquerda' }))
     await wait(SAVE_DELAY_MS + 100)
     expect(apiMock.putSetting).not.toHaveBeenCalled()
   })
@@ -122,7 +122,7 @@ describe('LayoutProvider', () => {
   it('flushes a pending save immediately when the page is hidden', async () => {
     renderProvider()
     await screen.findByText('ready')
-    fireEvent.click(screen.getByRole('button', { name: 'Left' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Esquerda' }))
     window.dispatchEvent(new Event('pagehide'))
     expect(apiMock.putSetting).toHaveBeenCalledWith(LAYOUT_KEY, expect.objectContaining({ pos: 'left' }))
     expect(apiMock.putSetting).toHaveBeenCalledWith(BASE_KEY, 'w1')

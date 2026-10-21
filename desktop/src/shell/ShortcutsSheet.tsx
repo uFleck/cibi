@@ -24,8 +24,8 @@ export function ShortcutsSheet({ open, onOpenChange }: ShortcutsSheetProps) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right">
         <SheetHeader>
-          <SheetTitle>Keyboard shortcuts</SheetTitle>
-          <SheetDescription>Shortcuts are ignored while you type in a field.</SheetDescription>
+          <SheetTitle>Atalhos de teclado</SheetTitle>
+          <SheetDescription>Os atalhos não funcionam enquanto você digita em um campo.</SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-5 overflow-auto px-4 pb-4">
           {groups.map(([group, bindings]) => (

@@ -88,7 +88,7 @@ describe('BudgetEditor', () => {
     renderEditor()
     openEditor()
 
-    expect(await screen.findByRole('dialog', { name: 'Monthly budget' })).toBeTruthy()
+    expect(await screen.findByRole('dialog', { name: 'Orçamento do mês' })).toBeTruthy()
     expect(fetchBudget).toHaveBeenCalledWith(monthKey(new Date()))
   })
 
@@ -96,8 +96,8 @@ describe('BudgetEditor', () => {
     renderEditor()
     openEditor()
 
-    expect(valuesOf(await screen.findAllByLabelText('Category'))).toEqual(['Mercado', 'Contas e serviços'])
-    expect(valuesOf(screen.getAllByLabelText('Monthly limit'))).toEqual(['800.00', '250.50'])
+    expect(valuesOf(await screen.findAllByLabelText('Categoria'))).toEqual(['Mercado', 'Contas e serviços'])
+    expect(valuesOf(screen.getAllByLabelText('Limite mensal'))).toEqual(['800.00', '250.50'])
     expect(screen.getAllByRole('switch').map(item => item.getAttribute('aria-checked'))).toEqual(['false', 'true'])
   })
 
@@ -106,7 +106,7 @@ describe('BudgetEditor', () => {
     openEditor()
 
     expect(await screen.findByText(/1\.050,50/)).toBeTruthy()
-    fireEvent.change(screen.getAllByLabelText('Monthly limit')[0], { target: { value: '1000' } })
+    fireEvent.change(screen.getAllByLabelText('Limite mensal')[0], { target: { value: '1000' } })
 
     expect(screen.getByText(/1\.250,50/)).toBeTruthy()
   })
@@ -114,50 +114,50 @@ describe('BudgetEditor', () => {
   it('saves trimmed categories as integer cents and leaves out blank limits', async () => {
     renderEditor()
     openEditor()
-    await screen.findAllByLabelText('Category')
+    await screen.findAllByLabelText('Categoria')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add category' }))
-    fireEvent.change(screen.getAllByLabelText('Category')[2], { target: { value: '  Aluguel  ' } })
-    fireEvent.change(screen.getAllByLabelText('Monthly limit')[2], { target: { value: '1.200,5' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Add category' }))
-    fireEvent.change(screen.getAllByLabelText('Category')[3], { target: { value: 'Lazer' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar categoria' }))
+    fireEvent.change(screen.getAllByLabelText('Categoria')[2], { target: { value: '  Aluguel  ' } })
+    fireEvent.change(screen.getAllByLabelText('Limite mensal')[2], { target: { value: '1.200,5' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar categoria' }))
+    fireEvent.change(screen.getAllByLabelText('Categoria')[3], { target: { value: 'Lazer' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
 
     await waitFor(() => expect(saveBudgetLimits).toHaveBeenCalledWith([
       { category: 'Mercado', monthlyLimit: 80000, isFixed: false },
       { category: 'Contas e serviços', monthlyLimit: 25050, isFixed: true },
       { category: 'Aluguel', monthlyLimit: 120050, isFixed: false },
     ]))
-    expect(toast.success).toHaveBeenCalledWith('Budget saved')
+    expect(toast.success).toHaveBeenCalledWith('Orçamento salvo')
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
   it('disables Save and shows the message for a duplicate category', async () => {
     renderEditor()
     openEditor()
-    await screen.findAllByLabelText('Category')
+    await screen.findAllByLabelText('Categoria')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add category' }))
-    fireEvent.change(screen.getAllByLabelText('Category')[2], { target: { value: 'Mercado' } })
-    fireEvent.change(screen.getAllByLabelText('Monthly limit')[2], { target: { value: '100' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar categoria' }))
+    fireEvent.change(screen.getAllByLabelText('Categoria')[2], { target: { value: 'Mercado' } })
+    fireEvent.change(screen.getAllByLabelText('Limite mensal')[2], { target: { value: '100' } })
 
-    expect(screen.getAllByText('This category is already in the list.')).toHaveLength(2)
-    expect(isDisabled('Save')).toBe(true)
+    expect(screen.getAllByText('Esta categoria já está na lista.')).toHaveLength(2)
+    expect(isDisabled('Salvar')).toBe(true)
   })
 
   it('disables Save for an unparseable or negative limit', async () => {
     renderEditor()
     openEditor()
-    await screen.findAllByLabelText('Category')
+    await screen.findAllByLabelText('Categoria')
 
-    fireEvent.change(screen.getAllByLabelText('Monthly limit')[0], { target: { value: 'abc' } })
-    expect(isDisabled('Save')).toBe(true)
+    fireEvent.change(screen.getAllByLabelText('Limite mensal')[0], { target: { value: 'abc' } })
+    expect(isDisabled('Salvar')).toBe(true)
 
-    fireEvent.change(screen.getAllByLabelText('Monthly limit')[0], { target: { value: '-5' } })
-    expect(isDisabled('Save')).toBe(true)
+    fireEvent.change(screen.getAllByLabelText('Limite mensal')[0], { target: { value: '-5' } })
+    expect(isDisabled('Salvar')).toBe(true)
 
-    fireEvent.change(screen.getAllByLabelText('Monthly limit')[0], { target: { value: '5' } })
-    expect(isDisabled('Save')).toBe(false)
+    fireEvent.change(screen.getAllByLabelText('Limite mensal')[0], { target: { value: '5' } })
+    expect(isDisabled('Salvar')).toBe(false)
   })
 
   it('fetches a fresh copy on open even when the cached copy is within staleTime', async () => {
@@ -185,12 +185,12 @@ describe('BudgetEditor', () => {
   it('keeps the typed values when open-budget fires again while the sheet is open', async () => {
     renderEditor()
     openEditor()
-    await screen.findAllByLabelText('Category')
+    await screen.findAllByLabelText('Categoria')
 
-    fireEvent.change(screen.getAllByLabelText('Monthly limit')[0], { target: { value: '999' } })
+    fireEvent.change(screen.getAllByLabelText('Limite mensal')[0], { target: { value: '999' } })
     openEditor()
 
-    expect(valuesOf(screen.getAllByLabelText('Monthly limit'))[0]).toBe('999')
+    expect(valuesOf(screen.getAllByLabelText('Limite mensal'))[0]).toBe('999')
     expect(fetchBudget).toHaveBeenCalledTimes(1)
   })
 
@@ -202,7 +202,7 @@ describe('BudgetEditor', () => {
     renderEditor()
     openEditor()
 
-    expect(await screen.findByText('No limits yet. Add a category to start tracking.')).toBeTruthy()
-    expect(screen.queryAllByLabelText('Category')).toHaveLength(0)
+    expect(await screen.findByText('Nenhum limite ainda. Adicione uma categoria para começar a acompanhar.')).toBeTruthy()
+    expect(screen.queryAllByLabelText('Categoria')).toHaveLength(0)
   })
 })
