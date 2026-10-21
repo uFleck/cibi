@@ -75,7 +75,8 @@ function ShellFrame({ pathname, children }: { pathname: string; children: ReactN
   const wide = useMediaQuery(WIDE_QUERY)
   const layout = useLayout()
   const pos: InspectorPos = layout?.state.layout.pos ?? DEFAULT_POS
-  const isOverview = pathname === '/'
+  // The home page and the widget wall have no selection to inspect.
+  const isOverview = pathname === '/' || pathname === '/widgets'
   const { selectedId, select } = useSelection()
   const detail = useContext(SelectionDetailContext)
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -139,8 +140,8 @@ function ShellFrame({ pathname, children }: { pathname: string; children: ReactN
       run: () => void navigate({ to: item.to }),
     })),
     { id: 'new-transaction', label: 'New transaction', group: 'Actions', icon: Plus, keys: 'n', run: () => openPage('/transactions', 'new-transaction') },
-    { id: 'budget', label: 'Monthly budget', group: 'Actions', icon: PieChart, keys: 'b', run: () => openPage('/', 'open-budget') },
-    { id: 'check', label: 'Can I buy it?', group: 'Actions', icon: Calculator, keys: 'c', run: () => openPage('/', 'focus-check') },
+    { id: 'budget', label: 'Monthly budget', group: 'Actions', icon: PieChart, keys: 'b', run: () => openPage('/widgets', 'open-budget') },
+    { id: 'check', label: 'Can I buy it?', group: 'Actions', icon: Calculator, keys: 'c', run: () => openPage('/widgets', 'focus-check') },
     { id: 'search', label: 'Search transactions', group: 'Actions', icon: Search, keys: '/', run: () => openPage('/transactions', 'focus-search') },
     { id: 'inspector', label: 'Toggle inspector', group: 'View', icon: PanelRight, keys: 'i', run: toggleInspector },
     { id: 'customize', label: 'Customize page', group: 'View', icon: LayoutGrid, keys: 'l', run: toggleEditMode },

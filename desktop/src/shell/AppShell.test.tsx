@@ -6,7 +6,7 @@ import { AppShell } from './AppShell'
 
 vi.mock('@/lib/api', () => ({ fetchAccounts: vi.fn(async () => []) }))
 
-const PATHS = ['/', '/transactions', '/goals', '/friends', '/accounts', '/settings'] as const
+const PATHS = ['/', '/widgets', '/transactions', '/goals', '/friends', '/accounts', '/settings'] as const
 
 function mockViewport(compact: boolean, wide = false) {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
@@ -83,7 +83,7 @@ describe('AppShell', () => {
 
   it('goes to a page with the G chord and shows the chord hint while pending', async () => {
     renderShell('/')
-    await screen.findByRole('link', { name: 'Overview' })
+    await screen.findByRole('link', { name: 'A pagar' })
 
     press('g')
 
@@ -96,7 +96,7 @@ describe('AppShell', () => {
 
   it('opens the command palette with Ctrl+K', async () => {
     renderShell('/')
-    await screen.findByRole('link', { name: 'Overview' })
+    await screen.findByRole('link', { name: 'A pagar' })
 
     press('k', { ctrlKey: true })
 
@@ -105,7 +105,7 @@ describe('AppShell', () => {
 
   it('opens the keyboard shortcuts sheet with ?', async () => {
     renderShell('/')
-    await screen.findByRole('link', { name: 'Overview' })
+    await screen.findByRole('link', { name: 'A pagar' })
 
     press('?')
 
@@ -126,7 +126,7 @@ describe('AppShell', () => {
 
   it('never shows the inspector column on Overview', async () => {
     renderShell('/', false, true)
-    await screen.findByRole('link', { name: 'Overview' })
+    await screen.findByRole('link', { name: 'A pagar' })
 
     press('i')
     expect(screen.queryByRole('complementary', { name: 'Inspector' })).toBeNull()
@@ -146,14 +146,14 @@ describe('AppShell', () => {
 
     press('b')
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/widgets'))
     expect(await screen.findByRole('dialog', { name: 'Monthly budget' })).toBeTruthy()
   })
 
   it('starts the hint bar collapsed, expands it from the pill, and remembers the choice', async () => {
     window.localStorage.removeItem('cibi.hintbar.collapsed')
     renderShell('/')
-    await screen.findByRole('link', { name: 'Overview' })
+    await screen.findByRole('link', { name: 'A pagar' })
     expect(screen.queryByRole('note', { name: 'Keyboard hints' })).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Show keyboard hints' }))
@@ -169,7 +169,7 @@ describe('AppShell', () => {
   it('starts expanded when saved as expanded, and toggles the hints with H', async () => {
     window.localStorage.setItem('cibi.hintbar.collapsed', '0')
     renderShell('/')
-    await screen.findByRole('link', { name: 'Overview' })
+    await screen.findByRole('link', { name: 'A pagar' })
     expect(screen.getByRole('note', { name: 'Keyboard hints' })).toBeTruthy()
 
     press('h')

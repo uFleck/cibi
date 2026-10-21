@@ -1,6 +1,6 @@
-import { ArrowLeftRight, HandCoins, Tags, LayoutDashboard, Settings, Target, Wallet, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, HandCoins, Tags, LayoutDashboard, ListChecks, Settings, Target, Wallet, type LucideIcon } from 'lucide-react'
 
-export type NavTo = '/' | '/transactions' | '/goals' | '/friends' | '/accounts' | '/categories' | '/settings'
+export type NavTo = '/' | '/widgets' | '/transactions' | '/goals' | '/friends' | '/accounts' | '/categories' | '/settings'
 
 export interface NavItem {
   to: NavTo
@@ -10,7 +10,8 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { to: '/', label: 'Overview', icon: LayoutDashboard, chord: 'd' },
+  { to: '/', label: 'A pagar', icon: ListChecks, chord: 'd' },
+  { to: '/widgets', label: 'Widgets', icon: LayoutDashboard, chord: 'w' },
   { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight, chord: 't' },
   { to: '/goals', label: 'Goals', icon: Target, chord: 'g' },
   { to: '/friends', label: 'Friends', icon: HandCoins, chord: 'f' },

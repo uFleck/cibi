@@ -6,12 +6,18 @@ import { SettingsPage } from '@/pages/settings'
 import { GoalsPage } from '@/pages/goals'
 import { CategoriesPage } from '@/pages/categories'
 import { OverviewPage } from '@/pages/overview'
+import { ToPayPage } from '@/pages/to-pay'
 import { RootLayout } from '@/App'
 
 const rootRoute = createRootRoute({ component: RootLayout })
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
+  component: ToPayPage,
+})
+const widgetsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/widgets',
   component: OverviewPage,
 })
 const accountsRoute = createRoute({
@@ -52,6 +58,7 @@ const categoriesRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  widgetsRoute,
   accountsRoute,
   transactionsRoute,
   friendsRoute,
