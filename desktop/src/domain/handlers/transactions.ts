@@ -20,7 +20,7 @@ import { HttpError, route } from '../http'
 import { goRound } from '../num'
 import type { Transaction, TransactionLink, UpdateTransaction } from '../repo/transactions'
 import type { EstimateService } from '../service/estimate'
-import { ErrTransactionHasLedger, type TransactionsService } from '../service/transactions'
+import type { TransactionsService } from '../service/transactions'
 import { parseUuid } from '../uuid'
 import { validateOrThrow, type FieldSpec } from '../validate'
 import { bindBody } from './bind'
@@ -310,10 +310,7 @@ export function registerTransactionsRoutes(
 
   route('DELETE', '/api/transactions/:id', async ({ params }) => {
     const id = parseIdOr400(params.id, 'invalid transaction id')
-    await svc.deleteTransaction(id).catch((err: unknown) => {
-      if (isErr(err, ErrTransactionHasLedger)) throw new HttpError(409, ErrTransactionHasLedger.message)
-      return notFoundOr500(NOT_FOUND)(err)
-    })
+    await svc.deleteTransaction(id).catch(notFoundOr500(NOT_FOUND))
     return { status: 204 }
   })
 

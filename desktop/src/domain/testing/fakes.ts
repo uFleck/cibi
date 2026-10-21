@@ -79,6 +79,9 @@ export function fakeLedgerRepo(seed: LedgerEntry[] = []): LedgerRepo {
       const found = entries.find((e) => e.id === id)
       if (found !== undefined) found.amount = amount
     },
+    detachFromTransaction: async (txnId: string) => {
+      for (const e of entries) if (e.transactionId === txnId) e.transactionId = null
+    },
   }
 }
 

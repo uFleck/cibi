@@ -193,8 +193,9 @@ it('TestDeleteTransaction', async () => {
 })
 
 // Not a Go test (Go returned 500 here): DELETE of a transaction that has a ledger row (every confirmed
-// payment) is 409 with a clear message, and nothing is deleted: the ledger rows are money records.
-it('DELETE of a transaction with a ledger row is 409 and deletes nothing', async () => {
+// payment) is 204: the transaction goes, the ledger rows stay as history with no transaction, and the
+// balance does not change.
+it('DELETE of a transaction with a ledger row keeps the ledger rows and the balance', async () => {
   const accountId = crypto.randomUUID()
   await db.query(
     `INSERT INTO Account (id, name, current_balance, currency, safety_buffer, version) VALUES (?, 'Main', 10000, 'BRL', 0, 1)`,
@@ -210,14 +211,24 @@ it('DELETE of a transaction with a ledger row is 409 and deletes nothing', async
   expect(created.status).toBe(201)
   const { id } = await json<TransactionResponse>(created)
 
+  const balanceOf = async () =>
+    (await db.query<{ current_balance: number }>(`SELECT current_balance FROM Account WHERE id = ?`, [accountId]))[0]
+      ?.current_balance
+  const before = await balanceOf()
+
   const res = await localFetch(`/api/transactions/${id}`, { method: 'DELETE' })
-  expect(res.status).toBe(409)
-  expect(await res.json()).toEqual({ error: 'transaction has ledger entries and cannot be deleted' })
+  expect(res.status).toBe(204)
 
   const txns = await db.query<{ n: number }>(`SELECT COUNT(*) AS n FROM "Transaction" WHERE id = ?`, [id])
-  expect(txns[0]?.n).toBe(1)
-  const ledger = await db.query<{ n: number }>(`SELECT COUNT(*) AS n FROM ledger WHERE transaction_id = ?`, [id])
-  expect(ledger[0]?.n).toBe(1)
+  expect(txns[0]?.n).toBe(0)
+  const linked = await db.query<{ n: number }>(`SELECT COUNT(*) AS n FROM ledger WHERE transaction_id = ?`, [id])
+  expect(linked[0]?.n).toBe(0)
+  const kept = await db.query<{ n: number; total: number }>(
+    `SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total FROM ledger WHERE account_id = ? AND description = 'Lunch'`,
+    [accountId],
+  )
+  expect(kept[0]).toEqual({ n: 1, total: -2500 })
+  expect(await balanceOf()).toBe(before)
 })
 
 // TestConfirmInstallment_HappyPath: an installment with one month paid returns 200, paid_installments 1, and

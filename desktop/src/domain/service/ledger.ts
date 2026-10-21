@@ -66,6 +66,11 @@ export class LedgerService {
     await this.delete(entry.id)
   }
 
+  /** Keeps the entries of a transaction as history but unlinks them, so the transaction can be deleted. The balance does not change. */
+  detachFromTransaction(txnId: string): Promise<void> {
+    return wrapping('service.LedgerService.DetachFromTransaction', () => this.ledgerRepo.detachFromTransaction(txnId))
+  }
+
   findByTransactionId(id: string): Promise<LedgerEntry | null> {
     return this.ledgerRepo.findByTransactionId(id)
   }

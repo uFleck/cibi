@@ -34,6 +34,8 @@ export interface LedgerRepo {
   findById(id: string): Promise<LedgerEntry | null>
   sumByAccount(accountId: string): Promise<number>
   updateAmount(id: string, amount: number): Promise<void>
+  /** Sets transaction_id to null on every entry of a transaction. The rows and their amounts stay. */
+  detachFromTransaction(txnId: string): Promise<void>
 }
 
 const SELECT_ENTRY = `SELECT id, account_id, transaction_id, pay_schedule_id, entry_type, amount, description, posted_at`
@@ -135,6 +137,14 @@ export class SqliteLedgerRepo implements LedgerRepo {
       await this.db.query(`UPDATE ledger SET amount = ? WHERE id = ?`, [amount, id])
     } catch (err) {
       throw wrap('ledger.UpdateAmount', err)
+    }
+  }
+
+  async detachFromTransaction(txnId: string): Promise<void> {
+    try {
+      await this.db.query(`UPDATE ledger SET transaction_id = NULL WHERE transaction_id = ?`, [txnId])
+    } catch (err) {
+      throw wrap('ledger.DetachFromTransaction', err)
     }
   }
 

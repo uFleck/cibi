@@ -102,6 +102,7 @@ function fakeLedgerRepo(accountId: string, seedBalance: number): LedgerRepo {
     sumByAccount: async (id: string) =>
       entries.filter((e) => e.accountId === id).reduce((sum, e) => sum + e.amount, 0),
     updateAmount: unset,
+    detachFromTransaction: unset,
   }
 }
 

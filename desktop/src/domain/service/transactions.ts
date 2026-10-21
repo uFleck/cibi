@@ -19,9 +19,6 @@ import { isEstimateSource } from '../estimate'
 import type { LedgerService } from './ledger'
 import { isVariable, type EstimateService } from './estimate'
 
-/** deleteTransaction on a transaction that has a ledger row. The handler maps it to 409. */
-export const ErrTransactionHasLedger = new AppError('transaction has ledger entries and cannot be deleted')
-
 /**
  * A transaction to create: id and timestamp are filled in when they are undefined (Go: uuid.Nil, zero time).
  * A blank category is filled in by the classifier when the transaction is an expense.
@@ -255,10 +252,14 @@ export class TransactionsService {
       this.ledgerSvc.findByTransactionId(id),
     )
 
-    // Ledger rows are money records and reference the transaction (FK), so a transaction with one
-    // cannot be deleted. Go's delete failed here with the FK error (a 500); this is a 409.
+    // Ledger rows are money records and reference the transaction (FK). They are kept as history and
+    // unlinked, so the balance stays as it is.
     if (ledgerEntry !== null) {
-      throw ErrTransactionHasLedger
+      await this.db.tx(async () => {
+        await this.ledgerSvc.detachFromTransaction(id)
+        await wrapping('service.DeleteTransaction: delete', () => this.txnsRepo.deleteById(id))
+      })
+      return
     }
 
     if (!hasAppliedToBalance(t, new Date())) {
