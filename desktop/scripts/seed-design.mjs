@@ -150,6 +150,30 @@ insertTransaction({
   next_occurrence: plusDays(3),
   requires_confirmation: true,
 })
+insertTransaction({
+  account_id: accountId,
+  type: 'peer',
+  friend_id: friendId,
+  amount: -120000,
+  title: 'Lava e Seca',
+  is_installment: true,
+  frequency: 'monthly',
+  anchor_date: monthsAgo(5),
+  total_installments: 8,
+  paid_installments: 5,
+  requires_confirmation: true,
+})
+const otherFriendId = randomUUID()
+db.prepare(`INSERT INTO Friend (id, name, public_token) VALUES (?, 'Bia', ?)`).run(otherFriendId, randomUUID())
+insertTransaction({
+  account_id: accountId,
+  type: 'peer',
+  friend_id: otherFriendId,
+  amount: 4500,
+  title: 'Ingressos',
+  timestamp: today,
+  requires_confirmation: true,
+})
 
 db.close()
 console.log(`seeded design database at ${path}`)

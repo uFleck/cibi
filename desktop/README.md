@@ -46,8 +46,12 @@ Four screens:
   period, with **Pagar** and **Desfazer** inline. The last section lists every bill so it can be edited.
 - **Extrato** — every ledger entry: income, payment, manual adjustment and reversal. The original stays
   visible after it is undone. Each undoable entry has **Desfazer**.
-- **Amigos** — who owes whom. A debt the user owes enters the plan; a debt owed to the user stays as a
-  reminder. Paying or receiving goes through the ledger, so the balance follows.
+- **Amigos** — who owes whom. Each debt opens into its installment plan: the due date, amount and paid
+  state of every installment, the ledger history (payments and reversals), and **Desfazer** on the last
+  payment. **Editar** changes the friend, the amount, the number of installments, the frequency, the
+  first due date and the next due date; moving the next due date shifts the installments after it. A
+  debt the user owes enters the plan on its next due date; a debt owed to the user stays as a reminder.
+  Paying or receiving goes through the ledger, so the balance follows.
 - **Ajustes** — accounts, pay schedules, the explicit theme choice, and start at login.
 
 The plan is computed in `src/lib/forecast.ts` from the rows the API already returns. A period starts on
@@ -66,10 +70,19 @@ friend debt.
 The migration `0013_ledger_audit.sql` adds `occurrence_date`, `reverses_entry_id` and `reversed_by_id`
 to `ledger`, plus indexes on the two foreign keys.
 
+### Friend debts
+
+A friend debt keeps its plan in the existing `Transaction` row: `anchor_date` is the first installment,
+`paid_installments` counts the paid ones and `next_occurrence` stores a hand-edited next due date.
+Settling writes one ledger entry per installment and records that installment's due date in
+`occurrence_date`, so the statement and the debt history agree even after the next date is moved.
+Paying the last installment takes the rounding remainder, so the debt ends exactly at zero.
+
 ## Design check
 
 The design smoke check uses Playwright against the running app. It checks for horizontal overflow at
-1100×800 and 820×700 on the four screens and writes screenshots to `docs/design/validation`.
+1100×800 and 820×700 on the four screens, plus the expanded debt detail and the debt edit sheet, and
+writes the screenshots to `docs/design/validation`.
 
 1. Start the app with remote debugging on WebView2:
 

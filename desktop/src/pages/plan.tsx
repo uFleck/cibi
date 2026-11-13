@@ -93,8 +93,9 @@ export function PlanPage() {
 
   const settle = useMutation({
     mutationFn: (debtId: string) => settleDebt(debtId),
-    onSuccess: () => {
-      toast.success('Dívida paga')
+    onSuccess: (_data, debtId) => {
+      const debt = plan.debts.find(item => item.id === debtId)
+      toast.success(debt?.is_installment ? 'Parcela paga' : 'Dívida paga')
       plan.refresh()
     },
     onError: (error: Error) => toast.error(error.message || 'Não deu para pagar a dívida'),

@@ -30,6 +30,19 @@ export interface FriendDebtItem {
 /** A peer debt to create: the id is assigned by the service. */
 export type NewPeerDebt = Omit<PeerDebt, 'id'>
 
+/** Everything the edit form can change about a debt's plan. undefined = no change. */
+export interface UpdatePeerDebtInput {
+  amount?: number
+  title?: string
+  friendId?: string
+  date?: string
+  isInstallment?: boolean
+  totalInstallments?: number | null
+  frequency?: string | null
+  anchorDate?: string | null
+  nextOccurrence?: string | null
+}
+
 export class PeerDebtService {
   private readonly db: Db
   private readonly repo: PeerDebtRepo
@@ -74,14 +87,37 @@ export class PeerDebtService {
     return row
   }
 
-  /** Patches the amount and/or the title (undefined = no change). An unknown id is ErrNoRows, even with no fields. */
-  updateDebt(id: string, amount?: number, title?: string): Promise<void> {
+  getDebt(id: string): Promise<PeerDebt> {
+    return wrapping('service.GetDebt', () => this.repo.getById(id))
+  }
+
+  /** Patches the plan and/or the money (undefined = no change). An unknown id is ErrNoRows, even with no fields. */
+  updateDebt(id: string, patch: UpdatePeerDebtInput): Promise<void> {
     return wrapping('service.UpdateDebt', async () => {
+      const hasPlanChange =
+        patch.friendId !== undefined ||
+        patch.date !== undefined ||
+        patch.isInstallment !== undefined ||
+        patch.totalInstallments !== undefined ||
+        patch.frequency !== undefined ||
+        patch.anchorDate !== undefined ||
+        patch.nextOccurrence !== undefined
       // With nothing to change, the repo's no-fields error would hide an unknown id: look the id up first.
-      if (amount === undefined && title === undefined) {
+      if (patch.amount === undefined && patch.title === undefined && !hasPlanChange) {
         await this.repo.getById(id)
       }
-      await this.repo.update(id, amount, title, undefined, undefined)
+      const details = hasPlanChange
+        ? {
+            friendId: patch.friendId,
+            date: patch.date,
+            isInstallment: patch.isInstallment,
+            totalInstallments: patch.totalInstallments,
+            frequency: patch.frequency,
+            anchorDate: patch.anchorDate,
+            nextOccurrence: patch.nextOccurrence,
+          }
+        : undefined
+      await this.repo.update(id, patch.amount, patch.title, undefined, undefined, details)
     })
   }
 
@@ -114,10 +150,18 @@ export class PeerDebtService {
       throw new AppError(`service.SettleDebt: debt ${id} is already paid`)
     }
 
-    const total = debt.isInstallment
-      ? Math.trunc(Math.abs(debt.amount) / (debt.totalInstallments ?? 1))
-      : Math.abs(debt.amount)
-    const amount = Math.sign(debt.amount) * total
+    const totalInstallments = debt.totalInstallments ?? 1
+    const absTotal = Math.abs(debt.amount)
+    const perInstallment = debt.isInstallment
+      ? Math.trunc(absTotal / totalInstallments)
+      : absTotal
+    // The last installment takes the remainder, so the debt ends exactly at zero.
+    const isLastInstallment =
+      debt.isInstallment && debt.paidInstallments === totalInstallments - 1
+    const installmentAmount = isLastInstallment
+      ? absTotal - perInstallment * (totalInstallments - 1)
+      : perInstallment
+    const amount = Math.sign(debt.amount) * installmentAmount
     if (amount === 0) throw new AppError(`service.SettleDebt: debt ${id} has no amount`)
 
     const occurrence = nextDebtDate(debt)
@@ -137,19 +181,41 @@ export class PeerDebtService {
         true,
       )
       await this.repo.confirmInstallment(id)
+      if (debt.isInstallment) {
+        if (debt.paidInstallments + 1 >= totalInstallments) {
+          await this.repo.update(id, undefined, undefined, undefined, undefined, {
+            nextOccurrence: null,
+          })
+        } else if (occurrence !== null) {
+          await this.repo.update(id, undefined, undefined, undefined, undefined, {
+            nextOccurrence: formatDbTime(
+              nextInstallmentDue(occurrence, 1, debt.frequency ?? 'monthly'),
+            ),
+          })
+        }
+      }
     })
   }
 
   /** Undoes the latest settlement: the ledger is reversed and the debt steps back. */
   async unsettle(id: string): Promise<void> {
-    await wrapping('service.UnsettleDebt: get', () => this.repo.getById(id))
+    const debt = await wrapping('service.UnsettleDebt: get', () => this.repo.getById(id))
     const entry = await wrapping('service.UnsettleDebt: find ledger', () =>
       this.ledgerSvc.findLatestByTransactionId(id),
     )
-    if (entry === null) throw wrap('service.UnsettleDebt', ErrNoRows)
+    // A debt paid before the ledger existed has no entry: step the counter back instead.
+    const canStepBack =
+      debt.paidInstallments > 0 || (!debt.isInstallment && debt.isConfirmed)
+    if (entry === null && !canStepBack) throw wrap('service.UnsettleDebt', ErrNoRows)
     await this.db.tx(async () => {
-      await this.ledgerSvc.reverseEntry(entry, true)
+      if (entry !== null) await this.ledgerSvc.reverseEntry(entry, true)
       await this.repo.unconfirm(id)
+      if (debt.isInstallment) {
+        const due = entry?.occurrenceDate ?? lastPaidDueDate(debt)
+        await this.repo.update(id, undefined, undefined, undefined, undefined, {
+          nextOccurrence: due === null ? null : formatDbTime(due),
+        })
+      }
     })
   }
 
@@ -208,12 +274,27 @@ export class PeerDebtService {
 
 /** The due date of the payment `settle` is about to make; null when the stored date does not parse. */
 function nextDebtDate(debt: PeerDebt): Date | null {
-  const stored = debt.isInstallment ? (debt.anchorDate ?? debt.date) : debt.date
   try {
-    const first = parseRfc3339OrYmd(stored)
-    return debt.isInstallment
-      ? nextInstallmentDue(first, debt.paidInstallments, debt.frequency ?? 'monthly')
-      : first
+    if (!debt.isInstallment) return parseRfc3339OrYmd(debt.date)
+    if (debt.nextOccurrence !== null && debt.nextOccurrence !== '') {
+      return parseRfc3339OrYmd(debt.nextOccurrence)
+    }
+    const first = parseRfc3339OrYmd(debt.anchorDate ?? debt.date)
+    return nextInstallmentDue(first, debt.paidInstallments, debt.frequency ?? 'monthly')
+  } catch {
+    return null
+  }
+}
+
+/** The date of the installment `unsettle` is taking back, for a debt paid before the ledger existed. */
+function lastPaidDueDate(debt: PeerDebt): Date | null {
+  try {
+    const first = parseRfc3339OrYmd(debt.anchorDate ?? debt.date)
+    return nextInstallmentDue(
+      first,
+      Math.max(debt.paidInstallments - 1, 0),
+      debt.frequency ?? 'monthly',
+    )
   } catch {
     return null
   }
@@ -243,8 +324,14 @@ function buildFriendDebtItems(rows: ActiveUserDebt[]): FriendDebtItem[] {  retur
       item.perInstallAmount = perInst
       const anchorStr = r.anchorDate !== null && r.anchorDate !== '' ? r.anchorDate : r.date
       try {
-        const firstDue = parseRfc3339OrYmd(anchorStr)
-        const nextDue = nextInstallmentDue(firstDue, r.paidInstallments, r.frequency)
+        const nextDue =
+          r.nextOccurrence !== null && r.nextOccurrence !== ''
+            ? parseRfc3339OrYmd(r.nextOccurrence)
+            : nextInstallmentDue(
+                parseRfc3339OrYmd(anchorStr),
+                r.paidInstallments,
+                r.frequency,
+              )
         item.nextPaymentDate = formatDbTime(nextDue)
       } catch {
         // Unparseable anchor: no next date (Go leaves NextPaymentDate nil).

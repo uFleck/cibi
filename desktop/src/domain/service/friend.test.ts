@@ -105,6 +105,7 @@ it('getPublicFriendView: the host sees the hosted group; a blank friend name rea
     paidInstallments: 0,
     frequency: null,
     anchorDate: null,
+    nextOccurrence: null,
     isConfirmed: false,
   }
   const peerSvc = peerDebtService(

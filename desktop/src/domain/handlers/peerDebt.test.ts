@@ -256,6 +256,96 @@ it('POST /api/peer-debts/:id/confirm: 400 for a bad id, 404 for an unknown id', 
   expect(await json(missing)).toEqual({ error: 'peer debt not found' })
 })
 
+it('settle writes the due date, advances the next one, and undo puts it back', async () => {
+  const inst = await createDebt(-400, {
+    is_installment: true,
+    total_installments: 2,
+    anchor_date: '2026-10-10',
+    frequency: 'monthly',
+  })
+  const paid = await localFetch(`/api/peer-debts/${inst.id}/settle`, { method: 'POST' })
+  expect(paid.status).toBe(204)
+
+  let row = (await listAll()).find((x) => x.id === inst.id)
+  expect(row?.paid_installments).toBe(1)
+  expect(row?.next_occurrence).toBe('2026-11-10T00:00:00Z')
+
+  const entries = (await json<Array<{ transaction_id: string; amount: number; occurrence_date: string }>>(
+    await localFetch(`/api/ledger?account_id=${accountId}`),
+  ))
+  const payment = entries.find((entry) => entry.transaction_id === inst.id)
+  expect(payment?.amount).toBe(-2)
+  expect(payment?.occurrence_date).toBe('2026-10-10T00:00:00Z')
+
+  const undone = await localFetch(`/api/peer-debts/${inst.id}/unsettle`, { method: 'POST' })
+  expect(undone.status).toBe(204)
+  row = (await listAll()).find((x) => x.id === inst.id)
+  expect(row?.paid_installments).toBe(0)
+  expect(row?.next_occurrence).toBe('2026-10-10T00:00:00Z')
+})
+
+it('unsettle steps a legacy paid installment back even without a ledger row', async () => {
+  const inst = await createDebt(-400, {
+    is_installment: true,
+    total_installments: 2,
+    anchor_date: '2026-10-10',
+    frequency: 'monthly',
+  })
+  await db.query(`UPDATE "Transaction" SET paid_installments = 1 WHERE id = ?`, [inst.id])
+
+  const undone = await localFetch(`/api/peer-debts/${inst.id}/unsettle`, { method: 'POST' })
+  expect(undone.status).toBe(204)
+  const row = (await listAll()).find((x) => x.id === inst.id)
+  expect(row?.paid_installments).toBe(0)
+  expect(row?.next_occurrence).toBe('2026-10-10T00:00:00Z')
+})
+
+it('PATCH edits the plan, the next due date and the friend', async () => {
+  const inst = await createDebt(-400, {
+    is_installment: true,
+    total_installments: 2,
+    anchor_date: '2026-10-10',
+  })
+  const other = (await json<FriendResponse>(await post('/api/friends', { name: 'Other' }))).id
+
+  const res = await patch(`/api/peer-debts/${inst.id}`, {
+    friend_id: other,
+    title: 'edited',
+    total_installments: 4,
+    frequency: 'weekly',
+    anchor_date: '2026-11-01T00:00:00Z',
+    next_occurrence: '2026-11-15T00:00:00Z',
+    is_installment: true,
+  })
+  expect(res.status).toBe(204)
+
+  const row = (await listAll()).find((x) => x.id === inst.id)
+  expect(row).toMatchObject({
+    friend_id: other,
+    title: 'edited',
+    total_installments: 4,
+    frequency: 'weekly',
+    anchor_date: '2026-11-01T00:00:00Z',
+    next_occurrence: '2026-11-15T00:00:00Z',
+    is_installment: true,
+  })
+})
+
+it('PATCH refuses a total below the paid installments and a paid debt as a single payment', async () => {
+  const inst = await createDebt(-400, {
+    is_installment: true,
+    total_installments: 2,
+    anchor_date: '2026-10-10',
+  })
+  await db.query(`UPDATE "Transaction" SET paid_installments = 2 WHERE id = ?`, [inst.id])
+
+  const lower = await patch(`/api/peer-debts/${inst.id}`, { total_installments: 1 })
+  expect(lower.status).toBe(400)
+
+  const single = await patch(`/api/peer-debts/${inst.id}`, { is_installment: false })
+  expect(single.status).toBe(400)
+})
+
 it('POST /api/peer-debts/:id/confirm-toggle: flips a lump sum back and forth; 404 for an unknown id', async () => {
   const d = await createDebt(1000)
   expect((await localFetch(`/api/peer-debts/${d.id}/confirm-toggle`, { method: 'POST' })).status).toBe(204)

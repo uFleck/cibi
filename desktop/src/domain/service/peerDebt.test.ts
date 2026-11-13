@@ -31,6 +31,7 @@ it('TestGetFriendDebtBreakdown_InstallmentComputesNextPaymentDate', async () => 
         frequency: 'monthly',
         date: '2026-01-01T00:00:00Z',
         anchorDate: null,
+        nextOccurrence: null,
       },
     ],
   })
@@ -93,6 +94,7 @@ it('a lump-sum debt is one payment due on its date as stored, and an installment
         frequency: '',
         date: '2026-06-10',
         anchorDate: null,
+        nextOccurrence: null,
       },
       {
         friendName: 'Caio',
@@ -103,6 +105,7 @@ it('a lump-sum debt is one payment due on its date as stored, and an installment
         frequency: 'weekly',
         date: '2026-01-01',
         anchorDate: '2026-02-01T00:00:00Z',
+        nextOccurrence: null,
       },
     ],
   })
@@ -144,6 +147,7 @@ it('an installment whose date does not parse has no next payment date', async ()
         frequency: 'monthly',
         date: '2026-09-11 20:01:19',
         anchorDate: null,
+        nextOccurrence: null,
       },
     ],
   })
@@ -170,6 +174,7 @@ it('createDebt assigns a new id and passes the row to the repo', async () => {
     paidInstallments: 0,
     frequency: null,
     anchorDate: null,
+    nextOccurrence: null,
     isConfirmed: false,
   })
   expect(created.id).toMatch(/^[0-9a-f-]{36}$/)

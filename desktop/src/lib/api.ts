@@ -565,6 +565,7 @@ export interface PeerDebtResponse {
   paid_installments: number
   frequency: string | null
   anchor_date: string | null
+  next_occurrence: string | null
   is_confirmed: boolean
 }
 
@@ -614,11 +615,13 @@ export interface CreatePeerDebtRequest {
 export interface PatchPeerDebtRequest {
   amount?: number
   title?: string
+  friend_id?: string
   date?: string
   is_installment?: boolean
-  total_installments?: number
-  frequency?: string
-  is_confirmed?: boolean
+  total_installments?: number | null
+  frequency?: string | null
+  anchor_date?: string | null
+  next_occurrence?: string | null
 }
 
 export interface CreateGroupEventRequest {

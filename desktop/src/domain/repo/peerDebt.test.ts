@@ -304,6 +304,7 @@ describe('peer debt paths the Go tests do not reach', () => {
       paidInstallments: 5,
       frequency: 'monthly',
       anchorDate: '2026-10-10T00:00:00Z',
+      nextOccurrence: null,
       isConfirmed: false,
     })
   })
@@ -332,6 +333,7 @@ describe('peer debt paths the Go tests do not reach', () => {
       paidInstallments: 0,
       frequency: null,
       anchorDate: null,
+      nextOccurrence: null,
     }
     const open = { ...base, id: crypto.randomUUID(), isConfirmed: false }
     const done = { ...base, id: crypto.randomUUID(), isConfirmed: true }
@@ -498,6 +500,7 @@ describe('peer debt paths the Go tests do not reach', () => {
         frequency: 'monthly',
         date: '2026-05-10',
         anchorDate: '2026-05-10T00:00:00Z',
+        nextOccurrence: null,
       },
       {
         friendName: 'Zoe',
@@ -508,6 +511,7 @@ describe('peer debt paths the Go tests do not reach', () => {
         frequency: '',
         date: '2026-06-10',
         anchorDate: null,
+        nextOccurrence: null,
       },
     ])
   })

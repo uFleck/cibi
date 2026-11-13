@@ -13,7 +13,7 @@ import type { App } from '../app'
 import { HttpError, route } from '../http'
 import { goRound } from '../num'
 import type { PeerDebt } from '../repo/peerDebt'
-import type { NewPeerDebt, PeerDebtService } from '../service/peerDebt'
+import type { NewPeerDebt, PeerDebtService, UpdatePeerDebtInput } from '../service/peerDebt'
 import { validateOrThrow, type FieldSpec } from '../validate'
 import { bindBody } from './bind'
 import { notFoundOr500, parseIdOr400, queryAccountId, rethrow500 } from './common'
@@ -23,6 +23,7 @@ export type PeerDebtServiceIface = Pick<
   PeerDebtService,
   | 'listByFriend'
   | 'listAll'
+  | 'getDebt'
   | 'createDebt'
   | 'updateDebt'
   | 'deleteDebt'
@@ -45,6 +46,7 @@ export interface PeerDebtResponse {
   paid_installments: number
   frequency: string | null
   anchor_date: string | null
+  next_occurrence: string | null
   is_confirmed: boolean
 }
 
@@ -71,7 +73,21 @@ const CREATE_FIELDS: FieldSpec[] = [
 const PATCH_SCHEMA = {
   amount: 'floatPtr',
   title: 'stringPtr',
+  friend_id: 'stringPtr',
+  date: 'stringPtr',
+  is_installment: 'boolPtr',
+  total_installments: 'intPtr',
+  frequency: 'stringPtr',
+  anchor_date: 'stringPtr',
+  next_occurrence: 'stringPtr',
 } as const
+
+/** True when the raw JSON body has `key`, ignoring case like encoding/json does. */
+function bodyHas(body: unknown, key: string): boolean {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return false
+  const folded = key.toLowerCase()
+  return Object.keys(body).some(name => name.toLowerCase() === folded)
+}
 
 /** Go peerDebtToResponse: the amount is cents / 100. */
 export function toPeerDebtResponse(d: PeerDebt): PeerDebtResponse {
@@ -87,6 +103,7 @@ export function toPeerDebtResponse(d: PeerDebt): PeerDebtResponse {
     paid_installments: d.paidInstallments,
     frequency: d.frequency,
     anchor_date: d.anchorDate,
+    next_occurrence: d.nextOccurrence,
     is_confirmed: d.isConfirmed,
   }
 }
@@ -127,6 +144,7 @@ export function registerPeerDebtRoutes(app: App, svc: PeerDebtServiceIface = app
       paidInstallments: 0,
       frequency: req.frequency,
       anchorDate: req.anchor_date,
+      nextOccurrence: null,
       isConfirmed: false,
     }
     const created = await svc.createDebt(d).catch(rethrow500)
@@ -136,9 +154,35 @@ export function registerPeerDebtRoutes(app: App, svc: PeerDebtServiceIface = app
   route('PATCH', '/api/peer-debts/:id', async ({ params, body }) => {
     const id = parseIdOr400(params.id, INVALID_ID)
     const req = bindBody(body, PATCH_SCHEMA)
-    // The amount is in cents here too (no *100). A null pointer field is nil: no change.
-    const amount = req.amount === null ? undefined : goRound(req.amount)
-    await svc.updateDebt(id, amount, req.title ?? undefined).catch(notFoundOr500(NOT_FOUND))
+    const current = await svc.getDebt(id).catch(notFoundOr500(NOT_FOUND))
+
+    const patch: UpdatePeerDebtInput = {}
+    // The amount is in cents here too (no *100). A null amount or title is nil: no change.
+    if (req.amount !== null) patch.amount = goRound(req.amount)
+    if (req.title !== null) patch.title = req.title
+    if (req.friend_id !== null) patch.friendId = parseIdOr400(req.friend_id, 'invalid friend_id')
+    if (req.date !== null) patch.date = req.date
+    if (bodyHas(body, 'is_installment')) patch.isInstallment = req.is_installment ?? false
+    if (bodyHas(body, 'total_installments')) patch.totalInstallments = req.total_installments
+    if (bodyHas(body, 'frequency')) patch.frequency = req.frequency
+    if (bodyHas(body, 'anchor_date')) patch.anchorDate = req.anchor_date
+    if (bodyHas(body, 'next_occurrence')) patch.nextOccurrence = req.next_occurrence
+
+    const isInstallment = patch.isInstallment ?? current.isInstallment
+    const totalInstallments =
+      patch.totalInstallments !== undefined ? patch.totalInstallments : current.totalInstallments
+    if (isInstallment) {
+      if (totalInstallments === null || totalInstallments <= 0) {
+        throw new HttpError(400, 'total_installments must be a positive integer when is_installment is true')
+      }
+      if (totalInstallments < current.paidInstallments) {
+        throw new HttpError(400, 'total_installments cannot be lower than the paid installments')
+      }
+    } else if (current.paidInstallments > 0) {
+      throw new HttpError(400, 'a debt with paid installments cannot become a single payment')
+    }
+
+    await svc.updateDebt(id, patch).catch(notFoundOr500(NOT_FOUND))
     return { status: 204 }
   })
 

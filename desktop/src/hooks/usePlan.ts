@@ -15,11 +15,10 @@ import {
   type PayScheduleResponse,
   type TransactionResponse,
 } from '@/lib/api'
-import { nextInstallmentDue } from '@/domain/engine/installment'
 import { todayIso } from '@/lib/today'
+import { nextDueDate, amountForInstallment } from '@/lib/debtSchedule'
 import {
   buildForecast,
-  parseDateValue,
   type ForecastBill,
   type ForecastDebt,
   type ForecastInput,
@@ -87,28 +86,13 @@ function toDebtObligations(debts: PeerDebtResponse[]): ForecastDebt[] {
   const out: ForecastDebt[] = []
   for (const debt of debts) {
     if (debt.amount >= 0) continue // the friend owes the user: not an obligation
-    if (debt.is_installment) {
-      const total = debt.total_installments ?? 0
-      if (total <= 0 || debt.paid_installments >= total) continue
-      const first = parseDateValue(debt.anchor_date ?? debt.date)
-      const due = first === null
-        ? null
-        : nextInstallmentDue(first, debt.paid_installments, debt.frequency ?? 'monthly')
-      const per = Math.trunc(Math.abs(debt.amount) / total)
-      out.push({
-        id: debt.id,
-        name: debt.title,
-        amount: cents(per),
-        date: due === null ? null : due.toISOString().slice(0, 10),
-      })
-      continue
-    }
-    if (debt.is_confirmed) continue
+    const due = nextDueDate(debt)
+    if (due === null) continue
     out.push({
       id: debt.id,
       name: debt.title,
-      amount: cents(Math.abs(debt.amount)),
-      date: debt.date,
+      amount: amountForInstallment(debt, debt.paid_installments + 1),
+      date: due,
     })
   }
   return out

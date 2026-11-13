@@ -37,7 +37,28 @@ export interface PeerDebt {
   frequency: string | null
   /** Stored text, RFC3339 or YYYY-MM-DD; null when not set. */
   anchorDate: string | null
+  /**
+   * Stored text; the date of the next unpaid installment when it was changed by hand.
+   * Null when the due date comes from the anchor date plus the paid count.
+   */
+  nextOccurrence: string | null
   isConfirmed: boolean
+}
+
+/** The editable plan of a peer debt, separate from the money and confirmation fields. */
+export interface PeerDebtDetailsPatch {
+  friendId?: string
+  /** Stored text: the debt date for a lump sum, the first due date of an installment debt. */
+  date?: string
+  isInstallment?: boolean
+  /** null clears it. */
+  totalInstallments?: number | null
+  /** null clears it. */
+  frequency?: string | null
+  /** null clears it. */
+  anchorDate?: string | null
+  /** null clears the manual next due date. */
+  nextOccurrence?: string | null
 }
 
 /** Mirrors the Go PeerDebtBalance (cents). */
@@ -72,6 +93,8 @@ export interface ActiveUserDebt {
   date: string
   /** Stored text; null when not set. */
   anchorDate: string | null
+  /** Stored text; a manual next due date, null when not set. */
+  nextOccurrence: string | null
 }
 
 export interface PeerDebtRepo {
@@ -82,7 +105,14 @@ export interface PeerDebtRepo {
   /** Rejects with an error wrapping ErrNoRows when the id is unknown. */
   getById(id: string): Promise<PeerDebt>
   /** Each given field is written; undefined = no change. Rejects when no field is given or the row is missing. */
-  update(id: string, amount?: number, title?: string, isConfirmed?: boolean, paidInstallments?: number): Promise<void>
+  update(
+    id: string,
+    amount?: number,
+    title?: string,
+    isConfirmed?: boolean,
+    paidInstallments?: number,
+    details?: PeerDebtDetailsPatch,
+  ): Promise<void>
   deleteById(id: string): Promise<void>
   getBalanceByFriend(friendId: string, accountId: string | null): Promise<PeerDebtBalance>
   getGlobalBalance(accountId: string | null): Promise<GlobalPeerBalance>
@@ -105,7 +135,7 @@ function bit(v: boolean): number {
 
 /** Column list of every peer debt query; the last column is the confirmed flag. */
 const PEER_SELECT = `SELECT id, account_id, friend_id, amount, title, timestamp, is_installment,
-	 total_installments, paid_installments, frequency, anchor_date,
+	 total_installments, paid_installments, frequency, anchor_date, next_occurrence,
 	 CASE WHEN confirmed_at IS NOT NULL THEN 1 ELSE 0 END AS is_confirmed`
 
 function scanPeerDebt(row: Row): PeerDebt {
@@ -121,6 +151,7 @@ function scanPeerDebt(row: Row): PeerDebt {
     paidInstallments: intCol(row, 'paid_installments'),
     frequency: nullableTextCol(row, 'frequency'),
     anchorDate: nullableTextCol(row, 'anchor_date'),
+    nextOccurrence: nullableTextCol(row, 'next_occurrence'),
     isConfirmed: boolCol(row, 'is_confirmed'),
   }
 }
@@ -159,6 +190,7 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
       bit(d.frequency !== null),
       d.frequency,
       d.anchorDate,
+      d.nextOccurrence,
       bit(d.isInstallment),
       d.totalInstallments,
       d.paidInstallments,
@@ -168,9 +200,9 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
     try {
       await this.db.query(
         `INSERT INTO "Transaction" (id, account_id, type, friend_id, amount, title, timestamp,
-		 is_recurring, frequency, anchor_date, is_installment,
+		 is_recurring, frequency, anchor_date, next_occurrence, is_installment,
 		 total_installments, paid_installments, requires_confirmation, confirmed_at)
-		 VALUES (?, ?, 'peer', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+		 VALUES (?, ?, 'peer', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
         args,
       )
     } catch (err) {
@@ -246,6 +278,7 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
     title?: string,
     isConfirmed?: boolean,
     paidInstallments?: number,
+    details?: PeerDebtDetailsPatch,
   ): Promise<void> {
     const setClauses: string[] = []
     const args: SqlParam[] = []
@@ -260,6 +293,34 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
     if (paidInstallments !== undefined) {
       setClauses.push('paid_installments = ?')
       args.push(paidInstallments)
+    }
+    if (details?.friendId !== undefined) {
+      setClauses.push('friend_id = ?')
+      args.push(details.friendId)
+    }
+    if (details?.date !== undefined) {
+      setClauses.push('timestamp = ?')
+      args.push(details.date)
+    }
+    if (details?.isInstallment !== undefined) {
+      setClauses.push('is_installment = ?')
+      args.push(bit(details.isInstallment))
+    }
+    if (details?.totalInstallments !== undefined) {
+      setClauses.push('total_installments = ?')
+      args.push(details.totalInstallments)
+    }
+    if (details?.frequency !== undefined) {
+      setClauses.push('frequency = ?')
+      args.push(details.frequency)
+    }
+    if (details?.anchorDate !== undefined) {
+      setClauses.push('anchor_date = ?')
+      args.push(details.anchorDate)
+    }
+    if (details?.nextOccurrence !== undefined) {
+      setClauses.push('next_occurrence = ?')
+      args.push(details.nextOccurrence)
     }
 
     if (setClauses.length === 0 && isConfirmed === undefined) {
@@ -507,7 +568,8 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
 		       t.paid_installments,
 		       COALESCE(t.frequency, '') AS frequency,
 		       t.timestamp,
-		       t.anchor_date
+		       t.anchor_date,
+		       t.next_occurrence
 		FROM "Transaction" t
 		JOIN Friend f ON f.id = t.friend_id
 		WHERE t.type = 'peer'
@@ -540,6 +602,7 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
         frequency: textCol(row, 'frequency'),
         date: textCol(row, 'timestamp'),
         anchorDate: nullableTextCol(row, 'anchor_date'),
+        nextOccurrence: nullableTextCol(row, 'next_occurrence'),
       }))
     } catch (err) {
       throw wrap(`${op}: scan`, err)
@@ -586,7 +649,7 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
       throw wrap(`${op}: lump scan`, err)
     }
 
-    let instQuery = `SELECT id, amount, total_installments, paid_installments, frequency, timestamp
+    let instQuery = `SELECT id, amount, total_installments, paid_installments, frequency, timestamp, next_occurrence
 		 FROM "Transaction"
 		 WHERE type = 'peer'
 		   AND amount < 0
@@ -614,17 +677,18 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
         const paidInst = intCol(row, 'paid_installments')
         const freq = textCol(row, 'frequency')
         const dateStr = textCol(row, 'timestamp')
+        const nextStr = nullableTextCol(row, 'next_occurrence')
         // Go integer division truncates toward zero, as Math.trunc does.
         const instPayment = Math.trunc(amount / totalInst)
 
-        let firstDue: Date
+        let nextDue: Date
         try {
-          firstDue = parseRfc3339OrYmd(dateStr)
+          nextDue = nextStr !== null && nextStr !== ''
+            ? parseRfc3339OrYmd(nextStr)
+            : nextInstallmentDue(parseRfc3339OrYmd(dateStr), paidInst, freq)
         } catch {
           continue
         }
-
-        const nextDue = nextInstallmentDue(firstDue, paidInst, freq)
         if (nextDue.getTime() > after.getTime() && nextDue.getTime() < onOrBefore.getTime()) {
           totalInstallmentSum += instPayment
         }
