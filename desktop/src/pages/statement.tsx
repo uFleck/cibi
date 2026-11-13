@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
-import { ArrowDownLeft, ArrowUpRight, RotateCcw, SlidersHorizontal } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
+import { PawPrint } from '@/components/cats/Cat'
+import { EmptyCat } from '@/components/cats/EmptyCat'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -59,8 +61,8 @@ export function StatementPage() {
     <div className={PAGE}>
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-col gap-1">
-          <p className="font-mono text-[10.5px] uppercase tracking-[0.05em] text-faint">Extrato</p>
-          <h1 className="text-xl font-semibold tracking-tight">Tudo o que entrou e saiu</h1>
+          <p className="flex items-center gap-1 text-[11px] font-bold text-primary"><PawPrint size={12} />Extrato</p>
+          <h1 className="text-2xl font-extrabold tracking-tight">Tudo o que entrou e saiu</h1>
           <p className="text-[12px] text-muted-foreground">
             Cada pagamento pode ser desfeito. O lançamento original fica aqui, com o estorno ao lado.
           </p>
@@ -94,14 +96,11 @@ export function StatementPage() {
       <Card>
         <CardContent className="flex flex-col py-1">
           {plan.isLoading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Carregando...</p>
+            <EmptyCat mood="sit" className="py-8">Buscando seus lançamentos...</EmptyCat>
           ) : rows.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-10 text-center">
-              <SlidersHorizontal size={24} className="text-faint" />
-              <p className="text-sm text-muted-foreground">
-                Nada aqui ainda. Pague uma conta no <Link to="/" className="underline">plano</Link> para começar o extrato.
-              </p>
-            </div>
+            <EmptyCat className="py-10">
+              Nada aqui ainda. Pague uma conta no <Link to="/" className="font-semibold text-primary underline">plano</Link> e o extrato começa.
+            </EmptyCat>
           ) : (
             rows.map(entry => {
               const label = entryLabel(entry, bills, debts, schedules)

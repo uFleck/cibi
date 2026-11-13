@@ -30,7 +30,8 @@ export function RootLayout() {
 }
 
 const SELECTED_ACCOUNT_STORAGE_KEY = 'cibi.selectedAccountId'
-const THEME_STORAGE_KEY = 'cibi.theme'
+// v2: the cute redesign starts everyone on the light theme once.
+const THEME_STORAGE_KEY = 'cibi.theme.v2'
 
 function getInitialSelectedAccountId(): string | null {
   if (typeof window === 'undefined') return null
@@ -38,8 +39,8 @@ function getInitialSelectedAccountId(): string | null {
 }
 
 function getInitialTheme(): ThemeMode {
-  if (typeof window === 'undefined') return 'dark'
-  return window.localStorage.getItem(THEME_STORAGE_KEY) === 'light' ? 'light' : 'dark'
+  if (typeof window === 'undefined') return 'light'
+  return window.localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light'
 }
 
 function AppProviders() {

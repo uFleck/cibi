@@ -2,20 +2,19 @@ import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import {
-  AlertTriangle,
   Check,
   ChevronDown,
   ChevronRight,
-  CircleDollarSign,
   Pencil,
   Plus,
   ReceiptText,
   Undo2,
-  Wallet,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { BillDialog } from '@/components/bills/BillDialog'
 import { ConfirmAmountDialog } from '@/components/ConfirmAmountDialog'
+import { Cat, PawPrint } from '@/components/cats/Cat'
+import { EmptyCat } from '@/components/cats/EmptyCat'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -46,6 +45,7 @@ import {
 import { parseDecimalInput } from '@/lib/locale'
 import { localDayOf, todayIso } from '@/lib/today'
 import { cn } from '@/lib/utils'
+import { celebrate } from '@/shell/secrets'
 
 const PAGE = 'mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6 sm:px-6'
 
@@ -75,8 +75,17 @@ export function PlanPage() {
         await confirmTransaction(bill.id, -Math.abs(amount))
       }
     },
-    onSuccess: () => {
-      toast.success('Pagamento registrado')
+    onSuccess: (_data, { bill }) => {
+      // The last bill of the current period earns the big paw-print party.
+      const left = (plan.forecast?.periods[0]?.items ?? []).filter(item => item.kind !== 'as-needed' && item.id !== bill.id)
+      const inCurrent = (plan.forecast?.periods[0]?.items ?? []).some(item => item.id === bill.id)
+      if (inCurrent && left.length === 0) {
+        celebrate('all-paid')
+        toast.success('Tudo pago neste período! Que orgulho 🐾')
+      } else {
+        celebrate('paw')
+        toast.success('Pago! 🐾')
+      }
       plan.refresh()
     },
     onError: (error: Error) => toast.error(error.message || 'Não deu para registrar o pagamento'),
@@ -85,7 +94,7 @@ export function PlanPage() {
   const undo = useMutation({
     mutationFn: (transactionId: string) => unconfirmTransaction(transactionId),
     onSuccess: () => {
-      toast.success('Pagamento desfeito')
+      toast.success('Pronto, desfeito. Sem problemas!')
       plan.refresh()
     },
     onError: (error: Error) => toast.error(error.message || 'Não deu para desfazer'),
@@ -104,7 +113,8 @@ export function PlanPage() {
   const confirmPayday = useMutation({
     mutationFn: (schedule: PayScheduleResponse) => confirmPaySchedule(schedule.id),
     onSuccess: () => {
-      toast.success('Recebimento confirmado')
+      celebrate('paw')
+      toast.success('Dinheirinho na conta! 💸')
       plan.refresh()
     },
     onError: (error: Error) => toast.error(error.message || 'Não deu para confirmar o recebimento'),
@@ -113,9 +123,9 @@ export function PlanPage() {
   if (plan.isLoading) {
     return (
       <div className={PAGE}>
-        <div className="h-24 animate-pulse rounded-md border border-line bg-surface/60" />
-        <div className="h-40 animate-pulse rounded-md border border-line bg-surface/60" />
-        <div className="h-40 animate-pulse rounded-md border border-line bg-surface/60" />
+        <div className="h-24 animate-pulse rounded-2xl border border-line bg-surface/60" />
+        <div className="h-40 animate-pulse rounded-2xl border border-line bg-surface/60" />
+        <div className="h-40 animate-pulse rounded-2xl border border-line bg-surface/60" />
       </div>
     )
   }
@@ -125,9 +135,9 @@ export function PlanPage() {
       <div className={PAGE}>
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-            <Wallet className="text-faint" size={32} />
+            <Cat mood="happy" size={80} />
             <div>
-              <p className="font-semibold">Comece pela sua conta</p>
+              <p className="font-semibold">Oi! Vamos começar pela sua conta?</p>
               <p className="text-sm text-muted-foreground">
                 Informe o saldo de hoje e quando você recebe. O plano cuida do resto.
               </p>
@@ -185,8 +195,8 @@ export function PlanPage() {
 
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-col gap-1">
-          <p className="font-mono text-[10.5px] uppercase tracking-[0.05em] text-faint">Plano</p>
-          <h1 className="text-xl font-semibold tracking-tight">O que dá para gastar</h1>
+          <p className="flex items-center gap-1 text-[11px] font-bold text-primary"><PawPrint size={12} />Plano</p>
+          <h1 className="text-2xl font-extrabold tracking-tight">O que dá para gastar</h1>
           <p className="text-[12px] text-muted-foreground">
             Saldo, contas e o que sobra em cada recebimento. Tudo pode ser mudado depois.
           </p>
@@ -201,9 +211,9 @@ export function PlanPage() {
         <Card className="border-[var(--color-verdict-yes)]/40 bg-[var(--color-verdict-yes-tint)]/40">
           <CardContent className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-2">
-              <CircleDollarSign className="mt-0.5 text-[var(--color-verdict-yes)]" size={18} />
+              <Cat mood={hasOverduePayday ? 'sit' : 'party'} size={40} />
               <div>
-                <p className="text-sm font-medium">{hasOverduePayday ? 'Recebimento atrasado' : 'Hoje é dia de receber'}</p>
+                <p className="text-sm font-bold">{hasOverduePayday ? 'Tem um recebimento esperando você' : 'Hoje é dia de receber! 🎉'}</p>
                 <p className="text-xs text-muted-foreground">
                   {duePaydays.map(schedule => `${schedule.label ?? 'Recebimento'}: ${formatMoney(schedule.amount, currency)}${schedule.next_payday < today ? ` (${dateLabel(schedule.next_payday)})` : ''}`).join(' · ')}
                 </p>
@@ -236,7 +246,7 @@ export function PlanPage() {
       <section className="flex flex-col gap-2">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold">Recebimentos</h2>
+            <h2 className="text-sm font-bold">Recebimentos</h2>
             <p className="text-xs text-muted-foreground">Cada bloco vai de um recebimento até o próximo.</p>
           </div>
           {!hasPayday ? (
@@ -248,8 +258,10 @@ export function PlanPage() {
 
         {!hasPayday ? (
           <Card>
-            <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              Diga quando você recebe em <Link to="/ajustes" className="underline">Ajustes</Link> para ver o plano por recebimento.
+            <CardContent>
+              <EmptyCat mood="sit">
+                Conta pra gente quando você recebe em <Link to="/ajustes" className="font-semibold text-primary underline">Ajustes</Link> e o plano se organiza sozinho.
+              </EmptyCat>
             </CardContent>
           </Card>
         ) : (
@@ -308,7 +320,7 @@ function Summary({
     <div className="grid gap-3 sm:grid-cols-3">
       <Card>
         <CardContent className="flex flex-col gap-2 py-3">
-          <span className="text-[11px] font-medium uppercase tracking-widest text-faint">Saldo hoje</span>
+          <span className="text-[11px] font-bold text-faint">Saldo hoje</span>
           <MoneyValue amount={balance} currency={currency} className="text-2xl font-semibold" />
           <Button size="xs" variant="outline" className="w-fit" onClick={onAdjustBalance}>
             <Pencil size={12} />
@@ -319,7 +331,7 @@ function Summary({
 
       <Card className="sm:col-span-2">
         <CardContent className="flex flex-col gap-2 py-3">
-          <span className="text-[11px] font-medium uppercase tracking-widest text-faint">
+          <span className="text-[11px] font-bold text-faint">
             {current ? `Livre até ${dateLabel(current.end)}` : 'Livre para gastar'}
           </span>
           <span className={cn('num text-3xl font-semibold tracking-tight', freeTone)}>
@@ -331,7 +343,7 @@ function Summary({
                 ? afterIncome >= 0
                   ? `Faltam ${brl(-forecast.freeNow, currency)} para as contas. Com o recebimento de hoje (${brl(dueIncome, currency)}), sobram ${brl(afterIncome, currency)}.`
                   : `Faltam ${brl(-forecast.freeNow, currency)} para as contas. Com o recebimento de hoje (${brl(dueIncome, currency)}), ainda faltam ${brl(-afterIncome, currency)}.`
-                : 'As contas deste período passam do saldo. Dá para ajustar uma conta ou o saldo.'
+                : 'As contas deste período passam do saldo. Sem pânico: dá para ajustar uma conta ou o saldo.'
               : current
                 ? current.income > 0
                   ? `Entra ${brl(current.income, currency)} · Contas ${brl(Math.abs(current.obligations), currency)} neste período.`
@@ -391,9 +403,9 @@ function SpendSimulator({
     <Card>
       <CardContent className="flex flex-col gap-3 py-3">
         <div className="flex items-center gap-2">
-          <CircleDollarSign size={16} className="text-faint" />
+          <Cat mood="sit" size={32} alive={false} />
           <div>
-            <h2 className="text-sm font-semibold">Quanto posso gastar?</h2>
+            <h2 className="text-sm font-bold">Será que dá pra comprar?</h2>
             <p className="text-xs text-muted-foreground">
               Veja se uma compra cabe antes do próximo recebimento.
             </p>
@@ -433,20 +445,16 @@ function SpendSimulator({
           <div
             role="status"
             className={cn(
-              'flex flex-col gap-2 rounded-md border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between',
+              'flex flex-col gap-2 rounded-2xl border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between',
               result.safe
                 ? 'border-[var(--color-verdict-yes)]/40 bg-[var(--color-verdict-yes-tint)]/40'
                 : 'border-[var(--color-verdict-no)]/40 bg-[var(--color-verdict-no-tint)]/40',
             )}
           >
             <div className="flex items-start gap-2">
-              {result.safe ? (
-                <Check className="mt-0.5 text-[var(--color-verdict-yes)]" size={16} />
-              ) : (
-                <AlertTriangle className="mt-0.5 text-[var(--color-verdict-no)]" size={16} />
-              )}
+              <Cat mood={result.safe ? 'happy' : 'oops'} size={36} alive={false} />
               <div>
-                <p className="font-medium">{result.safe ? 'Cabe no plano' : 'Não cabe no plano'}</p>
+                <p className="font-bold">{result.safe ? 'Cabe no plano! Pode ir 💖' : 'Hmm, agora não cabe'}</p>
                 <p className="text-xs text-muted-foreground">
                   {result.safe
                     ? `O menor saldo depois da compra fica ${brl(result.minClosing, currency)}.`
@@ -541,8 +549,8 @@ function PeriodCard({
               {dateLabel(period.start)} → {dateLabel(period.end)}
             </span>
             {isCurrent ? (
-              <span className="rounded-sm bg-surface-3 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                Atual
+              <span className="rounded-full bg-blush px-2 py-0.5 text-[10px] font-bold text-primary">
+                Agora 🐾
               </span>
             ) : null}
           </div>
@@ -554,7 +562,7 @@ function PeriodCard({
         </div>
         <div className="flex items-center gap-2">
           <div className="flex flex-col items-end">
-            <span className="text-[10px] uppercase tracking-wide text-faint">Livre</span>
+            <span className="text-[10px] font-bold text-faint">Livre</span>
             <span className={cn('num text-lg font-semibold', freeTone)}>{brl(period.free, currency)}</span>
           </div>
           {open ? <ChevronDown size={16} className="text-faint" /> : <ChevronRight size={16} className="text-faint" />}
@@ -564,7 +572,7 @@ function PeriodCard({
       {open ? (
         <div className="flex flex-col border-t border-line/70">
           {period.items.length === 0 && paid.length === 0 ? (
-            <p className="px-4 py-4 text-sm text-muted-foreground">Nada para pagar neste período.</p>
+            <EmptyCat size={48} className="py-4">Nada para pagar aqui. Hora da soneca.</EmptyCat>
           ) : null}
 
           {period.items.map(item => {
@@ -607,7 +615,7 @@ function PeriodCard({
 
           {paid.length > 0 ? (
             <div className="flex flex-col bg-surface-2/40">
-              <p className="px-4 pt-2 text-[10px] font-medium uppercase tracking-widest text-faint">Pagos</p>
+              <p className="px-4 pt-2 text-[11px] font-bold text-pos">Pagos ✓</p>
               {paid.map(row => (
                 <div key={row.entryId} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-1.5">
                   <Check size={13} className="text-pos" />
@@ -643,7 +651,7 @@ function BillsSection({
     <section className="flex flex-col gap-2">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold">Todas as despesas</h2>
+          <h2 className="text-sm font-bold">Todas as despesas</h2>
           <p className="text-xs text-muted-foreground">Edite o valor, a data ou o tipo. O plano se ajusta na hora.</p>
         </div>
         <Button size="sm" variant="outline" onClick={onNew}>
@@ -655,7 +663,7 @@ function BillsSection({
       <Card>
         <CardContent className="flex flex-col py-1">
           {sorted.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma despesa ainda. Adicione a primeira.</p>
+            <EmptyCat>Nenhuma despesa ainda. Adicione a primeira quando quiser.</EmptyCat>
           ) : (
             sorted.map(bill => (
               <div key={bill.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line/50 py-2 last:border-b-0">

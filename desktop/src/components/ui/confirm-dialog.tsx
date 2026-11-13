@@ -1,3 +1,4 @@
+import { Cat } from '@/components/cats/Cat'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -6,6 +7,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
@@ -30,13 +32,16 @@ export function ConfirmDialog({
     <AlertDialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onCancel() }}>
       <AlertDialogContent size="sm">
         <AlertDialogHeader>
+          <AlertDialogMedia className="mb-1 rounded-full bg-blush">
+            <Cat mood="oops" size={48} className="size-12" />
+          </AlertDialogMedia>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           {description && (
             <AlertDialogDescription>{description}</AlertDialogDescription>
           )}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel onClick={onCancel}>Melhor não</AlertDialogCancel>
           <AlertDialogAction variant="destructive" onClick={onConfirm}>
             {confirmLabel}
           </AlertDialogAction>

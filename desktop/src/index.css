@@ -1,8 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/nunito";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -36,8 +35,9 @@
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: 'Inter Variable', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono Variable', ui-monospace, Menlo, monospace;
+  --font-sans: 'Nunito Variable', ui-rounded, system-ui, sans-serif;
+  /* Labels and figures stay rounded too; `.num` adds tabular figures. */
+  --font-mono: 'Nunito Variable', ui-rounded, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -76,52 +76,64 @@
   --color-warn: var(--warn);
   --color-hl: var(--hl);
   --color-scrim: var(--scrim);
+  --color-lilac: var(--lilac);
+  --color-mint: var(--mint);
+  --color-peach: var(--peach);
+  --color-blush: var(--blush);
   --shadow-panel: var(--elev-panel);
   --shadow-pop: var(--elev-pop);
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 4px;
-  --radius-xl: 6px;
-  --radius-2xl: 8px;
-  --radius-3xl: 10px;
-  --radius-4xl: 12px;
-  --radius-over: 12px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+  --radius-4xl: 28px;
+  --radius-over: 22px;
 }
 
-/* Ink, light (default is dark; see ThemeContext) */
+/* Strawberry milk, light (the default; see ThemeContext) */
 :root {
   color-scheme: light;
-  --h: 225;
-  --nc: 0.006;
-  --ink: oklch(0.24 0.04 225);
+  --h: 10;
+  --nc: 0.02;
+  --ink: oklch(0.53 0.17 2);
   --ink-fg: #ffffff;
-  --bg: oklch(0.982 calc(var(--nc) * 0.7) var(--h));
-  --surface: oklch(1 0 0);
-  --surface-2: oklch(0.968 var(--nc) var(--h));
-  --surface-3: oklch(0.94 var(--nc) var(--h));
-  --line: oklch(0.915 var(--nc) var(--h));
-  --line-strong: oklch(0.85 var(--nc) var(--h));
-  --text: oklch(0.2 calc(var(--nc) * 1.6) var(--h));
-  --text-2: oklch(0.44 var(--nc) var(--h));
-  --text-3: oklch(0.5 var(--nc) var(--h));
-  --hl: oklch(0.5 0.1 220);
-  --pos: oklch(0.5 0.13 158);
-  --neg: oklch(0.52 0.19 24);
-  --warn: oklch(0.52 0.12 70);
-  --input: oklch(0.65 var(--nc) var(--h));
-  --verdict-yes: oklch(0.45 0.13 150);
-  --verdict-yes-tint: oklch(0.965 0.035 150);
-  --verdict-no: oklch(0.5 0.19 25);
-  --verdict-no-tint: oklch(0.965 0.02 25);
-  --verdict-wait: oklch(0.5 0.12 70);
-  --verdict-wait-tint: oklch(0.965 0.045 85);
-  --risk-low: oklch(0.45 0.13 150);
-  --risk-medium: oklch(0.5 0.13 70);
-  --risk-high: oklch(0.5 0.17 40);
-  --risk-blocked: oklch(0.5 0.19 25);
-  --scrim: oklch(0.2 0 0 / 0.3);
-  --elev-panel: 0 1px 2px oklch(0 0 0 / 0.04), 0 0 0 0.5px oklch(0 0 0 / 0.02);
-  --elev-pop: 0 12px 40px oklch(0 0 0 / 0.14), 0 0 0 1px var(--line);
+  --bg: oklch(0.985 0.012 25);
+  --surface: oklch(0.998 0.004 25);
+  --surface-2: oklch(0.972 0.018 15);
+  --surface-3: oklch(0.945 0.028 10);
+  --line: oklch(0.92 0.026 10);
+  --line-strong: oklch(0.86 0.045 8);
+  --text: oklch(0.3 0.045 350);
+  --text-2: oklch(0.46 0.045 350);
+  --text-3: oklch(0.5 0.04 350);
+  --hl: oklch(0.52 0.15 295);
+  --pos: oklch(0.5 0.11 165);
+  --neg: oklch(0.52 0.17 15);
+  --warn: oklch(0.52 0.11 65);
+  --input: oklch(0.66 0.06 8);
+  --lilac: oklch(0.93 0.04 300);
+  --mint: oklch(0.94 0.045 165);
+  --peach: oklch(0.94 0.04 55);
+  --blush: oklch(0.93 0.045 5);
+  --verdict-yes: oklch(0.45 0.11 160);
+  --verdict-yes-tint: oklch(0.965 0.03 160);
+  --verdict-no: oklch(0.5 0.17 15);
+  --verdict-no-tint: oklch(0.965 0.02 15);
+  --verdict-wait: oklch(0.5 0.11 65);
+  --verdict-wait-tint: oklch(0.965 0.04 80);
+  --risk-low: oklch(0.45 0.11 160);
+  --risk-medium: oklch(0.5 0.12 65);
+  --risk-high: oklch(0.5 0.15 40);
+  --risk-blocked: oklch(0.5 0.17 15);
+  --scrim: oklch(0.3 0.05 350 / 0.25);
+  --elev-panel: 0 2px 10px oklch(0.6 0.12 0 / 0.07), 0 0 0 0.5px oklch(0.6 0.12 0 / 0.04);
+  --elev-pop: 0 18px 50px oklch(0.5 0.12 0 / 0.18), 0 0 0 1px var(--line);
+  --page-glow:
+    radial-gradient(60rem 30rem at -10% -20%, oklch(0.95 0.04 0 / 0.9), transparent 60%),
+    radial-gradient(50rem 30rem at 110% 0%, oklch(0.95 0.035 300 / 0.8), transparent 60%),
+    radial-gradient(50rem 30rem at 50% 120%, oklch(0.96 0.03 165 / 0.6), transparent 60%);
 
   --background: var(--bg);
   --foreground: var(--text);
@@ -141,7 +153,7 @@
   --destructive-foreground: var(--ink-fg);
   --border: var(--line);
   --ring: var(--hl);
-  --radius: 0.25rem;
+  --radius: 0.75rem;
   --sidebar: var(--surface-2);
   --sidebar-foreground: var(--text);
   --sidebar-primary: var(--ink);
@@ -152,38 +164,45 @@
   --sidebar-ring: var(--hl);
 }
 
-/* Ink, dark (the default) */
+/* Midnight kitty, dark */
 .dark {
   color-scheme: dark;
-  --ink: oklch(0.9 0.08 220);
-  --ink-fg: oklch(0.17 0.03 225);
-  --bg: oklch(0.155 var(--nc) var(--h));
-  --surface: oklch(0.19 var(--nc) var(--h));
-  --surface-2: oklch(0.17 var(--nc) var(--h));
-  --surface-3: oklch(0.235 var(--nc) var(--h));
-  --line: oklch(0.265 var(--nc) var(--h));
-  --line-strong: oklch(0.34 var(--nc) var(--h));
-  --text: oklch(0.95 calc(var(--nc) * 0.6) var(--h));
-  --text-2: oklch(0.74 var(--nc) var(--h));
-  --text-3: oklch(0.63 var(--nc) var(--h));
-  --hl: oklch(0.6 0.12 220);
-  --pos: oklch(0.74 0.15 158);
-  --neg: oklch(0.7 0.17 22);
-  --warn: oklch(0.8 0.14 80);
-  --input: oklch(0.5 var(--nc) var(--h));
-  --verdict-yes: oklch(0.72 0.19 142);
-  --verdict-yes-tint: oklch(0.14 0.07 142);
-  --verdict-no: oklch(0.65 0.22 25);
-  --verdict-no-tint: oklch(0.13 0.06 25);
-  --verdict-wait: oklch(0.78 0.17 85);
-  --verdict-wait-tint: oklch(0.14 0.06 85);
-  --risk-low: oklch(0.72 0.19 142);
-  --risk-medium: oklch(0.72 0.19 70);
-  --risk-high: oklch(0.68 0.20 40);
-  --risk-blocked: oklch(0.65 0.22 25);
-  --scrim: oklch(0 0 0 / 0.5);
-  --elev-panel: 0 0 0 0.5px oklch(1 0 0 / 0.04);
-  --elev-pop: 0 16px 50px oklch(0 0 0 / 0.55), 0 0 0 1px var(--line-strong);
+  --ink: oklch(0.83 0.1 355);
+  --ink-fg: oklch(0.22 0.05 340);
+  --bg: oklch(0.19 0.03 305);
+  --surface: oklch(0.225 0.032 305);
+  --surface-2: oklch(0.205 0.03 305);
+  --surface-3: oklch(0.27 0.035 305);
+  --line: oklch(0.3 0.035 305);
+  --line-strong: oklch(0.38 0.04 305);
+  --text: oklch(0.95 0.015 340);
+  --text-2: oklch(0.8 0.025 330);
+  --text-3: oklch(0.7 0.03 320);
+  --hl: oklch(0.74 0.12 295);
+  --pos: oklch(0.8 0.12 165);
+  --neg: oklch(0.76 0.13 12);
+  --warn: oklch(0.84 0.12 80);
+  --input: oklch(0.55 0.04 310);
+  --lilac: oklch(0.3 0.06 300);
+  --mint: oklch(0.3 0.05 165);
+  --peach: oklch(0.31 0.05 55);
+  --blush: oklch(0.31 0.06 355);
+  --verdict-yes: oklch(0.8 0.13 160);
+  --verdict-yes-tint: oklch(0.2 0.05 160);
+  --verdict-no: oklch(0.76 0.14 12);
+  --verdict-no-tint: oklch(0.2 0.05 12);
+  --verdict-wait: oklch(0.84 0.13 80);
+  --verdict-wait-tint: oklch(0.2 0.05 80);
+  --risk-low: oklch(0.8 0.13 160);
+  --risk-medium: oklch(0.82 0.13 75);
+  --risk-high: oklch(0.78 0.13 45);
+  --risk-blocked: oklch(0.76 0.14 12);
+  --scrim: oklch(0.1 0.03 305 / 0.55);
+  --elev-panel: 0 0 0 0.5px oklch(1 0 0 / 0.05), 0 4px 14px oklch(0 0 0 / 0.18);
+  --elev-pop: 0 18px 50px oklch(0 0 0 / 0.55), 0 0 0 1px var(--line-strong);
+  --page-glow:
+    radial-gradient(60rem 30rem at -10% -20%, oklch(0.26 0.06 340 / 0.7), transparent 60%),
+    radial-gradient(50rem 30rem at 110% 0%, oklch(0.26 0.06 290 / 0.7), transparent 60%);
 }
 
 @layer base {
@@ -192,6 +211,8 @@
   }
   body {
     @apply bg-background text-foreground;
+    background-image: var(--page-glow);
+    background-attachment: fixed;
     line-height: 1.45;
     -webkit-font-smoothing: antialiased;
   }
@@ -227,6 +248,46 @@
   .num {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
+    font-weight: 650;
+  }
+
+  /* A soft "boop" on hover for things you can poke. */
+  .squish {
+    transition: transform var(--transition-duration-fast) var(--ease-cibi);
+  }
+  .squish:hover {
+    transform: translateY(-1px) scale(1.02);
+  }
+  .squish:active {
+    transform: scale(0.96);
+  }
+
+  .wiggle {
+    animation: cat-wiggle 0.6s ease-in-out;
+  }
+  .float-up {
+    animation: float-up 1.6s ease-out forwards;
+  }
+  .cat-fall {
+    animation: cat-fall linear forwards;
+  }
+  .cat-walk {
+    animation: cat-walk 14s linear forwards;
+  }
+  .paw-pop {
+    animation: paw-pop 1.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .tail-swish {
+    transform-origin: 0 0;
+    animation: tail-swish 2.8s ease-in-out infinite;
+  }
+  .cat-blink {
+    transform-origin: center;
+    transform-box: fill-box;
+    animation: cat-blink 5s infinite;
+  }
+  .zzz {
+    animation: zzz 2.6s ease-in-out infinite;
   }
 
   .chart-reveal {
@@ -241,6 +302,51 @@
   to {
     clip-path: inset(-6px -6px -6px 0);
   }
+}
+
+@keyframes cat-wiggle {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-10deg); }
+  50% { transform: rotate(8deg); }
+  75% { transform: rotate(-4deg); }
+}
+
+@keyframes float-up {
+  from { transform: translate(0, 0) scale(0.6); opacity: 0; }
+  15% { opacity: 1; transform: translate(0, -10px) scale(1); }
+  to { transform: translate(var(--drift, 0px), -90px) scale(1.1); opacity: 0; }
+}
+
+@keyframes cat-fall {
+  from { transform: translateY(-15vh) rotate(0deg); }
+  to { transform: translateY(115vh) rotate(var(--spin, 360deg)); }
+}
+
+@keyframes cat-walk {
+  from { transform: translateX(-60px); }
+  to { transform: translateX(calc(100vw + 60px)); }
+}
+
+@keyframes paw-pop {
+  from { transform: translate(0, 0) scale(0.2) rotate(0deg); opacity: 0; }
+  20% { opacity: 1; }
+  to { transform: translate(var(--dx, 0px), var(--dy, -120px)) scale(1) rotate(var(--rot, 20deg)); opacity: 0; }
+}
+
+@keyframes tail-swish {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(14deg); }
+}
+
+@keyframes cat-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+
+@keyframes zzz {
+  0% { transform: translate(0, 0); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translate(6px, -10px); opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

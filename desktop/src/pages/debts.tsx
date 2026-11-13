@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
-import { Check, ChevronRight, HandCoins, History, Pencil, Plus, Trash2, Undo2 } from 'lucide-react'
+import { Check, ChevronRight, History, Pencil, Plus, Trash2, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AppModal } from '@/components/AppModal'
+import { PawPrint } from '@/components/cats/Cat'
+import { EmptyCat } from '@/components/cats/EmptyCat'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -37,6 +39,7 @@ import { formatDate, formatLocalDate, formatMoney } from '@/lib/format'
 import { parseDecimalInput } from '@/lib/locale'
 import { todayIso } from '@/lib/today'
 import { cn } from '@/lib/utils'
+import { celebrate } from '@/shell/secrets'
 
 const PAGE = 'mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6 sm:px-6'
 
@@ -67,7 +70,8 @@ export function DebtsPage() {
   const settle = useMutation({
     mutationFn: (id: string) => settleDebt(id),
     onSuccess: () => {
-      toast.success('Pagamento registrado')
+      celebrate('paw')
+      toast.success('Pago! 🐾')
       plan.refresh()
     },
     onError: (error: Error) => toast.error(error.message || 'Não deu para registrar'),
@@ -76,7 +80,7 @@ export function DebtsPage() {
   const unsettle = useMutation({
     mutationFn: (id: string) => unsettleDebt(id),
     onSuccess: () => {
-      toast.success('Pagamento desfeito')
+      toast.success('Pronto, desfeito. Sem problemas!')
       plan.refresh()
     },
     onError: (error: Error) => toast.error(error.message || 'Não deu para desfazer'),
@@ -85,7 +89,7 @@ export function DebtsPage() {
   const remove = useMutation({
     mutationFn: (id: string) => deletePeerDebt(id),
     onSuccess: () => {
-      toast.success('Dívida excluída')
+      toast.success('Dívida apagada. Tchau! 👋')
       setDeleteTarget(null)
       plan.refresh()
     },
@@ -158,15 +162,15 @@ export function DebtsPage() {
         onConfirm={() => {
           if (deleteTarget) remove.mutate(deleteTarget.id)
         }}
-        title="Excluir esta dívida?"
+        title="Apagar esta dívida?"
         description="Os pagamentos já feitos continuam no extrato. A dívida sai do plano."
-        confirmLabel="Excluir"
+        confirmLabel="Apagar"
       />
 
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-col gap-1">
-          <p className="font-mono text-[10.5px] uppercase tracking-[0.05em] text-faint">Amigos</p>
-          <h1 className="text-xl font-semibold tracking-tight">Quem deve quem</h1>
+          <p className="flex items-center gap-1 text-[11px] font-bold text-primary"><PawPrint size={12} />Amigos</p>
+          <h1 className="text-2xl font-extrabold tracking-tight">Quem deve quem</h1>
           <p className="text-[12px] text-muted-foreground">
             O que você deve entra no plano. Abra uma dívida para ver as parcelas, o histórico e mudar o próximo vencimento.
           </p>
@@ -180,19 +184,19 @@ export function DebtsPage() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardContent className="flex flex-col gap-1 py-3">
-            <span className="text-[11px] font-medium uppercase tracking-widest text-faint">Você deve</span>
+            <span className="text-[11px] font-bold text-faint">Você deve</span>
             <MoneyValue amount={-owe / 100} currency={currency} tone="negative" showSign="never" className="text-2xl font-semibold" />
           </CardContent>
         </Card>
         <Card>
           <CardContent className="flex flex-col gap-1 py-3">
-            <span className="text-[11px] font-medium uppercase tracking-widest text-faint">Devem a você</span>
+            <span className="text-[11px] font-bold text-faint">Devem a você</span>
             <MoneyValue amount={owed / 100} currency={currency} tone="positive" showSign="never" className="text-2xl font-semibold" />
           </CardContent>
         </Card>
         <Card>
           <CardContent className="flex flex-col gap-1 py-3">
-            <span className="text-[11px] font-medium uppercase tracking-widest text-faint">Saldo</span>
+            <span className="text-[11px] font-bold text-faint">Saldo</span>
             <span className={cn('num text-2xl font-semibold', owed - owe >= 0 ? 'text-pos' : 'text-neg')}>
               {formatMoney((owed - owe) / 100, currency)}
             </span>
@@ -201,14 +205,11 @@ export function DebtsPage() {
       </div>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">Em aberto</h2>
+        <h2 className="text-sm font-bold">Em aberto</h2>
         <Card>
           <CardContent className="flex flex-col py-1">
             {sortedActive.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 py-8 text-center">
-                <HandCoins size={24} className="text-faint" />
-                <p className="text-sm text-muted-foreground">Nenhuma dívida em aberto.</p>
-              </div>
+              <EmptyCat className="py-8">Nenhuma dívida em aberto. Tudo em paz por aqui. 💤</EmptyCat>
             ) : (
               sortedActive.map(debt => (
                 <DebtRow
@@ -235,7 +236,7 @@ export function DebtsPage() {
 
       {settled.length > 0 ? (
         <section className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold text-muted-foreground">Pagas</h2>
+          <h2 className="text-sm font-bold text-muted-foreground">Pagas</h2>
           <Card>
             <CardContent className="flex flex-col py-1">
               {settled.map(debt => {
@@ -323,7 +324,7 @@ function DebtRow({
             <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
               <span className="truncate">{debtLabel(debt, friends)}</span>
               {next?.overdue ? (
-                <span className="rounded-full bg-neg/10 px-1.5 py-0.5 text-[10px] font-medium text-neg">atrasada</span>
+                <span className="rounded-full bg-peach px-2 py-0.5 text-[10px] font-bold text-warn">atrasadinha</span>
               ) : null}
             </span>
             <span className="text-[11px] text-muted-foreground">{detail}</span>
@@ -448,7 +449,7 @@ function InstallmentRow({
         <span className="flex flex-wrap items-center gap-1.5 text-[12px]">
           Parcela {item.number}/{total}
           {isNext ? <span className="text-[10px] uppercase tracking-wide text-faint">próxima</span> : null}
-          {item.overdue ? <span className="text-[10px] font-medium text-neg">atrasada</span> : null}
+          {item.overdue ? <span className="text-[10px] font-bold text-warn">atrasadinha</span> : null}
         </span>
         <span className="text-[10.5px] text-faint">
           {item.dueDate ? `${paid ? 'venceu' : 'vence'} ${formatDate(`${item.dueDate}T00:00:00Z`)}` : 'sem data'}
@@ -902,7 +903,7 @@ function DebtForm({
       })
     },
     onSuccess: () => {
-      toast.success('Dívida registrada')
+      toast.success('Dívida anotada 📝')
       onSaved()
       onClose()
     },

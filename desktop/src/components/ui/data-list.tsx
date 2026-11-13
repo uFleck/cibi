@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { EmptyCat } from '@/components/cats/EmptyCat'
 import { cn } from '@/lib/utils'
 import { denseCell, denseHead, denseNumCell, denseRow, denseTable } from '@/components/ui/dense'
 import { RowActions } from '@/components/ui/row-actions'
@@ -31,13 +32,17 @@ interface DataListProps<T> {
 /** A compact, fixed-layout table: cells stay on one line and row actions appear on hover. */
 export function DataList<T>({ rows, rowId, columns, actions, empty, 'aria-label': ariaLabel }: DataListProps<T>) {
   if (rows.length === 0 && empty !== undefined) {
-    return <div className="rounded-md border border-line bg-surface px-3 py-6 text-center text-xs text-faint">{empty}</div>
+    return (
+      <div className="rounded-2xl border border-line/70 bg-surface px-3">
+        <EmptyCat size={48} className="py-4 text-xs">{empty}</EmptyCat>
+      </div>
+    )
   }
 
   const actionCount = actions ? Math.max(0, ...rows.map(row => actions(row).length)) : 0
 
   return (
-    <div className="overflow-hidden rounded-md border border-line bg-surface">
+    <div className="overflow-hidden rounded-2xl border border-line/70 bg-surface shadow-panel">
       <table className={cn(denseTable, 'table-fixed')} aria-label={ariaLabel}>
         <thead>
           <tr>

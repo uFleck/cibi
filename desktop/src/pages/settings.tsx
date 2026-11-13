@@ -2,8 +2,10 @@ import { useContext, useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
-import { Pencil, Plus, Power, Trash2, Wallet } from 'lucide-react'
+import { Pencil, Plus, Power, Trash2 } from 'lucide-react'
 import { AppModal } from '@/components/AppModal'
+import { PawPrint } from '@/components/cats/Cat'
+import { EmptyCat } from '@/components/cats/EmptyCat'
 import { AccountForm, type AccountFormErrors, type AccountFormValues } from '@/components/AccountForm'
 import { PaySchedulesPanel } from '@/components/PaySchedulesPanel'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -90,7 +92,7 @@ export function SettingsPage() {
   const removeAccount = useMutation({
     mutationFn: (id: string) => deleteAccount(id),
     onSuccess: () => {
-      toast.success('Conta excluída')
+      toast.success('Conta apagada')
       setDeleteTarget(null)
       setSelectedAccountId(null)
       void queryClient.invalidateQueries({ queryKey: ['accounts'] })
@@ -154,15 +156,15 @@ export function SettingsPage() {
       />
 
       <header className="flex flex-col gap-1">
-        <p className="font-mono text-[10.5px] uppercase tracking-[0.05em] text-faint">Ajustes</p>
-        <h1 className="text-xl font-semibold tracking-tight">O básico</h1>
+        <p className="flex items-center gap-1 text-[11px] font-bold text-primary"><PawPrint size={12} />Ajustes</p>
+        <h1 className="text-2xl font-extrabold tracking-tight">O básico</h1>
         <p className="text-[12px] text-muted-foreground">Conta, recebimentos, tema e início com o Windows.</p>
       </header>
 
       <section className="flex flex-col gap-2">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold">Contas</h2>
+            <h2 className="text-sm font-bold">Contas</h2>
             <p className="text-xs text-muted-foreground">O saldo é ajustado no plano, quando você quiser.</p>
           </div>
           <Button size="sm" variant="outline" onClick={() => { setCreating(true); setForm(EMPTY_FORM); setBalanceText('0') }}>
@@ -174,9 +176,8 @@ export function SettingsPage() {
         <Card>
           <CardContent className="flex flex-col py-1">
             {plan.accounts.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 py-8 text-center">
-                <Wallet size={24} className="text-faint" />
-                <p className="text-sm text-muted-foreground">Nenhuma conta ainda.</p>
+              <div className="flex flex-col items-center gap-1 pb-6">
+                <EmptyCat mood="sit" className="pb-1">Nenhuma conta ainda.</EmptyCat>
                 <Button size="sm" onClick={() => setCreating(true)}>
                   <Plus size={14} />
                   Criar primeira conta
@@ -215,7 +216,7 @@ export function SettingsPage() {
       <section className="flex flex-col gap-2">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold">Recebimentos</h2>
+            <h2 className="text-sm font-bold">Recebimentos</h2>
             <p className="text-xs text-muted-foreground">Quando o dinheiro entra. O plano usa esta data.</p>
           </div>
           <Button size="sm" variant="outline" onClick={() => setScheduleCreating(true)} disabled={!plan.account}>
@@ -239,7 +240,7 @@ export function SettingsPage() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">Aparência</h2>
+        <h2 className="text-sm font-bold">Aparência</h2>
         <Card>
           <CardContent className="flex items-center justify-between gap-3 py-3">
             <span className="text-sm text-muted-foreground">Tema</span>
@@ -253,7 +254,7 @@ export function SettingsPage() {
                   aria-pressed={theme === mode}
                   onClick={() => setTheme(mode)}
                 >
-                  {mode === 'dark' ? 'Escuro' : 'Claro'}
+                  {mode === 'dark' ? 'Escuro 🌙' : 'Claro ☀️'}
                 </Button>
               ))}
             </div>
@@ -262,7 +263,7 @@ export function SettingsPage() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">Windows</h2>
+        <h2 className="text-sm font-bold">Windows</h2>
         <Card>
           <CardContent className="flex flex-col gap-2 py-3">
             <div className="flex items-center justify-between gap-3">
