@@ -12,6 +12,8 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { BillDialog } from '@/components/bills/BillDialog'
+import { BillKindFilter } from '@/components/BillKindFilter'
+import { useBillKindFilter } from '@/hooks/useBillKindFilter'
 import { ConfirmAmountDialog } from '@/components/ConfirmAmountDialog'
 import { Cat, PawPrint } from '@/components/cats/Cat'
 import { EmptyCat } from '@/components/cats/EmptyCat'
@@ -35,6 +37,7 @@ import {
   type PayScheduleResponse,
   type TransactionResponse,
 } from '@/lib/api'
+import { billKind, countKinds, kindVisible } from '@/lib/bill-kinds'
 import { formatDate, formatLocalDate, formatMoney } from '@/lib/format'
 import {
   simulateSpend,
@@ -646,7 +649,11 @@ function BillsSection({
   onEdit: (bill: TransactionResponse) => void
   onNew: () => void
 }) {
+  const kinds = useBillKindFilter('cibi.filter.bills')
   const sorted = useMemo(() => [...bills].sort((a, b) => a.title.localeCompare(b.title)), [bills])
+  const counts = countKinds(sorted.map(billKind))
+  const visible = sorted.filter(bill => kindVisible(billKind(bill), kinds.selected))
+  const hiddenCount = sorted.length - visible.length
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-end justify-between gap-3">
@@ -660,12 +667,23 @@ function BillsSection({
         </Button>
       </div>
 
+      {sorted.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <BillKindFilter selected={kinds.selected} counts={counts} onToggle={kinds.toggle} />
+          {hiddenCount > 0 ? (
+            <span className="ml-auto text-[11px] text-faint">{hiddenCount} escondida{hiddenCount === 1 ? '' : 's'}</span>
+          ) : null}
+        </div>
+      ) : null}
+
       <Card>
         <CardContent className="flex flex-col py-1">
           {sorted.length === 0 ? (
             <EmptyCat>Nenhuma despesa ainda. Adicione a primeira quando quiser.</EmptyCat>
+          ) : visible.length === 0 ? (
+            <EmptyCat mood="sit">Nada com esses filtros. Ligue um tipo acima para ver mais.</EmptyCat>
           ) : (
-            sorted.map(bill => (
+            visible.map(bill => (
               <div key={bill.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line/50 py-2 last:border-b-0">
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-sm font-medium">{bill.title}</span>

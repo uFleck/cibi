@@ -3,6 +3,8 @@ import { Link } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import { ArrowDownLeft, ArrowUpRight, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
+import { BillKindFilter } from '@/components/BillKindFilter'
+import { useBillKindFilter } from '@/hooks/useBillKindFilter'
 import { PawPrint } from '@/components/cats/Cat'
 import { EmptyCat } from '@/components/cats/EmptyCat'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +18,7 @@ import {
   unconfirmTransaction,
   type LedgerEntryResponse,
 } from '@/lib/api'
+import { countKinds, entryKind, kindVisible } from '@/lib/bill-kinds'
 import { formatDate, formatLocalDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -26,6 +29,7 @@ type Filter = 'all' | 'in' | 'out'
 export function StatementPage() {
   const plan = usePlan()
   const [filter, setFilter] = useState<Filter>('all')
+  const kinds = useBillKindFilter('cibi.filter.statement')
   const currency = plan.account?.currency ?? 'BRL'
 
   const bills = useMemo(() => new Map(plan.transactions.map(bill => [bill.id, bill])), [plan.transactions])
@@ -51,11 +55,19 @@ export function StatementPage() {
     onError: (error: Error) => toast.error(error.message || 'Não deu para desfazer'),
   })
 
-  const rows = plan.ledger.filter(entry => {
+  const kindById = useMemo(() => {
+    const entries = new Map(plan.ledger.map(entry => [entry.id, entry]))
+    return new Map(plan.ledger.map(entry => [entry.id, entryKind(entry, bills, entries)]))
+  }, [plan.ledger, bills])
+
+  const byDirection = plan.ledger.filter(entry => {
     if (filter === 'in') return entry.amount > 0
     if (filter === 'out') return entry.amount < 0
     return true
   })
+  const counts = countKinds(byDirection.map(entry => kindById.get(entry.id) ?? null))
+  const rows = byDirection.filter(entry => kindVisible(kindById.get(entry.id) ?? null, kinds.selected))
+  const hiddenCount = byDirection.length - rows.length
 
   return (
     <div className={PAGE}>
@@ -90,13 +102,20 @@ export function StatementPage() {
             {item.label}
           </Button>
         ))}
-        <span className="ml-auto text-[11px] text-faint">{rows.length} {rows.length === 1 ? 'lançamento' : 'lançamentos'}</span>
+        <span aria-hidden className="mx-1 h-4 w-px bg-line" />
+        <BillKindFilter selected={kinds.selected} counts={counts} onToggle={kinds.toggle} />
+        <span className="ml-auto text-[11px] text-faint">
+          {rows.length} {rows.length === 1 ? 'lançamento' : 'lançamentos'}
+          {hiddenCount > 0 ? ` · ${hiddenCount} escondido${hiddenCount === 1 ? '' : 's'}` : ''}
+        </span>
       </div>
 
       <Card>
         <CardContent className="flex flex-col py-1">
           {plan.isLoading ? (
             <EmptyCat mood="sit" className="py-8">Buscando seus lançamentos...</EmptyCat>
+          ) : rows.length === 0 && hiddenCount > 0 ? (
+            <EmptyCat mood="sit" className="py-10">Nada com esses filtros. Ligue um tipo acima para ver mais.</EmptyCat>
           ) : rows.length === 0 ? (
             <EmptyCat className="py-10">
               Nada aqui ainda. Pague uma conta no <Link to="/" className="font-semibold text-primary underline">plano</Link> e o extrato começa.
