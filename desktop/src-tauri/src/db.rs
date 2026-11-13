@@ -16,10 +16,17 @@ pub fn open(path: &Path) -> Result<Connection, String> {
         "PRAGMA journal_mode=WAL;
          PRAGMA busy_timeout=5000;
          PRAGMA synchronous=NORMAL;
-         PRAGMA foreign_keys=ON;",
+         PRAGMA foreign_keys=ON;
+         PRAGMA wal_autocheckpoint=1000;",
     )
     .map_err(|e| e.to_string())?;
     Ok(conn)
+}
+
+/// Moves WAL pages into the main file and truncates the WAL file.
+pub fn checkpoint(conn: &Connection) -> Result<(), String> {
+    conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))
+        .map_err(|e| e.to_string())
 }
 
 fn to_sql(v: &Value) -> Result<SqlValue, String> {

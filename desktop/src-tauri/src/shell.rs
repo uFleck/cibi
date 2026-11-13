@@ -50,6 +50,11 @@ pub fn on_window_event(window: &Window, event: &WindowEvent) {
     if let WindowEvent::CloseRequested { api, .. } = event {
         api.prevent_close();
         let _ = window.hide();
+        if let Some(db) = window.app_handle().try_state::<crate::db::Db>() {
+            if let Ok(conn) = db.0.try_lock() {
+                crate::report(crate::db::checkpoint(&conn));
+            }
+        }
     }
 }
 
