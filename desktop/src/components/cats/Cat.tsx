@@ -1,7 +1,7 @@
 import type { SVGProps } from 'react'
 import { cn } from '@/lib/utils'
 
-export type CatMood = 'sit' | 'happy' | 'sleep' | 'oops' | 'party' | 'peek'
+export type CatMood = 'sit' | 'happy' | 'sleep' | 'oops' | 'party' | 'peek' | 'worried' | 'sad'
 export type CatFur = 'cream' | 'ginger' | 'grey' | 'black' | 'calico'
 
 interface FurColors {
@@ -37,6 +37,7 @@ export function Cat({ mood = 'sit', fur = 'cream', size = 64, alive = true, titl
   const peek = mood === 'peek'
   const closedEyes = mood === 'happy' || mood === 'sleep' || mood === 'party'
   const sw = 2.2
+  const blue = mood === 'worried' || mood === 'sad'
 
   return (
     <svg
@@ -124,12 +125,32 @@ export function Cat({ mood = 'sit', fur = 'cream', size = 64, alive = true, titl
         </g>
       )}
 
+      {blue ? (
+        <g fill="none" stroke={c.feature} strokeWidth="1.4" strokeLinecap="round">
+          <path d="M22 21.6 L28 19.6" />
+          <path d="M42 21.6 L36 19.6" />
+        </g>
+      ) : null}
+      {mood === 'sad' ? (
+        <path
+          className={alive ? 'tear-drop' : undefined}
+          d="M24.6 29.4 q1.7 2.8 0 3.8 q-1.7 -1 0 -3.8 z"
+          fill="#9fd8ff"
+          stroke="#5aa9d6"
+          strokeWidth="0.6"
+        />
+      ) : null}
+
       {/* nose + mouth */}
       <path d="M30.4 30 h3.2 l-1.6 1.7 z" fill="#ff8fab" stroke="#ff8fab" strokeWidth="0.8" strokeLinejoin="round" />
       {mood === 'oops' ? (
         <ellipse cx="32" cy="34.6" rx="1.6" ry="1.9" fill={c.stroke} />
       ) : mood === 'happy' || mood === 'party' ? (
         <path d="M29 32.6 q3 4.6 6 0 z" fill="#ff8fab" stroke={c.stroke} strokeWidth="1.2" strokeLinejoin="round" />
+      ) : mood === 'sad' ? (
+        <path d="M28.6 35.4 q3.4 -3.4 6.8 0" fill="none" stroke={c.stroke} strokeWidth="1.3" strokeLinecap="round" />
+      ) : mood === 'worried' ? (
+        <path d="M28.4 34.4 q1.2 -1.4 2.4 0 q1.2 1.4 2.4 0 q1.2 -1.4 2.4 0" fill="none" stroke={c.stroke} strokeWidth="1.3" strokeLinecap="round" />
       ) : (
         <path d="M29 32.6 q1.5 1.8 3 0 q1.5 1.8 3 0" fill="none" stroke={c.stroke} strokeWidth="1.3" strokeLinecap="round" />
       )}
@@ -150,6 +171,22 @@ export function Cat({ mood = 'sit', fur = 'cream', size = 64, alive = true, titl
         <g fill={c.stroke} fontFamily="var(--font-sans)" fontWeight="800">
           <text x="49" y="12" fontSize="8" className={alive ? 'zzz' : undefined}>z</text>
           <text x="55" y="6" fontSize="6" className={alive ? 'zzz' : undefined} style={{ animationDelay: '0.9s' }}>z</text>
+        </g>
+      ) : null}
+
+      {mood === 'sad' ? (
+        <g>
+          <g fill="#9fd8ff" stroke="#5aa9d6" strokeWidth="0.6">
+            <path className={alive ? 'rain-drop' : undefined} d="M24 4 q1.2 2 0 2.8 q-1.2 -0.8 0 -2.8 z" />
+            <path className={alive ? 'rain-drop' : undefined} style={{ animationDelay: '0.45s' }} d="M32 5 q1.2 2 0 2.8 q-1.2 -0.8 0 -2.8 z" />
+            <path className={alive ? 'rain-drop' : undefined} style={{ animationDelay: '0.9s' }} d="M40 4 q1.2 2 0 2.8 q-1.2 -0.8 0 -2.8 z" />
+          </g>
+          <g fill="#cfd3e6">
+            <ellipse cx="25" cy="0" rx="6" ry="4.6" />
+            <ellipse cx="32.5" cy="-2.6" rx="7" ry="6" />
+            <ellipse cx="40" cy="0" rx="6" ry="4.6" />
+            <rect x="21" y="0" width="23" height="4.4" rx="2.2" />
+          </g>
         </g>
       ) : null}
 

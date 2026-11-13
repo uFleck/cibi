@@ -17,6 +17,7 @@ import { useBillKindFilter } from '@/hooks/useBillKindFilter'
 import { ConfirmAmountDialog } from '@/components/ConfirmAmountDialog'
 import { Cat, PawPrint } from '@/components/cats/Cat'
 import { EmptyCat } from '@/components/cats/EmptyCat'
+import { MoodCat } from '@/components/cats/MoodCat'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -38,6 +39,7 @@ import {
   type TransactionResponse,
 } from '@/lib/api'
 import { billKind, countKinds, kindVisible } from '@/lib/bill-kinds'
+import { paycheckOf } from '@/lib/cat-mood'
 import { formatDate, formatLocalDate, formatMoney } from '@/lib/format'
 import {
   simulateSpend,
@@ -333,26 +335,29 @@ function Summary({
       </Card>
 
       <Card className="sm:col-span-2">
-        <CardContent className="flex flex-col gap-2 py-3">
-          <span className="text-[11px] font-bold text-faint">
-            {current ? `Livre até ${dateLabel(current.end)}` : 'Livre para gastar'}
-          </span>
-          <span className={cn('num text-3xl font-semibold tracking-tight', freeTone)}>
-            {brl(forecast.freeNow, currency)}
-          </span>
-          <p className="text-xs text-muted-foreground">
-            {forecast.freeNow < 0
-              ? dueIncome > 0
-                ? afterIncome >= 0
-                  ? `Faltam ${brl(-forecast.freeNow, currency)} para as contas. Com o recebimento de hoje (${brl(dueIncome, currency)}), sobram ${brl(afterIncome, currency)}.`
-                  : `Faltam ${brl(-forecast.freeNow, currency)} para as contas. Com o recebimento de hoje (${brl(dueIncome, currency)}), ainda faltam ${brl(-afterIncome, currency)}.`
-                : 'As contas deste período passam do saldo. Sem pânico: dá para ajustar uma conta ou o saldo.'
-              : current
-                ? current.income > 0
-                  ? `Entra ${brl(current.income, currency)} · Contas ${brl(Math.abs(current.obligations), currency)} neste período.`
-                  : `Saldo ${brl(current.opening, currency)} · Contas ${brl(Math.abs(current.obligations), currency)} neste período.`
-                : 'Depois das contas do período.'}
-          </p>
+        <CardContent className="flex items-center gap-3 py-3">
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <span className="text-[11px] font-bold text-faint">
+              {current ? `Livre até ${dateLabel(current.end)}` : 'Livre para gastar'}
+            </span>
+            <span className={cn('num text-3xl font-semibold tracking-tight', freeTone)}>
+              {brl(forecast.freeNow, currency)}
+            </span>
+            <p className="text-xs text-muted-foreground">
+              {forecast.freeNow < 0
+                ? dueIncome > 0
+                  ? afterIncome >= 0
+                    ? `Faltam ${brl(-forecast.freeNow, currency)} para as contas. Com o recebimento de hoje (${brl(dueIncome, currency)}), sobram ${brl(afterIncome, currency)}.`
+                    : `Faltam ${brl(-forecast.freeNow, currency)} para as contas. Com o recebimento de hoje (${brl(dueIncome, currency)}), ainda faltam ${brl(-afterIncome, currency)}.`
+                  : 'As contas deste período passam do saldo. Sem pânico: dá para ajustar uma conta ou o saldo.'
+                : current
+                  ? current.income > 0
+                    ? `Entra ${brl(current.income, currency)} · Contas ${brl(Math.abs(current.obligations), currency)} neste período.`
+                    : `Saldo ${brl(current.opening, currency)} · Contas ${brl(Math.abs(current.obligations), currency)} neste período.`
+                  : 'Depois das contas do período.'}
+            </p>
+          </div>
+          <MoodCat free={forecast.freeNow} paycheck={paycheckOf(forecast.periods)} />
         </CardContent>
       </Card>
     </div>
