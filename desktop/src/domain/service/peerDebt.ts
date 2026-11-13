@@ -5,9 +5,11 @@
 // Go's slices are empty arrays here (a Go nil result is an empty array too).
 
 import { formatDbTime, parseRfc3339OrYmd } from '../dates'
+import type { Db } from '../db'
 import { nextInstallmentDue } from '../engine/installment'
-import { wrapping } from '../errors'
+import { AppError, ErrNoRows, wrap, wrapping } from '../errors'
 import type { ActiveUserDebt, GlobalPeerBalance, PeerDebt, PeerDebtBalance, PeerDebtRepo } from '../repo/peerDebt'
+import type { LedgerService } from './ledger'
 
 /** Go FriendDebtItem: a computed summary of one active debt the user owes a friend (cents). */
 export interface FriendDebtItem {
@@ -29,10 +31,14 @@ export interface FriendDebtItem {
 export type NewPeerDebt = Omit<PeerDebt, 'id'>
 
 export class PeerDebtService {
+  private readonly db: Db
   private readonly repo: PeerDebtRepo
+  private readonly ledgerSvc: LedgerService
 
-  constructor(repo: PeerDebtRepo) {
+  constructor(db: Db, repo: PeerDebtRepo, ledgerSvc: LedgerService) {
+    this.db = db
     this.repo = repo
+    this.ledgerSvc = ledgerSvc
   }
 
   /** The debts of one friend, optionally scoped by account (null = every account). */
@@ -93,6 +99,60 @@ export class PeerDebtService {
     return wrapping('service.ToggleInstallmentConfirmation', () => this.repo.toggleInstallmentConfirmation(id))
   }
 
+  /**
+   * Pays one debt: an installment pays one parcel, a lump sum pays all of it. The money moves in the
+   * ledger, so the balance and the statement agree; a positive debt (the friend owes the user)
+   * credits the account instead.
+   */
+  async settle(id: string): Promise<void> {
+    const debt = await wrapping('service.SettleDebt: get', () => this.repo.getById(id))
+    if (debt.isInstallment) {
+      if (debt.totalInstallments === null || debt.paidInstallments >= debt.totalInstallments) {
+        throw new AppError(`service.SettleDebt: debt ${id} has no installment left`)
+      }
+    } else if (debt.isConfirmed) {
+      throw new AppError(`service.SettleDebt: debt ${id} is already paid`)
+    }
+
+    const total = debt.isInstallment
+      ? Math.trunc(Math.abs(debt.amount) / (debt.totalInstallments ?? 1))
+      : Math.abs(debt.amount)
+    const amount = Math.sign(debt.amount) * total
+    if (amount === 0) throw new AppError(`service.SettleDebt: debt ${id} has no amount`)
+
+    const occurrence = nextDebtDate(debt)
+
+    await this.db.tx(async () => {
+      await this.ledgerSvc.recordEntry(
+        {
+          accountId: debt.accountId,
+          transactionId: debt.id,
+          payScheduleId: null,
+          entryType: 'payment',
+          amount,
+          description: debt.title,
+          postedAt: new Date(),
+          occurrenceDate: occurrence,
+        },
+        true,
+      )
+      await this.repo.confirmInstallment(id)
+    })
+  }
+
+  /** Undoes the latest settlement: the ledger is reversed and the debt steps back. */
+  async unsettle(id: string): Promise<void> {
+    await wrapping('service.UnsettleDebt: get', () => this.repo.getById(id))
+    const entry = await wrapping('service.UnsettleDebt: find ledger', () =>
+      this.ledgerSvc.findLatestByTransactionId(id),
+    )
+    if (entry === null) throw wrap('service.UnsettleDebt', ErrNoRows)
+    await this.db.tx(async () => {
+      await this.ledgerSvc.reverseEntry(entry, true)
+      await this.repo.unconfirm(id)
+    })
+  }
+
   /** The balance of one friend across every account. */
   getBalanceByFriend(friendId: string): Promise<PeerDebtBalance> {
     return wrapping('service.GetBalanceByFriend', () => this.repo.getBalanceByFriend(friendId, null))
@@ -146,13 +206,25 @@ export class PeerDebtService {
   }
 }
 
+/** The due date of the payment `settle` is about to make; null when the stored date does not parse. */
+function nextDebtDate(debt: PeerDebt): Date | null {
+  const stored = debt.isInstallment ? (debt.anchorDate ?? debt.date) : debt.date
+  try {
+    const first = parseRfc3339OrYmd(stored)
+    return debt.isInstallment
+      ? nextInstallmentDue(first, debt.paidInstallments, debt.frequency ?? 'monthly')
+      : first
+  } catch {
+    return null
+  }
+}
+
 /**
  * Go buildFriendDebtItems. An installment debt with a positive total gets the next installment
  * date from the anchor date (or the debt date when there is no anchor); the date is null when it
  * does not parse. Any other debt is one payment, due on its date as stored (not parsed).
  */
-function buildFriendDebtItems(rows: ActiveUserDebt[]): FriendDebtItem[] {
-  return rows.map((r) => {
+function buildFriendDebtItems(rows: ActiveUserDebt[]): FriendDebtItem[] {  return rows.map((r) => {
     const totalAbs = -r.amount
     const item: FriendDebtItem = {
       friendName: r.friendName,

@@ -7,7 +7,6 @@ import { EditSheet } from '@/components/EditSheet'
 import { AccountScheduleForm, type AccountScheduleValues } from '@/components/AccountScheduleForm'
 import { usePayScheduleMutations } from '@/hooks/usePayScheduleMutations'
 import { formatDate } from '@/lib/format'
-import { ROW_KEYS } from '@/lib/row-actions'
 import type { CreatePayScheduleRequest, PayScheduleResponse } from '@/lib/api'
 import { frequencyLabel } from '@/lib/labels'
 
@@ -106,8 +105,8 @@ export function PaySchedulesPanel({ accountId, currency, schedules, creating, on
               <>
                 <div className="truncate font-medium">{ps.label ?? frequencyLabel(ps.frequency)}</div>
                 <div className="truncate text-[11px] text-faint">
-                  {frequencyLabel(ps.frequency)} · entrada recorrente
-                  {ps.day_of_month_2 ? ` · 2º recebimento no dia ${ps.day_of_month_2}` : ''}
+                  {frequencyLabel(ps.frequency)}
+                  {ps.day_of_month_2 ? ` · dia ${ps.day_of_month_2}` : ''}
                 </div>
               </>
             ),
@@ -132,16 +131,14 @@ export function PaySchedulesPanel({ accountId, currency, schedules, creating, on
             id: 'confirm',
             label: 'Marcar como recebido',
             icon: Check,
-            keys: ROW_KEYS.confirm,
             disabled: confirm.isPending,
             run: () => confirm.mutate(ps.id),
           },
-          { id: 'edit', label: 'Editar', icon: Edit2, keys: ROW_KEYS.edit, primary: true, run: () => startEdit(ps) },
+          { id: 'edit', label: 'Editar', icon: Edit2, primary: true, run: () => startEdit(ps) },
           {
             id: 'delete',
             label: 'Excluir',
             icon: Trash2,
-            keys: ROW_KEYS.delete,
             variant: 'destructive',
             run: () => setConfirmDelete(ps.id),
           },

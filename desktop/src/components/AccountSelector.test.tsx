@@ -44,6 +44,6 @@ describe('AccountSelector', () => {
     renderSelector()
 
     const link = await screen.findByRole('link', { name: 'Criar conta' })
-    expect(link.getAttribute('href')).toBe('/accounts')
+    expect(link.getAttribute('href')).toBe('/ajustes')
   })
 })

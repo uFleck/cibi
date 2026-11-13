@@ -30,6 +30,8 @@ export function fakeTransactionsRepo(overrides: Partial<TransactionsRepo> = {}):
     listDueRecurring: async () => [],
     listAsNeeded: async () => [],
     incrementPaidInstallments: async () => undefined,
+    decrementPaidInstallments: async () => undefined,
+    reopenOneOff: async () => undefined,
     incrementSkippedInstallments: async () => undefined,
     ...overrides,
   }
@@ -57,10 +59,17 @@ export function fakeAccountsRepo(overrides: Partial<AccountsRepo> = {}): Account
  * kept in insertion order; Go's lookups return the first match.
  */
 export function fakeLedgerRepo(seed: LedgerEntry[] = []): LedgerRepo {
-  const entries: LedgerEntry[] = [...seed]
+  const entries: LedgerEntry[] = seed.map((e) => ({ ...e }))
+  const normalize = (e: NewLedgerEntry): LedgerEntry => ({
+    ...e,
+    id: e.id ?? crypto.randomUUID(),
+    occurrenceDate: e.occurrenceDate ?? null,
+    reversesEntryId: e.reversesEntryId ?? null,
+    reversedById: e.reversedById ?? null,
+  })
   return {
     insert: async (e: NewLedgerEntry) => {
-      entries.push({ ...e, id: e.id ?? crypto.randomUUID() })
+      entries.push(normalize(e))
     },
     listByAccount: async (accountId: string) => entries.filter((e) => e.accountId === accountId).map((e) => ({ ...e })),
     deleteById: async (id: string) => {
@@ -69,6 +78,18 @@ export function fakeLedgerRepo(seed: LedgerEntry[] = []): LedgerRepo {
     },
     findByTransactionId: async (txnId: string) => {
       const found = entries.find((e) => e.transactionId === txnId)
+      return found === undefined ? null : { ...found }
+    },
+    findLatestByTransactionId: async (txnId: string) => {
+      const found = [...entries]
+        .reverse()
+        .find((e) => e.transactionId === txnId && e.reversesEntryId === null && e.reversedById === null)
+      return found === undefined ? null : { ...found }
+    },
+    findLatestByPayScheduleId: async (payScheduleId: string) => {
+      const found = [...entries]
+        .reverse()
+        .find((e) => e.payScheduleId === payScheduleId && e.reversesEntryId === null && e.reversedById === null)
       return found === undefined ? null : { ...found }
     },
     findById: async (id: string) => {
@@ -80,6 +101,10 @@ export function fakeLedgerRepo(seed: LedgerEntry[] = []): LedgerRepo {
     updateAmount: async (id: string, amount: number) => {
       const found = entries.find((e) => e.id === id)
       if (found !== undefined) found.amount = amount
+    },
+    markReversed: async (originalId: string, reversalId: string) => {
+      const found = entries.find((e) => e.id === originalId)
+      if (found !== undefined) found.reversedById = reversalId
     },
     detachFromTransaction: async (txnId: string) => {
       for (const e of entries) if (e.transactionId === txnId) e.transactionId = null
@@ -110,6 +135,9 @@ export function newTestLedgerSvc(
             amount: seedBalance,
             description: '',
             postedAt: new Date(),
+            occurrenceDate: null,
+            reversesEntryId: null,
+            reversedById: null,
           },
         ]
   return new LedgerService(db, fakeLedgerRepo(seed), accRepo)

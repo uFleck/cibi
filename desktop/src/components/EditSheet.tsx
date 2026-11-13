@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import {
   Sheet,
   SheetContent,
@@ -7,7 +7,6 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet'
 import { useMediaQuery } from '@/hooks/use-media-query'
-import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 
 interface EditSheetProps {
   open: boolean
@@ -20,20 +19,6 @@ interface EditSheetProps {
 export function EditSheet({ open, onOpenChange, title, description, children }: EditSheetProps) {
   const isDesktop = useMediaQuery('(min-width: 768px)')
   const side = isDesktop ? 'right' : 'bottom'
-  const contentRef = useRef<HTMLDivElement>(null)
-
-  useKeyboardShortcuts(open ? [{
-    keys: 'Mod+Enter',
-    label: 'Salvar formulário',
-    group: 'Formulários',
-    scope: 'form',
-    allowInInput: true,
-    run: () => {
-      const form = contentRef.current?.querySelector('form')
-      if (!form || form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled) return
-      form.requestSubmit()
-    },
-  }] : [])
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -48,10 +33,10 @@ export function EditSheet({ open, onOpenChange, title, description, children }: 
         {(title || description) && (
           <SheetHeader className="pb-4">
             {title && <SheetTitle>{title}</SheetTitle>}
-            {description && <SheetDescription>{description}</SheetDescription>}
+            {description ? <SheetDescription>{description}</SheetDescription> : <SheetDescription className="sr-only">Formulário</SheetDescription>}
           </SheetHeader>
         )}
-        <div ref={contentRef} className="flex-1 px-4 pb-4">
+        <div className="flex-1 px-4 pb-4">
           {children}
         </div>
       </SheetContent>

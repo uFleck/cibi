@@ -2,6 +2,7 @@
 // The Go friend service has no test file; these cover the public friend view (Go GetPublicFriendView)
 // with the fakes of testing/fakesPeerGroup.ts, and the create path.
 import { expect, it } from 'vitest'
+import type { Db } from '../db'
 import type { Friend } from '../repo/friend'
 import type { GroupEvent, GroupEventParticipant } from '../repo/groupEvent'
 import type { PeerDebt } from '../repo/peerDebt'
@@ -10,7 +11,17 @@ import { fakeFriendRepo, fakeGroupEventRepo, fakePeerDebtRepo } from '../testing
 import { FriendService } from './friend'
 import { GroupEventService } from './groupEvent'
 import { PeerDebtService } from './peerDebt'
+import type { LedgerService } from './ledger'
 import { ProfileService } from './profile'
+
+const fakeDb: Db = {
+  query: async () => [],
+  tx: async <T>(fn: () => Promise<T>): Promise<T> => fn(),
+}
+
+function peerDebtService(repo: ReturnType<typeof fakePeerDebtRepo>): PeerDebtService {
+  return new PeerDebtService(fakeDb, repo, {} as LedgerService)
+}
 
 function profileRepoWith(p: UserProfile): ProfileRepo {
   return {
@@ -96,7 +107,7 @@ it('getPublicFriendView: the host sees the hosted group; a blank friend name rea
     anchorDate: null,
     isConfirmed: false,
   }
-  const peerSvc = new PeerDebtService(
+  const peerSvc = peerDebtService(
     fakePeerDebtRepo({
       getByFriend: async () => [debt],
       getBalanceByFriend: async () => ({ friendOwesUser: 0, userOwesFriend: 500, net: -500 }),
@@ -161,7 +172,7 @@ it('getPublicFriendView: an event with no friend host shows the account owner, o
   )
   const svc = new FriendService(friendRepo)
   svc.configurePublicViewDependencies(
-    new PeerDebtService(fakePeerDebtRepo()),
+    peerDebtService(fakePeerDebtRepo()),
     groupSvc,
     new ProfileService(profileRepoWith({ accountId, displayName: '   ', pixKey: 'x', theme: 'neutral-command' })),
   )

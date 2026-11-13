@@ -122,6 +122,10 @@ export interface TransactionsRepo {
   /** The personal as-needed bills of an account. */
   listAsNeeded(accountId: string): Promise<Transaction[]>
   incrementPaidInstallments(id: string): Promise<void>
+  /** Takes one paid parcel back. */
+  decrementPaidInstallments(id: string): Promise<void>
+  /** Clears confirmed_at and makes the one-off pending again. */
+  reopenOneOff(id: string): Promise<void>
   /** Postpones the unpaid parcel by one period (no payment). */
   incrementSkippedInstallments(id: string): Promise<void>
 }
@@ -447,6 +451,24 @@ export class SqliteTxnsRepo implements TransactionsRepo {
         throw wrap('transactions.IncrementPaidInstallments', err)
       },
     )
+  }
+
+  async decrementPaidInstallments(id: string): Promise<void> {
+    await this.exec(
+      `UPDATE "Transaction" SET paid_installments = MAX(paid_installments - 1, 0) WHERE id = ?`,
+      [id],
+    ).catch((err: unknown) => {
+      throw wrap('transactions.DecrementPaidInstallments', err)
+    })
+  }
+
+  async reopenOneOff(id: string): Promise<void> {
+    await this.exec(
+      `UPDATE "Transaction" SET confirmed_at = NULL, requires_confirmation = 1 WHERE id = ?`,
+      [id],
+    ).catch((err: unknown) => {
+      throw wrap('transactions.ReopenOneOff', err)
+    })
   }
 
   async incrementSkippedInstallments(id: string): Promise<void> {

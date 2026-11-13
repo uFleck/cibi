@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
-import { denseActiveRow, denseCell, denseHead, denseNumCell, denseRow, denseTable } from '@/components/ui/dense'
+import { denseCell, denseHead, denseNumCell, denseRow, denseTable } from '@/components/ui/dense'
 import { RowActions } from '@/components/ui/row-actions'
 import { actionsWidth, ROW_GROUP, type RowAction } from '@/lib/row-actions'
-import { useListSelection, useLocalSelection, type SelectionApi } from '@/shell/selection'
 
 export interface DataColumn<T> {
   id: string
@@ -22,30 +21,15 @@ interface DataListProps<T> {
   rows: T[]
   rowId: (row: T) => string
   columns: DataColumn<T>[]
-  /** Row actions. They show on hover, focus or selection, and each `keys` runs on the selected row. */
+  /** Row actions. They show on hover or focus. */
   actions?: (row: T) => RowAction[]
-  /** The selected row, when the page owns it (e.g. to publish it to the inspector). Otherwise the list keeps its own. */
-  selection?: SelectionApi
   /** Shown instead of the table when there are no rows. */
   empty?: ReactNode
   'aria-label'?: string
 }
 
-/**
- * The one table every listing uses: fixed layout so it never scrolls sideways, single-line cells that
- * end in an ellipsis (the full text is the cell's title), hover-only row actions with keyboard shortcuts.
- */
-export function DataList<T>({ rows, rowId, columns, actions, selection, empty, 'aria-label': ariaLabel }: DataListProps<T>) {
-  const local = useLocalSelection()
-  const selectable = actions !== undefined
-  const ids = selectable ? rows.map(rowId) : []
-  const byId = new Map(rows.map(row => [rowId(row), row]))
-  const actionsFor = (id: string) => {
-    const row = byId.get(id)
-    return row !== undefined && actions ? actions(row) : []
-  }
-  const { selectedId, select, activate } = useListSelection({ ids, actionsFor, selection: selection ?? local })
-
+/** A compact, fixed-layout table: cells stay on one line and row actions appear on hover. */
+export function DataList<T>({ rows, rowId, columns, actions, empty, 'aria-label': ariaLabel }: DataListProps<T>) {
   if (rows.length === 0 && empty !== undefined) {
     return <div className="rounded-md border border-line bg-surface px-3 py-6 text-center text-xs text-faint">{empty}</div>
   }
@@ -53,7 +37,7 @@ export function DataList<T>({ rows, rowId, columns, actions, selection, empty, '
   const actionCount = actions ? Math.max(0, ...rows.map(row => actions(row).length)) : 0
 
   return (
-    <div className="overflow-hidden rounded-md border border-line bg-surface" onPointerDown={activate} onFocus={activate}>
+    <div className="overflow-hidden rounded-md border border-line bg-surface">
       <table className={cn(denseTable, 'table-fixed')} aria-label={ariaLabel}>
         <thead>
           <tr>
@@ -70,13 +54,7 @@ export function DataList<T>({ rows, rowId, columns, actions, selection, empty, '
             const id = rowId(row)
             const rowActions = actions?.(row) ?? []
             return (
-              <tr
-                key={id}
-                data-row={id}
-                data-selected={id === selectedId}
-                onClick={selectable ? () => select(id) : undefined}
-                className={cn(denseRow, ROW_GROUP, selectable && 'cursor-pointer', id === selectedId && denseActiveRow)}
-              >
+              <tr key={id} data-row={id} className={cn(denseRow, ROW_GROUP)}>
                 {columns.map(column => {
                   const content = column.cell(row)
                   return (

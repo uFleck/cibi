@@ -95,6 +95,8 @@ export interface PeerDebtRepo {
   confirmInstallment(id: string): Promise<void>
   /** Toggles a lump sum's confirmation, or steps an installment up or back. Rejects when the id is unknown. */
   toggleInstallmentConfirmation(id: string): Promise<void>
+  /** Takes one payment back: an installment steps down, a lump sum is unconfirmed. */
+  unconfirm(id: string): Promise<void>
 }
 
 function bit(v: boolean): number {
@@ -431,6 +433,31 @@ export class SqlitePeerDebtRepo implements PeerDebtRepo {
       throw wrap('peer_debt.ToggleInstallmentConfirmation', err)
     }
     if (changed === 0) throw wrap('peer_debt.ToggleInstallmentConfirmation', ErrNoRows)
+  }
+
+  async unconfirm(id: string): Promise<void> {
+    let changed: number
+    try {
+      changed = await execRowsAffected(
+        this.db,
+        `
+		UPDATE "Transaction"
+		SET
+			paid_installments = CASE
+				WHEN is_installment = 1 THEN MAX(paid_installments - 1, 0)
+				ELSE paid_installments
+			END,
+			confirmed_at = CASE
+				WHEN is_installment = 0 THEN NULL
+				ELSE confirmed_at
+			END
+		WHERE id = ? AND type = 'peer'`,
+        [id],
+      )
+    } catch (err) {
+      throw wrap('peer_debt.Unconfirm', err)
+    }
+    if (changed === 0) throw wrap('peer_debt.Unconfirm', ErrNoRows)
   }
 
   async sumNextUserPayment(accountId: string | null): Promise<number> {

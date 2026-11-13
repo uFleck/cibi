@@ -16,7 +16,7 @@ import { bindBody } from './bind'
 import { formatDbTime } from '../dates'
 
 /** The service methods the handlers use (Go: the concrete *service.LedgerService). */
-export type LedgerServiceIface = Pick<LedgerService, 'list' | 'delete' | 'recordIncome'>
+export type LedgerServiceIface = Pick<LedgerService, 'list' | 'delete' | 'recordIncome' | 'reverse'>
 
 /** JSON shape of a ledger entry (Go: LedgerEntryResponse). Amounts are dollars. */
 export interface LedgerEntryResponse {
@@ -28,6 +28,12 @@ export interface LedgerEntryResponse {
   amount: number
   description: string
   posted_at: string
+  /** The due date (or payday) this entry settled; null for a manual entry. */
+  occurrence_date: string | null
+  /** Set on a reversal: the entry it reverses. */
+  reverses_entry_id: string | null
+  /** Set on the original: the reversal that undid it. */
+  reversed_by_id: string | null
 }
 
 const INCOME_SCHEMA = {
@@ -54,6 +60,9 @@ export function toLedgerEntryResponse(e: LedgerEntry): LedgerEntryResponse {
     amount: e.amount / 100,
     description: e.description,
     posted_at: formatDbTime(e.postedAt),
+    occurrence_date: e.occurrenceDate === null ? null : formatDbTime(e.occurrenceDate),
+    reverses_entry_id: e.reversesEntryId,
+    reversed_by_id: e.reversedById,
   }
 }
 
@@ -80,6 +89,16 @@ export function registerLedgerRoutes(app: App, svc: LedgerServiceIface = app.led
       throw err
     })
     return { status: 204 }
+  })
+
+  // Undoes a manual entry without erasing it: the reversal points at the original.
+  route('POST', '/api/ledger/:id/reverse', async ({ params }) => {
+    const id = parseIdOr400(params.id, 'invalid id')
+    const reversalId = await svc.reverse(id).catch((err: unknown) => {
+      if (isErr(err, ErrNoRows)) throw new HttpError(404, 'ledger entry not found or already reversed')
+      throw err
+    })
+    return { body: { id: reversalId } }
   })
 
   route('POST', '/api/ledger/income', async ({ body }) => {

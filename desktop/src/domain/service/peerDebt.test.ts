@@ -2,9 +2,21 @@
 // Ports of internal/service/peer_debt_test.go (3 tests). The Go mockPeerDebtRepo is fakePeerDebtRepo
 // (testing/fakesPeerGroup.ts). The Go scoped-pointer checks compare the account id the repo received.
 import { expect, it } from 'vitest'
+import type { Db } from '../db'
 import type { ActiveUserDebt, PeerDebt } from '../repo/peerDebt'
 import { fakePeerDebtRepo } from '../testing/fakesPeerGroup'
 import { PeerDebtService } from './peerDebt'
+import type { LedgerService } from './ledger'
+
+/** The settlement path is not exercised here, so the db and ledger are inert stand-ins. */
+const fakeDb: Db = {
+  query: async () => [],
+  tx: async <T>(fn: () => Promise<T>): Promise<T> => fn(),
+}
+
+function service(repo: ReturnType<typeof fakePeerDebtRepo>): PeerDebtService {
+  return new PeerDebtService(fakeDb, repo, {} as LedgerService)
+}
 
 // TestGetFriendDebtBreakdown_InstallmentComputesNextPaymentDate
 it('TestGetFriendDebtBreakdown_InstallmentComputesNextPaymentDate', async () => {
@@ -23,7 +35,7 @@ it('TestGetFriendDebtBreakdown_InstallmentComputesNextPaymentDate', async () => 
     ],
   })
 
-  const svc = new PeerDebtService(repo)
+  const svc = service(repo)
   const items = await svc.getFriendDebtBreakdown(null)
   expect(items).toHaveLength(1)
   expect(items[0]?.nextPayment).toBe(2500)
@@ -43,7 +55,7 @@ it('TestGetFriendDebtBreakdownByAccount_UsesScopedPath', async () => {
     },
   })
 
-  const svc = new PeerDebtService(repo)
+  const svc = service(repo)
   await svc.getFriendDebtBreakdownByAccount(accountId)
   expect(captured).not.toBeNull()
   expect(captured).toBe(accountId)
@@ -61,7 +73,7 @@ it('TestSumNextUserPaymentByAccount_UsesOptionalAccountRepoCall', async () => {
     },
   })
 
-  const svc = new PeerDebtService(repo)
+  const svc = service(repo)
   const sum = await svc.sumNextUserPaymentByAccount(accountId)
   expect(sum).toBe(4242)
   expect(captured).not.toBeNull()
@@ -94,7 +106,7 @@ it('a lump-sum debt is one payment due on its date as stored, and an installment
       },
     ],
   })
-  const items = await new PeerDebtService(repo).getFriendDebtBreakdown(null)
+  const items = await service(repo).getFriendDebtBreakdown(null)
   expect(items).toEqual([
     {
       friendName: 'Bia',
@@ -135,7 +147,7 @@ it('an installment whose date does not parse has no next payment date', async ()
       },
     ],
   })
-  const items = await new PeerDebtService(repo).getFriendDebtBreakdown(null)
+  const items = await service(repo).getFriendDebtBreakdown(null)
   expect(items[0]?.nextPayment).toBe(300)
   expect(items[0]?.nextPaymentDate).toBeNull()
 })
@@ -147,7 +159,7 @@ it('createDebt assigns a new id and passes the row to the repo', async () => {
       inserted = d
     },
   })
-  const created = await new PeerDebtService(repo).createDebt({
+  const created = await service(repo).createDebt({
     accountId: crypto.randomUUID(),
     friendId: crypto.randomUUID(),
     amount: -500,

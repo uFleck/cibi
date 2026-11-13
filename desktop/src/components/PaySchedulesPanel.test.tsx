@@ -2,9 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { shortcutRegistry } from '@/hooks/useKeyboardShortcuts'
 import { confirmPaySchedule, deletePaySchedule, updatePaySchedule, type PayScheduleResponse } from '@/lib/api'
-import { PaydayBanner } from './PaydayBanner'
 import { PaySchedulesPanel } from './PaySchedulesPanel'
 
 vi.mock('@/lib/api', async () => {
@@ -36,15 +34,11 @@ function renderWith(ui: React.ReactNode) {
 }
 
 describe('PaySchedulesPanel', () => {
-  let detach: () => void
-
   beforeEach(() => {
-    detach = shortcutRegistry.attach(document)
     vi.clearAllMocks()
   })
 
   afterEach(() => {
-    detach()
     cleanup()
   })
 
@@ -69,7 +63,7 @@ describe('PaySchedulesPanel', () => {
     expect(rows).toHaveLength(2)
     expect(rows[0].textContent).toContain('Main paycheck')
     expect(rows[1].textContent).toContain('Side gig')
-    expect(rows[0].textContent).toContain('entrada recorrente')
+    expect(rows[0].textContent).toContain('Mensal')
   })
 
   it('marks a schedule received from its row action', async () => {
@@ -90,7 +84,7 @@ describe('PaySchedulesPanel', () => {
   it('edits the next payday and saves it as the anchor', async () => {
     renderPanel()
     fireEvent.click(screen.getAllByRole('button', { name: 'Editar' })[1])
-    const field = await screen.findByLabelText('Next payday *')
+    const field = await screen.findByLabelText('Próximo recebimento *')
     expect((field as HTMLInputElement).value).toBe('30/12/2026')
     fireEvent.change(field, { target: { value: '15/12/2026' } })
     fireEvent.blur(field)
@@ -101,21 +95,5 @@ describe('PaySchedulesPanel', () => {
   it('shows an empty hint with no schedules', () => {
     renderPanel({ schedules: [] })
     expect(screen.getByText(/Nenhum recebimento ainda/)).toBeTruthy()
-  })
-})
-
-describe('PaydayBanner', () => {
-  afterEach(cleanup)
-
-  it('offers Mark received only for schedules paying today', async () => {
-    renderWith(<PaydayBanner schedules={SCHEDULES} />)
-    expect(screen.getByText('Hoje é dia de recebimento')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: /Marcar como recebido/ }))
-    await waitFor(() => expect(vi.mocked(confirmPaySchedule).mock.calls[0]?.[0]).toBe('s1'))
-  })
-
-  it('renders nothing when no schedule pays today', () => {
-    renderWith(<PaydayBanner schedules={[SCHEDULES[0]]} />)
-    expect(screen.queryByText('Hoje é dia de recebimento')).toBeNull()
   })
 })

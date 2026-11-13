@@ -11,6 +11,7 @@ import type { Db } from '../db'
 import { AppError, wrapping } from '../errors'
 import { addDays } from '../dates'
 import { addMonthClamped, FREQ_BI_WEEKLY, FREQ_MONTHLY, FREQ_WEEKLY, FREQ_YEARLY } from '../engine/engine'
+import { nextInstallmentDue } from '../engine/installment'
 import { normalizeCategory, type CategoryOption } from '../categories'
 import { classificationText, suggestCategory } from '../classifier'
 import type { AccountsRepo } from '../repo/accounts'
@@ -355,6 +356,7 @@ export class TransactionsService {
             amount: debit,
             description: t.title,
             postedAt: now,
+            occurrenceDate: t.isAsNeeded ? now : (t.nextOccurrence ?? t.anchorDate ?? t.timestamp),
           },
           true,
         ),
@@ -396,6 +398,10 @@ export class TransactionsService {
       throw new AppError(`service.ConfirmInstallment: all installments already paid for transaction ${transactionId}`)
     }
 
+    const occurrence = t.anchorDate === null
+      ? t.timestamp
+      : nextInstallmentDue(t.anchorDate, t.paidInstallments, t.frequency ?? FREQ_MONTHLY)
+
     await this.db.tx(async () => {
       await wrapping('service.ConfirmInstallment: record ledger', () =>
         this.ledgerSvc.recordEntry(
@@ -407,6 +413,7 @@ export class TransactionsService {
             amount: t.amount,
             description: t.title,
             postedAt: new Date(),
+            occurrenceDate: occurrence,
           },
           true,
         ),
@@ -414,6 +421,53 @@ export class TransactionsService {
       await wrapping('service.ConfirmInstallment: increment paid', () =>
         this.txnsRepo.incrementPaidInstallments(transactionId),
       )
+    })
+  }
+
+  /**
+   * Undoes the latest payment of a transaction: inserts a reversal (the original stays in the
+   * statement), restores the bill's due date, the installment count or the one-off pending state,
+   * and recomputes the balance.
+   */
+  async unconfirmRecurring(transactionId: string): Promise<void> {
+    const t = await wrapping('service.UnconfirmRecurring: get transaction', () =>
+      this.txnsRepo.getById(transactionId),
+    )
+    const entry = await wrapping('service.UnconfirmRecurring: find ledger', () =>
+      this.ledgerSvc.findLatestByTransactionId(transactionId),
+    )
+    if (entry === null) {
+      throw new AppError(`service.UnconfirmRecurring: transaction ${transactionId} has no payment to undo`)
+    }
+
+    await this.db.tx(async () => {
+      await wrapping('service.UnconfirmRecurring: reverse ledger', () =>
+        this.ledgerSvc.reverseEntry(entry, true),
+      )
+
+      if (t.isInstallment) {
+        await wrapping('service.UnconfirmRecurring: decrement paid', () =>
+          this.txnsRepo.decrementPaidInstallments(transactionId),
+        )
+        return
+      }
+
+      if (t.isRecurring && !t.isAsNeeded) {
+        const restore = entry.occurrenceDate ?? (t.nextOccurrence === null ? null : previousOccurrence(t.nextOccurrence, t.frequency))
+        const earlier = restore !== null && (t.nextOccurrence === null || restore.getTime() < t.nextOccurrence.getTime())
+        if (earlier && restore !== null) {
+          await wrapping('service.UnconfirmRecurring: restore next_occurrence', () =>
+            this.txnsRepo.advanceNextOccurrence(transactionId, restore),
+          )
+        }
+        return
+      }
+
+      if (!t.isRecurring) {
+        await wrapping('service.UnconfirmRecurring: reopen one-off', () =>
+          this.txnsRepo.reopenOneOff(transactionId),
+        )
+      }
     })
   }
 
@@ -522,5 +576,22 @@ export function advanceOccurrence(current: Date, frequency: string): Date {
     default:
       // Fallback — treat as monthly
       return addMonthClamped(current, 1)
+  }
+}
+
+/** One interval before `current`, for undoing a confirmation that has no stored occurrence date. */
+function previousOccurrence(current: Date, frequency: string | null): Date | null {
+  switch (frequency) {
+    case FREQ_WEEKLY:
+      return addDays(current, -7)
+    case FREQ_BI_WEEKLY:
+    case 'biweekly':
+      return addDays(current, -14)
+    case FREQ_MONTHLY:
+      return addMonthClamped(current, -1)
+    case FREQ_YEARLY:
+      return addMonthClamped(current, -12)
+    default:
+      return null
   }
 }

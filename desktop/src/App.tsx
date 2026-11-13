@@ -1,19 +1,17 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { RouterProvider, Outlet } from '@tanstack/react-router'
-import { MotionConfig } from 'motion/react'
 import { Toaster } from '@/components/ui/sonner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { router } from './router'
 import { fetchAccounts } from '@/lib/api'
 import { AppShell } from '@/shell/AppShell'
-import { LayoutProvider } from '@/widgets/LayoutProvider'
 import { AccountContext, ThemeContext, type ThemeMode } from '@/shell/contexts'
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,
+      staleTime: 15_000,
       refetchInterval: 30_000,
       refetchOnWindowFocus: true,
     },
@@ -25,11 +23,9 @@ export type { ThemeMode }
 
 export function RootLayout() {
   return (
-    <LayoutProvider>
-      <AppShell>
-        <Outlet />
-      </AppShell>
-    </LayoutProvider>
+    <AppShell>
+      <Outlet />
+    </AppShell>
   )
 }
 
@@ -123,10 +119,8 @@ function AppProviders() {
 
 export default function App() {
   return (
-    <MotionConfig reducedMotion="user">
-      <QueryClientProvider client={queryClient}>
-        <AppProviders />
-      </QueryClientProvider>
-    </MotionConfig>
+    <QueryClientProvider client={queryClient}>
+      <AppProviders />
+    </QueryClientProvider>
   )
 }

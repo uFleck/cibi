@@ -57,6 +57,52 @@ export class LedgerService {
     })
   }
 
+  /**
+   * Undoes an entry without erasing it: inserts a reversal with the opposite amount, marks the
+   * original as reversed, and recomputes the balance. Returns the reversal id.
+   */
+  async reverseEntry(entry: LedgerEntry, alreadyInTx = false): Promise<string> {
+    const run = async (): Promise<string> => {
+      const reversalId = crypto.randomUUID()
+      const reversal: NewLedgerEntry = {
+        id: reversalId,
+        accountId: entry.accountId,
+        transactionId: entry.transactionId,
+        payScheduleId: entry.payScheduleId,
+        entryType: 'manual_adjustment',
+        amount: -entry.amount,
+        description: `Estorno: ${entry.description}`,
+        postedAt: new Date(),
+        occurrenceDate: entry.occurrenceDate,
+        reversesEntryId: entry.id,
+      }
+      await wrapping('service.LedgerService.Reverse: insert', () => this.ledgerRepo.insert(reversal))
+      await wrapping('service.LedgerService.Reverse: mark', () =>
+        this.ledgerRepo.markReversed(entry.id, reversalId),
+      )
+      const newBalance = await wrapping('service.LedgerService.Reverse: sum', () =>
+        this.ledgerRepo.sumByAccount(entry.accountId),
+      )
+      await wrapping('service.LedgerService.Reverse: update balance', () =>
+        this.accRepo.updateBalance(entry.accountId, newBalance),
+      )
+      return reversalId
+    }
+    if (alreadyInTx) return run()
+    try {
+      return await this.db.tx(run)
+    } catch (err) {
+      throw wrap('service.LedgerService.Reverse', err)
+    }
+  }
+
+  /** Reverses an entry by id. Rejects with ErrNoRows when it does not exist or is already reversed. */
+  async reverse(id: string): Promise<string> {
+    const entry = await wrapping('service.LedgerService.Reverse: find', () => this.ledgerRepo.findById(id))
+    if (entry === null || entry.reversedById !== null) throw wrap('service.LedgerService.Reverse', ErrNoRows)
+    return this.reverseEntry(entry)
+  }
+
   /** Deletes the ledger entry of a transaction. A no-op when there is none. */
   async deleteByTransactionId(txnId: string): Promise<void> {
     const entry = await wrapping('service.LedgerService.DeleteByTransactionID: find', () =>
@@ -73,6 +119,14 @@ export class LedgerService {
 
   findByTransactionId(id: string): Promise<LedgerEntry | null> {
     return this.ledgerRepo.findByTransactionId(id)
+  }
+
+  findLatestByTransactionId(id: string): Promise<LedgerEntry | null> {
+    return this.ledgerRepo.findLatestByTransactionId(id)
+  }
+
+  findLatestByPayScheduleId(id: string): Promise<LedgerEntry | null> {
+    return this.ledgerRepo.findLatestByPayScheduleId(id)
   }
 
   /** All ledger entries of an account, newest first (SQL order by posted_at). */

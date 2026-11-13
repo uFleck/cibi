@@ -89,19 +89,31 @@ function fakeLedgerRepo(accountId: string, seedBalance: number): LedgerRepo {
       amount: seedBalance,
       description: '',
       postedAt: new Date(),
+      occurrenceDate: null,
+      reversesEntryId: null,
+      reversedById: null,
     },
   ]
   return {
     insert: async (e: NewLedgerEntry) => {
-      entries.push({ ...e, id: e.id ?? crypto.randomUUID() })
+      entries.push({
+        ...e,
+        id: e.id ?? crypto.randomUUID(),
+        occurrenceDate: e.occurrenceDate ?? null,
+        reversesEntryId: e.reversesEntryId ?? null,
+        reversedById: e.reversedById ?? null,
+      })
     },
     listByAccount: unset,
     deleteById: unset,
     findByTransactionId: unset,
+    findLatestByTransactionId: unset,
+    findLatestByPayScheduleId: unset,
     findById: unset,
     sumByAccount: async (id: string) =>
       entries.filter((e) => e.accountId === id).reduce((sum, e) => sum + e.amount, 0),
     updateAmount: unset,
+    markReversed: unset,
     detachFromTransaction: unset,
   }
 }

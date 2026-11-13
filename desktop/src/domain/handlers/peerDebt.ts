@@ -28,6 +28,8 @@ export type PeerDebtServiceIface = Pick<
   | 'deleteDebt'
   | 'confirmInstallment'
   | 'toggleInstallmentConfirmation'
+  | 'settle'
+  | 'unsettle'
 >
 
 /** JSON shape of a peer debt (Go: PeerDebtResponse). Amount is dollars. */
@@ -155,6 +157,19 @@ export function registerPeerDebtRoutes(app: App, svc: PeerDebtServiceIface = app
   route('POST', '/api/peer-debts/:id/confirm-toggle', async ({ params }) => {
     const id = parseIdOr400(params.id, INVALID_ID)
     await svc.toggleInstallmentConfirmation(id).catch(notFoundOr500(NOT_FOUND))
+    return { status: 204 }
+  })
+
+  // Pays one parcel (or the whole lump sum) through the ledger, so the balance follows the debt.
+  route('POST', '/api/peer-debts/:id/settle', async ({ params }) => {
+    const id = parseIdOr400(params.id, INVALID_ID)
+    await svc.settle(id).catch(notFoundOr500(NOT_FOUND))
+    return { status: 204 }
+  })
+
+  route('POST', '/api/peer-debts/:id/unsettle', async ({ params }) => {
+    const id = parseIdOr400(params.id, INVALID_ID)
+    await svc.unsettle(id).catch(notFoundOr500(NOT_FOUND))
     return { status: 204 }
   })
 }

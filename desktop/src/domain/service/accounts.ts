@@ -24,10 +24,26 @@ export class AccountsService {
   /**
    * Inserts a new account. A safety buffer of 0 becomes DEFAULT_SAFETY_BUFFER_CENTS in the
    * stored row. The caller's object is not changed (Go passes the struct by value).
+   *
+   * The initial balance is recorded as an opening_balance ledger entry, so the first payment
+   * recomputes the balance from the ledger without losing it.
    */
   async createAccount(a: NewAccount): Promise<void> {
     const row: NewAccount = a.safetyBuffer === 0 ? { ...a, safetyBuffer: DEFAULT_SAFETY_BUFFER_CENTS } : a
     await wrapping('service.CreateAccount', () => this.accRepo.insert(row))
+    if (row.currentBalance !== 0) {
+      await wrapping('service.CreateAccount: opening balance', () =>
+        this.ledgerSvc.recordEntry({
+          accountId: row.id,
+          transactionId: null,
+          payScheduleId: null,
+          entryType: 'opening_balance',
+          amount: row.currentBalance,
+          description: 'Saldo inicial',
+          postedAt: new Date(),
+        }),
+      )
+    }
   }
 
   deleteAccount(id: string): Promise<void> {
@@ -59,7 +75,7 @@ export class AccountsService {
             payScheduleId: null,
             entryType: 'manual_adjustment',
             amount: delta,
-            description: 'Manual balance adjustment',
+            description: 'Ajuste manual de saldo',
             postedAt: new Date(),
           }),
         )

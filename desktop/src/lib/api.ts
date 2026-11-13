@@ -310,6 +310,12 @@ export function confirmPaySchedule(id: string): Promise<PayScheduleResponse> {
   })
 }
 
+export function unconfirmPaySchedule(id: string): Promise<PayScheduleResponse> {
+  return apiFetch<PayScheduleResponse>(`/api/pay-schedule/${id}/unconfirm`, {
+    method: 'POST',
+  })
+}
+
 // Accounts CRUD
 export function fetchAccounts(): Promise<AccountResponse[]> {
   return apiFetch<AccountResponse[]>('/api/accounts')
@@ -383,6 +389,7 @@ export function updateTransaction(
     requires_confirmation: boolean
     frequency: string
     anchor_date: string
+    next_occurrence: string
     is_installment: boolean
     total_installments: number | null
     estimate_source: string
@@ -502,6 +509,11 @@ export function confirmTransaction(id: string, amount?: number): Promise<Transac
   })
 }
 
+/** Undoes the latest payment of a bill: a reversal is added and the bill goes back to its date. */
+export function unconfirmTransaction(id: string): Promise<TransactionResponse> {
+  return apiFetch<TransactionResponse>(`/api/transactions/${id}/unconfirm`, { method: 'POST' })
+}
+
 /** Skips one occurrence of a recurring bill: it moves to its next date and the balance stays. */
 export function skipTransaction(id: string): Promise<TransactionResponse> {
   return apiFetch<TransactionResponse>(`/api/transactions/${id}/skip`, { method: 'POST' })
@@ -596,6 +608,7 @@ export interface CreatePeerDebtRequest {
   is_installment?: boolean
   total_installments?: number
   frequency?: string
+  anchor_date?: string
 }
 
 export interface PatchPeerDebtRequest {
@@ -724,6 +737,24 @@ export function toggleDebtConfirm(id: string): Promise<void> {
   })
 }
 
+/** Pays one parcel (or the whole lump sum) through the ledger. */
+export function settleDebt(id: string): Promise<void> {
+  return apiFetch<void>(`/api/peer-debts/${id}/settle`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  })
+}
+
+/** Undoes the latest settlement: the ledger is reversed and the debt steps back. */
+export function unsettleDebt(id: string): Promise<void> {
+  return apiFetch<void>(`/api/peer-debts/${id}/unsettle`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  })
+}
+
 // Group Events
 export function listGroupEvents(accountId: string): Promise<GroupEventResponse[]> {
   return apiFetch<GroupEventResponse[]>(`/api/group-events?account_id=${accountId}`)
@@ -827,6 +858,9 @@ export interface LedgerEntryResponse {
   amount: number
   description: string
   posted_at: string
+  occurrence_date?: string | null
+  reverses_entry_id?: string | null
+  reversed_by_id?: string | null
 }
 
 export function fetchLedger(accountId: string): Promise<LedgerEntryResponse[]> {
@@ -835,6 +869,11 @@ export function fetchLedger(accountId: string): Promise<LedgerEntryResponse[]> {
 
 export function deleteLedgerEntry(id: string): Promise<void> {
   return apiFetch<void>(`/api/ledger/${id}`, { method: 'DELETE' })
+}
+
+/** Undoes a manual entry without erasing it: the reversal points at the original. */
+export function reverseLedgerEntry(id: string): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>(`/api/ledger/${id}/reverse`, { method: 'POST' })
 }
 
 export function recordIncome(payload: {

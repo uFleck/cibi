@@ -21,28 +21,59 @@ export interface LedgerEntry {
   amount: number
   description: string
   postedAt: Date
+  /** The due date (or payday) this entry settled; null for a manual entry. */
+  occurrenceDate: Date | null
+  /** Set on a reversal: the entry it reverses. */
+  reversesEntryId: string | null
+  /** Set on the original: the reversal that undid it. */
+  reversedById: string | null
 }
 
 /** A ledger entry before insert. The repo assigns the id when it is omitted (Go: uuid.Nil). */
-export type NewLedgerEntry = Omit<LedgerEntry, 'id'> & { id?: string }
+export type NewLedgerEntry = Omit<
+  LedgerEntry,
+  'id' | 'occurrenceDate' | 'reversesEntryId' | 'reversedById'
+> & {
+  id?: string
+  occurrenceDate?: Date | null
+  reversesEntryId?: string | null
+  reversedById?: string | null
+}
 
 export interface LedgerRepo {
   insert(e: NewLedgerEntry): Promise<void>
   listByAccount(accountId: string): Promise<LedgerEntry[]>
   deleteById(id: string): Promise<void>
   findByTransactionId(txnId: string): Promise<LedgerEntry | null>
+  /** The latest entry of a transaction that is neither a reversal nor already reversed. */
+  findLatestByTransactionId(txnId: string): Promise<LedgerEntry | null>
+  /** The latest income entry of a pay schedule that is neither a reversal nor already reversed. */
+  findLatestByPayScheduleId(payScheduleId: string): Promise<LedgerEntry | null>
   findById(id: string): Promise<LedgerEntry | null>
   sumByAccount(accountId: string): Promise<number>
   updateAmount(id: string, amount: number): Promise<void>
+  /** Marks the original entry as undone by `reversalId`. */
+  markReversed(originalId: string, reversalId: string): Promise<void>
   /** Sets transaction_id to null on every entry of a transaction. The rows and their amounts stay. */
   detachFromTransaction(txnId: string): Promise<void>
 }
 
-const SELECT_ENTRY = `SELECT id, account_id, transaction_id, pay_schedule_id, entry_type, amount, description, posted_at`
+const SELECT_ENTRY = `SELECT id, account_id, transaction_id, pay_schedule_id, entry_type, amount, description, posted_at,
+  occurrence_date, reverses_entry_id, reversed_by_id`
 
 function nullableUuid(row: Row, name: string): string | null {
   const v = nullableTextCol(row, name)
   return v === null ? null : parseUuid(v)
+}
+
+function nullableDate(row: Row, name: string): Date | null {
+  const v = nullableTextCol(row, name)
+  if (v === null) return null
+  try {
+    return parseDbTime(v)
+  } catch {
+    return null
+  }
 }
 
 function scanLedger(row: Row): LedgerEntry {
@@ -55,6 +86,9 @@ function scanLedger(row: Row): LedgerEntry {
     amount: intCol(row, 'amount'),
     description: textCol(row, 'description'),
     postedAt: parseDbTime(textCol(row, 'posted_at')),
+    occurrenceDate: nullableDate(row, 'occurrence_date'),
+    reversesEntryId: nullableUuid(row, 'reverses_entry_id'),
+    reversedById: nullableUuid(row, 'reversed_by_id'),
   }
 }
 
@@ -76,11 +110,15 @@ export class SqliteLedgerRepo implements LedgerRepo {
       e.amount,
       e.description,
       formatDbTime(e.postedAt),
+      e.occurrenceDate === undefined || e.occurrenceDate === null ? null : formatDbTime(e.occurrenceDate),
+      e.reversesEntryId ?? null,
+      e.reversedById ?? null,
     ]
     try {
       await this.db.query(
-        `INSERT INTO ledger (id, account_id, transaction_id, pay_schedule_id, entry_type, amount, description, posted_at)
-	      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO ledger (id, account_id, transaction_id, pay_schedule_id, entry_type, amount, description, posted_at,
+          occurrence_date, reverses_entry_id, reversed_by_id)
+	      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args,
       )
     } catch (err) {
@@ -116,6 +154,20 @@ export class SqliteLedgerRepo implements LedgerRepo {
 		FROM ledger WHERE transaction_id = ? LIMIT 1`, txnId, 'ledger.FindByTransactionID')
   }
 
+  async findLatestByTransactionId(txnId: string): Promise<LedgerEntry | null> {
+    return this.findOne(`${SELECT_ENTRY}
+		FROM ledger
+		WHERE transaction_id = ? AND reverses_entry_id IS NULL AND reversed_by_id IS NULL
+		ORDER BY posted_at DESC, rowid DESC LIMIT 1`, txnId, 'ledger.FindLatestByTransactionID')
+  }
+
+  async findLatestByPayScheduleId(payScheduleId: string): Promise<LedgerEntry | null> {
+    return this.findOne(`${SELECT_ENTRY}
+		FROM ledger
+		WHERE pay_schedule_id = ? AND reverses_entry_id IS NULL AND reversed_by_id IS NULL
+		ORDER BY posted_at DESC, rowid DESC LIMIT 1`, payScheduleId, 'ledger.FindLatestByPayScheduleID')
+  }
+
   async findById(id: string): Promise<LedgerEntry | null> {
     return this.findOne(`${SELECT_ENTRY}
 		FROM ledger WHERE id = ?`, id, 'ledger.FindByID')
@@ -137,6 +189,14 @@ export class SqliteLedgerRepo implements LedgerRepo {
       await this.db.query(`UPDATE ledger SET amount = ? WHERE id = ?`, [amount, id])
     } catch (err) {
       throw wrap('ledger.UpdateAmount', err)
+    }
+  }
+
+  async markReversed(originalId: string, reversalId: string): Promise<void> {
+    try {
+      await this.db.query(`UPDATE ledger SET reversed_by_id = ? WHERE id = ?`, [reversalId, originalId])
+    } catch (err) {
+      throw wrap('ledger.MarkReversed', err)
     }
   }
 

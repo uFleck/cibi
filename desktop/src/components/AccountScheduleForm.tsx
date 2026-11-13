@@ -44,16 +44,16 @@ export function AccountScheduleForm({
       </h4>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="schedule-label" className="text-xs">Label</Label>
+          <Label htmlFor="schedule-label" className="text-xs">Nome</Label>
           <Input
             id="schedule-label"
-            placeholder="e.g. Main paycheck"
+            placeholder="Ex.: Salário"
             value={scheduleForm.label}
             onChange={e => onChange({ label: e.target.value })}
           />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="schedule-frequency" className="text-xs">Frequency</Label>
+          <Label htmlFor="schedule-frequency" className="text-xs">Repete</Label>
           <Select
             value={scheduleForm.frequency}
             onValueChange={v => onChange({ frequency: v as AccountScheduleFrequency })}
@@ -70,7 +70,7 @@ export function AccountScheduleForm({
           </Select>
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="schedule-anchor" className="text-xs">Next payday *</Label>
+          <Label htmlFor="schedule-anchor" className="text-xs">Próximo recebimento *</Label>
           <DateInput
             id="schedule-anchor"
             value={scheduleForm.anchor_date}
@@ -82,11 +82,11 @@ export function AccountScheduleForm({
           {scheduleFormErrors.anchor_date ? (
             <p className="text-xs text-destructive">{scheduleFormErrors.anchor_date}</p>
           ) : (
-            <p className="text-xs text-faint">Later paydays follow from this date.</p>
+            <p className="text-xs text-faint">Os próximos recebimentos seguem esta data.</p>
           )}
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="schedule-amount" className="text-xs">Amount ($) *</Label>
+          <Label htmlFor="schedule-amount" className="text-xs">Valor *</Label>
           <ValueInput
             id="schedule-amount"
             value={scheduleForm.amount}
@@ -103,7 +103,7 @@ export function AccountScheduleForm({
         </div>
         {scheduleForm.frequency === 'semi-monthly' && (
           <div className="flex flex-col gap-2">
-            <Label htmlFor="schedule-day2" className="text-xs">Day of Month 2</Label>
+            <Label htmlFor="schedule-day2" className="text-xs">Segundo dia do mês</Label>
             <Input
               id="schedule-day2"
               type="number"

@@ -13,6 +13,7 @@ import peerTitleSql from './migrations/0006_peer_debt_title.sql?raw'
 import categoryTableSql from './migrations/0007_category_table.sql?raw'
 import dropDefaultSql from './migrations/0008_drop_account_default.sql?raw'
 import reserveSql from './migrations/0010_reserve.sql?raw'
+import ledgerAuditSql from './migrations/0013_ledger_audit.sql?raw'
 import { createTestDb, wrapDatabaseSync } from './testing/testDb'
 
 interface SchemaRow {
@@ -46,6 +47,16 @@ async function dropEstimate(db: Db): Promise<void> {
   await db.query('DROP TABLE ReserveEntry')
   await db.query('ALTER TABLE "Transaction" DROP COLUMN estimate_source')
   await db.query('ALTER TABLE "Transaction" DROP COLUMN estimate_key')
+  await dropLedgerAudit(db)
+}
+
+/** Removes what 0013 adds, so a test can migrate from an older version again. */
+async function dropLedgerAudit(db: Db): Promise<void> {
+  await db.query('DROP INDEX IF EXISTS idx_ledger_transaction_id')
+  await db.query('DROP INDEX IF EXISTS idx_ledger_pay_schedule_id')
+  await db.query('ALTER TABLE ledger DROP COLUMN reversed_by_id')
+  await db.query('ALTER TABLE ledger DROP COLUMN reverses_entry_id')
+  await db.query('ALTER TABLE ledger DROP COLUMN occurrence_date')
 }
 
 /** Puts the schema back to what 0004 left: the title is the description again, there is no link or Category table, and Account has is_default. */
@@ -101,10 +112,10 @@ describe('splitStatements', () => {
 })
 
 describe('migrate', () => {
-  it('fresh database: sets user_version 12 and creates the baseline schema, AppSetting, the category column and the budget tables', async () => {
+  it('fresh database: sets user_version 14 and creates the baseline schema, AppSetting, the category column and the budget tables', async () => {
     const db = await createTestDb({ migrate: false })
     await migrate(db)
-    expect(await userVersion(db)).toBe(12)
+    expect(await userVersion(db)).toBe(14)
     expect(await transactionColumns(db)).toContain('category')
 
     const tables = (
@@ -124,6 +135,7 @@ describe('migrate', () => {
       ...splitStatements(categoryTableSql),
       ...splitStatements(dropDefaultSql),
       ...splitStatements(reserveSql),
+      ...splitStatements(ledgerAuditSql),
     ]
     const expected = {
       table: statements.filter((s) => /^CREATE TABLE/i.test(s)).length,
@@ -157,12 +169,12 @@ describe('migrate', () => {
     const db = await createTestDb()
     const before = await schemaSnapshot(db)
     await migrate(db)
-    expect(await userVersion(db)).toBe(12)
+    expect(await userVersion(db)).toBe(14)
     expect(await schemaSnapshot(db)).toEqual(before)
     db.close()
   })
 
-  it('existing database path: user_version 0 with the schema present sets 12 and adds AppSetting, category and the budget tables', async () => {
+  it('existing database path: user_version 0 with the schema present sets 14 and adds AppSetting, category and the budget tables', async () => {
     const db = await createTestDb()
     await downgradeTitle(db)
     await db.query('PRAGMA user_version = 0')
@@ -171,7 +183,7 @@ describe('migrate', () => {
     await db.query('DROP TABLE BudgetExclusion')
     await db.query('DROP TABLE Budget')
     await migrate(db)
-    expect(await userVersion(db)).toBe(12)
+    expect(await userVersion(db)).toBe(14)
     expect((await db.query("SELECT name FROM sqlite_master WHERE name = 'AppSetting'")).length).toBe(1)
     expect(await transactionColumns(db)).toContain('category')
     db.close()
@@ -188,7 +200,7 @@ describe('migrate', () => {
     await db.query('DROP TABLE Budget')
     await db.query('PRAGMA user_version = 1')
     await migrate(db)
-    expect(await userVersion(db)).toBe(12)
+    expect(await userVersion(db)).toBe(14)
     expect(await db.query("SELECT id FROM Account")).toEqual([{ id: 'a1' }])
     await db.query("INSERT INTO AppSetting (key, value) VALUES ('k', '1')")
     expect(await db.query("SELECT value FROM AppSetting WHERE key = 'k'")).toEqual([{ value: '1' }])
@@ -209,7 +221,7 @@ describe('migrate', () => {
     await db.query('DROP TABLE Budget')
     await db.query('PRAGMA user_version = 2')
     await migrate(db)
-    expect(await userVersion(db)).toBe(12)
+    expect(await userVersion(db)).toBe(14)
     expect(await db.query('SELECT id, title, amount, category FROM "Transaction"')).toEqual([
       { id: 't1', title: 'Mercado Livre', amount: -1500, category: null },
     ])
@@ -231,7 +243,7 @@ describe('migrate', () => {
     await db.query('DROP TABLE Budget')
     await db.query('PRAGMA user_version = 3')
     await migrate(db)
-    expect(await userVersion(db)).toBe(12)
+    expect(await userVersion(db)).toBe(14)
     expect(await db.query('SELECT id, amount, category FROM "Transaction"')).toEqual([
       { id: 't1', amount: -1500, category: 'Compras' },
     ])
@@ -257,7 +269,7 @@ describe('migrate', () => {
     )
     await db.query('PRAGMA user_version = 4')
     await migrate(db)
-    expect(await userVersion(db)).toBe(12)
+    expect(await userVersion(db)).toBe(14)
     expect(await db.query(`SELECT id, title, description FROM "Transaction" ORDER BY id`)).toEqual([
       { id: 't1', title: 'Mercado Livre', description: null },
       { id: 't2', title: 'Pizza', description: null },
@@ -277,7 +289,7 @@ describe('migrate', () => {
     await db.query("INSERT INTO Account (id, name, current_balance, currency, is_default) VALUES ('a1', 'A', 500, 'BRL', 1)")
     await db.query('PRAGMA user_version = 7')
     await migrate(db)
-    expect(await userVersion(db)).toBe(12)
+    expect(await userVersion(db)).toBe(14)
     expect(await db.query('SELECT id, name, current_balance FROM Account')).toEqual([{ id: 'a1', name: 'A', current_balance: 500 }])
     expect((await db.query<{ name: string }>('PRAGMA table_info(Account)')).map((c) => c.name)).not.toContain('is_default')
     db.close()
@@ -298,7 +310,7 @@ describe('migrate', () => {
       const versionBefore = await userVersion(db)
       const before = await schemaSnapshot(db)
       await migrate(db)
-      expect(await userVersion(db)).toBe(12)
+      expect(await userVersion(db)).toBe(14)
       const after = await schemaSnapshot(db)
 
       const fresh = await createTestDb()

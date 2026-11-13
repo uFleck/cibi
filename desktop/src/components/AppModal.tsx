@@ -45,7 +45,7 @@ export function AppModal({
         {!hideHeader && (title || description) ? (
           <SheetHeader className="pb-4">
             {title ? <SheetTitle>{title}</SheetTitle> : null}
-            {description ? <SheetDescription>{description}</SheetDescription> : null}
+            {description ? <SheetDescription>{description}</SheetDescription> : <SheetDescription className="sr-only">Formulário</SheetDescription>}
           </SheetHeader>
         ) : null}
         <div className="flex-1 px-4 pb-4">

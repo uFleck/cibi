@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-
-export const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+import { inTauri } from '@/lib/tauri'
 
 const BUTTON = 'grid h-full w-[46px] cursor-default place-items-center text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground'
 

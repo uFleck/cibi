@@ -42,6 +42,7 @@ const EXPECTED_ROUTES: string[] = [
   'PATCH /api/transactions/:id',
   'DELETE /api/transactions/:id',
   'POST /api/transactions/:id/confirm',
+  'POST /api/transactions/:id/unconfirm',
   'POST /api/transactions/:id/confirm-installment',
   // goals
   'GET /api/goals',
@@ -61,6 +62,7 @@ const EXPECTED_ROUTES: string[] = [
   'PATCH /api/pay-schedule/:id',
   'DELETE /api/pay-schedule/:id',
   'POST /api/pay-schedule/:id/confirm',
+  'POST /api/pay-schedule/:id/unconfirm',
   // friends
   'GET /api/friends',
   'POST /api/friends',
@@ -76,6 +78,8 @@ const EXPECTED_ROUTES: string[] = [
   'DELETE /api/peer-debts/:id',
   'POST /api/peer-debts/:id/confirm',
   'POST /api/peer-debts/:id/confirm-toggle',
+  'POST /api/peer-debts/:id/settle',
+  'POST /api/peer-debts/:id/unsettle',
   // group events
   'GET /api/group-events',
   'POST /api/group-events',
@@ -89,6 +93,7 @@ const EXPECTED_ROUTES: string[] = [
   // ledger
   'GET /api/ledger',
   'DELETE /api/ledger/:id',
+  'POST /api/ledger/:id/reverse',
   'POST /api/ledger/income',
   // profile
   'GET /api/profile',
@@ -118,9 +123,9 @@ const DESKTOP_ROUTES = [
 ]
 
 describe('route table', () => {
-  it('registers exactly the Go API routes (53) plus the desktop-only routes, with no duplicates', () => {
+  it('registers exactly the Go API routes (58) plus the desktop-only routes, with no duplicates', () => {
     const registered = listRoutes().map((r) => `${r.method} ${r.pattern}`)
-    expect(EXPECTED_ROUTES).toHaveLength(53)
+    expect(EXPECTED_ROUTES).toHaveLength(58)
     expect(new Set(registered).size).toBe(registered.length)
     expect([...registered].sort()).toEqual([...EXPECTED_ROUTES, ...DESKTOP_ROUTES].sort())
   })

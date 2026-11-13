@@ -84,6 +84,9 @@ describe('GET /api/ledger', () => {
         amount: -378.57,
         description: 'Manual balance adjustment',
         posted_at: '2026-09-12T02:26:36Z',
+        occurrence_date: null,
+        reverses_entry_id: null,
+        reversed_by_id: null,
       },
       {
         id: '1b01c415-e71b-90ae-437d-813dec6725ec',
@@ -94,6 +97,9 @@ describe('GET /api/ledger', () => {
         amount: 472.52,
         description: 'Opening balance',
         posted_at: '2026-09-11T20:01:19Z',
+        occurrence_date: null,
+        reverses_entry_id: null,
+        reversed_by_id: null,
       },
     ])
   })

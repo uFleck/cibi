@@ -24,12 +24,8 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
-      "devCsp": null,
-      "assetProtocol": {
-        "enable": true,
-        "scope": ["$APPDATA/models/**"]
-      }
+      "csp": "default-src 'self'; script-src 'self'; worker-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
+      "devCsp": null
     }
   },
   "bundle": {

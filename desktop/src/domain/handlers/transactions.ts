@@ -34,6 +34,7 @@ export type TransactionsServiceIface = Pick<
   | 'updateTransaction'
   | 'deleteTransaction'
   | 'confirmRecurring'
+  | 'unconfirmRecurring'
   | 'confirmInstallment'
   | 'postponeRecurring'
   | 'skipInstallment'
@@ -351,6 +352,19 @@ export function registerTransactionsRoutes(
     await svc.confirmRecurring(id, cents).catch(notFoundOr500(NOT_FOUND))
 
     // Return updated transaction with new next_occurrence.
+    const txn = await svc.getTransaction(id).catch(rethrow500)
+    return { body: await withEstimate(txn, estimator).catch(rethrow500) }
+  })
+
+  // Undoes the latest payment of a bill, installment or one-off. The original entry stays in the
+  // statement and a reversal is added; the bill goes back to its date.
+  route('POST', '/api/transactions/:id/unconfirm', async ({ params }) => {
+    const id = parseIdOr400(params.id, 'invalid transaction id')
+    await svc.unconfirmRecurring(id).catch((err: unknown) => {
+      if (isErr(err, ErrNoRows)) throw new HttpError(404, NOT_FOUND)
+      throw new HttpError(400, messageOf(err))
+    })
+
     const txn = await svc.getTransaction(id).catch(rethrow500)
     return { body: await withEstimate(txn, estimator).catch(rethrow500) }
   })

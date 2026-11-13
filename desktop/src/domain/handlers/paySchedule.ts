@@ -26,7 +26,7 @@ import { bindBody } from './bind'
 /** The service methods the handlers use (Go: PayScheduleServiceIface, so tests can inject fakes). */
 export type PayScheduleServiceIface = Pick<
   PayScheduleService,
-  'createPaySchedule' | 'listPaySchedules' | 'updatePaySchedule' | 'deletePaySchedule' | 'confirmPayday'
+  'createPaySchedule' | 'listPaySchedules' | 'updatePaySchedule' | 'deletePaySchedule' | 'confirmPayday' | 'unconfirmPayday'
 >
 
 /** JSON shape of a pay schedule (Go: PayScheduleResponse). Amount is dollars. */
@@ -75,10 +75,16 @@ const INVALID_ANCHOR = 'invalid anchor_date format, use YYYY-MM-DD'
 
 /** Go payScheduleToResponse: next_payday is the next occurrence from the start of today, so a payday dated today shows until it is confirmed. */
 export function toPayScheduleResponse(ps: PaySchedule): PayScheduleResponse {
-  const next = nextPayday(
-    { frequency: ps.frequency, anchorDate: ps.anchorDate, dayOfMonth2: ps.dayOfMonth2 },
-    upcomingPaydayFrom(new Date()),
-  )
+  const today = formatYmd(new Date())
+  // The anchor is the next unconfirmed payday. When it is overdue it stays visible, so the user can
+  // still confirm the money that arrived; only after that does it move to the next occurrence.
+  const anchorYmd = formatYmd(ps.anchorDate)
+  const next = anchorYmd < today
+    ? ps.anchorDate
+    : nextPayday(
+        { frequency: ps.frequency, anchorDate: ps.anchorDate, dayOfMonth2: ps.dayOfMonth2 },
+        upcomingPaydayFrom(new Date()),
+      )
   return {
     id: ps.id,
     account_id: ps.accountId,
@@ -167,6 +173,13 @@ export function registerPayScheduleRoutes(app: App, svc: PayScheduleServiceIface
   route('POST', '/api/pay-schedule/:id/confirm', async ({ params }) => {
     const id = parseIdOr400(params.id, 'invalid schedule id')
     const ps = await svc.confirmPayday(id).catch(notFoundOr500)
+    return { body: toPayScheduleResponse(ps) }
+  })
+
+  // Undoes the latest confirmed payday: the income is reversed and the anchor goes back.
+  route('POST', '/api/pay-schedule/:id/unconfirm', async ({ params }) => {
+    const id = parseIdOr400(params.id, 'invalid schedule id')
+    const ps = await svc.unconfirmPayday(id).catch(notFoundOr500)
     return { body: toPayScheduleResponse(ps) }
   })
 }

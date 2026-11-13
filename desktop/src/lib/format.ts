@@ -18,3 +18,12 @@ export function formatDate(isoString: string): string {
     timeZone: 'UTC',
   })
 }
+
+/** A stored instant (a ledger `posted_at`) in the user's local calendar. */
+export function formatLocalDate(isoString: string): string {
+  return new Date(isoString).toLocaleDateString(APP_LOCALE, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}

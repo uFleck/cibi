@@ -37,6 +37,7 @@ function fakePayScheduleService(overrides: Partial<PayScheduleServiceIface>): Pa
     updatePaySchedule: unset,
     deletePaySchedule: unset,
     confirmPayday: unset,
+    unconfirmPayday: unset,
     ...overrides,
   }
 }

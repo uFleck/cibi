@@ -44,6 +44,7 @@ function fakeTransactionsService(overrides: Partial<TransactionsServiceIface>): 
     updateTransaction: unset,
     deleteTransaction: unset,
     confirmRecurring: unset,
+    unconfirmRecurring: unset,
     confirmInstallment: unset,
     postponeRecurring: unset,
     skipInstallment: unset,

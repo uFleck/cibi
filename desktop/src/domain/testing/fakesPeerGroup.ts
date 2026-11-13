@@ -26,6 +26,7 @@ export function fakePeerDebtRepo(overrides: Partial<PeerDebtRepo> = {}): PeerDeb
     getActiveUserDebtsWithFriend: async () => [],
     confirmInstallment: async () => undefined,
     toggleInstallmentConfirmation: async () => undefined,
+    unconfirm: async () => undefined,
     ...overrides,
   }
 }

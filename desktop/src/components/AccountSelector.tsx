@@ -30,7 +30,7 @@ export function AccountSelector({ selectedAccountId, onSelectAccount, fullWidth,
   if (accounts.length === 0) {
     return (
       <Button asChild variant="outline" className={`${compact ? 'h-8 text-xs' : 'h-10 text-sm'}${fullWidth ? ' w-full' : ''}`}>
-        <Link to="/accounts">Criar conta</Link>
+        <Link to="/ajustes">Criar conta</Link>
       </Button>
     )
   }

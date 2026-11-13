@@ -200,7 +200,7 @@ describe('accounts on the real service', () => {
     expect(await res.json()).toEqual([])
   })
 
-  it('a balance change records a manual_adjustment and sets the balance to the ledger sum (Go quirk)', async () => {
+  it('a balance change records a manual_adjustment and keeps the balance at the ledger sum', async () => {
     const app = realApp()
     const created = (await (await postAccount({ name: 'Conta', current_balance: 100, currency: 'BRL' })).json()) as AccountResponse
     const res = await localFetch(`/api/accounts/${created.id}`, {
@@ -209,14 +209,14 @@ describe('accounts on the real service', () => {
     })
     expect(res.status).toBe(200)
     const updated = (await res.json()) as AccountResponse
-    // Create writes no ledger row, so the only entry is the adjustment (-100 -> 75.25 is -24.75),
-    // and the balance becomes the sum of the ledger: -24.75, not 75.25.
-    expect(updated.current_balance).toBe(-24.75)
+    // Create writes the opening_balance row; the adjustment is the difference to the new balance.
+    expect(updated.current_balance).toBe(75.25)
     expect(updated.safety_buffer).toBe(30)
     const entries = await app.ledgerRepo.listByAccount(created.id)
-    expect(entries.map((e) => [e.entryType, e.amount, e.description])).toEqual([
-      ['manual_adjustment', -2475, 'Manual balance adjustment'],
-    ])
+    const byType = Object.fromEntries(entries.map((e) => [e.entryType, e]))
+    expect(byType.opening_balance?.amount).toBe(10000)
+    expect(byType.manual_adjustment?.amount).toBe(-2475)
+    expect(byType.manual_adjustment?.description).toBe('Ajuste manual de saldo')
   })
 
   it('PATCH with an empty name is accepted and stores the empty name (Go has no check)', async () => {

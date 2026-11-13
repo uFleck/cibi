@@ -4,7 +4,7 @@
 // `string | null`. Go's ConfirmPayday Begin/Commit is db.tx().
 
 import type { Db } from '../db'
-import { wrap, wrapping } from '../errors'
+import { ErrNoRows, wrap, wrapping } from '../errors'
 import { nextPayday, upcomingPaydayFrom } from '../engine/engine'
 import type { AccountsRepo } from '../repo/accounts'
 import type { PaySchedule, PayScheduleRepo } from '../repo/paySchedule'
@@ -93,7 +93,11 @@ export class PayScheduleService {
     const acc = await wrapping('service.ConfirmPayday: get account', () => this.accRepo.getById(ps.accountId))
 
     const schedule = { frequency: ps.frequency, anchorDate: ps.anchorDate, dayOfMonth2: ps.dayOfMonth2 }
-    const upcoming = nextPayday(schedule, upcomingPaydayFrom(new Date()))
+    const now = new Date()
+    // An anchor from an earlier day is an overdue payday, not a skipped one: confirm that date first.
+    const upcoming = ps.anchorDate.getTime() < upcomingPaydayFrom(now).getTime()
+      ? ps.anchorDate
+      : nextPayday(schedule, upcomingPaydayFrom(now))
     const nextAfterUpcoming = nextPayday(schedule, upcoming)
 
     await this.db.tx(async () => {
@@ -109,6 +113,7 @@ export class PayScheduleService {
             amount: ps.amount,
             description,
             postedAt: new Date(),
+            occurrenceDate: upcoming,
           },
           true,
         ),
@@ -121,5 +126,27 @@ export class PayScheduleService {
     })
 
     return { ...ps, anchorDate: nextAfterUpcoming }
+  }
+
+  /**
+   * Undoes the latest confirmed payday: reverses its income and puts the anchor back on the payday
+   * that was confirmed, so the money and the plan agree again.
+   */
+  async unconfirmPayday(id: string): Promise<PaySchedule> {
+    const ps = await wrapping('service.UnconfirmPayday: get schedule', () => this.psRepo.getById(id))
+    const entry = await wrapping('service.UnconfirmPayday: find income', () =>
+      this.ledgerSvc.findLatestByPayScheduleId(id),
+    )
+    if (entry === null) {
+      throw wrap('service.UnconfirmPayday', ErrNoRows)
+    }
+    const restore = entry.occurrenceDate
+    await this.db.tx(async () => {
+      await wrapping('service.UnconfirmPayday: reverse income', () => this.ledgerSvc.reverseEntry(entry, true))
+      if (restore !== null) {
+        await wrapping('service.UnconfirmPayday: restore anchor', () => this.psRepo.updateAnchorDate(id, restore))
+      }
+    })
+    return { ...ps, anchorDate: restore ?? ps.anchorDate }
   }
 }
